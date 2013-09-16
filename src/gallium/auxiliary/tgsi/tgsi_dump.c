@@ -29,6 +29,7 @@
 #include "util/u_string.h"
 #include "util/u_math.h"
 #include "util/u_memory.h"
+#include "util/u_math.h"
 #include "tgsi_dump.h"
 #include "tgsi_info.h"
 #include "tgsi_iterate.h"
@@ -42,6 +43,8 @@ static const int indent_spaces = 3;
 struct dump_ctx
 {
    struct tgsi_iterate_context iter;
+
+   boolean dump_float_as_hex;
 
    uint instno;
    uint immno;
@@ -83,6 +86,7 @@ dump_enum(
 #define INSTID(I)       ctx->dump_printf( ctx, "% 3u", I )
 #define SID(I)          ctx->dump_printf( ctx, "%d", I )
 #define FLT(F)          ctx->dump_printf( ctx, "%10.4f", F )
+#define HFLT(F)         ctx->dump_printf( ctx, "0x%08x", fui((F)) )
 #define ENM(E,ENUMS)    dump_enum( ctx, E, ENUMS, sizeof( ENUMS ) / sizeof( *ENUMS ) )
 
 const char *
@@ -239,7 +243,10 @@ dump_imm_data(struct tgsi_iterate_context *iter,
    for (i = 0; i < num_tokens; i++) {
       switch (data_type) {
       case TGSI_IMM_FLOAT32:
-         FLT( data[i].Float );
+         if (ctx->dump_float_as_hex)
+            HFLT( data[i].Float );
+         else
+            FLT( data[i].Float );
          break;
       case TGSI_IMM_UINT32:
          UID(data[i].Uint);
@@ -662,6 +669,11 @@ tgsi_dump(
    ctx.dump_printf = dump_ctx_printf;
    ctx.indentation = 0;
 
+   if (flags & TGSI_DUMP_FLOAT_AS_HEX)
+      ctx.dump_float_as_hex = TRUE;
+   else
+      ctx.dump_float_as_hex = FALSE;
+
    tgsi_iterate_shader( tokens, &ctx.iter );
 }
 
@@ -722,6 +734,11 @@ tgsi_dump_str(
    ctx.str[0] = 0;
    ctx.ptr = str;
    ctx.left = (int)size;
+
+   if (flags & TGSI_DUMP_FLOAT_AS_HEX)
+      ctx.base.dump_float_as_hex = TRUE;
+   else
+      ctx.base.dump_float_as_hex = FALSE;
 
    tgsi_iterate_shader( tokens, &ctx.base.iter );
 }
