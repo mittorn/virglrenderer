@@ -7,6 +7,7 @@ noinst_LTLIBRARIES = libgallium.la
 
 AM_CFLAGS = \
 	-I$(top_srcdir)/src/gallium/auxiliary/util \
+	-I$(top_srcdir)/src/gallium/auxiliary/ \
 	$(GALLIUM_CFLAGS) \
 	$(VISIBILITY_CFLAGS)
 
