@@ -20,6 +20,27 @@ AC_DISABLE_STATIC
 AC_PROG_LIBTOOL
 AC_SYS_LARGEFILE
 
+AC_ARG_ENABLE(tests,
+	      AS_HELP_STRING([--enable-tests], [Build the tests (default=auto)]),
+	      [build_tests="$enableval"],
+	      [build_tests="auto"])
+
+PKG_CHECK_MODULES(CHECK, [check >= 0.9.4], [HAVE_CHECK="yes"], [HAVE_CHECK="no"])
+
+if test "x$build_tests" = "xauto"; then
+	build_tests="$HAVE_CHECK"
+fi
+if test "x$build_tests" = "xyes"; then
+	if test "x$HAVE_CHECK" = "xno"; then
+		AC_MSG_ERROR([Cannot build tests, check is missing])
+	fi
+
+	AC_PATH_PROG(VALGRIND, [valgrind])
+fi
+
+AM_CONDITIONAL(HAVE_VALGRIND, [test "x$VALGRIND" != "x"])
+AM_CONDITIONAL(BUILD_TESTS, [test "x$build_tests" = "xyes"])
+
 XORG_MACROS_VERSION(1.8)
 XORG_DEFAULT_OPTIONS
 
@@ -43,6 +64,7 @@ AC_CONFIG_FILES([
 		Makefile
 		src/Makefile
 		src/gallium/auxiliary/Makefile
+		tests/Makefile
 ])
 AC_OUTPUT
 
