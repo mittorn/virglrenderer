@@ -1,12 +1,32 @@
+/**************************************************************************
+ *
+ * Copyright (C) 2014 Red Hat Inc.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included
+ * in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+ * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+ * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
+ *
+ **************************************************************************/
 /* create our own EGL offscreen rendering context via gbm and rendernodes */
 
 
 /* if we are using EGL and rendernodes then we talk via file descriptors to the remote
    node */
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
+#define EGL_EGLEXT_PROTOTYPES
 #include <dirent.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -55,7 +75,6 @@ static int egl_rendernode_open(void)
 	
 	r = open(p, O_RDWR | O_CLOEXEC | O_NOCTTY | O_NONBLOCK);
 	if (r < 0){
-            fprintf(stderr, "failed to open render node %s\n", p);
 	    free(p);
 	    continue;
 	}
@@ -120,7 +139,6 @@ struct virgl_egl *virgl_egl_init(void)
         const char *extension_list;
         struct virgl_egl *d;
 
-fprintf(stderr,"egl init\n");
         d = malloc(sizeof(struct virgl_egl));
         if (!d)
            return NULL;
@@ -150,8 +168,8 @@ fprintf(stderr,"egl init\n");
         if (!virgl_egl_has_extension_in_string(extension_list, "EGL_KHR_surfaceless_context"))
             goto fail;
 
-d->have_mesa_drm_image = false;
-d->have_mesa_dma_buf_img_export = false;
+	d->have_mesa_drm_image = false;
+	d->have_mesa_dma_buf_img_export = false;
         if (virgl_egl_has_extension_in_string(extension_list, "EGL_MESA_drm_image"))
            d->have_mesa_drm_image = true;
 
@@ -186,8 +204,6 @@ d->have_mesa_dma_buf_img_export = false;
 		       d->egl_ctx);
 	return d;
  fail:
-
-fprintf(stderr,"fail\n");
         free(d);
         return NULL;
 }
@@ -203,27 +219,28 @@ void virgl_egl_destroy(struct virgl_egl *d)
         free(d);
 }
 
-virgl_gl_context virgl_egl_create_context(struct virgl_egl *ve)
+virgl_renderer_gl_context virgl_egl_create_context(struct virgl_egl *ve, struct virgl_gl_ctx_param *vparams)
 {
     EGLContext eglctx;
-    static const EGLint ctx_att[] = {
-	EGL_CONTEXT_CLIENT_VERSION, 2,
+    EGLint ctx_att[] = {
+        EGL_CONTEXT_CLIENT_VERSION, vparams->major_ver,
+        EGL_CONTEXT_MINOR_VERSION_KHR, vparams->minor_ver,
 	EGL_NONE
     };
     eglctx = eglCreateContext(ve->egl_display,
 			      ve->egl_conf,
-                              ve->egl_ctx,
+                              vparams->shared ? eglGetCurrentContext() : EGL_NO_CONTEXT,
 			      ctx_att);
-    return (virgl_gl_context)eglctx;
+    return (virgl_renderer_gl_context)eglctx;
 }
 
-void virgl_egl_destroy_context(struct virgl_egl *ve, virgl_gl_context virglctx)
+void virgl_egl_destroy_context(struct virgl_egl *ve, virgl_renderer_gl_context virglctx)
 {
     EGLContext eglctx = (EGLContext)virglctx;
     eglDestroyContext(ve->egl_display, eglctx);
 }
 
-int virgl_egl_make_context_current(struct virgl_egl *ve, virgl_gl_context virglctx)
+int virgl_egl_make_context_current(struct virgl_egl *ve, virgl_renderer_gl_context virglctx)
 {
     EGLContext eglctx = (EGLContext)virglctx;
 
@@ -231,10 +248,10 @@ int virgl_egl_make_context_current(struct virgl_egl *ve, virgl_gl_context virglc
                              eglctx);
 }
 
-virgl_gl_context virgl_egl_get_current_context(struct virgl_egl *ve)
+virgl_renderer_gl_context virgl_egl_get_current_context(struct virgl_egl *ve)
 {
    EGLContext eglctx = eglGetCurrentContext();
-   return (virgl_gl_context)eglctx;
+   return (virgl_renderer_gl_context)eglctx;
 }
 
 int virgl_egl_get_fd_for_texture(struct virgl_egl *ve, uint32_t tex_id, int *fd)
@@ -243,7 +260,7 @@ int virgl_egl_get_fd_for_texture(struct virgl_egl *ve, uint32_t tex_id, int *fd)
    EGLint stride;
    EGLBoolean b;
 
-   image = eglCreateImageKHR(ve->egl_display, ve->egl_ctx, EGL_GL_TEXTURE_2D_KHR, (EGLClientBuffer)(unsigned long)tex_id, NULL);
+   image = eglCreateImageKHR(ve->egl_display, eglGetCurrentContext(), EGL_GL_TEXTURE_2D_KHR, (EGLClientBuffer)(unsigned long)tex_id, NULL);
 
    if (!image)
       return -1;

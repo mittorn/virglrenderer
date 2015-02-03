@@ -21,20 +21,20 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  *
  **************************************************************************/
-#ifndef VIRGL_HELPER_H
-#define VIRGL_HELPER_H
+#ifndef VREND_IOV_H
+#define VREND_IOV_H
 
-#define GREND_EXPORT  __attribute__((visibility("default")))
+#include <sys/uio.h>
 
-/* add helpers for local renderers - not used by remote viewers */
-#define VIRGL_HELPER_Y_0_TOP (1 << 0)
-GREND_EXPORT void virgl_helper_scanout_info(int idx,
-                                            uint32_t tex_id,
-                                            uint32_t flags,
-                                            int x, int y,
-                                            uint32_t width, uint32_t height);
-GREND_EXPORT void virgl_helper_flush_scanout(int idx,
-                                             int x, int y,
-                                             uint32_t width, uint32_t height);
+typedef void (*iov_cb)(void *cookie, unsigned int doff, void *src, int len);
+
+size_t vrend_get_iovec_size(const struct iovec *iov, int iovlen);
+size_t vrend_read_from_iovec(const struct iovec *iov, int iov_cnt,
+			     size_t offset, char *buf, size_t bytes);
+size_t vrend_write_to_iovec(const struct iovec *iov, int iov_cnt,
+			    size_t offset, const char *buf, size_t bytes);
+
+size_t vrend_read_from_iovec_cb(const struct iovec *iov, int iov_cnt,
+                          size_t offset, size_t bytes, iov_cb iocb, void *cookie);
 
 #endif

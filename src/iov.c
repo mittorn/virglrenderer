@@ -1,256 +1,142 @@
 /*
- * Helpers for getting linearized buffers from iov / filling buffers into iovs
- *
- * Copyright IBM, Corp. 2007, 2008
- * Copyright (C) 2010 Red Hat, Inc.
- *
- * Author(s):
- *  Anthony Liguori <aliguori@us.ibm.com>
- *  Amit Shah <amit.shah@redhat.com>
- *  Michael Tokarev <mjt@tls.msk.ru>
- *
- * This work is licensed under the terms of the GNU GPL, version 2.  See
- * the COPYING file in the top-level directory.
- *
- * Contributions after 2012-01-13 are licensed under the terms of the
- * GNU GPL, version 2 or (at your option) any later version.
+ * this code is taken from Michael - the qemu code is GPLv2 so I don't want
+ * to reuse it.
+ * I've adapted it to handle offsets and callback
  */
 
-#include <string.h>
+//
+// iovec.c
+//
+// Scatter/gather utility routines
+//
+// Copyright (C) 2002 Michael Ringgaard. All rights reserved.
+//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions
+// are met:
+// 
+// 1. Redistributions of source code must retain the above copyright 
+//    notice, this list of conditions and the following disclaimer.  
+// 2. Redistributions in binary form must reproduce the above copyright
+//    notice, this list of conditions and the following disclaimer in the
+//    documentation and/or other materials provided with the distribution.  
+// 3. Neither the name of the project nor the names of its contributors
+//    may be used to endorse or promote products derived from this software
+//    without specific prior written permission. 
+// 
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+// ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE
+// FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+// DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+// OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+// HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+// LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+// OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF 
+// SUCH DAMAGE.
+// 
+
 #include <assert.h>
+#include <string.h>
+#include "vrend_iov.h"
 
-#include <sys/types.h>
+size_t vrend_get_iovec_size(const struct iovec *iov, int iovlen) {
+  size_t size = 0;
 
+  while (iovlen > 0) {
+    size += iov->iov_len;
+    iov++;
+    iovlen--;
+  }
 
-#include "graw_iov.h"
+  return size;
+}
 
-#ifndef MIN
-#define MIN(a, b) (((a) < (b)) ? (a) : (b))
-#endif
-
-
-size_t graw_iov_from_buf(const struct virgl_iovec *iov, unsigned int iov_cnt,
-                    size_t offset, const void *buf, size_t bytes)
+size_t vrend_read_from_iovec(const struct iovec *iov, int iovlen,
+			     size_t offset,
+			     char *buf, size_t count)
 {
-    size_t done;
-    unsigned int i;
-    for (i = 0, done = 0; (offset || done < bytes) && i < iov_cnt; i++) {
-        if (offset < iov[i].iov_len) {
-            size_t len = MIN(iov[i].iov_len - offset, bytes - done);
-            memcpy(iov[i].iov_base + offset, buf + done, len);
-            done += len;
-            offset = 0;
-        } else {
-            offset -= iov[i].iov_len;
-        }
+  size_t read = 0;
+  size_t len;
+
+  while (count > 0 && iovlen > 0) {
+    if (iov->iov_len > offset) {
+      len = iov->iov_len - offset;
+      
+      if (count < iov->iov_len - offset) len = count;
+
+      memcpy(buf, iov->iov_base + offset, len);
+      read += len;
+
+      buf += len;
+      count -= len;
+      offset = 0;
+    } else {
+      offset -= iov->iov_len;
     }
+
+    iov++;
+    iovlen--;
+  }
     assert(offset == 0);
-    return done;
+  return read;
 }
 
-size_t graw_iov_to_buf(const struct virgl_iovec *iov, const unsigned int iov_cnt,
-                  size_t offset, void *buf, size_t bytes)
+size_t vrend_write_to_iovec(const struct iovec *iov, int iovlen,
+			 size_t offset, const char *buf, size_t count)
 {
-    size_t done;
-    unsigned int i;
-    for (i = 0, done = 0; (offset || done < bytes) && i < iov_cnt; i++) {
-        if (offset < iov[i].iov_len) {
-            size_t len = MIN(iov[i].iov_len - offset, bytes - done);
-            memcpy(buf + done, iov[i].iov_base + offset, len);
-            done += len;
-            offset = 0;
-        } else {
-            offset -= iov[i].iov_len;
-        }
+  size_t written = 0;
+  size_t len;
+
+  while (count > 0 && iovlen > 0) {
+    if (iov->iov_len > offset) {
+      len = iov->iov_len - offset;
+
+      if (count < iov->iov_len - offset) len = count;
+
+      memcpy(iov->iov_base + offset, buf, len);
+      written += len;
+
+      offset = 0;
+      buf += len;
+      count -= len;
+    } else {
+      offset -= iov->iov_len;
     }
+    iov++;
+    iovlen--;
+  }
     assert(offset == 0);
-    return done;
+  return written;
 }
 
-size_t graw_iov_to_buf_cb(const struct virgl_iovec *iov, const unsigned int iov_cnt,
-                          size_t offset, size_t bytes, IOCallback iovcb,
-                          void *cookie)
+size_t vrend_read_from_iovec_cb(const struct iovec *iov, int iovlen,
+				size_t offset, size_t count,
+				iov_cb iocb, void *cookie)
 {
-    size_t done;
-    unsigned int i;
-    for (i = 0, done = 0; (offset || done < bytes) && i < iov_cnt; i++) {
-        if (offset < iov[i].iov_len) {
-            size_t len = MIN(iov[i].iov_len - offset, bytes - done);
-	    (*iovcb)(cookie, done, iov[i].iov_base + offset, len);
-            done += len;
-            offset = 0;
-        } else {
-            offset -= iov[i].iov_len;
-        }
+  size_t read = 0;
+  size_t len;
+
+  while (count > 0 && iovlen > 0) {
+    if (iov->iov_len > offset) {
+      len = iov->iov_len;
+      
+      if (count < iov->iov_len - offset) len = count;
+
+      (*iocb)(cookie, count, iov->iov_base + offset, len);
+      read += len;
+
+      count -= len;
+      offset = 0;
+    } else {
+      offset -= iov->iov_len;
     }
+    iov++;
+    iovlen--;
+  }
     assert(offset == 0);
-    return done;
+  return read;
+
+
 }
-
-#if 0
-size_t iov_memset(const struct virgl_iovec *iov, const unsigned int iov_cnt,
-                  size_t offset, int fillc, size_t bytes)
-{
-    size_t done;
-    unsigned int i;
-    for (i = 0, done = 0; (offset || done < bytes) && i < iov_cnt; i++) {
-        if (offset < iov[i].iov_len) {
-            size_t len = MIN(iov[i].iov_len - offset, bytes - done);
-            memset(iov[i].iov_base + offset, fillc, len);
-            done += len;
-            offset = 0;
-        } else {
-            offset -= iov[i].iov_len;
-        }
-    }
-    assert(offset == 0);
-    return done;
-}
-#endif
-size_t graw_iov_size(const struct virgl_iovec *iov, const unsigned int iov_cnt)
-{
-    size_t len;
-    unsigned int i;
-
-    len = 0;
-    for (i = 0; i < iov_cnt; i++) {
-        len += iov[i].iov_len;
-    }
-    return len;
-}
-
-#if 0
-/* helper function for iov_send_recv() */
-static ssize_t
-do_send_recv(int sockfd, struct virgl_iovec *iov, unsigned iov_cnt, bool do_send)
-{
-#if defined CONFIG_IOVEC && defined CONFIG_POSIX
-    ssize_t ret;
-    struct msghdr msg;
-    memset(&msg, 0, sizeof(msg));
-    msg.msg_iov = iov;
-    msg.msg_iovlen = iov_cnt;
-    do {
-        ret = do_send
-            ? sendmsg(sockfd, &msg, 0)
-            : recvmsg(sockfd, &msg, 0);
-    } while (ret < 0 && errno == EINTR);
-    return ret;
-#else
-    /* else send piece-by-piece */
-    /*XXX Note: windows has WSASend() and WSARecv() */
-    unsigned i = 0;
-    ssize_t ret = 0;
-    while (i < iov_cnt) {
-        ssize_t r = do_send
-            ? send(sockfd, iov[i].iov_base, iov[i].iov_len, 0)
-            : recv(sockfd, iov[i].iov_base, iov[i].iov_len, 0);
-        if (r > 0) {
-            ret += r;
-        } else if (!r) {
-            break;
-        } else if (errno == EINTR) {
-            continue;
-        } else {
-            /* else it is some "other" error,
-             * only return if there was no data processed. */
-            if (ret == 0) {
-                ret = -1;
-            }
-            break;
-        }
-        i++;
-    }
-    return ret;
-#endif
-}
-
-ssize_t iov_send_recv(int sockfd, struct virgl_iovec *iov, unsigned iov_cnt,
-                      size_t offset, size_t bytes,
-                      bool do_send)
-{
-    ssize_t ret;
-    unsigned si, ei;            /* start and end indexes */
-    if (bytes == 0) {
-        /* Catch the do-nothing case early, as otherwise we will pass an
-         * empty virgl_iovec to sendmsg/recvmsg(), and not all implementations
-         * accept this.
-         */
-        return 0;
-    }
-
-    /* Find the start position, skipping `offset' bytes:
-     * first, skip all full-sized vector elements, */
-    for (si = 0; si < iov_cnt && offset >= iov[si].iov_len; ++si) {
-        offset -= iov[si].iov_len;
-    }
-    if (offset) {
-        assert(si < iov_cnt);
-        /* second, skip `offset' bytes from the (now) first element,
-         * undo it on exit */
-        iov[si].iov_base += offset;
-        iov[si].iov_len -= offset;
-    }
-    /* Find the end position skipping `bytes' bytes: */
-    /* first, skip all full-sized elements */
-    for (ei = si; ei < iov_cnt && iov[ei].iov_len <= bytes; ++ei) {
-        bytes -= iov[ei].iov_len;
-    }
-    if (bytes) {
-        /* second, fixup the last element, and remember
-         * the length we've cut from the end of it in `bytes' */
-        size_t tail;
-        assert(ei < iov_cnt);
-        assert(iov[ei].iov_len > bytes);
-        tail = iov[ei].iov_len - bytes;
-        iov[ei].iov_len = bytes;
-        bytes = tail;  /* bytes is now equal to the tail size */
-        ++ei;
-    }
-
-    ret = do_send_recv(sockfd, iov + si, ei - si, do_send);
-
-    /* Undo the changes above */
-    if (offset) {
-        iov[si].iov_base -= offset;
-        iov[si].iov_len += offset;
-    }
-    if (bytes) {
-        iov[ei-1].iov_len += bytes;
-    }
-
-    return ret;
-}
-
-
-void iov_hexdump(const struct virgl_iovec *iov, const unsigned int iov_cnt,
-                 FILE *fp, const char *prefix, size_t limit)
-{
-    unsigned int i, v, b;
-    uint8_t *c;
-
-    c = iov[0].iov_base;
-    for (i = 0, v = 0, b = 0; b < limit; i++, b++) {
-        if (i == iov[v].iov_len) {
-            i = 0; v++;
-            if (v == iov_cnt) {
-                break;
-            }
-            c = iov[v].iov_base;
-        }
-        if ((b % 16) == 0) {
-            fprintf(fp, "%s: %04x:", prefix, b);
-        }
-        if ((b % 4) == 0) {
-            fprintf(fp, " ");
-        }
-        fprintf(fp, " %02x", c[i]);
-        if ((b % 16) == 15) {
-            fprintf(fp, "\n");
-        }
-    }
-    if ((b % 16) != 0) {
-        fprintf(fp, "\n");
-    }
-}
-#endif
