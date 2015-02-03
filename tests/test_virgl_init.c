@@ -43,6 +43,7 @@ START_TEST(virgl_init_egl)
   test_cbs.version = 1;
   ret = virgl_renderer_init(&mystruct, VIRGL_RENDERER_USE_EGL, &test_cbs);
   ck_assert_int_eq(ret, 0);
+  virgl_renderer_cleanup(&mystruct);
 }
 
 END_TEST
