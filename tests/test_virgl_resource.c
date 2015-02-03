@@ -34,6 +34,7 @@
 #include <virglrenderer.h>
 #include "testvirgl.h"
 
+#include "pipe/p_defines.h"
 /* create a 1D texture */
 START_TEST(virgl_res_create_1d)
 {
@@ -87,6 +88,62 @@ START_TEST(virgl_res_create_1d_with_depth)
 }
 END_TEST
 
+/* create a 1D array texture */
+START_TEST(virgl_res_create_1d_array)
+{
+  int ret;
+  struct virgl_renderer_resource_create_args res;
+
+  ret = testvirgl_init_single_ctx();
+
+  testvirgl_init_simple_1d_resource(&res, 1);
+  res.target = PIPE_TEXTURE_1D_ARRAY;
+  res.array_size = 2;
+  ret = virgl_renderer_resource_create(&res, NULL, 0);
+  ck_assert_int_eq(ret, 0);
+
+  testvirgl_fini_single_ctx();
+}
+END_TEST
+
+/* create a 1D texture with height - this should fail */
+START_TEST(virgl_res_create_1d_array_with_height)
+{
+  int ret;
+  struct virgl_renderer_resource_create_args res;
+
+  ret = testvirgl_init_single_ctx();
+
+  testvirgl_init_simple_1d_resource(&res, 1);
+  res.target = PIPE_TEXTURE_1D_ARRAY;
+  res.array_size = 2;
+  res.height = 50;
+  ret = virgl_renderer_resource_create(&res, NULL, 0);
+  ck_assert_int_eq(ret, EINVAL);
+
+  testvirgl_fini_single_ctx();
+}
+END_TEST
+
+/* create a 1D texture with depth - this should fail */
+START_TEST(virgl_res_create_1d_array_with_depth)
+{
+  int ret;
+  struct virgl_renderer_resource_create_args res;
+
+  ret = testvirgl_init_single_ctx();
+
+  testvirgl_init_simple_1d_resource(&res, 1);
+  res.target = PIPE_TEXTURE_1D_ARRAY;
+  res.array_size = 2;
+  res.depth = 2;
+  ret = virgl_renderer_resource_create(&res, NULL, 0);
+  ck_assert_int_eq(ret, EINVAL);
+
+  testvirgl_fini_single_ctx();
+}
+END_TEST
+
 /* create a 2D texture */
 START_TEST(virgl_res_create_2d)
 {
@@ -122,6 +179,44 @@ START_TEST(virgl_res_create_2d_with_depth)
 }
 END_TEST
 
+/* create a 2D Array texture */
+START_TEST(virgl_res_create_2d_array)
+{
+  int ret;
+  struct virgl_renderer_resource_create_args res;
+
+  ret = testvirgl_init_single_ctx();
+
+  testvirgl_init_simple_2d_resource(&res, 1);
+  res.target = PIPE_TEXTURE_2D_ARRAY;
+  res.array_size = 2;
+
+  ret = virgl_renderer_resource_create(&res, NULL, 0);
+  ck_assert_int_eq(ret, 0);
+
+  testvirgl_fini_single_ctx();
+}
+END_TEST
+
+/* create a 2D array texture with depth - this should fail */
+START_TEST(virgl_res_create_2d_array_with_depth)
+{
+  int ret;
+  struct virgl_renderer_resource_create_args res;
+
+  ret = testvirgl_init_single_ctx();
+
+  testvirgl_init_simple_1d_resource(&res, 1);
+  res.target = PIPE_TEXTURE_2D_ARRAY;
+  res.array_size = 2;
+
+  res.depth = 2;
+  ret = virgl_renderer_resource_create(&res, NULL, 0);
+  ck_assert_int_eq(ret, EINVAL);
+
+  testvirgl_fini_single_ctx();
+}
+END_TEST
 
 Suite *virgl_init_suite(void)
 {
@@ -134,8 +229,13 @@ Suite *virgl_init_suite(void)
   tcase_add_test(tc_core, virgl_res_create_1d);
   tcase_add_test(tc_core, virgl_res_create_1d_with_height);
   tcase_add_test(tc_core, virgl_res_create_1d_with_depth);
+  tcase_add_test(tc_core, virgl_res_create_1d_array);
+  tcase_add_test(tc_core, virgl_res_create_1d_array_with_height);
+  tcase_add_test(tc_core, virgl_res_create_1d_array_with_depth);
   tcase_add_test(tc_core, virgl_res_create_2d);
   tcase_add_test(tc_core, virgl_res_create_2d_with_depth);
+  tcase_add_test(tc_core, virgl_res_create_2d_array);
+  tcase_add_test(tc_core, virgl_res_create_2d_array_with_depth);
   suite_add_tcase(s, tc_core);
   return s;
 
