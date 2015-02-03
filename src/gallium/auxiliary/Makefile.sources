@@ -16,6 +16,8 @@ C_SOURCES := \
 	tgsi/tgsi_util.c \
 	util/u_format_srgb.c \
 	util/u_format_table.c \
-	util/u_hash_table.c
+	util/u_hash_table.c \
+	util/u_texture.c
+	util/u_bitmask.c
 
 
