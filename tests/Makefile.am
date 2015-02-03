@@ -16,7 +16,8 @@ test_virgl_init_LDFLAGS = -no-install
 if HAVE_VALGRIND
 VALGRIND_FLAGS=--leak-check=full \
 	       --quiet \
-	       --error-exitcode=3
+	       --error-exitcode=3 \
+		--suppressions=$(srcdir)/valgrind.suppressions
 
 valgrind:
 	$(MAKE) check-TESTS LOG_COMPILER="$(VALGRIND)" LOG_FLAGS="$(VALGRIND_FLAGS)" CK_FORK=no
