@@ -35,6 +35,21 @@ void testvirgl_init_simple_1d_resource(struct virgl_renderer_resource_create_arg
     res->target = PIPE_TEXTURE_1D;
     res->format = PIPE_FORMAT_B8G8R8X8_UNORM;
     res->width = 50;
+    res->height = 1;
+    res->depth = 1;
+    res->array_size = 1;
+    res->last_level = 0;
+    res->nr_samples = 0;
+    res->bind = PIPE_BIND_SAMPLER_VIEW;
+    res->flags = 0;
+}
+
+void testvirgl_init_simple_2d_resource(struct virgl_renderer_resource_create_args *res, int handle)
+{
+    res->handle = handle;
+    res->target = PIPE_TEXTURE_2D;
+    res->format = PIPE_FORMAT_B8G8R8X8_UNORM;
+    res->width = 50;
     res->height = 50;
     res->depth = 1;
     res->array_size = 1;
