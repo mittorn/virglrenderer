@@ -3313,12 +3313,50 @@ void vrend_renderer_resource_detach_iov(int res_handle,
    res->num_iovs = 0;
 }
 
+static int check_resource_valid(struct vrend_renderer_resource_create_args *args)
+{
+    if (args->bind == PIPE_BIND_CUSTOM)
+	return 0;
+
+    if (args->bind == PIPE_BIND_INDEX_BUFFER ||
+	args->bind == PIPE_BIND_STREAM_OUTPUT ||
+	args->bind == PIPE_BIND_VERTEX_BUFFER ||
+	args->bind == PIPE_BIND_CONSTANT_BUFFER ||
+	(args->bind == 0 && args->target == PIPE_BUFFER)) {
+	if (args->height != 1 || args->depth != 1 || args->array_size != 1 ||
+	    (args->nr_samples != 0 && args->nr_samples != 1))
+	    return -1;
+    } else {
+	if (args->target == PIPE_TEXTURE_1D) {
+	    if (args->height != 1 || args->depth != 1 || args->array_size != 1)
+		return -1;
+	}
+	if (args->target == PIPE_TEXTURE_2D || args->target == PIPE_TEXTURE_RECT) {
+	    if (args->depth != 1 || args->array_size != 1)
+		return -1;
+	}
+	if (args->target == PIPE_TEXTURE_1D_ARRAY) {
+	    if (args->height != 1 || args->depth != 1)
+		return -1;
+	}
+	if (args->target == PIPE_TEXTURE_2D_ARRAY) {
+	    if (args->depth != 1)
+		return -1;
+	}
+    }
+    return 0;
+}
 int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *args, struct iovec *iov, uint32_t num_iovs)
 {
-   struct vrend_resource *gr = (struct vrend_resource *)CALLOC_STRUCT(vrend_texture);
+   struct vrend_resource *gr;
    int level;
    int ret;
 
+   ret = check_resource_valid(args);
+   if (ret)
+       return EINVAL;
+
+   gr = (struct vrend_resource *)CALLOC_STRUCT(vrend_texture);
    if (!gr)
       return ENOMEM;
 
