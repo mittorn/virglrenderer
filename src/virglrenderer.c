@@ -255,6 +255,12 @@ void virgl_renderer_poll(void)
 
 int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks *cbs)
 {
+   if (!cookie || !cbs)
+     return -1;
+
+   if (cbs->version != 1)
+      return -1;
+
    dev_cookie = cookie;
    rcbs = cbs;
 
@@ -265,8 +271,6 @@ int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks
        use_egl_context = 1;
    }
 
-   if (cbs->version != 1)
-      return -1;
    vrend_renderer_init(&virgl_cbs);
    return 0;
 }
