@@ -43,3 +43,31 @@ void testvirgl_init_simple_1d_resource(struct virgl_renderer_resource_create_arg
     res->bind = PIPE_BIND_SAMPLER_VIEW;
     res->flags = 0;
 }
+
+
+struct myinfo_struct {
+  uint32_t test;
+};
+
+static struct myinfo_struct mystruct;
+
+static struct virgl_renderer_callbacks test_cbs;
+
+int testvirgl_init_single_ctx(void)
+{
+    int ret;
+
+    test_cbs.version = 1;
+    ret = virgl_renderer_init(&mystruct, VIRGL_RENDERER_USE_EGL, &test_cbs);
+    if (ret)
+	return ret;
+    ret = virgl_renderer_context_create(1, strlen("test1"), "test1");
+    return ret;
+
+}
+
+void testvirgl_fini_single_ctx(void)
+{
+    virgl_renderer_context_destroy(1);
+    virgl_renderer_cleanup(&mystruct);
+}
