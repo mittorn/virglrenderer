@@ -47,6 +47,22 @@ START_TEST(virgl_init_egl)
 }
 
 END_TEST
+
+START_TEST(virgl_init_egl_create_ctx)
+{
+  int ret;
+  test_cbs.version = 1;
+  ret = virgl_renderer_init(&mystruct, VIRGL_RENDERER_USE_EGL, &test_cbs);
+  ck_assert_int_eq(ret, 0);
+  ret = virgl_renderer_context_create(1, strlen("test1"), "test1");
+  ck_assert_int_eq(ret, 0);
+
+  virgl_renderer_context_destroy(1);
+  virgl_renderer_cleanup(&mystruct);
+}
+
+END_TEST
+
 Suite *virgl_init_suite(void)
 {
   Suite *s;
@@ -59,6 +75,7 @@ Suite *virgl_init_suite(void)
   tcase_add_test(tc_core, virgl_init_no_cookie);
   tcase_add_test(tc_core, virgl_init_cbs_wrong_ver);
   tcase_add_test(tc_core, virgl_init_egl);
+  tcase_add_test(tc_core, virgl_init_egl_create_ctx);
   suite_add_tcase(s, tc_core);
   return s;
 
