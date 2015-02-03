@@ -1,5 +1,5 @@
 SUBDIRS := gallium/auxiliary
-AM_LDFLAGS = gallium/auxiliary/libgallium.la $(EPOXY_LIBS) $(GL_LIBS) -lgbm -lm -ldl -I./gallium/include
+AM_LDFLAGS = $(EPOXY_LIBS) $(GL_LIBS) -lgbm -lm -ldl -I./gallium/include
 
 AM_CFLAGS = \
         -I$(top_srcdir)/src/gallium/drivers/virgl \
@@ -31,7 +31,7 @@ GM_LDFLAGS = -Wl,-Bsymbolic -version-number 0:1 -no-undefined
 
 libvirglrenderer_la_SOURCES = virglrenderer.c
 libvirglrenderer_ladir = $(libdir)
-libvirglrenderer_la_LIBADD = libvrend.la
+libvirglrenderer_la_LIBADD = libvrend.la gallium/auxiliary/libgallium.la
 libvirglrenderer_la_LDFLAGS = $(GM_LDFLAGS) $(EPOXY_LDFLAGS)
 
 libvirglrendererincludedir = ${includedir}

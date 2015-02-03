@@ -1,4 +1,6 @@
 C_SOURCES := \
+	cso_cache/cso_cache.c \
+	cso_cache/cso_hash.c \
 	os/os_misc.c \
 	os/os_process.c \
 	os/os_time.c \
@@ -8,16 +10,29 @@ C_SOURCES := \
 	tgsi/tgsi_info.c \
 	tgsi/tgsi_iterate.c \
 	tgsi/tgsi_parse.c \
+	tgsi/tgsi_sanity.c \
 	tgsi/tgsi_scan.c \
 	tgsi/tgsi_strings.c \
 	tgsi/tgsi_text.c \
 	tgsi/tgsi_transform.c \
 	tgsi/tgsi_ureg.c \
 	tgsi/tgsi_util.c \
+	util/u_debug.c \
+	util/u_format.c \
 	util/u_format_srgb.c \
 	util/u_format_table.c \
+	util/u_format_etc.c \
+	util/u_format_rgtc.c \
+	util/u_format_latc.c \
+	util/u_format_s3tc.c \
+	util/u_format_yuv.c \
+	util/u_format_zs.c \
+	util/u_format_other.c \
 	util/u_hash_table.c \
-	util/u_texture.c
-	util/u_bitmask.c
+	util/u_texture.c \
+	util/u_bitmask.c \
+	util/u_cpu_detect.c \
+	util/u_surface.c \
+	util/u_math.c
 
 

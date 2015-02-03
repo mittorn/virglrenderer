@@ -78,7 +78,7 @@ struct ureg_tokens {
 #define UREG_MAX_OUTPUT PIPE_MAX_SHADER_OUTPUTS
 #define UREG_MAX_CONSTANT_RANGE 32
 #define UREG_MAX_IMMEDIATE 4096
-#define UREG_MAX_ADDR 2
+#define UREG_MAX_ADDR 3
 #define UREG_MAX_PRED 1
 #define UREG_MAX_ARRAY_TEMPS 256
 
@@ -103,7 +103,7 @@ struct ureg_program
       unsigned semantic_index;
       unsigned interp;
       unsigned char cylindrical_wrap;
-      unsigned char centroid;
+      unsigned interp_location;
    } fs_input[UREG_MAX_INPUT];
    unsigned nr_fs_inputs;
 
@@ -165,14 +165,7 @@ struct ureg_program
    struct const_decl const_decls;
    struct const_decl const_decls2D[PIPE_MAX_CONSTANT_BUFFERS];
 
-   unsigned property_gs_input_prim;
-   unsigned property_gs_output_prim;
-   unsigned property_gs_max_vertices;
-   unsigned property_gs_invocations;
-   unsigned char property_fs_coord_origin; /* = TGSI_FS_COORD_ORIGIN_* */
-   unsigned char property_fs_coord_pixel_center; /* = TGSI_FS_COORD_PIXEL_CENTER_* */
-   unsigned char property_fs_color0_writes_all_cbufs; /* = TGSI_FS_COLOR0_WRITES_ALL_CBUFS * */
-   unsigned char property_fs_depth_layout; /* TGSI_FS_DEPTH_LAYOUT */
+   unsigned properties[TGSI_PROPERTY_COUNT];
 
    unsigned nr_addrs;
    unsigned nr_preds;
@@ -277,58 +270,10 @@ ureg_dst_register( unsigned file,
 
 
 void
-ureg_property_gs_input_prim(struct ureg_program *ureg,
-                            unsigned input_prim)
+ureg_property(struct ureg_program *ureg, unsigned name, unsigned value)
 {
-   ureg->property_gs_input_prim = input_prim;
-}
-
-void
-ureg_property_gs_output_prim(struct ureg_program *ureg,
-                             unsigned output_prim)
-{
-   ureg->property_gs_output_prim = output_prim;
-}
-
-void
-ureg_property_gs_max_vertices(struct ureg_program *ureg,
-                              unsigned max_vertices)
-{
-   ureg->property_gs_max_vertices = max_vertices;
-}
-void
-ureg_property_gs_invocations(struct ureg_program *ureg,
-                             unsigned invocations)
-{
-   ureg->property_gs_invocations = invocations;
-}
-
-void
-ureg_property_fs_coord_origin(struct ureg_program *ureg,
-                            unsigned fs_coord_origin)
-{
-   ureg->property_fs_coord_origin = fs_coord_origin;
-}
-
-void
-ureg_property_fs_coord_pixel_center(struct ureg_program *ureg,
-                            unsigned fs_coord_pixel_center)
-{
-   ureg->property_fs_coord_pixel_center = fs_coord_pixel_center;
-}
-
-void
-ureg_property_fs_color0_writes_all_cbufs(struct ureg_program *ureg,
-                            unsigned fs_color0_writes_all_cbufs)
-{
-   ureg->property_fs_color0_writes_all_cbufs = fs_color0_writes_all_cbufs;
-}
-
-void
-ureg_property_fs_depth_layout(struct ureg_program *ureg,
-                              unsigned fs_depth_layout)
-{
-   ureg->property_fs_depth_layout = fs_depth_layout;
+   assert(name < Elements(ureg->properties));
+   ureg->properties[name] = value;
 }
 
 struct ureg_src
@@ -337,7 +282,7 @@ ureg_DECL_fs_input_cyl_centroid(struct ureg_program *ureg,
                        unsigned semantic_index,
                        unsigned interp_mode,
                        unsigned cylindrical_wrap,
-                       unsigned centroid)
+                       unsigned interp_location)
 {
    unsigned i;
 
@@ -353,7 +298,7 @@ ureg_DECL_fs_input_cyl_centroid(struct ureg_program *ureg,
       ureg->fs_input[i].semantic_index = semantic_index;
       ureg->fs_input[i].interp = interp_mode;
       ureg->fs_input[i].cylindrical_wrap = cylindrical_wrap;
-      ureg->fs_input[i].centroid = centroid;
+      ureg->fs_input[i].interp_location = interp_location;
       ureg->nr_fs_inputs++;
    } else {
       set_bad(ureg);
@@ -1280,7 +1225,7 @@ emit_decl_fs(struct ureg_program *ureg,
              unsigned semantic_index,
              unsigned interpolate,
              unsigned cylindrical_wrap,
-             unsigned centroid)
+             unsigned interpolate_location)
 {
    union tgsi_any_token *out = get_tokens(ureg, DOMAIN_DECL, 4);
 
@@ -1299,7 +1244,7 @@ emit_decl_fs(struct ureg_program *ureg,
    out[2].value = 0;
    out[2].decl_interp.Interpolate = interpolate;
    out[2].decl_interp.CylindricalWrap = cylindrical_wrap;
-   out[2].decl_interp.Centroid = centroid;
+   out[2].decl_interp.Location = interpolate_location;
 
    out[3].value = 0;
    out[3].decl_semantic.Name = semantic_name;
@@ -1444,61 +1389,9 @@ static void emit_decls( struct ureg_program *ureg )
 {
    unsigned i;
 
-   if (ureg->property_gs_input_prim != ~0) {
-      assert(ureg->processor == TGSI_PROCESSOR_GEOMETRY);
-
-      emit_property(ureg,
-                    TGSI_PROPERTY_GS_INPUT_PRIM,
-                    ureg->property_gs_input_prim);
-   }
-
-   if (ureg->property_gs_output_prim != ~0) {
-      assert(ureg->processor == TGSI_PROCESSOR_GEOMETRY);
-
-      emit_property(ureg,
-                    TGSI_PROPERTY_GS_OUTPUT_PRIM,
-                    ureg->property_gs_output_prim);
-   }
-
-   if (ureg->property_gs_max_vertices != ~0) {
-      assert(ureg->processor == TGSI_PROCESSOR_GEOMETRY);
-
-      emit_property(ureg,
-                    TGSI_PROPERTY_GS_MAX_OUTPUT_VERTICES,
-                    ureg->property_gs_max_vertices);
-   }
-
-   if (ureg->property_fs_coord_origin) {
-      assert(ureg->processor == TGSI_PROCESSOR_FRAGMENT);
-
-      emit_property(ureg,
-                    TGSI_PROPERTY_FS_COORD_ORIGIN,
-                    ureg->property_fs_coord_origin);
-   }
-
-   if (ureg->property_fs_coord_pixel_center) {
-      assert(ureg->processor == TGSI_PROCESSOR_FRAGMENT);
-
-      emit_property(ureg,
-                    TGSI_PROPERTY_FS_COORD_PIXEL_CENTER,
-                    ureg->property_fs_coord_pixel_center);
-   }
-
-   if (ureg->property_fs_color0_writes_all_cbufs) {
-      assert(ureg->processor == TGSI_PROCESSOR_FRAGMENT);
-
-      emit_property(ureg,
-                    TGSI_PROPERTY_FS_COLOR0_WRITES_ALL_CBUFS,
-                    ureg->property_fs_color0_writes_all_cbufs);
-   }
-
-   if (ureg->property_fs_depth_layout) {
-      assert(ureg->processor == TGSI_PROCESSOR_FRAGMENT);
-
-      emit_property(ureg,
-                    TGSI_PROPERTY_FS_DEPTH_LAYOUT,
-                    ureg->property_fs_depth_layout);
-   }
+   for (i = 0; i < Elements(ureg->properties); i++)
+      if (ureg->properties[i] != ~0)
+         emit_property(ureg, i, ureg->properties[i]);
 
    if (ureg->processor == TGSI_PROCESSOR_VERTEX) {
       for (i = 0; i < UREG_MAX_INPUT; i++) {
@@ -1515,7 +1408,7 @@ static void emit_decls( struct ureg_program *ureg )
                       ureg->fs_input[i].semantic_index,
                       ureg->fs_input[i].interp,
                       ureg->fs_input[i].cylindrical_wrap,
-                      ureg->fs_input[i].centroid);
+                      ureg->fs_input[i].interp_location);
       }
    } else {
       for (i = 0; i < ureg->nr_gs_inputs; i++) {
@@ -1749,14 +1642,15 @@ void ureg_free_tokens( const struct tgsi_token *tokens )
 
 struct ureg_program *ureg_create( unsigned processor )
 {
+   int i;
    struct ureg_program *ureg = CALLOC_STRUCT( ureg_program );
    if (ureg == NULL)
       goto no_ureg;
 
    ureg->processor = processor;
-   ureg->property_gs_input_prim = ~0;
-   ureg->property_gs_output_prim = ~0;
-   ureg->property_gs_max_vertices = ~0;
+
+   for (i = 0; i < Elements(ureg->properties); i++)
+      ureg->properties[i] = ~0;
 
    ureg->free_temps = util_bitmask_create();
    if (ureg->free_temps == NULL)
@@ -1783,7 +1677,7 @@ no_ureg:
 }
 
 
-const unsigned
+unsigned
 ureg_get_nr_outputs( const struct ureg_program *ureg )
 {
    if (!ureg)

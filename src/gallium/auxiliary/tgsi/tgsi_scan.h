@@ -45,7 +45,7 @@ struct tgsi_shader_info
    ubyte input_semantic_name[PIPE_MAX_SHADER_INPUTS]; /**< TGSI_SEMANTIC_x */
    ubyte input_semantic_index[PIPE_MAX_SHADER_INPUTS];
    ubyte input_interpolate[PIPE_MAX_SHADER_INPUTS];
-   ubyte input_centroid[PIPE_MAX_SHADER_INPUTS];
+   ubyte input_interpolate_loc[PIPE_MAX_SHADER_INPUTS];
    ubyte input_usage_mask[PIPE_MAX_SHADER_INPUTS];
    ubyte input_cylindrical_wrap[PIPE_MAX_SHADER_INPUTS];
    ubyte output_semantic_name[PIPE_MAX_SHADER_OUTPUTS]; /**< TGSI_SEMANTIC_x */
@@ -61,6 +61,8 @@ struct tgsi_shader_info
    int file_max[TGSI_FILE_COUNT];  /**< highest index of declared registers */
    int const_file_max[PIPE_MAX_CONSTANT_BUFFERS];
 
+   unsigned array_max[TGSI_FILE_COUNT];  /**< highest index array per register file */
+
    uint immediate_count; /**< number of immediates declared */
    uint num_instructions;
 
@@ -72,17 +74,21 @@ struct tgsi_shader_info
    boolean writes_stencil; /**< does fragment shader write stencil value? */
    boolean writes_edgeflag; /**< vertex shader outputs edgeflag */
    boolean uses_kill;  /**< KILL or KILL_IF instruction used? */
+   boolean uses_centroid;
    boolean uses_instanceid;
    boolean uses_vertexid;
+   boolean uses_vertexid_nobase;
+   boolean uses_basevertex;
    boolean uses_primid;
    boolean uses_frontface;
-   boolean origin_lower_left;
-   boolean pixel_center_integer;
-   boolean color0_writes_all_cbufs;
+   boolean writes_psize;
+   boolean writes_clipvertex;
    boolean writes_viewport_index;
    boolean writes_layer;
    boolean is_msaa_sampler[PIPE_MAX_SAMPLERS];
 
+   unsigned clipdist_writemask;
+   unsigned culldist_writemask;
    unsigned num_written_culldistance;
    unsigned num_written_clipdistance;
    /**
@@ -90,12 +96,14 @@ struct tgsi_shader_info
     * indirect addressing.  The bits are (1 << TGSI_FILE_x), etc.
     */
    unsigned indirect_files;
+   /**
+    * Bitmask indicating which register files are read / written with
+    * indirect addressing.  The bits are (1 << TGSI_FILE_x).
+    */
+   unsigned indirect_files_read;
+   unsigned indirect_files_written;
 
-   struct {
-      unsigned name;
-      unsigned data[8];
-   } properties[TGSI_PROPERTY_COUNT];
-   uint num_properties;
+   unsigned properties[TGSI_PROPERTY_COUNT]; /* index with TGSI_PROPERTY_ */
 };
 
 extern void

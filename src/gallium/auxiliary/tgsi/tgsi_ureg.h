@@ -115,7 +115,7 @@ ureg_get_tokens( struct ureg_program *ureg,
 /*
  * Returns the number of currently declared outputs.
  */
-const unsigned
+unsigned
 ureg_get_nr_outputs( const struct ureg_program *ureg );
 
 
@@ -153,36 +153,7 @@ ureg_create_shader_and_destroy( struct ureg_program *p,
  */
 
 void
-ureg_property_gs_input_prim(struct ureg_program *ureg,
-                            unsigned input_prim);
-
-void
-ureg_property_gs_output_prim(struct ureg_program *ureg,
-                             unsigned output_prim);
-
-void
-ureg_property_gs_max_vertices(struct ureg_program *ureg,
-                              unsigned max_vertices);
-
-void
-ureg_property_gs_invocations(struct ureg_program *ureg,
-                             unsigned invocations);
-
-void
-ureg_property_fs_coord_origin(struct ureg_program *ureg,
-                            unsigned fs_coord_origin);
-
-void
-ureg_property_fs_coord_pixel_center(struct ureg_program *ureg,
-                            unsigned fs_coord_pixel_center);
-
-void
-ureg_property_fs_color0_writes_all_cbufs(struct ureg_program *ureg,
-                            unsigned fs_color0_writes_all_cbufs);
-
-void
-ureg_property_fs_depth_layout(struct ureg_program *ureg,
-                              unsigned fs_depth_layout);
+ureg_property(struct ureg_program *ureg, unsigned name, unsigned value);
 
 
 /***********************************************************************
@@ -195,7 +166,7 @@ ureg_DECL_fs_input_cyl_centroid(struct ureg_program *,
                        unsigned semantic_index,
                        unsigned interp_mode,
                        unsigned cylindrical_wrap,
-                       unsigned centroid);
+                       unsigned interp_location);
 
 static INLINE struct ureg_src
 ureg_DECL_fs_input_cyl(struct ureg_program *ureg,

@@ -103,6 +103,11 @@ enum tgsi_file_type {
 #define TGSI_INTERPOLATE_COLOR         3 /* special color case for smooth/flat */
 #define TGSI_INTERPOLATE_COUNT         4
 
+#define TGSI_INTERPOLATE_LOC_CENTER    0
+#define TGSI_INTERPOLATE_LOC_CENTROID  1
+#define TGSI_INTERPOLATE_LOC_SAMPLE    2
+#define TGSI_INTERPOLATE_LOC_COUNT     3
+
 #define TGSI_CYLINDRICAL_WRAP_X (1 << 0)
 #define TGSI_CYLINDRICAL_WRAP_Y (1 << 1)
 #define TGSI_CYLINDRICAL_WRAP_Z (1 << 2)
@@ -138,9 +143,9 @@ struct tgsi_declaration_dimension
 struct tgsi_declaration_interp
 {
    unsigned Interpolate : 4;   /**< one of TGSI_INTERPOLATE_x */
-   unsigned Centroid    : 1;   /**< centroid sampling? */
+   unsigned Location    : 2;   /**< one of TGSI_INTERPOLATE_LOC_x */
    unsigned CylindricalWrap:4; /**< TGSI_CYLINDRICAL_WRAP_x flags */
-   unsigned Padding     : 23;
+   unsigned Padding     : 22;
 };
 
 #define TGSI_SEMANTIC_POSITION   0
@@ -167,7 +172,13 @@ struct tgsi_declaration_interp
 #define TGSI_SEMANTIC_VIEWPORT_INDEX 21 /**< viewport index */
 #define TGSI_SEMANTIC_LAYER      22 /**< layer (rendertarget index) */
 #define TGSI_SEMANTIC_CULLDIST   23
-#define TGSI_SEMANTIC_COUNT      24 /**< number of semantic values */
+#define TGSI_SEMANTIC_SAMPLEID   24
+#define TGSI_SEMANTIC_SAMPLEPOS  25
+#define TGSI_SEMANTIC_SAMPLEMASK 26
+#define TGSI_SEMANTIC_INVOCATIONID 27
+#define TGSI_SEMANTIC_VERTEXID_NOBASE 28
+#define TGSI_SEMANTIC_BASEVERTEX 29
+#define TGSI_SEMANTIC_COUNT      30 /**< number of semantic values */
 
 struct tgsi_declaration_semantic
 {
@@ -183,12 +194,21 @@ struct tgsi_declaration_resource {
    unsigned Padding     : 22;
 };
 
+enum tgsi_return_type {
+   TGSI_RETURN_TYPE_UNORM = 0,
+   TGSI_RETURN_TYPE_SNORM,
+   TGSI_RETURN_TYPE_SINT,
+   TGSI_RETURN_TYPE_UINT,
+   TGSI_RETURN_TYPE_FLOAT,
+   TGSI_RETURN_TYPE_COUNT
+};
+
 struct tgsi_declaration_sampler_view {
    unsigned Resource    : 8; /**< one of TGSI_TEXTURE_ */
-   unsigned ReturnTypeX : 6; /**< one of enum pipe_type */
-   unsigned ReturnTypeY : 6; /**< one of enum pipe_type */
-   unsigned ReturnTypeZ : 6; /**< one of enum pipe_type */
-   unsigned ReturnTypeW : 6; /**< one of enum pipe_type */
+   unsigned ReturnTypeX : 6; /**< one of enum tgsi_return_type */
+   unsigned ReturnTypeY : 6; /**< one of enum tgsi_return_type */
+   unsigned ReturnTypeZ : 6; /**< one of enum tgsi_return_type */
+   unsigned ReturnTypeW : 6; /**< one of enum tgsi_return_type */
 };
 
 struct tgsi_declaration_array {
@@ -208,6 +228,7 @@ struct tgsi_declaration_array {
 #define TGSI_IMM_FLOAT32   0
 #define TGSI_IMM_UINT32    1
 #define TGSI_IMM_INT32     2
+#define TGSI_IMM_FLOAT64   3
 
 struct tgsi_immediate
 {
@@ -232,7 +253,9 @@ union tgsi_immediate_data
 #define TGSI_PROPERTY_FS_COLOR0_WRITES_ALL_CBUFS 5
 #define TGSI_PROPERTY_FS_DEPTH_LAYOUT        6
 #define TGSI_PROPERTY_VS_PROHIBIT_UCPS       7
-#define TGSI_PROPERTY_COUNT                  8
+#define TGSI_PROPERTY_GS_INVOCATIONS         8
+#define TGSI_PROPERTY_VS_WINDOW_SPACE_POSITION 9
+#define TGSI_PROPERTY_COUNT                  10
 
 struct tgsi_property {
    unsigned Type         : 4;  /**< TGSI_TOKEN_TYPE_PROPERTY */
@@ -283,7 +306,7 @@ struct tgsi_property_data {
 #define TGSI_OPCODE_MAD                 16
 #define TGSI_OPCODE_SUB                 17
 #define TGSI_OPCODE_LRP                 18
-#define TGSI_OPCODE_CND                 19
+                                /* gap */
 #define TGSI_OPCODE_SQRT                20
 #define TGSI_OPCODE_DP2A                21
                                 /* gap */
@@ -297,7 +320,7 @@ struct tgsi_property_data {
 #define TGSI_OPCODE_XPD                 31
                                 /* gap */
 #define TGSI_OPCODE_ABS                 33
-#define TGSI_OPCODE_RCC                 34
+                                /* gap */
 #define TGSI_OPCODE_DPH                 35
 #define TGSI_OPCODE_COS                 36
 #define TGSI_OPCODE_DDX                 37
@@ -307,14 +330,14 @@ struct tgsi_property_data {
 #define TGSI_OPCODE_PK2US               41
 #define TGSI_OPCODE_PK4B                42
 #define TGSI_OPCODE_PK4UB               43
-#define TGSI_OPCODE_RFL                 44
+                                /* gap */
 #define TGSI_OPCODE_SEQ                 45
-#define TGSI_OPCODE_SFL                 46
+                                /* gap */
 #define TGSI_OPCODE_SGT                 47
 #define TGSI_OPCODE_SIN                 48
 #define TGSI_OPCODE_SLE                 49
 #define TGSI_OPCODE_SNE                 50
-#define TGSI_OPCODE_STR                 51
+                                /* gap */
 #define TGSI_OPCODE_TEX                 52
 #define TGSI_OPCODE_TXD                 53
 #define TGSI_OPCODE_TXP                 54
@@ -322,17 +345,16 @@ struct tgsi_property_data {
 #define TGSI_OPCODE_UP2US               56
 #define TGSI_OPCODE_UP4B                57
 #define TGSI_OPCODE_UP4UB               58
-#define TGSI_OPCODE_X2D                 59
-#define TGSI_OPCODE_ARA                 60
+                                /* gap */
 #define TGSI_OPCODE_ARR                 61
-#define TGSI_OPCODE_BRA                 62
+                                /* gap */
 #define TGSI_OPCODE_CAL                 63
 #define TGSI_OPCODE_RET                 64
 #define TGSI_OPCODE_SSG                 65 /* SGN */
 #define TGSI_OPCODE_CMP                 66
 #define TGSI_OPCODE_SCS                 67
 #define TGSI_OPCODE_TXB                 68
-#define TGSI_OPCODE_NRM                 69
+                                /* gap */
 #define TGSI_OPCODE_DIV                 70
 #define TGSI_OPCODE_DP2                 71
 #define TGSI_OPCODE_TXL                 72
@@ -341,7 +363,10 @@ struct tgsi_property_data {
 #define TGSI_OPCODE_UIF                 75
 #define TGSI_OPCODE_ELSE                77
 #define TGSI_OPCODE_ENDIF               78
-                                /* gap */
+
+#define TGSI_OPCODE_DDX_FINE            79
+#define TGSI_OPCODE_DDY_FINE            80
+
 #define TGSI_OPCODE_PUSHA               81
 #define TGSI_OPCODE_POPA                82
 #define TGSI_OPCODE_CEIL                83
@@ -373,7 +398,7 @@ struct tgsi_property_data {
 #define TGSI_OPCODE_FSLT                110
 #define TGSI_OPCODE_FSNE                111
 
-#define TGSI_OPCODE_NRM4                112
+                                /* gap */
 #define TGSI_OPCODE_CALLNZ              113
                                 /* gap */
 #define TGSI_OPCODE_BREAKC              115
@@ -455,7 +480,22 @@ struct tgsi_property_data {
 
 #define TGSI_OPCODE_TG4                 182
 
-#define TGSI_OPCODE_LAST                183
+#define TGSI_OPCODE_LODQ                183
+
+#define TGSI_OPCODE_IBFE                184
+#define TGSI_OPCODE_UBFE                185
+#define TGSI_OPCODE_BFI                 186
+#define TGSI_OPCODE_BREV                187
+#define TGSI_OPCODE_POPC                188
+#define TGSI_OPCODE_LSB                 189
+#define TGSI_OPCODE_IMSB                190
+#define TGSI_OPCODE_UMSB                191
+
+#define TGSI_OPCODE_INTERP_CENTROID     192
+#define TGSI_OPCODE_INTERP_SAMPLE       193
+#define TGSI_OPCODE_INTERP_OFFSET       194
+
+#define TGSI_OPCODE_LAST                195
 
 #define TGSI_SAT_NONE            0  /* do not saturate */
 #define TGSI_SAT_ZERO_ONE        1  /* clamp to [0,1] */

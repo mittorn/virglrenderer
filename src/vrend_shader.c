@@ -212,7 +212,6 @@ iter_declaration(struct tgsi_iterate_context *iter,
       ctx->inputs[i].name = decl->Semantic.Name;
       ctx->inputs[i].sid = decl->Semantic.Index;
       ctx->inputs[i].interpolate = decl->Interp.Interpolate;
-      ctx->inputs[i].centroid = decl->Interp.Centroid;
       ctx->inputs[i].first = decl->Range.First;
       ctx->inputs[i].glsl_predefined_no_emit = FALSE;
       ctx->inputs[i].glsl_no_index = FALSE;
@@ -236,7 +235,6 @@ iter_declaration(struct tgsi_iterate_context *iter,
                   ctx->inputs[j].name = TGSI_SEMANTIC_BCOLOR;
                   ctx->inputs[j].sid = decl->Semantic.Index;
                   ctx->inputs[j].interpolate = decl->Interp.Interpolate;
-                  ctx->inputs[j].centroid = decl->Interp.Centroid;
                   ctx->inputs[j].first = decl->Range.First;
                   ctx->inputs[j].glsl_predefined_no_emit = FALSE;
                   ctx->inputs[j].glsl_no_index = FALSE;

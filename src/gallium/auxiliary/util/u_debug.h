@@ -139,6 +139,15 @@ void debug_print_format(const char *msg, unsigned fmt );
 
 
 /**
+ * Disable interactive error message boxes.
+ *
+ * Should be called as soon as possible for effectiveness.
+ */
+void
+debug_disable_error_message_boxes(void);
+
+
+/**
  * Hard-coded breakpoint.
  */
 #ifdef DEBUG
@@ -151,10 +160,17 @@ void debug_print_format(const char *msg, unsigned fmt );
 long
 debug_get_num_option(const char *name, long dfault);
 
+#ifdef _MSC_VER
+__declspec(noreturn)
+#endif
 void _debug_assert_fail(const char *expr, 
                         const char *file, 
                         unsigned line, 
-                        const char *function);
+                        const char *function)
+#ifdef __GNUC__
+   __attribute__((__noreturn__))
+#endif
+;
 
 
 /** 
@@ -169,7 +185,7 @@ void _debug_assert_fail(const char *expr,
 #ifdef DEBUG
 #define debug_assert(expr) ((expr) ? (void)0 : _debug_assert_fail(#expr, __FILE__, __LINE__, __FUNCTION__))
 #else
-#define debug_assert(expr) do { } while (0 && (expr))
+#define debug_assert(expr) (void)(0 && (expr))
 #endif
 
 

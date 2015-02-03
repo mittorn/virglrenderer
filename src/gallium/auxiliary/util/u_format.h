@@ -79,9 +79,14 @@ enum util_format_layout {
    UTIL_FORMAT_LAYOUT_ETC = 6,
 
    /**
+    * BC6/7 Texture Compression
+    */
+   UTIL_FORMAT_LAYOUT_BPTC = 7,
+
+   /**
     * Everything else that doesn't fit in any of the above layouts.
     */
-   UTIL_FORMAT_LAYOUT_OTHER = 7
+   UTIL_FORMAT_LAYOUT_OTHER = 8
 };
 
 
@@ -475,6 +480,7 @@ util_format_is_compressed(enum pipe_format format)
    case UTIL_FORMAT_LAYOUT_S3TC:
    case UTIL_FORMAT_LAYOUT_RGTC:
    case UTIL_FORMAT_LAYOUT_ETC:
+   case UTIL_FORMAT_LAYOUT_BPTC:
       /* XXX add other formats in the future */
       return TRUE;
    default:
@@ -655,6 +661,8 @@ util_format_has_alpha(enum pipe_format format);
 boolean
 util_format_is_luminance(enum pipe_format format);
 
+boolean
+util_format_is_alpha(enum pipe_format format);
 
 boolean
 util_format_is_luminance_alpha(enum pipe_format format);
@@ -662,6 +670,9 @@ util_format_is_luminance_alpha(enum pipe_format format);
 
 boolean
 util_format_is_intensity(enum pipe_format format);
+
+boolean
+util_format_is_subsampled_422(enum pipe_format format);
 
 boolean
 util_format_is_pure_integer(enum pipe_format format);
@@ -906,6 +917,10 @@ util_format_srgb(enum pipe_format format)
       return PIPE_FORMAT_DXT3_SRGBA;
    case PIPE_FORMAT_DXT5_RGBA:
       return PIPE_FORMAT_DXT5_SRGBA;
+   case PIPE_FORMAT_B5G6R5_UNORM:
+      return PIPE_FORMAT_B5G6R5_SRGB;
+   case PIPE_FORMAT_BPTC_RGBA_UNORM:
+      return PIPE_FORMAT_BPTC_SRGBA;
    default:
       return PIPE_FORMAT_NONE;
    }
@@ -949,6 +964,10 @@ util_format_linear(enum pipe_format format)
       return PIPE_FORMAT_DXT3_RGBA;
    case PIPE_FORMAT_DXT5_SRGBA:
       return PIPE_FORMAT_DXT5_RGBA;
+   case PIPE_FORMAT_B5G6R5_SRGB:
+      return PIPE_FORMAT_B5G6R5_UNORM;
+   case PIPE_FORMAT_BPTC_SRGBA:
+      return PIPE_FORMAT_BPTC_RGBA_UNORM;
    default:
       return format;
    }
@@ -1060,8 +1079,7 @@ util_format_luminance_to_red(enum pipe_format format)
       return PIPE_FORMAT_RGTC1_SNORM;
 
    case PIPE_FORMAT_L4A4_UNORM:
-      /* XXX A4R4 is defined as x00y in u_format.csv */
-      return PIPE_FORMAT_A4R4_UNORM;
+      return PIPE_FORMAT_R4A4_UNORM;
 
    case PIPE_FORMAT_L8A8_UNORM:
       return PIPE_FORMAT_R8A8_UNORM;
@@ -1190,7 +1208,7 @@ util_format_write_4i(enum pipe_format format,
 boolean
 util_format_fits_8unorm(const struct util_format_description *format_desc);
 
-void
+boolean
 util_format_translate(enum pipe_format dst_format,
                       void *dst, unsigned dst_stride,
                       unsigned dst_x, unsigned dst_y,

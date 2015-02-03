@@ -29,7 +29,6 @@
 #include "util/u_string.h"
 #include "util/u_math.h"
 #include "util/u_memory.h"
-#include "util/u_math.h"
 #include "tgsi_dump.h"
 #include "tgsi_info.h"
 #include "tgsi_iterate.h"
@@ -43,8 +42,6 @@ static const int indent_spaces = 3;
 struct dump_ctx
 {
    struct tgsi_iterate_context iter;
-
-   boolean dump_float_as_hex;
 
    uint instno;
    uint immno;
@@ -85,8 +82,7 @@ dump_enum(
 #define UID(I)          ctx->dump_printf( ctx, "%u", I )
 #define INSTID(I)       ctx->dump_printf( ctx, "% 3u", I )
 #define SID(I)          ctx->dump_printf( ctx, "%d", I )
-#define FLT(F)          ctx->dump_printf( ctx, "%10.8f", F )
-#define HFLT(F)         ctx->dump_printf( ctx, "0x%08x", fui((F)) )
+#define FLT(F)          ctx->dump_printf( ctx, "%10.4f", F )
 #define ENM(E,ENUMS)    dump_enum( ctx, E, ENUMS, sizeof( ENUMS ) / sizeof( *ENUMS ) )
 
 const char *
@@ -243,10 +239,7 @@ dump_imm_data(struct tgsi_iterate_context *iter,
    for (i = 0; i < num_tokens; i++) {
       switch (data_type) {
       case TGSI_IMM_FLOAT32:
-         if (ctx->dump_float_as_hex)
-            HFLT( data[i].Float );
-         else
-            FLT( data[i].Float );
+         FLT( data[i].Float );
          break;
       case TGSI_IMM_UINT32:
          UID(data[i].Uint);
@@ -336,15 +329,15 @@ iter_declaration(
       if ((decl->SamplerView.ReturnTypeX == decl->SamplerView.ReturnTypeY) &&
           (decl->SamplerView.ReturnTypeX == decl->SamplerView.ReturnTypeZ) &&
           (decl->SamplerView.ReturnTypeX == decl->SamplerView.ReturnTypeW)) {
-         ENM(decl->SamplerView.ReturnTypeX, tgsi_type_names);
+         ENM(decl->SamplerView.ReturnTypeX, tgsi_return_type_names);
       } else {
-         ENM(decl->SamplerView.ReturnTypeX, tgsi_type_names);
+         ENM(decl->SamplerView.ReturnTypeX, tgsi_return_type_names);
          TXT(", ");
-         ENM(decl->SamplerView.ReturnTypeY, tgsi_type_names);
+         ENM(decl->SamplerView.ReturnTypeY, tgsi_return_type_names);
          TXT(", ");
-         ENM(decl->SamplerView.ReturnTypeZ, tgsi_type_names);
+         ENM(decl->SamplerView.ReturnTypeZ, tgsi_return_type_names);
          TXT(", ");
-         ENM(decl->SamplerView.ReturnTypeW, tgsi_type_names);
+         ENM(decl->SamplerView.ReturnTypeW, tgsi_return_type_names);
       }
    }
 
@@ -356,8 +349,9 @@ iter_declaration(
          ENM( decl->Interp.Interpolate, tgsi_interpolate_names );
       }
 
-      if (decl->Interp.Centroid) {
-         TXT( ", CENTROID" );
+      if (decl->Interp.Location != TGSI_INTERPOLATE_LOC_CENTER) {
+         TXT( ", " );
+         ENM( decl->Interp.Location, tgsi_interpolate_locations );
       }
 
       if (decl->Interp.CylindricalWrap) {
@@ -579,8 +573,11 @@ iter_instruction(
    }
 
    if (inst->Instruction.Texture) {
-      TXT( ", " );
-      ENM( inst->Texture.Texture, tgsi_texture_names );
+      if (!(inst->Instruction.Opcode >= TGSI_OPCODE_SAMPLE &&
+            inst->Instruction.Opcode <= TGSI_OPCODE_GATHER4)) {
+         TXT( ", " );
+         ENM( inst->Texture.Texture, tgsi_texture_names );
+      }
       for (i = 0; i < inst->Texture.NumOffsets; i++) {
          TXT( ", " );
          TXT(tgsi_file_name(inst->TexOffsets[i].File));
@@ -665,11 +662,6 @@ tgsi_dump(
    ctx.dump_printf = dump_ctx_printf;
    ctx.indentation = 0;
 
-   if (flags & TGSI_DUMP_FLOAT_AS_HEX)
-      ctx.dump_float_as_hex = TRUE;
-   else
-      ctx.dump_float_as_hex = FALSE;
-
    tgsi_iterate_shader( tokens, &ctx.iter );
 }
 
@@ -730,11 +722,6 @@ tgsi_dump_str(
    ctx.str[0] = 0;
    ctx.ptr = str;
    ctx.left = (int)size;
-
-   if (flags & TGSI_DUMP_FLOAT_AS_HEX)
-      ctx.base.dump_float_as_hex = TRUE;
-   else
-      ctx.base.dump_float_as_hex = FALSE;
 
    tgsi_iterate_shader( tokens, &ctx.base.iter );
 }
