@@ -3179,7 +3179,7 @@ vrend_renderer_fini(void)
    if (!inited)
       return;
 
-   vrend_renderer_context_destroy(0);
+   vrend_decode_reset();
    vrend_object_fini_resource_table();
 
    inited = 0;
