@@ -3184,7 +3184,6 @@ vrend_renderer_fini(void)
 }
 
 static void vrend_destroy_sub_context(struct vrend_sub_context *sub)
-
 {
    int i;
    if (sub->fb_id)
