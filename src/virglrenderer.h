@@ -146,6 +146,8 @@ struct virgl_renderer_resource_info {
 VIRGL_EXPORT int virgl_renderer_resource_get_info(int res_handle,
                                                   struct virgl_renderer_resource_info *info);
 
+VIRGL_EXPORT void virgl_renderer_cleanup(void *cookie);
+
 /* reset the rendererer - destroy all contexts and resource */
 VIRGL_EXPORT void virgl_renderer_reset(void);
 #endif

@@ -253,6 +253,15 @@ void virgl_renderer_poll(void)
    vrend_renderer_check_fences();
 }
 
+void virgl_renderer_cleanup(void *cookie)
+{
+   if (use_egl_context) {
+      virgl_egl_destroy(egl_info);
+      egl_info = NULL;
+      use_egl_context = 0;
+   }
+}
+
 int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks *cbs)
 {
    if (!cookie || !cbs)
