@@ -62,6 +62,21 @@ START_TEST(virgl_init_egl_create_ctx)
 }
 END_TEST
 
+START_TEST(virgl_init_egl_create_ctx_leak)
+{
+  int ret;
+  test_cbs.version = 1;
+  ret = virgl_renderer_init(&mystruct, VIRGL_RENDERER_USE_EGL, &test_cbs);
+  ck_assert_int_eq(ret, 0);
+  ret = virgl_renderer_context_create(1, strlen("test1"), "test1");
+  ck_assert_int_eq(ret, 0);
+
+  /* don't destroy the context - leak it make sure cleanup catches it */
+  /*virgl_renderer_context_destroy(1);*/
+  virgl_renderer_cleanup(&mystruct);
+}
+END_TEST
+
 START_TEST(virgl_init_egl_create_ctx_create_bind_res)
 {
   int ret;
@@ -148,6 +163,7 @@ Suite *virgl_init_suite(void)
   tcase_add_test(tc_core, virgl_init_cbs_wrong_ver);
   tcase_add_test(tc_core, virgl_init_egl);
   tcase_add_test(tc_core, virgl_init_egl_create_ctx);
+  tcase_add_test(tc_core, virgl_init_egl_create_ctx_leak);
   tcase_add_test(tc_core, virgl_init_egl_create_ctx_create_bind_res);
   tcase_add_test(tc_core, virgl_init_egl_create_ctx_create_bind_res_leak);
   suite_add_tcase(s, tc_core);
