@@ -2,14 +2,18 @@
 #include <stdlib.h>
 #include <virglrenderer.h>
 
-static void *mycookie;
+struct myinfo_struct {
+  uint32_t test;
+};
 
-static struct virgl_renderer_callbacks rcbs;
+struct myinfo_struct mystruct;
+
+static struct virgl_renderer_callbacks test_cbs;
 
 START_TEST(virgl_init_no_cbs)
 {
   int ret;
-  ret = virgl_renderer_init(mycookie, 0, NULL);
+  ret = virgl_renderer_init(&mystruct, 0, NULL);
   ck_assert_int_eq(ret, -1);
 }
 END_TEST
@@ -17,7 +21,7 @@ END_TEST
 START_TEST(virgl_init_no_cookie)
 {
   int ret;
-  ret = virgl_renderer_init(NULL, 0, &rcbs);
+  ret = virgl_renderer_init(NULL, 0, &test_cbs);
   ck_assert_int_eq(ret, -1);
 }
 END_TEST
@@ -28,7 +32,7 @@ START_TEST(virgl_init_cbs_wrong_ver)
   struct virgl_renderer_callbacks testcbs;
   memset(&testcbs, 0, sizeof(testcbs));
   testcbs.version = 2;
-  ret = virgl_renderer_init(mycookie, 0, &testcbs);
+  ret = virgl_renderer_init(&mystruct, 0, &testcbs);
   ck_assert_int_eq(ret, -1);
 }
 END_TEST
@@ -36,8 +40,8 @@ END_TEST
 START_TEST(virgl_init_egl)
 {
   int ret;
-  rcbs.version = 1;
-  ret = virgl_renderer_init(mycookie, VIRGL_RENDERER_USE_EGL, &rcbs);
+  test_cbs.version = 1;
+  ret = virgl_renderer_init(&mystruct, VIRGL_RENDERER_USE_EGL, &test_cbs);
   ck_assert_int_eq(ret, 0);
 }
 
