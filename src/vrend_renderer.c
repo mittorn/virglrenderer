@@ -5439,4 +5439,9 @@ void vrend_renderer_reset(void)
    vrend_reset_fences();
    vrend_decode_reset();
    vrend_object_fini_resource_table();
+
+   vrend_object_init_resource_table();
+   vrend_state.viewport_dirty = vrend_state.scissor_dirty = TRUE;
+   vrend_state.program_id = (GLuint)-1;
+   vrend_renderer_context_create_internal(0, 0, NULL);
 }
