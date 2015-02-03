@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <virglrenderer.h>
 
+#include "testvirgl.h"
 struct myinfo_struct {
   uint32_t test;
 };
@@ -88,17 +89,7 @@ START_TEST(virgl_init_egl_create_ctx_create_bind_res)
   ret = virgl_renderer_context_create(1, strlen("test1"), "test1");
   ck_assert_int_eq(ret, 0);
 
-  res.handle = 1;
-  res.target = 1;
-  res.format = 2;
-  res.width = 50;
-  res.height = 50;
-  res.depth = 1;
-  res.array_size = 1;
-  res.last_level = 0;
-  res.nr_samples = 0;
-  res.bind = 0;
-  res.flags = 0;
+  testvirgl_init_simple_1d_resource(&res, 1);
 
   ret = virgl_renderer_resource_create(&res, NULL, 0);
   ck_assert_int_eq(ret, 0);
@@ -124,17 +115,7 @@ START_TEST(virgl_init_egl_create_ctx_create_bind_res_leak)
   ret = virgl_renderer_context_create(1, strlen("test1"), "test1");
   ck_assert_int_eq(ret, 0);
 
-  res.handle = 1;
-  res.target = 1;
-  res.format = 2;
-  res.width = 50;
-  res.height = 50;
-  res.depth = 1;
-  res.array_size = 1;
-  res.last_level = 0;
-  res.nr_samples = 0;
-  res.bind = 0;
-  res.flags = 0;
+  testvirgl_init_simple_1d_resource(&res, 1);
 
   ret = virgl_renderer_resource_create(&res, NULL, 0);
   ck_assert_int_eq(ret, 0);
