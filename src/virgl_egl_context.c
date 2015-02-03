@@ -84,6 +84,7 @@ static int egl_rendernode_open(void)
 	break;
     }
     
+    closedir(dir);
     if (fd < 0)
 	return -1;
     return fd;
