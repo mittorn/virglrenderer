@@ -144,6 +144,8 @@ struct virgl_egl *virgl_egl_init(void)
            return NULL;
            
 	d->fd = egl_rendernode_open();
+	if (d->fd == -1)
+	    goto fail;
 	d->gbm_dev = gbm_create_device(d->fd);
 	if (!d->gbm_dev)
 	    goto fail;
