@@ -255,6 +255,7 @@ void virgl_renderer_poll(void)
 
 void virgl_renderer_cleanup(void *cookie)
 {
+   vrend_renderer_fini();
    if (use_egl_context) {
       virgl_egl_destroy(egl_info);
       egl_info = NULL;

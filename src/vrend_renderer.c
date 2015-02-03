@@ -3177,7 +3177,9 @@ vrend_renderer_fini(void)
    if (!inited)
       return;
 
+   vrend_renderer_context_destroy(0);
    vrend_object_fini_resource_table();
+
    inited = 0;
 }
 
@@ -3245,6 +3247,7 @@ bool vrend_destroy_context(struct vrend_context *ctx)
    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
    vrend_bind_va(0);
 
+   vrend_object_fini_ctx_table(ctx->res_hash);
    FREE(ctx);
 
    return switch_0;

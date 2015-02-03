@@ -1008,7 +1008,7 @@ void vrend_renderer_context_destroy(uint32_t handle)
    ret = vrend_destroy_context(ctx->grctx);
    free(ctx);
    /* switch to ctx 0 */
-   if (ret)
+   if (ret && handle != 0)
        vrend_hw_switch_context(dec_ctx[0]->grctx, TRUE);
 }
 
