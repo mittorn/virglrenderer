@@ -32,9 +32,16 @@ struct vrend_object_types {
    void (*unref)(void *);
 } obj_types[VIRGL_MAX_OBJECTS];
 
+static void (*resource_unref)(void *);
+
 void vrend_object_set_destroy_callback(int type, void (*cb)(void *)) 
 {
    obj_types[type].unref = cb;
+}
+
+void vrend_resource_set_destroy_callback(void (*cb)(void *))
+{
+   resource_unref = cb;
 }
 
 static unsigned
@@ -107,10 +114,20 @@ vrend_object_init_resource_table(void)
       res_hash = util_hash_table_create(hash_func, compare);
 }
 
+static enum pipe_error free_res_cb(void *key, void *value, void *data)
+{
+   struct vrend_object *obj = value;
+   (*resource_unref)(obj->data);
+   free(obj);
+   return PIPE_OK;
+}
+
 void vrend_object_fini_resource_table(void)
 {
-   if (res_hash)
+   if (res_hash) {
+      util_hash_table_foreach(res_hash, free_res_cb, NULL);
       util_hash_table_destroy(res_hash);
+   }
    res_hash = NULL;
 }
 

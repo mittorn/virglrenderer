@@ -59,6 +59,7 @@ static void vrend_finish_context_switch(struct vrend_context *ctx);
 static void vrend_patch_blend_func(struct vrend_context *ctx);
 static void vrend_update_frontface_state(struct vrend_context *ctx);
 static void vrender_get_glsl_version(int *glsl_version);
+static void vrend_destroy_resource_object(void *obj_ptr);
 extern int vrend_shader_use_explicit;
 static int have_invert_mesa = 0;
 static int use_core_profile = 0;
@@ -3150,6 +3151,7 @@ void vrend_renderer_init(struct vrend_if_cbs *cbs)
    }
 
    /* callbacks for when we are cleaning up the object table */
+   vrend_resource_set_destroy_callback(vrend_destroy_resource_object);
    vrend_object_set_destroy_callback(VIRGL_OBJECT_QUERY, vrend_destroy_query_object);
    vrend_object_set_destroy_callback(VIRGL_OBJECT_SURFACE, vrend_destroy_surface_object);
    vrend_object_set_destroy_callback(VIRGL_OBJECT_VS, vrend_destroy_shader_object);
@@ -3452,13 +3454,13 @@ int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *a
 
    ret = vrend_resource_insert(gr, sizeof(*gr), args->handle);
    if (ret == 0) {
-      vrend_renderer_resource_destroy(gr);
+      vrend_renderer_resource_destroy(gr, true);
       return ENOMEM;
    }
    return 0;
 }
 
-void vrend_renderer_resource_destroy(struct vrend_resource *res)
+void vrend_renderer_resource_destroy(struct vrend_resource *res, bool remove)
 {
 //   if (res->scannedout) TODO
 //      (*vrend_clicbs->scanout_resource_info)(0, res->id, 0, 0, 0, 0, 0);
@@ -3481,11 +3483,16 @@ void vrend_renderer_resource_destroy(struct vrend_resource *res)
          glDeleteTextures(1, &res->id);
    }
 
-   if (res->handle)
+   if (res->handle && remove)
       vrend_resource_remove(res->handle);
    free(res);
 }
 
+static void vrend_destroy_resource_object(void *obj_ptr)
+{
+   struct vrend_resource *res = obj_ptr;
+   vrend_renderer_resource_destroy(res, false);
+}
 
 void vrend_renderer_resource_unref(uint32_t res_handle)
 {

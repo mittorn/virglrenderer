@@ -48,4 +48,5 @@ void vrend_resource_remove(uint32_t handle);
 void *vrend_resource_lookup(uint32_t handle, uint32_t ctx_id);
 
 void vrend_object_set_destroy_callback(int type, void (*cb)(void *));
+void vrend_resource_set_destroy_callback(void (*cb)(void *));
 #endif

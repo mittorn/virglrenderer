@@ -327,7 +327,7 @@ int vrend_renderer_resource_attach_iov(int res_handle, struct iovec *iov,
 void vrend_renderer_resource_detach_iov(int res_handle,
 					struct iovec **iov_p,
 					int *num_iovs_p);
-void vrend_renderer_resource_destroy(struct vrend_resource *res);
+void vrend_renderer_resource_destroy(struct vrend_resource *res, bool remove);
 
 static INLINE void
 vrend_resource_reference(struct vrend_resource **ptr, struct vrend_resource *tex)
@@ -335,7 +335,7 @@ vrend_resource_reference(struct vrend_resource **ptr, struct vrend_resource *tex
    struct vrend_resource *old_tex = *ptr;
 
    if (pipe_reference(&(*ptr)->base.reference, &tex->base.reference))
-      vrend_renderer_resource_destroy(old_tex);
+      vrend_renderer_resource_destroy(old_tex, true);
    *ptr = tex;
 }
 
