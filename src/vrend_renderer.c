@@ -3307,8 +3307,10 @@ void vrend_renderer_resource_detach_iov(int res_handle,
    if (!res) {
       return;
    }
-   *iov_p = res->iov;
-   *num_iovs_p = res->num_iovs;
+   if (iov_p)
+     *iov_p = res->iov;
+   if (num_iovs_p)
+     *num_iovs_p = res->num_iovs;
 
    res->iov = NULL;
    res->num_iovs = 0;
