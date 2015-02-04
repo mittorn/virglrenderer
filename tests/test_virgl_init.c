@@ -32,6 +32,7 @@
 #include <errno.h>
 #include <virglrenderer.h>
 #include <gbm.h>
+#include <sys/uio.h>
 #include "testvirgl.h"
 #include "virgl_hw.h"
 struct myinfo_struct {
@@ -444,6 +445,89 @@ START_TEST(virgl_test_get_resource_info_no_res)
 }
 END_TEST
 
+START_TEST(virgl_init_egl_create_ctx_create_attach_res)
+{
+  int ret;
+  struct virgl_renderer_resource_create_args res;
+  struct iovec iovs[1];
+  struct iovec *iovs_r;
+  int num_r;
+  test_cbs.version = 1;
+  ret = virgl_renderer_init(&mystruct, VIRGL_RENDERER_USE_EGL, &test_cbs);
+  ck_assert_int_eq(ret, 0);
+  ret = virgl_renderer_context_create(1, strlen("test1"), "test1");
+  ck_assert_int_eq(ret, 0);
+
+  testvirgl_init_simple_1d_resource(&res, 1);
+
+  ret = virgl_renderer_resource_create(&res, NULL, 0);
+  ck_assert_int_eq(ret, 0);
+
+  iovs[0].iov_base = malloc(4096);
+  iovs[0].iov_len = 4096;
+
+  ret = virgl_renderer_resource_attach_iov(1, iovs, 1);
+  ck_assert_int_eq(ret, 0);
+
+  virgl_renderer_resource_detach_iov(1, &iovs_r, &num_r);
+
+  free(iovs[0].iov_base);
+  virgl_renderer_resource_unref(1);
+  virgl_renderer_context_destroy(1);
+  virgl_renderer_cleanup(&mystruct);
+}
+END_TEST
+
+START_TEST(virgl_init_egl_create_ctx_create_attach_res_detach_no_iovs)
+{
+  int ret;
+  struct virgl_renderer_resource_create_args res;
+  struct iovec iovs[1];
+  int num_r;
+  test_cbs.version = 1;
+  ret = virgl_renderer_init(&mystruct, VIRGL_RENDERER_USE_EGL, &test_cbs);
+  ck_assert_int_eq(ret, 0);
+  ret = virgl_renderer_context_create(1, strlen("test1"), "test1");
+  ck_assert_int_eq(ret, 0);
+
+  testvirgl_init_simple_1d_resource(&res, 1);
+
+  ret = virgl_renderer_resource_create(&res, NULL, 0);
+  ck_assert_int_eq(ret, 0);
+
+  iovs[0].iov_base = malloc(4096);
+  iovs[0].iov_len = 4096;
+
+  ret = virgl_renderer_resource_attach_iov(1, iovs, 1);
+  ck_assert_int_eq(ret, 0);
+
+  virgl_renderer_resource_detach_iov(1, NULL, &num_r);
+
+  free(iovs[0].iov_base);
+  virgl_renderer_resource_unref(1);
+  virgl_renderer_context_destroy(1);
+  virgl_renderer_cleanup(&mystruct);
+}
+END_TEST
+
+START_TEST(virgl_init_egl_create_ctx_create_attach_res_illegal_res)
+{
+  int ret;
+  struct iovec iovs[1];
+
+  test_cbs.version = 1;
+  ret = virgl_renderer_init(&mystruct, VIRGL_RENDERER_USE_EGL, &test_cbs);
+  ck_assert_int_eq(ret, 0);
+
+  ret = virgl_renderer_resource_attach_iov(1, iovs, 1);
+  ck_assert_int_eq(ret, EINVAL);
+
+  virgl_renderer_resource_unref(1);
+  virgl_renderer_context_destroy(1);
+  virgl_renderer_cleanup(&mystruct);
+}
+END_TEST
+
 Suite *virgl_init_suite(void)
 {
   Suite *s;
@@ -473,7 +557,9 @@ Suite *virgl_init_suite(void)
   tcase_add_test(tc_core, virgl_test_get_resource_info);
   tcase_add_test(tc_core, virgl_test_get_resource_info_no_info);
   tcase_add_test(tc_core, virgl_test_get_resource_info_no_res);
-
+  tcase_add_test(tc_core, virgl_init_egl_create_ctx_create_attach_res);
+  tcase_add_test(tc_core, virgl_init_egl_create_ctx_create_attach_res_detach_no_iovs);
+  tcase_add_test(tc_core, virgl_init_egl_create_ctx_create_attach_res_illegal_res);
   suite_add_tcase(s, tc_core);
   return s;
 
