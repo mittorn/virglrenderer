@@ -35,6 +35,25 @@
 #include "testvirgl.h"
 
 #include "pipe/p_defines.h"
+
+/* create a buffer */
+START_TEST(virgl_res_create_buffer)
+{
+  int ret;
+  struct virgl_renderer_resource_create_args res;
+
+  ret = testvirgl_init_single_ctx();
+  ck_assert_int_eq(ret, 0);
+
+  testvirgl_init_simple_buffer(&res, 1);
+
+  ret = virgl_renderer_resource_create(&res, NULL, 0);
+  ck_assert_int_eq(ret, 0);
+
+  testvirgl_fini_single_ctx();
+}
+END_TEST
+
 /* create a 1D texture */
 START_TEST(virgl_res_create_1d)
 {
@@ -42,6 +61,7 @@ START_TEST(virgl_res_create_1d)
   struct virgl_renderer_resource_create_args res;
 
   ret = testvirgl_init_single_ctx();
+  ck_assert_int_eq(ret, 0);
 
   testvirgl_init_simple_1d_resource(&res, 1);
 
@@ -59,6 +79,7 @@ START_TEST(virgl_res_create_1d_with_height)
   struct virgl_renderer_resource_create_args res;
 
   ret = testvirgl_init_single_ctx();
+  ck_assert_int_eq(ret, 0);
 
   testvirgl_init_simple_1d_resource(&res, 1);
 
@@ -77,6 +98,7 @@ START_TEST(virgl_res_create_1d_with_depth)
   struct virgl_renderer_resource_create_args res;
 
   ret = testvirgl_init_single_ctx();
+  ck_assert_int_eq(ret, 0);
 
   testvirgl_init_simple_1d_resource(&res, 1);
 
@@ -95,6 +117,7 @@ START_TEST(virgl_res_create_1d_array)
   struct virgl_renderer_resource_create_args res;
 
   ret = testvirgl_init_single_ctx();
+  ck_assert_int_eq(ret, 0);
 
   testvirgl_init_simple_1d_resource(&res, 1);
   res.target = PIPE_TEXTURE_1D_ARRAY;
@@ -113,6 +136,7 @@ START_TEST(virgl_res_create_1d_array_with_height)
   struct virgl_renderer_resource_create_args res;
 
   ret = testvirgl_init_single_ctx();
+  ck_assert_int_eq(ret, 0);
 
   testvirgl_init_simple_1d_resource(&res, 1);
   res.target = PIPE_TEXTURE_1D_ARRAY;
@@ -132,6 +156,7 @@ START_TEST(virgl_res_create_1d_array_with_depth)
   struct virgl_renderer_resource_create_args res;
 
   ret = testvirgl_init_single_ctx();
+  ck_assert_int_eq(ret, 0);
 
   testvirgl_init_simple_1d_resource(&res, 1);
   res.target = PIPE_TEXTURE_1D_ARRAY;
@@ -151,9 +176,9 @@ START_TEST(virgl_res_create_2d)
   struct virgl_renderer_resource_create_args res;
 
   ret = testvirgl_init_single_ctx();
+  ck_assert_int_eq(ret, 0);
 
   testvirgl_init_simple_2d_resource(&res, 1);
-
   ret = virgl_renderer_resource_create(&res, NULL, 0);
   ck_assert_int_eq(ret, 0);
 
@@ -168,6 +193,7 @@ START_TEST(virgl_res_create_2d_with_depth)
   struct virgl_renderer_resource_create_args res;
 
   ret = testvirgl_init_single_ctx();
+  ck_assert_int_eq(ret, 0);
 
   testvirgl_init_simple_1d_resource(&res, 1);
 
@@ -186,6 +212,7 @@ START_TEST(virgl_res_create_2d_array)
   struct virgl_renderer_resource_create_args res;
 
   ret = testvirgl_init_single_ctx();
+  ck_assert_int_eq(ret, 0);
 
   testvirgl_init_simple_2d_resource(&res, 1);
   res.target = PIPE_TEXTURE_2D_ARRAY;
@@ -205,6 +232,7 @@ START_TEST(virgl_res_create_2d_array_with_depth)
   struct virgl_renderer_resource_create_args res;
 
   ret = testvirgl_init_single_ctx();
+  ck_assert_int_eq(ret, 0);
 
   testvirgl_init_simple_1d_resource(&res, 1);
   res.target = PIPE_TEXTURE_2D_ARRAY;
@@ -226,6 +254,7 @@ Suite *virgl_init_suite(void)
   s = suite_create("virgl_resource");
   tc_core = tcase_create("resource");
 
+  tcase_add_test(tc_core, virgl_res_create_buffer);
   tcase_add_test(tc_core, virgl_res_create_1d);
   tcase_add_test(tc_core, virgl_res_create_1d_with_height);
   tcase_add_test(tc_core, virgl_res_create_1d_with_depth);

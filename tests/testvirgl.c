@@ -44,6 +44,21 @@ void testvirgl_init_simple_1d_resource(struct virgl_renderer_resource_create_arg
     res->flags = 0;
 }
 
+void testvirgl_init_simple_buffer(struct virgl_renderer_resource_create_args *res, int handle)
+{
+    res->handle = handle;
+    res->target = PIPE_BUFFER;
+    res->format = PIPE_FORMAT_R8_UNORM;
+    res->width = 50;
+    res->height = 1;
+    res->depth = 1;
+    res->array_size = 1;
+    res->last_level = 0;
+    res->nr_samples = 0;
+    res->bind = 0;
+    res->flags = 0;
+}
+
 void testvirgl_init_simple_2d_resource(struct virgl_renderer_resource_create_args *res, int handle)
 {
     res->handle = handle;
