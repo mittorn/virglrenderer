@@ -3262,7 +3262,7 @@ struct vrend_context *vrend_create_context(int id, uint32_t nlen, const char *de
    if (!grctx)
       return NULL;
 
-   if (nlen) {
+   if (nlen && debug_name) {
       strncpy(grctx->debug_name, debug_name, 64);
    }
 
