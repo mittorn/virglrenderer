@@ -62,8 +62,7 @@ void virgl_renderer_fill_caps(uint32_t set, uint32_t version,
 
 int virgl_renderer_context_create(uint32_t handle, uint32_t nlen, const char *name)
 {
-   vrend_renderer_context_create(handle, nlen, name);
-   return 0;
+   return vrend_renderer_context_create(handle, nlen, name);
 }
 
 void virgl_renderer_context_destroy(uint32_t handle)

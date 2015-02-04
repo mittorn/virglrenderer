@@ -985,25 +985,29 @@ void vrend_renderer_context_create_internal(uint32_t handle, uint32_t nlen,
    dec_ctx[handle] = dctx;
 }
 
-void vrend_renderer_context_create(uint32_t handle, uint32_t nlen, const char *debug_name)
+int vrend_renderer_context_create(uint32_t handle, uint32_t nlen, const char *debug_name)
 {
    if (handle > VREND_MAX_CTX)
-      return;
+      return EINVAL;
    /* context 0 is always available with no guarantees */
    if (handle == 0)
-      return;
+      return EINVAL;
 
    vrend_renderer_context_create_internal(handle, nlen, debug_name);
+   return 0;
 }
 
 void vrend_renderer_context_destroy(uint32_t handle)
 {
    struct vrend_decode_ctx *ctx;
    bool ret;
+
    if (handle > VREND_MAX_CTX)
       return;
 
    ctx = dec_ctx[handle];
+   if (!ctx)
+     return;
    dec_ctx[handle] = NULL;
    ret = vrend_destroy_context(ctx->grctx);
    free(ctx);

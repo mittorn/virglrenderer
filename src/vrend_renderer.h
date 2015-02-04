@@ -124,7 +124,7 @@ void vrend_flush(struct vrend_context *ctx);
 void vrend_flush_frontbuffer(uint32_t res_handle);
 struct vrend_context *vrend_create_context(int id, uint32_t nlen, const char *debug_name);
 bool vrend_destroy_context(struct vrend_context *ctx);
-void vrend_renderer_context_create(uint32_t handle, uint32_t nlen, const char *name);
+int vrend_renderer_context_create(uint32_t handle, uint32_t nlen, const char *name);
 void vrend_renderer_context_create_internal(uint32_t handle, uint32_t nlen, const char *name);
 void vrend_renderer_context_destroy(uint32_t handle);
 
