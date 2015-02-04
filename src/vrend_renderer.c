@@ -5133,6 +5133,10 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
    int i;
    GLint max;
    int gl_ver = epoxy_gl_version();
+
+   if (!caps)
+     return;
+
    memset(caps, 0, sizeof(*caps));
 
    if (set != 1 && set != 0) {
