@@ -23,6 +23,7 @@
  **************************************************************************/
 
 /* helper functions for testing purposes */
+#include <check.h>
 #include "pipe/p_defines.h"
 #include "pipe/p_format.h"
 #include "testvirgl.h"
@@ -89,11 +90,18 @@ int testvirgl_init_single_ctx(void)
 
     test_cbs.version = 1;
     ret = virgl_renderer_init(&mystruct, VIRGL_RENDERER_USE_EGL, &test_cbs);
+    ck_assert_int_eq(ret, 0);
     if (ret)
 	return ret;
     ret = virgl_renderer_context_create(1, strlen("test1"), "test1");
+    ck_assert_int_eq(ret, 0);
     return ret;
 
+}
+
+void testvirgl_init_single_ctx_nr(void)
+{
+    testvirgl_init_single_ctx();
 }
 
 void testvirgl_fini_single_ctx(void)

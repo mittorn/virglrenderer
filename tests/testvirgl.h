@@ -31,6 +31,7 @@ void testvirgl_init_simple_buffer(struct virgl_renderer_resource_create_args *re
 void testvirgl_init_simple_1d_resource(struct virgl_renderer_resource_create_args *args, int handle);
 void testvirgl_init_simple_2d_resource(struct virgl_renderer_resource_create_args *res, int handle);
 int testvirgl_init_single_ctx(void);
+void testvirgl_init_single_ctx_nr(void);
 void testvirgl_fini_single_ctx(void);
 
 #endif
