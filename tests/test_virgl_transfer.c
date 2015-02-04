@@ -34,34 +34,42 @@
 /* pass an illegal context to transfer fn */
 START_TEST(virgl_test_transfer_read_illegal_ctx)
 {
+  int ret;
   struct virgl_box box;
 
-  virgl_renderer_transfer_read_iov(1, 2, 1, 1, 1, &box, 0, NULL, 0);
+  ret = virgl_renderer_transfer_read_iov(1, 2, 1, 1, 1, &box, 0, NULL, 0);
+  ck_assert_int_eq(ret, EINVAL);
 }
 END_TEST
 
 START_TEST(virgl_test_transfer_write_illegal_ctx)
 {
+  int ret;
   struct virgl_box box;
 
-  virgl_renderer_transfer_write_iov(1, 2, 1, 1, 1, &box, 0, NULL, 0);
+  ret = virgl_renderer_transfer_write_iov(1, 2, 1, 1, 1, &box, 0, NULL, 0);
+  ck_assert_int_eq(ret, EINVAL);
 }
 END_TEST
 
 /* pass a resource not bound to the context to transfers */
 START_TEST(virgl_test_transfer_read_unbound_res)
 {
+  int ret;
   struct virgl_box box;
 
-  virgl_renderer_transfer_read_iov(1, 1, 1, 1, 1, &box, 0, NULL, 0);
+  ret = virgl_renderer_transfer_read_iov(1, 1, 1, 1, 1, &box, 0, NULL, 0);
+  ck_assert_int_eq(ret, EINVAL);
 }
 END_TEST
 
 START_TEST(virgl_test_transfer_write_unbound_res)
 {
+  int ret;
   struct virgl_box box;
 
-  virgl_renderer_transfer_write_iov(1, 1, 1, 1, 1, &box, 0, NULL, 0);
+  ret = virgl_renderer_transfer_write_iov(1, 1, 1, 1, 1, &box, 0, NULL, 0);
+  ck_assert_int_eq(ret, EINVAL);
 }
 END_TEST
 
@@ -79,8 +87,8 @@ START_TEST(virgl_test_transfer_read_no_iov)
 
   virgl_renderer_ctx_attach_resource(1, res.handle);
 
-  virgl_renderer_transfer_read_iov(1, 1, 1, 1, 1, &box, 0, NULL, 0);
-
+  ret = virgl_renderer_transfer_read_iov(1, 1, 1, 1, 1, &box, 0, NULL, 0);
+  ck_assert_int_eq(ret, EINVAL);
   virgl_renderer_ctx_detach_resource(1, res.handle);
 
   virgl_renderer_resource_unref(1);
@@ -100,8 +108,8 @@ START_TEST(virgl_test_transfer_write_no_iov)
 
   virgl_renderer_ctx_attach_resource(1, res.handle);
 
-  virgl_renderer_transfer_write_iov(1, 1, 1, 1, 1, &box, 0, NULL, 0);
-
+  ret = virgl_renderer_transfer_write_iov(1, 1, 1, 1, 1, &box, 0, NULL, 0);
+  ck_assert_int_eq(ret, EINVAL);
   virgl_renderer_ctx_detach_resource(1, res.handle);
 
   virgl_renderer_resource_unref(1);
@@ -122,8 +130,8 @@ START_TEST(virgl_test_transfer_read_no_box)
 
   virgl_renderer_ctx_attach_resource(1, res.handle);
 
-  virgl_renderer_transfer_read_iov(1, 1, 1, 1, 1, NULL, 0, iovs, niovs);
-
+  ret = virgl_renderer_transfer_read_iov(1, 1, 1, 1, 1, NULL, 0, iovs, niovs);
+  ck_assert_int_eq(ret, EINVAL);
   virgl_renderer_ctx_detach_resource(1, res.handle);
 
   virgl_renderer_resource_unref(1);
@@ -144,8 +152,8 @@ START_TEST(virgl_test_transfer_write_no_box)
 
   virgl_renderer_ctx_attach_resource(1, res.handle);
 
-  virgl_renderer_transfer_write_iov(1, 1, 1, 1, 1, NULL, 0, iovs, niovs);
-
+  ret = virgl_renderer_transfer_write_iov(1, 1, 1, 1, 1, NULL, 0, iovs, niovs);
+  ck_assert_int_eq(ret, EINVAL);
   virgl_renderer_ctx_detach_resource(1, res.handle);
 
   virgl_renderer_resource_unref(1);
