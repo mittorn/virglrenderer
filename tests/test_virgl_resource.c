@@ -104,6 +104,8 @@ static struct res_test testlist[] = {
   /* buffer test with samples - FAIL */
   TEST(1, PIPE_BUFFER, PIPE_FORMAT_R8_UNORM, 0, 50, 1, 1, 1, 4, EINVAL),
 
+  /* buffer test - sampler view */
+  TEST(1, PIPE_BUFFER, PIPE_FORMAT_R8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 1, 0, 0),
   /* buffer test - custom binding */
   TEST(1, PIPE_BUFFER, PIPE_FORMAT_R8_UNORM, PIPE_BIND_CUSTOM, 50, 1, 1, 1, 0, 0),
   /* buffer test - vertex binding */
