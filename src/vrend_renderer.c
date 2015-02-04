@@ -3653,10 +3653,17 @@ void vrend_renderer_transfer_write_iov(uint32_t res_handle,
                                       unsigned int num_iovs)
 {
    struct vrend_resource *res;
-
+   struct vrend_context *ctx = vrend_lookup_renderer_ctx(ctx_id);
    void *data;
 
-   res = vrend_resource_lookup(res_handle, ctx_id);
+   if (!ctx)
+     return;
+
+   if (ctx_id == 0)
+     res = vrend_resource_lookup(res_handle, ctx_id);
+   else
+     res = vrend_renderer_ctx_res_lookup(ctx, res_handle);
+
    if (res == NULL) {
       struct vrend_context *ctx = vrend_lookup_renderer_ctx(ctx_id);
       report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, res_handle);
@@ -3667,6 +3674,9 @@ void vrend_renderer_transfer_write_iov(uint32_t res_handle,
       iov = res->iov;
       num_iovs = res->num_iovs;
    }
+
+   if (!box)
+     return;
 
    if (!iov) {
       struct vrend_context *ctx = vrend_lookup_renderer_ctx(ctx_id);
@@ -4096,11 +4106,20 @@ void vrend_renderer_transfer_send_iov(uint32_t res_handle, uint32_t ctx_id,
    struct vrend_resource *res;
    struct vrend_context *ctx = vrend_lookup_renderer_ctx(ctx_id);
 
-   res = vrend_resource_lookup(res_handle, ctx_id);
+   if (!ctx)
+     return;
+
+   if (ctx_id == 0)
+     res = vrend_resource_lookup(res_handle, ctx_id);
+   else
+     res = vrend_renderer_ctx_res_lookup(ctx, res_handle);
    if (!res) {
       report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, res_handle);
       return;
    }
+
+   if (!box)
+     return;
 
    if (res->iov && (!iov || num_iovs == 0)) {
       iov = res->iov;
