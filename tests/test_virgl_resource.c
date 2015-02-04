@@ -35,266 +35,180 @@
 #include "testvirgl.h"
 
 #include "pipe/p_defines.h"
+#include "pipe/p_format.h"
 
-/* create a buffer */
-START_TEST(virgl_res_create_buffer)
+#ifndef ARRAY_SIZE
+#  define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
+#endif
+
+struct res_test {
+    struct virgl_renderer_resource_create_args args;
+    int retval;
+};
+
+#define TEST(thandle, ttarget, tformat, tbind, twidth, theight, tdepth, tarray_size, tnr_samples, tretval) \
+  { .args = { .handle = (thandle),					\
+	      .target = (ttarget),					\
+	      .format = (tformat),					\
+	      .bind = (tbind),						\
+	      .width = (twidth),					\
+	      .height = (theight),					\
+	      .depth = (tdepth),					\
+	      .array_size = (tarray_size),				\
+	      .nr_samples = (tnr_samples),				\
+	      .flags = 0 },					\
+      .retval = (tretval)}
+
+static struct res_test testlist[] = {
+
+  /* illegal target - FAIL */
+  TEST(1, PIPE_MAX_TEXTURE_TYPES + 1, PIPE_FORMAT_R8_UNORM, 0, 50, 1, 1, 1, 0, EINVAL),
+
+  /* illegal format - FAIL */
+  TEST(1, PIPE_BUFFER, PIPE_FORMAT_COUNT + 1, 0, 50, 1, 1, 1, 0, EINVAL),
+
+  /* buffer test - PASS */
+  TEST(1, PIPE_BUFFER, PIPE_FORMAT_R8_UNORM, 0, 50, 1, 1, 1, 0, 0),
+  /* buffer test with height - FAIL */
+  TEST(1, PIPE_BUFFER, PIPE_FORMAT_R8_UNORM, 0, 50, 50, 1, 1, 0, EINVAL),
+  /* buffer test with depth - FAIL */
+  TEST(1, PIPE_BUFFER, PIPE_FORMAT_R8_UNORM, 0, 50, 1, 5, 1, 0, EINVAL),
+  /* buffer test with array - FAIL */
+  TEST(1, PIPE_BUFFER, PIPE_FORMAT_R8_UNORM, 0, 50, 1, 1, 4, 0, EINVAL),
+  /* buffer test with samples - FAIL */
+  TEST(1, PIPE_BUFFER, PIPE_FORMAT_R8_UNORM, 0, 50, 1, 1, 1, 4, EINVAL),
+
+  /* buffer test - custom binding */
+  TEST(1, PIPE_BUFFER, PIPE_FORMAT_R8_UNORM, PIPE_BIND_CUSTOM, 50, 1, 1, 1, 0, 0),
+  /* buffer test - vertex binding */
+  TEST(1, PIPE_BUFFER, PIPE_FORMAT_R8_UNORM, PIPE_BIND_VERTEX_BUFFER, 50, 1, 1, 1, 0, 0),
+  /* buffer test - index binding */
+  TEST(1, PIPE_BUFFER, PIPE_FORMAT_R8_UNORM, PIPE_BIND_INDEX_BUFFER, 50, 1, 1, 1, 0, 0),
+  /* buffer test - constant binding */
+  TEST(1, PIPE_BUFFER, PIPE_FORMAT_R8_UNORM, PIPE_BIND_CONSTANT_BUFFER, 50, 1, 1, 1, 0, 0),
+  /* buffer test - stream binding */
+  TEST(1, PIPE_BUFFER, PIPE_FORMAT_R8_UNORM, PIPE_BIND_STREAM_OUTPUT, 50, 1, 1, 1, 0, 0),
+
+  /* 1D test - stream binding - FAIL */
+  TEST(1, PIPE_TEXTURE_1D, PIPE_FORMAT_R8_UNORM, PIPE_BIND_VERTEX_BUFFER, 50, 1, 1, 1, 0, EINVAL),
+  /* 1D test - no binding - FAIL */
+  TEST(1, PIPE_TEXTURE_1D, PIPE_FORMAT_R8_UNORM, 0, 50, 1, 1, 1, 0, EINVAL),
+
+  /* 1D texture - PASS */
+  TEST(1, PIPE_TEXTURE_1D, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 1, 0, 0),
+  /* 1D texture with height - FAIL */
+  TEST(1, PIPE_TEXTURE_1D, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 50, 1, 1, 0, EINVAL),
+  /* 1D texture with depth - FAIL */
+  TEST(1, PIPE_TEXTURE_1D, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 5, 1, 0, EINVAL),
+  /* 1D texture with array - FAIL */
+  TEST(1, PIPE_TEXTURE_1D, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 5, 0, EINVAL),
+  /* 1D texture with samples - FAIL */
+  TEST(1, PIPE_TEXTURE_1D, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 1, 4, EINVAL),
+
+  /* 1D array texture - PASS */
+  TEST(1, PIPE_TEXTURE_1D_ARRAY, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 1, 0, 0),
+  /* 1D array texture with height - FAIL */
+  TEST(1, PIPE_TEXTURE_1D_ARRAY, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 50, 1, 1, 0, EINVAL),
+  /* 1D texture with depth - FAIL */
+  TEST(1, PIPE_TEXTURE_1D_ARRAY, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 5, 1, 0, EINVAL),
+  /* 1D texture with array - PASS */
+  TEST(1, PIPE_TEXTURE_1D_ARRAY, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 5, 0, 0),
+  /* 1D texture with samples - FAIL */
+  TEST(1, PIPE_TEXTURE_1D_ARRAY, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 1, 4, EINVAL),
+
+  /* 2D texture - PASS */
+  TEST(1, PIPE_TEXTURE_2D, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 1, 0, 0),
+  /* 2D texture with height - PASS */
+  TEST(1, PIPE_TEXTURE_2D, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 50, 1, 1, 0, 0),
+  /* 2D texture with depth - FAIL */
+  TEST(1, PIPE_TEXTURE_2D, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 5, 1, 0, EINVAL),
+  /* 2D texture with array - FAIL */
+  TEST(1, PIPE_TEXTURE_2D, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 5, 0, EINVAL),
+  /* 2D texture with samples - PASS */
+  TEST(1, PIPE_TEXTURE_2D, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 1, 4, 0),
+
+  /* RECT texture - PASS */
+  TEST(1, PIPE_TEXTURE_RECT, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 1, 0, 0),
+  /* RECT texture with height - PASS */
+  TEST(1, PIPE_TEXTURE_RECT, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 50, 1, 1, 0, 0),
+  /* RECT texture with depth - FAIL */
+  TEST(1, PIPE_TEXTURE_RECT, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 5, 1, 0, EINVAL),
+  /* RECT texture with array - FAIL */
+  TEST(1, PIPE_TEXTURE_RECT, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 5, 0, EINVAL),
+  /* RECT texture with samples - FAIL */
+  TEST(1, PIPE_TEXTURE_RECT, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 1, 4, EINVAL),
+
+  /* 2D texture array - PASS */
+  TEST(1, PIPE_TEXTURE_2D_ARRAY, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 1, 0, 0),
+  /* 2D texture with height - PASS */
+  TEST(1, PIPE_TEXTURE_2D_ARRAY, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 50, 1, 1, 0, 0),
+  /* 2D texture with depth - FAIL */
+  TEST(1, PIPE_TEXTURE_2D_ARRAY, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 5, 1, 0, EINVAL),
+  /* 2D texture with array - FAIL */
+  TEST(1, PIPE_TEXTURE_2D_ARRAY, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 5, 0, 0),
+  /* 2D texture with samples - PASS */
+  TEST(1, PIPE_TEXTURE_2D_ARRAY, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 1, 4, 0),
+
+  /* 3D texture - PASS */
+  TEST(1, PIPE_TEXTURE_3D, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 1, 0, 0),
+  /* 3D texture with height - PASS */
+  TEST(1, PIPE_TEXTURE_3D, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 50, 1, 1, 0, 0),
+  /* 3D texture with depth - PASS */
+  TEST(1, PIPE_TEXTURE_3D, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 5, 1, 0, 0),
+  /* 3D texture with array - FAIL */
+  TEST(1, PIPE_TEXTURE_3D, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 5, 0, EINVAL),
+  /* 3D texture with samples - FAIL */
+  TEST(1, PIPE_TEXTURE_3D, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 1, 4, EINVAL),
+
+  /* CUBE texture with array size == 6 - PASS */
+  TEST(1, PIPE_TEXTURE_CUBE, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 6, 0, 0),
+  /* CUBE texture with array size != 6 - FAIL */
+  TEST(1, PIPE_TEXTURE_CUBE, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 1, 0, EINVAL),
+  /* CUBE texture with height - PASS */
+  TEST(1, PIPE_TEXTURE_CUBE, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 50, 1, 6, 0, 0),
+  /* CUBE texture with depth - FAIL */
+  TEST(1, PIPE_TEXTURE_CUBE, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 5, 6, 0, EINVAL),
+  /* CUBE texture with samples - FAIL */
+  TEST(1, PIPE_TEXTURE_CUBE, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 6, 4, EINVAL),
+};
+
+/* separate since these may fail on a GL that doesn't support cube map arrays */
+static struct res_test cubemaparray_testlist[] = {
+  /* CUBE array with array size = 6 - PASS */
+  TEST(1, PIPE_TEXTURE_CUBE_ARRAY, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 6, 1, 0),
+  /* CUBE array with array size = 12 - PASS */
+  TEST(1, PIPE_TEXTURE_CUBE_ARRAY, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 12, 1, 0),
+  /* CUBE array with array size = 10 - FAIL */
+  TEST(1, PIPE_TEXTURE_CUBE_ARRAY, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 10, 1, EINVAL),
+  /* CUBE array with array size = 12 and height - PASS */
+  TEST(1, PIPE_TEXTURE_CUBE_ARRAY, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 50, 1, 12, 1, 0),
+  /* CUBE array with array size = 12 and depth - FAIL */
+  TEST(1, PIPE_TEXTURE_CUBE_ARRAY, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 50, 5, 12, 1, EINVAL),
+  /* CUBE array with array size = 12 and samples - FAIL */
+  TEST(1, PIPE_TEXTURE_CUBE_ARRAY, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 50, 1, 12, 4, EINVAL),
+};
+
+START_TEST(virgl_res_tests)
 {
   int ret;
-  struct virgl_renderer_resource_create_args res;
-
   ret = testvirgl_init_single_ctx();
   ck_assert_int_eq(ret, 0);
 
-  testvirgl_init_simple_buffer(&res, 1);
-
-  ret = virgl_renderer_resource_create(&res, NULL, 0);
-  ck_assert_int_eq(ret, 0);
+  ret = virgl_renderer_resource_create(&testlist[_i].args, NULL, 0);
+  ck_assert_int_eq(ret, testlist[_i].retval);
 
   testvirgl_fini_single_ctx();
 }
 END_TEST
 
-/* create a buffer */
-START_TEST(virgl_res_create_buffer_with_height)
+START_TEST(cubemaparray_res_tests)
 {
   int ret;
-  struct virgl_renderer_resource_create_args res;
-
   ret = testvirgl_init_single_ctx();
   ck_assert_int_eq(ret, 0);
 
-  testvirgl_init_simple_buffer(&res, 1);
-  res.height = 50;
-  ret = virgl_renderer_resource_create(&res, NULL, 0);
-  ck_assert_int_eq(ret, EINVAL);
-
-  testvirgl_fini_single_ctx();
-}
-END_TEST
-
-/* create a buffer */
-START_TEST(virgl_res_create_buffer_with_depth)
-{
-  int ret;
-  struct virgl_renderer_resource_create_args res;
-
-  ret = testvirgl_init_single_ctx();
-  ck_assert_int_eq(ret, 0);
-
-  testvirgl_init_simple_buffer(&res, 1);
-  res.depth = 2;
-  ret = virgl_renderer_resource_create(&res, NULL, 0);
-  ck_assert_int_eq(ret, EINVAL);
-
-  testvirgl_fini_single_ctx();
-}
-END_TEST
-
-/* create a buffer */
-START_TEST(virgl_res_create_buffer_with_samples)
-{
-  int ret;
-  struct virgl_renderer_resource_create_args res;
-
-  ret = testvirgl_init_single_ctx();
-  ck_assert_int_eq(ret, 0);
-
-  testvirgl_init_simple_buffer(&res, 1);
-  res.nr_samples = 2;
-  ret = virgl_renderer_resource_create(&res, NULL, 0);
-  ck_assert_int_eq(ret, EINVAL);
-
-  testvirgl_fini_single_ctx();
-}
-END_TEST
-
-/* create a 1D texture */
-START_TEST(virgl_res_create_1d)
-{
-  int ret;
-  struct virgl_renderer_resource_create_args res;
-
-  ret = testvirgl_init_single_ctx();
-  ck_assert_int_eq(ret, 0);
-
-  testvirgl_init_simple_1d_resource(&res, 1);
-
-  ret = virgl_renderer_resource_create(&res, NULL, 0);
-  ck_assert_int_eq(ret, 0);
-
-  testvirgl_fini_single_ctx();
-}
-END_TEST
-
-/* create a 1D texture with height - this should fail */
-START_TEST(virgl_res_create_1d_with_height)
-{
-  int ret;
-  struct virgl_renderer_resource_create_args res;
-
-  ret = testvirgl_init_single_ctx();
-  ck_assert_int_eq(ret, 0);
-
-  testvirgl_init_simple_1d_resource(&res, 1);
-
-  res.height = 50;
-  ret = virgl_renderer_resource_create(&res, NULL, 0);
-  ck_assert_int_eq(ret, EINVAL);
-
-  testvirgl_fini_single_ctx();
-}
-END_TEST
-
-/* create a 1D texture with depth - this should fail */
-START_TEST(virgl_res_create_1d_with_depth)
-{
-  int ret;
-  struct virgl_renderer_resource_create_args res;
-
-  ret = testvirgl_init_single_ctx();
-  ck_assert_int_eq(ret, 0);
-
-  testvirgl_init_simple_1d_resource(&res, 1);
-
-  res.depth = 2;
-  ret = virgl_renderer_resource_create(&res, NULL, 0);
-  ck_assert_int_eq(ret, EINVAL);
-
-  testvirgl_fini_single_ctx();
-}
-END_TEST
-
-/* create a 1D array texture */
-START_TEST(virgl_res_create_1d_array)
-{
-  int ret;
-  struct virgl_renderer_resource_create_args res;
-
-  ret = testvirgl_init_single_ctx();
-  ck_assert_int_eq(ret, 0);
-
-  testvirgl_init_simple_1d_resource(&res, 1);
-  res.target = PIPE_TEXTURE_1D_ARRAY;
-  res.array_size = 2;
-  ret = virgl_renderer_resource_create(&res, NULL, 0);
-  ck_assert_int_eq(ret, 0);
-
-  testvirgl_fini_single_ctx();
-}
-END_TEST
-
-/* create a 1D texture with height - this should fail */
-START_TEST(virgl_res_create_1d_array_with_height)
-{
-  int ret;
-  struct virgl_renderer_resource_create_args res;
-
-  ret = testvirgl_init_single_ctx();
-  ck_assert_int_eq(ret, 0);
-
-  testvirgl_init_simple_1d_resource(&res, 1);
-  res.target = PIPE_TEXTURE_1D_ARRAY;
-  res.array_size = 2;
-  res.height = 50;
-  ret = virgl_renderer_resource_create(&res, NULL, 0);
-  ck_assert_int_eq(ret, EINVAL);
-
-  testvirgl_fini_single_ctx();
-}
-END_TEST
-
-/* create a 1D texture with depth - this should fail */
-START_TEST(virgl_res_create_1d_array_with_depth)
-{
-  int ret;
-  struct virgl_renderer_resource_create_args res;
-
-  ret = testvirgl_init_single_ctx();
-  ck_assert_int_eq(ret, 0);
-
-  testvirgl_init_simple_1d_resource(&res, 1);
-  res.target = PIPE_TEXTURE_1D_ARRAY;
-  res.array_size = 2;
-  res.depth = 2;
-  ret = virgl_renderer_resource_create(&res, NULL, 0);
-  ck_assert_int_eq(ret, EINVAL);
-
-  testvirgl_fini_single_ctx();
-}
-END_TEST
-
-/* create a 2D texture */
-START_TEST(virgl_res_create_2d)
-{
-  int ret;
-  struct virgl_renderer_resource_create_args res;
-
-  ret = testvirgl_init_single_ctx();
-  ck_assert_int_eq(ret, 0);
-
-  testvirgl_init_simple_2d_resource(&res, 1);
-  ret = virgl_renderer_resource_create(&res, NULL, 0);
-  ck_assert_int_eq(ret, 0);
-
-  testvirgl_fini_single_ctx();
-}
-END_TEST
-
-/* create a 2D texture with depth - this should fail */
-START_TEST(virgl_res_create_2d_with_depth)
-{
-  int ret;
-  struct virgl_renderer_resource_create_args res;
-
-  ret = testvirgl_init_single_ctx();
-  ck_assert_int_eq(ret, 0);
-
-  testvirgl_init_simple_1d_resource(&res, 1);
-
-  res.depth = 2;
-  ret = virgl_renderer_resource_create(&res, NULL, 0);
-  ck_assert_int_eq(ret, EINVAL);
-
-  testvirgl_fini_single_ctx();
-}
-END_TEST
-
-/* create a 2D Array texture */
-START_TEST(virgl_res_create_2d_array)
-{
-  int ret;
-  struct virgl_renderer_resource_create_args res;
-
-  ret = testvirgl_init_single_ctx();
-  ck_assert_int_eq(ret, 0);
-
-  testvirgl_init_simple_2d_resource(&res, 1);
-  res.target = PIPE_TEXTURE_2D_ARRAY;
-  res.array_size = 2;
-
-  ret = virgl_renderer_resource_create(&res, NULL, 0);
-  ck_assert_int_eq(ret, 0);
-
-  testvirgl_fini_single_ctx();
-}
-END_TEST
-
-/* create a 2D array texture with depth - this should fail */
-START_TEST(virgl_res_create_2d_array_with_depth)
-{
-  int ret;
-  struct virgl_renderer_resource_create_args res;
-
-  ret = testvirgl_init_single_ctx();
-  ck_assert_int_eq(ret, 0);
-
-  testvirgl_init_simple_1d_resource(&res, 1);
-  res.target = PIPE_TEXTURE_2D_ARRAY;
-  res.array_size = 2;
-
-  res.depth = 2;
-  ret = virgl_renderer_resource_create(&res, NULL, 0);
-  ck_assert_int_eq(ret, EINVAL);
+  ret = virgl_renderer_resource_create(&cubemaparray_testlist[_i].args, NULL, 0);
+  ck_assert_int_eq(ret, cubemaparray_testlist[_i].retval);
 
   testvirgl_fini_single_ctx();
 }
@@ -308,20 +222,8 @@ Suite *virgl_init_suite(void)
   s = suite_create("virgl_resource");
   tc_core = tcase_create("resource");
 
-  tcase_add_test(tc_core, virgl_res_create_buffer);
-  tcase_add_test(tc_core, virgl_res_create_buffer_with_height);
-  tcase_add_test(tc_core, virgl_res_create_buffer_with_depth);
-  tcase_add_test(tc_core, virgl_res_create_buffer_with_samples);
-  tcase_add_test(tc_core, virgl_res_create_1d);
-  tcase_add_test(tc_core, virgl_res_create_1d_with_height);
-  tcase_add_test(tc_core, virgl_res_create_1d_with_depth);
-  tcase_add_test(tc_core, virgl_res_create_1d_array);
-  tcase_add_test(tc_core, virgl_res_create_1d_array_with_height);
-  tcase_add_test(tc_core, virgl_res_create_1d_array_with_depth);
-  tcase_add_test(tc_core, virgl_res_create_2d);
-  tcase_add_test(tc_core, virgl_res_create_2d_with_depth);
-  tcase_add_test(tc_core, virgl_res_create_2d_array);
-  tcase_add_test(tc_core, virgl_res_create_2d_array_with_depth);
+  tcase_add_loop_test(tc_core, virgl_res_tests, 0, ARRAY_SIZE(testlist));
+  tcase_add_loop_test(tc_core, cubemaparray_res_tests, 0, ARRAY_SIZE(cubemaparray_testlist));
   suite_add_tcase(s, tc_core);
   return s;
 
