@@ -71,6 +71,43 @@ START_TEST(virgl_res_create_buffer_with_height)
   testvirgl_fini_single_ctx();
 }
 END_TEST
+
+/* create a buffer */
+START_TEST(virgl_res_create_buffer_with_depth)
+{
+  int ret;
+  struct virgl_renderer_resource_create_args res;
+
+  ret = testvirgl_init_single_ctx();
+  ck_assert_int_eq(ret, 0);
+
+  testvirgl_init_simple_buffer(&res, 1);
+  res.depth = 2;
+  ret = virgl_renderer_resource_create(&res, NULL, 0);
+  ck_assert_int_eq(ret, EINVAL);
+
+  testvirgl_fini_single_ctx();
+}
+END_TEST
+
+/* create a buffer */
+START_TEST(virgl_res_create_buffer_with_samples)
+{
+  int ret;
+  struct virgl_renderer_resource_create_args res;
+
+  ret = testvirgl_init_single_ctx();
+  ck_assert_int_eq(ret, 0);
+
+  testvirgl_init_simple_buffer(&res, 1);
+  res.nr_samples = 2;
+  ret = virgl_renderer_resource_create(&res, NULL, 0);
+  ck_assert_int_eq(ret, EINVAL);
+
+  testvirgl_fini_single_ctx();
+}
+END_TEST
+
 /* create a 1D texture */
 START_TEST(virgl_res_create_1d)
 {
@@ -273,6 +310,8 @@ Suite *virgl_init_suite(void)
 
   tcase_add_test(tc_core, virgl_res_create_buffer);
   tcase_add_test(tc_core, virgl_res_create_buffer_with_height);
+  tcase_add_test(tc_core, virgl_res_create_buffer_with_depth);
+  tcase_add_test(tc_core, virgl_res_create_buffer_with_samples);
   tcase_add_test(tc_core, virgl_res_create_1d);
   tcase_add_test(tc_core, virgl_res_create_1d_with_height);
   tcase_add_test(tc_core, virgl_res_create_1d_with_depth);
