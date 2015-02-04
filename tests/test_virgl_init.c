@@ -98,6 +98,7 @@ END_TEST
 START_TEST(virgl_init_egl_create_ctx_0)
 {
   int ret;
+
   test_cbs.version = 1;
   ret = virgl_renderer_init(&mystruct, VIRGL_RENDERER_USE_EGL, &test_cbs);
   ck_assert_int_eq(ret, 0);
@@ -122,12 +123,7 @@ END_TEST
 
 START_TEST(virgl_init_egl_create_ctx_leak)
 {
-  int ret;
-  test_cbs.version = 1;
-  ret = virgl_renderer_init(&mystruct, VIRGL_RENDERER_USE_EGL, &test_cbs);
-  ck_assert_int_eq(ret, 0);
-  ret = virgl_renderer_context_create(1, strlen("test1"), "test1");
-  ck_assert_int_eq(ret, 0);
+  testvirgl_init_single_ctx();
 
   /* don't destroy the context - leak it make sure cleanup catches it */
   /*virgl_renderer_context_destroy(1);*/
@@ -140,12 +136,6 @@ START_TEST(virgl_init_egl_create_ctx_create_bind_res)
   int ret;
   struct virgl_renderer_resource_create_args res;
 
-  test_cbs.version = 1;
-  ret = virgl_renderer_init(&mystruct, VIRGL_RENDERER_USE_EGL, &test_cbs);
-  ck_assert_int_eq(ret, 0);
-  ret = virgl_renderer_context_create(1, strlen("test1"), "test1");
-  ck_assert_int_eq(ret, 0);
-
   testvirgl_init_simple_1d_resource(&res, 1);
 
   ret = virgl_renderer_resource_create(&res, NULL, 0);
@@ -156,8 +146,6 @@ START_TEST(virgl_init_egl_create_ctx_create_bind_res)
   virgl_renderer_ctx_detach_resource(1, res.handle);
 
   virgl_renderer_resource_unref(1);
-  virgl_renderer_context_destroy(1);
-  virgl_renderer_cleanup(&mystruct);
 }
 END_TEST
 
@@ -165,13 +153,7 @@ START_TEST(virgl_init_egl_create_ctx_create_bind_res_illegal_ctx)
 {
   int ret;
   struct virgl_renderer_resource_create_args res;
-
-  test_cbs.version = 1;
-  ret = virgl_renderer_init(&mystruct, VIRGL_RENDERER_USE_EGL, &test_cbs);
-  ck_assert_int_eq(ret, 0);
-  ret = virgl_renderer_context_create(1, strlen("test1"), "test1");
-  ck_assert_int_eq(ret, 0);
-
+  
   testvirgl_init_simple_1d_resource(&res, 1);
 
   ret = virgl_renderer_resource_create(&res, NULL, 0);
@@ -180,8 +162,6 @@ START_TEST(virgl_init_egl_create_ctx_create_bind_res_illegal_ctx)
   virgl_renderer_ctx_attach_resource(2, res.handle);
 
   virgl_renderer_resource_unref(1);
-  virgl_renderer_context_destroy(1);
-  virgl_renderer_cleanup(&mystruct);
 }
 END_TEST
 
@@ -191,12 +171,6 @@ START_TEST(virgl_init_egl_create_ctx_create_bind_res_illegal_res)
   int ret;
   struct virgl_renderer_resource_create_args res;
 
-  test_cbs.version = 1;
-  ret = virgl_renderer_init(&mystruct, VIRGL_RENDERER_USE_EGL, &test_cbs);
-  ck_assert_int_eq(ret, 0);
-  ret = virgl_renderer_context_create(1, strlen("test1"), "test1");
-  ck_assert_int_eq(ret, 0);
-
   testvirgl_init_simple_1d_resource(&res, 1);
 
   ret = virgl_renderer_resource_create(&res, NULL, 0);
@@ -205,8 +179,6 @@ START_TEST(virgl_init_egl_create_ctx_create_bind_res_illegal_res)
   virgl_renderer_ctx_attach_resource(1, 2);
 
   virgl_renderer_resource_unref(1);
-  virgl_renderer_context_destroy(1);
-  virgl_renderer_cleanup(&mystruct);
 }
 END_TEST
 
@@ -214,12 +186,6 @@ START_TEST(virgl_init_egl_create_ctx_create_unbind_no_bind)
 {
   int ret;
   struct virgl_renderer_resource_create_args res;
-
-  test_cbs.version = 1;
-  ret = virgl_renderer_init(&mystruct, VIRGL_RENDERER_USE_EGL, &test_cbs);
-  ck_assert_int_eq(ret, 0);
-  ret = virgl_renderer_context_create(1, strlen("test1"), "test1");
-  ck_assert_int_eq(ret, 0);
 
   testvirgl_init_simple_1d_resource(&res, 1);
 
@@ -229,8 +195,6 @@ START_TEST(virgl_init_egl_create_ctx_create_unbind_no_bind)
   virgl_renderer_ctx_detach_resource(1, res.handle);
 
   virgl_renderer_resource_unref(1);
-  virgl_renderer_context_destroy(1);
-  virgl_renderer_cleanup(&mystruct);
 }
 END_TEST
 
@@ -238,12 +202,6 @@ START_TEST(virgl_init_egl_create_ctx_create_unbind_illegal_ctx)
 {
   int ret;
   struct virgl_renderer_resource_create_args res;
-
-  test_cbs.version = 1;
-  ret = virgl_renderer_init(&mystruct, VIRGL_RENDERER_USE_EGL, &test_cbs);
-  ck_assert_int_eq(ret, 0);
-  ret = virgl_renderer_context_create(1, strlen("test1"), "test1");
-  ck_assert_int_eq(ret, 0);
 
   testvirgl_init_simple_1d_resource(&res, 1);
 
@@ -253,8 +211,6 @@ START_TEST(virgl_init_egl_create_ctx_create_unbind_illegal_ctx)
   virgl_renderer_ctx_detach_resource(2, res.handle);
 
   virgl_renderer_resource_unref(1);
-  virgl_renderer_context_destroy(1);
-  virgl_renderer_cleanup(&mystruct);
 }
 END_TEST
 
@@ -264,11 +220,7 @@ START_TEST(virgl_init_egl_create_ctx_create_bind_res_leak)
   int ret;
   struct virgl_renderer_resource_create_args res;
 
-  test_cbs.version = 1;
-  ret = virgl_renderer_init(&mystruct, VIRGL_RENDERER_USE_EGL, &test_cbs);
-  ck_assert_int_eq(ret, 0);
-  ret = virgl_renderer_context_create(1, strlen("test1"), "test1");
-  ck_assert_int_eq(ret, 0);
+  testvirgl_init_single_ctx_nr();
 
   testvirgl_init_simple_1d_resource(&res, 1);
 
@@ -281,18 +233,15 @@ START_TEST(virgl_init_egl_create_ctx_create_bind_res_leak)
 
   /*virgl_renderer_resource_unref(1);*/
   /* don't detach or destroy resource - it should still get cleanedup */
-  virgl_renderer_context_destroy(1);
-  virgl_renderer_cleanup(&mystruct);
+  testvirgl_fini_single_ctx();
 }
 END_TEST
 
 START_TEST(virgl_init_egl_create_ctx_reset)
 {
   int ret;
-  test_cbs.version = 1;
-  ret = virgl_renderer_init(&mystruct, VIRGL_RENDERER_USE_EGL, &test_cbs);
-  ck_assert_int_eq(ret, 0);
-  ret = virgl_renderer_context_create(1, strlen("test1"), "test1");
+
+  ret = testvirgl_init_single_ctx();
   ck_assert_int_eq(ret, 0);
 
   virgl_renderer_reset();
@@ -369,11 +318,6 @@ START_TEST(virgl_test_get_resource_info)
   int ret;
   struct virgl_renderer_resource_create_args res;
   struct virgl_renderer_resource_info info;
-  test_cbs.version = 1;
-  ret = virgl_renderer_init(&mystruct, VIRGL_RENDERER_USE_EGL, &test_cbs);
-  ck_assert_int_eq(ret, 0);
-  ret = virgl_renderer_context_create(1, strlen("test1"), "test1");
-  ck_assert_int_eq(ret, 0);
 
   testvirgl_init_simple_2d_resource(&res, 1);
   res.format = VIRGL_FORMAT_B8G8R8X8_UNORM;
@@ -393,8 +337,6 @@ START_TEST(virgl_test_get_resource_info)
   virgl_renderer_ctx_detach_resource(1, res.handle);
 
   virgl_renderer_resource_unref(1);
-  virgl_renderer_context_destroy(1);
-  virgl_renderer_cleanup(&mystruct);
 }
 END_TEST
 
@@ -402,11 +344,6 @@ START_TEST(virgl_test_get_resource_info_no_info)
 {
   int ret;
   struct virgl_renderer_resource_create_args res;
-  test_cbs.version = 1;
-  ret = virgl_renderer_init(&mystruct, VIRGL_RENDERER_USE_EGL, &test_cbs);
-  ck_assert_int_eq(ret, 0);
-  ret = virgl_renderer_context_create(1, strlen("test1"), "test1");
-  ck_assert_int_eq(ret, 0);
 
   testvirgl_init_simple_1d_resource(&res, 1);
 
@@ -420,8 +357,6 @@ START_TEST(virgl_test_get_resource_info_no_info)
 
   virgl_renderer_ctx_detach_resource(1, res.handle);
   virgl_renderer_resource_unref(1);
-  virgl_renderer_context_destroy(1);
-  virgl_renderer_cleanup(&mystruct);
 }
 END_TEST
 
@@ -430,18 +365,11 @@ START_TEST(virgl_test_get_resource_info_no_res)
 {
   int ret;
   struct virgl_renderer_resource_info info;
-  test_cbs.version = 1;
-  ret = virgl_renderer_init(&mystruct, VIRGL_RENDERER_USE_EGL, &test_cbs);
-  ck_assert_int_eq(ret, 0);
-  ret = virgl_renderer_context_create(1, strlen("test1"), "test1");
-  ck_assert_int_eq(ret, 0);
 
   ret = virgl_renderer_resource_get_info(1, &info);
   ck_assert_int_eq(ret, EINVAL);
 
   virgl_renderer_resource_unref(1);
-  virgl_renderer_context_destroy(1);
-  virgl_renderer_cleanup(&mystruct);
 }
 END_TEST
 
@@ -452,11 +380,6 @@ START_TEST(virgl_init_egl_create_ctx_create_attach_res)
   struct iovec iovs[1];
   struct iovec *iovs_r;
   int num_r;
-  test_cbs.version = 1;
-  ret = virgl_renderer_init(&mystruct, VIRGL_RENDERER_USE_EGL, &test_cbs);
-  ck_assert_int_eq(ret, 0);
-  ret = virgl_renderer_context_create(1, strlen("test1"), "test1");
-  ck_assert_int_eq(ret, 0);
 
   testvirgl_init_simple_1d_resource(&res, 1);
 
@@ -473,8 +396,6 @@ START_TEST(virgl_init_egl_create_ctx_create_attach_res)
 
   free(iovs[0].iov_base);
   virgl_renderer_resource_unref(1);
-  virgl_renderer_context_destroy(1);
-  virgl_renderer_cleanup(&mystruct);
 }
 END_TEST
 
@@ -484,11 +405,6 @@ START_TEST(virgl_init_egl_create_ctx_create_attach_res_detach_no_iovs)
   struct virgl_renderer_resource_create_args res;
   struct iovec iovs[1];
   int num_r;
-  test_cbs.version = 1;
-  ret = virgl_renderer_init(&mystruct, VIRGL_RENDERER_USE_EGL, &test_cbs);
-  ck_assert_int_eq(ret, 0);
-  ret = virgl_renderer_context_create(1, strlen("test1"), "test1");
-  ck_assert_int_eq(ret, 0);
 
   testvirgl_init_simple_1d_resource(&res, 1);
 
@@ -505,8 +421,6 @@ START_TEST(virgl_init_egl_create_ctx_create_attach_res_detach_no_iovs)
 
   free(iovs[0].iov_base);
   virgl_renderer_resource_unref(1);
-  virgl_renderer_context_destroy(1);
-  virgl_renderer_cleanup(&mystruct);
 }
 END_TEST
 
@@ -544,22 +458,29 @@ Suite *virgl_init_suite(void)
   tcase_add_test(tc_core, virgl_init_egl_create_ctx_0);
   tcase_add_test(tc_core, virgl_init_egl_destroy_ctx_illegal);
   tcase_add_test(tc_core, virgl_init_egl_create_ctx_leak);
+  tcase_add_test(tc_core, virgl_init_egl_create_ctx_reset);
+  tcase_add_test(tc_core, virgl_init_get_caps_set0);
+  tcase_add_test(tc_core, virgl_init_get_caps_set1);
+  tcase_add_test(tc_core, virgl_init_get_caps_null);
+  tcase_add_test(tc_core, virgl_init_egl_create_ctx_create_attach_res_illegal_res);
+  tcase_add_test(tc_core, virgl_init_egl_create_ctx_create_bind_res_leak);
+
+  suite_add_tcase(s, tc_core);
+
+  tc_core = tcase_create("init_std");
+  tcase_add_unchecked_fixture(tc_core, testvirgl_init_single_ctx_nr, testvirgl_fini_single_ctx);
   tcase_add_test(tc_core, virgl_init_egl_create_ctx_create_bind_res);
   tcase_add_test(tc_core, virgl_init_egl_create_ctx_create_bind_res_illegal_ctx);
   tcase_add_test(tc_core, virgl_init_egl_create_ctx_create_bind_res_illegal_res);
   tcase_add_test(tc_core, virgl_init_egl_create_ctx_create_unbind_no_bind);
   tcase_add_test(tc_core, virgl_init_egl_create_ctx_create_unbind_illegal_ctx);
-  tcase_add_test(tc_core, virgl_init_egl_create_ctx_create_bind_res_leak);
-  tcase_add_test(tc_core, virgl_init_egl_create_ctx_reset);
-  tcase_add_test(tc_core, virgl_init_get_caps_set0);
-  tcase_add_test(tc_core, virgl_init_get_caps_set1);
-  tcase_add_test(tc_core, virgl_init_get_caps_null);
+
   tcase_add_test(tc_core, virgl_test_get_resource_info);
   tcase_add_test(tc_core, virgl_test_get_resource_info_no_info);
   tcase_add_test(tc_core, virgl_test_get_resource_info_no_res);
   tcase_add_test(tc_core, virgl_init_egl_create_ctx_create_attach_res);
   tcase_add_test(tc_core, virgl_init_egl_create_ctx_create_attach_res_detach_no_iovs);
-  tcase_add_test(tc_core, virgl_init_egl_create_ctx_create_attach_res_illegal_res);
+
   suite_add_tcase(s, tc_core);
   return s;
 
