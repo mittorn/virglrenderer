@@ -3290,7 +3290,7 @@ int vrend_renderer_resource_attach_iov(int res_handle, struct iovec *iov,
    
    res = vrend_resource_lookup(res_handle, 0);
    if (!res)
-      return -1;
+      return EINVAL;
 
    /* work out size and max resource size */
    res->iov = iov;
@@ -4656,7 +4656,7 @@ int vrend_renderer_create_fence(int client_fence_id, uint32_t ctx_id)
 
    fence = malloc(sizeof(struct vrend_fence));
    if (!fence)
-      return -1;
+       return ENOMEM;
 
    fence->ctx_id = ctx_id;
    fence->fence_id = client_fence_id;

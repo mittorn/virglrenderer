@@ -33,6 +33,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <errno.h>
 #include <stdbool.h>
 #include <epoxy/egl.h>
 #include <gbm.h>
@@ -266,7 +267,7 @@ int virgl_egl_get_fd_for_texture(struct virgl_egl *ve, uint32_t tex_id, int *fd)
    image = eglCreateImageKHR(ve->egl_display, eglGetCurrentContext(), EGL_GL_TEXTURE_2D_KHR, (EGLClientBuffer)(unsigned long)tex_id, NULL);
 
    if (!image)
-      return -1;
+      return EINVAL;
 
    if (ve->have_mesa_dma_buf_img_export) {
 #ifdef EGL_MESA_image_dma_buf_export
@@ -275,7 +276,7 @@ int virgl_egl_get_fd_for_texture(struct virgl_egl *ve, uint32_t tex_id, int *fd)
 				     fd,
 				     &stride);
 #else
-        return -1;
+        return EINVAL;
 #endif
    } else {
 #ifdef EGL_MESA_drm_image
@@ -287,15 +288,15 @@ int virgl_egl_get_fd_for_texture(struct virgl_egl *ve, uint32_t tex_id, int *fd)
                                  &stride);
 
        if (!b)
-           return -1;
+           return EINVAL;
 
        fprintf(stderr,"image exported %d %d\n", handle, stride);
 
        r = drmPrimeHandleToFD(ve->fd, handle, DRM_CLOEXEC, fd);
        if (r < 0)
-           return -1;
+           return EINVAL;
 #else
-       return -1;
+       return EINVAL;
 #endif
    }
    return 0;
