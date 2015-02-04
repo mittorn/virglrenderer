@@ -3179,8 +3179,9 @@ vrend_renderer_fini(void)
    if (!inited)
       return;
 
-   vrend_decode_reset();
+   vrend_renderer_force_ctx_0();
    vrend_object_fini_resource_table();
+   vrend_decode_reset();
 
    inited = 0;
 }
