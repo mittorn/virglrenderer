@@ -5357,7 +5357,14 @@ void vrend_renderer_get_rect(int res_handle, struct iovec *iov, unsigned int num
 void vrend_renderer_attach_res_ctx(int ctx_id, int resource_id)
 {
    struct vrend_context *ctx = vrend_lookup_renderer_ctx(ctx_id);
-   struct vrend_resource *res = vrend_resource_lookup(resource_id, 0);
+   struct vrend_resource *res;
+
+   if (!ctx)
+     return;
+
+   res = vrend_resource_lookup(resource_id, 0);
+   if (!res)
+     return;
 
    vrend_object_insert_nofree(ctx->res_hash, res, sizeof(*res), resource_id, 1, false);
 }
@@ -5365,8 +5372,11 @@ void vrend_renderer_attach_res_ctx(int ctx_id, int resource_id)
 void vrend_renderer_detach_res_ctx(int ctx_id, int res_handle)
 {
    struct vrend_context *ctx = vrend_lookup_renderer_ctx(ctx_id);
-   struct vrend_resource *res = vrend_object_lookup(ctx->res_hash, res_handle, 1);
+   struct vrend_resource *res;
 
+   if (!ctx)
+     return;
+   res = vrend_object_lookup(ctx->res_hash, res_handle, 1);
    if (!res)
       return;
 
