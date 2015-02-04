@@ -32,6 +32,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <virglrenderer.h>
+#include "virgl_hw.h"
 #include "testvirgl.h"
 
 #include "pipe/p_defines.h"
@@ -59,6 +60,20 @@ struct res_test {
 	      .flags = 0 },					\
       .retval = (tretval)}
 
+#define TEST_F(thandle, ttarget, tformat, tbind, twidth, theight, tdepth, tarray_size, tnr_samples, tflags, tretval) \
+  { .args = { .handle = (thandle),					\
+	      .target = (ttarget),					\
+	      .format = (tformat),					\
+	      .bind = (tbind),						\
+	      .width = (twidth),					\
+	      .height = (theight),					\
+	      .depth = (tdepth),					\
+	      .array_size = (tarray_size),				\
+	      .nr_samples = (tnr_samples),				\
+	      .flags = (tflags) },					\
+      .retval = (tretval)}
+
+
 static struct res_test testlist[] = {
 
   /* illegal target - FAIL */
@@ -66,6 +81,17 @@ static struct res_test testlist[] = {
 
   /* illegal format - FAIL */
   TEST(1, PIPE_BUFFER, PIPE_FORMAT_COUNT + 1, 0, 50, 1, 1, 1, 0, EINVAL),
+
+  /* legal flags - PASS */
+  TEST_F(1, PIPE_TEXTURE_2D, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 1, 0, VIRGL_RESOURCE_Y_0_TOP, 0),
+  /* legal flags - PASS */
+  TEST_F(1, PIPE_TEXTURE_RECT, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 1, 0, VIRGL_RESOURCE_Y_0_TOP, 0),
+  /* illegal flags - FAIL */
+  TEST_F(1, PIPE_TEXTURE_2D, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 1, 0, 0xF, EINVAL),
+  /* illegal flags - FAIL */
+  TEST_F(1, PIPE_TEXTURE_1D, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 1, 0, VIRGL_RESOURCE_Y_0_TOP, EINVAL),
+  /* illegal flags - FAIL */
+  TEST_F(1, PIPE_TEXTURE_3D, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 1, 0, VIRGL_RESOURCE_Y_0_TOP, EINVAL),
 
   /* buffer test - PASS */
   TEST(1, PIPE_BUFFER, PIPE_FORMAT_R8_UNORM, 0, 50, 1, 1, 1, 0, 0),
