@@ -3327,6 +3327,13 @@ static int check_resource_valid(struct vrend_renderer_resource_create_args *args
 	if (args->target != PIPE_TEXTURE_2D && args->target != PIPE_TEXTURE_2D_ARRAY)
 	    return -1;
 
+    if (args->flags != 0 && args->flags != VIRGL_RESOURCE_Y_0_TOP)
+      return -1;
+
+    if (args->flags & VIRGL_RESOURCE_Y_0_TOP)
+      if (args->target != PIPE_TEXTURE_2D && args->target != PIPE_TEXTURE_RECT)
+	return -1;
+
     /* array size for array textures only */
     if (args->target == PIPE_TEXTURE_CUBE) {
 	if (args->array_size != 6)
