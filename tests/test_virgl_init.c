@@ -318,6 +318,26 @@ START_TEST(virgl_init_get_caps_set1)
 }
 END_TEST
 
+START_TEST(virgl_init_get_caps_null)
+{
+  int ret;
+  uint32_t max_ver, max_size;
+
+  test_cbs.version = 1;
+  ret = virgl_renderer_init(&mystruct, VIRGL_RENDERER_USE_EGL, &test_cbs);
+  ck_assert_int_eq(ret, 0);
+
+  virgl_renderer_get_cap_set(1, &max_ver, &max_size);
+  ck_assert_int_eq(max_ver, 1);
+  ck_assert_int_ne(max_size, 0);
+  ck_assert_int_eq(max_size, sizeof(struct virgl_caps_v1));
+
+  virgl_renderer_fill_caps(0, 0, NULL);
+
+  virgl_renderer_cleanup(&mystruct);
+}
+END_TEST
+
 START_TEST(virgl_test_get_resource_info)
 {
   int ret;
@@ -422,6 +442,7 @@ Suite *virgl_init_suite(void)
   tcase_add_test(tc_core, virgl_init_egl_create_ctx_reset);
   tcase_add_test(tc_core, virgl_init_get_caps_set0);
   tcase_add_test(tc_core, virgl_init_get_caps_set1);
+  tcase_add_test(tc_core, virgl_init_get_caps_null);
   tcase_add_test(tc_core, virgl_test_get_resource_info);
   tcase_add_test(tc_core, virgl_test_get_resource_info_no_info);
   tcase_add_test(tc_core, virgl_test_get_resource_info_no_res);
