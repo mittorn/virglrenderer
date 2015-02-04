@@ -28,6 +28,7 @@
 #include <sys/uio.h>
 #include <errno.h>
 #include <virglrenderer.h>
+#include "pipe/p_defines.h"
 #include "virgl_hw.h"
 #include "testvirgl.h"
 
@@ -37,7 +38,7 @@ START_TEST(virgl_test_transfer_read_illegal_ctx)
   int ret;
   struct virgl_box box;
 
-  ret = virgl_renderer_transfer_read_iov(1, 2, 1, 1, 1, &box, 0, NULL, 0);
+  ret = virgl_renderer_transfer_read_iov(1, 2, 0, 1, 1, &box, 0, NULL, 0);
   ck_assert_int_eq(ret, EINVAL);
 }
 END_TEST
@@ -47,7 +48,7 @@ START_TEST(virgl_test_transfer_write_illegal_ctx)
   int ret;
   struct virgl_box box;
 
-  ret = virgl_renderer_transfer_write_iov(1, 2, 1, 1, 1, &box, 0, NULL, 0);
+  ret = virgl_renderer_transfer_write_iov(1, 2, 0, 1, 1, &box, 0, NULL, 0);
   ck_assert_int_eq(ret, EINVAL);
 }
 END_TEST
@@ -58,7 +59,7 @@ START_TEST(virgl_test_transfer_read_unbound_res)
   int ret;
   struct virgl_box box;
 
-  ret = virgl_renderer_transfer_read_iov(1, 1, 1, 1, 1, &box, 0, NULL, 0);
+  ret = virgl_renderer_transfer_read_iov(1, 1, 0, 1, 1, &box, 0, NULL, 0);
   ck_assert_int_eq(ret, EINVAL);
 }
 END_TEST
@@ -68,7 +69,7 @@ START_TEST(virgl_test_transfer_write_unbound_res)
   int ret;
   struct virgl_box box;
 
-  ret = virgl_renderer_transfer_write_iov(1, 1, 1, 1, 1, &box, 0, NULL, 0);
+  ret = virgl_renderer_transfer_write_iov(1, 1, 0, 1, 1, &box, 0, NULL, 0);
   ck_assert_int_eq(ret, EINVAL);
 }
 END_TEST
@@ -87,7 +88,7 @@ START_TEST(virgl_test_transfer_read_no_iov)
 
   virgl_renderer_ctx_attach_resource(1, res.handle);
 
-  ret = virgl_renderer_transfer_read_iov(1, 1, 1, 1, 1, &box, 0, NULL, 0);
+  ret = virgl_renderer_transfer_read_iov(1, 1, 0, 1, 1, &box, 0, NULL, 0);
   ck_assert_int_eq(ret, EINVAL);
   virgl_renderer_ctx_detach_resource(1, res.handle);
 
@@ -108,7 +109,7 @@ START_TEST(virgl_test_transfer_write_no_iov)
 
   virgl_renderer_ctx_attach_resource(1, res.handle);
 
-  ret = virgl_renderer_transfer_write_iov(1, 1, 1, 1, 1, &box, 0, NULL, 0);
+  ret = virgl_renderer_transfer_write_iov(1, 1, 0, 1, 1, &box, 0, NULL, 0);
   ck_assert_int_eq(ret, EINVAL);
   virgl_renderer_ctx_detach_resource(1, res.handle);
 
@@ -130,7 +131,7 @@ START_TEST(virgl_test_transfer_read_no_box)
 
   virgl_renderer_ctx_attach_resource(1, res.handle);
 
-  ret = virgl_renderer_transfer_read_iov(1, 1, 1, 1, 1, NULL, 0, iovs, niovs);
+  ret = virgl_renderer_transfer_read_iov(1, 1, 0, 1, 1, NULL, 0, iovs, niovs);
   ck_assert_int_eq(ret, EINVAL);
   virgl_renderer_ctx_detach_resource(1, res.handle);
 
@@ -152,7 +153,123 @@ START_TEST(virgl_test_transfer_write_no_box)
 
   virgl_renderer_ctx_attach_resource(1, res.handle);
 
-  ret = virgl_renderer_transfer_write_iov(1, 1, 1, 1, 1, NULL, 0, iovs, niovs);
+  ret = virgl_renderer_transfer_write_iov(1, 1, 0, 1, 1, NULL, 0, iovs, niovs);
+  ck_assert_int_eq(ret, EINVAL);
+  virgl_renderer_ctx_detach_resource(1, res.handle);
+
+  virgl_renderer_resource_unref(1);
+}
+END_TEST
+
+START_TEST(virgl_test_transfer_read_1d_bad_box)
+{
+  struct virgl_renderer_resource_create_args res;
+  struct iovec iovs[1];
+  int niovs = 1;
+  int ret;
+  struct virgl_box box;
+
+  testvirgl_init_simple_1d_resource(&res, 1);
+
+  ret = virgl_renderer_resource_create(&res, NULL, 0);
+  ck_assert_int_eq(ret, 0);
+
+  virgl_renderer_ctx_attach_resource(1, res.handle);
+
+  box.x = box.y = box.z = 0;
+  box.w = 10;
+  box.h = 2;
+  box.d = 1;
+
+  ret = virgl_renderer_transfer_read_iov(1, 1, 0, 1, 1, &box, 0, iovs, niovs);
+  ck_assert_int_eq(ret, EINVAL);
+  virgl_renderer_ctx_detach_resource(1, res.handle);
+
+  virgl_renderer_resource_unref(1);
+}
+END_TEST
+
+START_TEST(virgl_test_transfer_write_1d_bad_box)
+{
+  struct virgl_renderer_resource_create_args res;
+  struct iovec iovs[1];
+  int niovs = 1;
+  int ret;
+  struct virgl_box box;
+
+  testvirgl_init_simple_1d_resource(&res, 1);
+
+  ret = virgl_renderer_resource_create(&res, NULL, 0);
+  ck_assert_int_eq(ret, 0);
+
+  virgl_renderer_ctx_attach_resource(1, res.handle);
+
+  box.x = box.y = box.z = 0;
+  box.w = 10;
+  box.h = 2;
+  box.d = 1;
+
+  ret = virgl_renderer_transfer_write_iov(1, 1, 0, 1, 1, &box, 0, iovs, niovs);
+  ck_assert_int_eq(ret, EINVAL);
+  virgl_renderer_ctx_detach_resource(1, res.handle);
+
+  virgl_renderer_resource_unref(1);
+}
+END_TEST
+
+START_TEST(virgl_test_transfer_read_1d_array_bad_box)
+{
+  struct virgl_renderer_resource_create_args res;
+  struct iovec iovs[1];
+  int niovs = 1;
+  int ret;
+  struct virgl_box box;
+
+  testvirgl_init_simple_1d_resource(&res, 1);
+  res.target = PIPE_TEXTURE_1D_ARRAY;
+  res.array_size = 5;
+
+  ret = virgl_renderer_resource_create(&res, NULL, 0);
+  ck_assert_int_eq(ret, 0);
+
+  virgl_renderer_ctx_attach_resource(1, res.handle);
+
+  box.x = box.y = box.z = 0;
+  box.w = 10;
+  box.h = 2;
+  box.d = 6;
+
+  ret = virgl_renderer_transfer_read_iov(1, 1, 0, 1, 1, &box, 0, iovs, niovs);
+  ck_assert_int_eq(ret, EINVAL);
+  virgl_renderer_ctx_detach_resource(1, res.handle);
+
+  virgl_renderer_resource_unref(1);
+}
+END_TEST
+
+START_TEST(virgl_test_transfer_read_3d_bad_box)
+{
+  struct virgl_renderer_resource_create_args res;
+  struct iovec iovs[1];
+  int niovs = 1;
+  int ret;
+  struct virgl_box box;
+
+  testvirgl_init_simple_1d_resource(&res, 1);
+  res.target = PIPE_TEXTURE_3D;
+  res.depth = 5;
+
+  ret = virgl_renderer_resource_create(&res, NULL, 0);
+  ck_assert_int_eq(ret, 0);
+
+  virgl_renderer_ctx_attach_resource(1, res.handle);
+
+  box.x = box.y = box.z = 0;
+  box.w = 10;
+  box.h = 2;
+  box.d = 6;
+
+  ret = virgl_renderer_transfer_read_iov(1, 1, 0, 1, 1, &box, 0, iovs, niovs);
   ck_assert_int_eq(ret, EINVAL);
   virgl_renderer_ctx_detach_resource(1, res.handle);
 
@@ -177,6 +294,10 @@ Suite *virgl_init_suite(void)
   tcase_add_test(tc_core, virgl_test_transfer_write_no_iov);
   tcase_add_test(tc_core, virgl_test_transfer_read_no_box);
   tcase_add_test(tc_core, virgl_test_transfer_write_no_box);
+  tcase_add_test(tc_core, virgl_test_transfer_read_1d_bad_box);
+  tcase_add_test(tc_core, virgl_test_transfer_write_1d_bad_box);
+  tcase_add_test(tc_core, virgl_test_transfer_read_1d_array_bad_box);
+  tcase_add_test(tc_core, virgl_test_transfer_read_3d_bad_box);
   suite_add_tcase(s, tc_core);
   return s;
 
