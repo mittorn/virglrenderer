@@ -383,7 +383,7 @@ void vrend_renderer_blit_gl(struct vrend_context *ctx,
                             const struct pipe_blit_info *info);
 
 void vrend_renderer_reset(void);
-void vrend_decode_reset(void);
+void vrend_decode_reset(bool ctx_0_only);
 #define VREND_GL_VER_MAJOR 3
 #define VREND_GL_VER_MINOR 1
 

@@ -3179,9 +3179,9 @@ vrend_renderer_fini(void)
    if (!inited)
       return;
 
-   vrend_renderer_force_ctx_0();
+   vrend_decode_reset(false);
    vrend_object_fini_resource_table();
-   vrend_decode_reset();
+   vrend_decode_reset(true);
 
    inited = 0;
 }
@@ -5508,9 +5508,9 @@ static void vrend_reset_fences(void)
 void vrend_renderer_reset(void)
 {
    vrend_reset_fences();
-   vrend_decode_reset();
+   vrend_decode_reset(false);
    vrend_object_fini_resource_table();
-
+   vrend_decode_reset(true);
    vrend_object_init_resource_table();
    vrend_state.viewport_dirty = vrend_state.scissor_dirty = TRUE;
    vrend_state.program_id = (GLuint)-1;
