@@ -29,8 +29,9 @@
 
 #include <check.h>
 #include <stdlib.h>
+#include <errno.h>
 #include <virglrenderer.h>
-
+#include <gbm.h>
 #include "testvirgl.h"
 #include "virgl_hw.h"
 struct myinfo_struct {
@@ -219,6 +220,87 @@ START_TEST(virgl_init_get_caps_set1)
 }
 END_TEST
 
+START_TEST(virgl_test_get_resource_info)
+{
+  int ret;
+  struct virgl_renderer_resource_create_args res;
+  struct virgl_renderer_resource_info info;
+  test_cbs.version = 1;
+  ret = virgl_renderer_init(&mystruct, VIRGL_RENDERER_USE_EGL, &test_cbs);
+  ck_assert_int_eq(ret, 0);
+  ret = virgl_renderer_context_create(1, strlen("test1"), "test1");
+  ck_assert_int_eq(ret, 0);
+
+  testvirgl_init_simple_2d_resource(&res, 1);
+  res.format = VIRGL_FORMAT_B8G8R8X8_UNORM;
+  ret = virgl_renderer_resource_create(&res, NULL, 0);
+  ck_assert_int_eq(ret, 0);
+
+  virgl_renderer_ctx_attach_resource(1, res.handle);
+
+  ret = virgl_renderer_resource_get_info(res.handle, &info);
+  ck_assert_int_eq(ret, 0);
+  ck_assert_int_eq(info.gbm_format, GBM_FORMAT_XRGB8888);
+  ck_assert_int_eq(info.virgl_format, res.format);
+  ck_assert_int_eq(res.width, info.width);
+  ck_assert_int_eq(res.height, info.height);
+  ck_assert_int_eq(res.depth, info.depth);
+  ck_assert_int_eq(res.flags, info.flags);
+  virgl_renderer_ctx_detach_resource(1, res.handle);
+
+  virgl_renderer_resource_unref(1);
+  virgl_renderer_context_destroy(1);
+  virgl_renderer_cleanup(&mystruct);
+}
+END_TEST
+
+START_TEST(virgl_test_get_resource_info_no_info)
+{
+  int ret;
+  struct virgl_renderer_resource_create_args res;
+  test_cbs.version = 1;
+  ret = virgl_renderer_init(&mystruct, VIRGL_RENDERER_USE_EGL, &test_cbs);
+  ck_assert_int_eq(ret, 0);
+  ret = virgl_renderer_context_create(1, strlen("test1"), "test1");
+  ck_assert_int_eq(ret, 0);
+
+  testvirgl_init_simple_1d_resource(&res, 1);
+
+  ret = virgl_renderer_resource_create(&res, NULL, 0);
+  ck_assert_int_eq(ret, 0);
+
+  virgl_renderer_ctx_attach_resource(1, res.handle);
+
+  ret = virgl_renderer_resource_get_info(1, NULL);
+  ck_assert_int_eq(ret, EINVAL);
+
+  virgl_renderer_ctx_detach_resource(1, res.handle);
+  virgl_renderer_resource_unref(1);
+  virgl_renderer_context_destroy(1);
+  virgl_renderer_cleanup(&mystruct);
+}
+END_TEST
+
+
+START_TEST(virgl_test_get_resource_info_no_res)
+{
+  int ret;
+  struct virgl_renderer_resource_info info;
+  test_cbs.version = 1;
+  ret = virgl_renderer_init(&mystruct, VIRGL_RENDERER_USE_EGL, &test_cbs);
+  ck_assert_int_eq(ret, 0);
+  ret = virgl_renderer_context_create(1, strlen("test1"), "test1");
+  ck_assert_int_eq(ret, 0);
+
+  ret = virgl_renderer_resource_get_info(1, &info);
+  ck_assert_int_eq(ret, EINVAL);
+
+  virgl_renderer_resource_unref(1);
+  virgl_renderer_context_destroy(1);
+  virgl_renderer_cleanup(&mystruct);
+}
+END_TEST
+
 Suite *virgl_init_suite(void)
 {
   Suite *s;
@@ -238,6 +320,10 @@ Suite *virgl_init_suite(void)
   tcase_add_test(tc_core, virgl_init_egl_create_ctx_reset);
   tcase_add_test(tc_core, virgl_init_get_caps_set0);
   tcase_add_test(tc_core, virgl_init_get_caps_set1);
+  tcase_add_test(tc_core, virgl_test_get_resource_info);
+  tcase_add_test(tc_core, virgl_test_get_resource_info_no_info);
+  tcase_add_test(tc_core, virgl_test_get_resource_info_no_res);
+
   suite_add_tcase(s, tc_core);
   return s;
 
