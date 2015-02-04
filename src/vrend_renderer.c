@@ -5383,11 +5383,14 @@ static struct vrend_resource *vrend_renderer_ctx_res_lookup(struct vrend_context
 int vrend_renderer_resource_get_info(int res_handle,
                                      struct vrend_renderer_resource_info *info)
 {
-   struct vrend_resource *res = vrend_resource_lookup(res_handle, 0);
+   struct vrend_resource *res;
    int elsize;
 
+   if (!info)
+     return EINVAL;
+   res = vrend_resource_lookup(res_handle, 0);
    if (!res)
-      return -1;
+      return EINVAL;
 
    elsize = util_format_get_blocksize(res->base.format);
 

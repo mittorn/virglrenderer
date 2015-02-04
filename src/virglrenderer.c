@@ -141,8 +141,9 @@ int virgl_renderer_resource_get_info(int res_handle,
 {
    int ret;
    ret = vrend_renderer_resource_get_info(res_handle, (struct vrend_renderer_resource_info *)info);
-   info->format = virgl_egl_get_gbm_format(info->format);
-   return ret; 
+   if (ret == 0)
+       info->gbm_format = virgl_egl_get_gbm_format(info->virgl_format);
+   return ret;
 }
 
 void virgl_renderer_get_cap_set(uint32_t cap_set, uint32_t *max_ver,
