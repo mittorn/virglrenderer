@@ -3316,32 +3316,57 @@ void vrend_renderer_resource_detach_iov(int res_handle,
 
 static int check_resource_valid(struct vrend_renderer_resource_create_args *args)
 {
-    if (args->bind == PIPE_BIND_CUSTOM)
-	return 0;
+    /* limit the target */
+    if (args->target >= PIPE_MAX_TEXTURE_TYPES)
+	return -1;
 
-    if (args->bind == PIPE_BIND_INDEX_BUFFER ||
+    if (args->format >= VIRGL_FORMAT_MAX)
+	return -1;
+    /* only texture 2d and 2d array can have multiple samples */
+    if (args->nr_samples > 1)
+	if (args->target != PIPE_TEXTURE_2D && args->target != PIPE_TEXTURE_2D_ARRAY)
+	    return -1;
+
+    /* array size for array textures only */
+    if (args->target == PIPE_TEXTURE_CUBE) {
+	if (args->array_size != 6)
+	    return -1;
+    } else if (args->target == PIPE_TEXTURE_CUBE_ARRAY) {
+	if (args->array_size % 6)
+	    return -1;
+    } else if (args->array_size > 1) {
+	if (args->target != PIPE_TEXTURE_2D_ARRAY &&
+	    args->target != PIPE_TEXTURE_1D_ARRAY)
+	    return -1;
+    }
+
+    if (args->bind == 0 ||
+	args->bind == PIPE_BIND_CUSTOM ||
+	args->bind == PIPE_BIND_INDEX_BUFFER ||
 	args->bind == PIPE_BIND_STREAM_OUTPUT ||
 	args->bind == PIPE_BIND_VERTEX_BUFFER ||
-	args->bind == PIPE_BIND_CONSTANT_BUFFER ||
-	(args->bind == 0 && args->target == PIPE_BUFFER)) {
-	if (args->height != 1 || args->depth != 1 || args->array_size != 1 ||
-	    (args->nr_samples != 0 && args->nr_samples != 1))
+	args->bind == PIPE_BIND_CONSTANT_BUFFER) {
+	if (args->target != PIPE_BUFFER)
+	    return -1;
+	if (args->height != 1 || args->depth != 1)
 	    return -1;
     } else {
-	if (args->target == PIPE_TEXTURE_1D) {
-	    if (args->height != 1 || args->depth != 1 || args->array_size != 1)
-		return -1;
-	}
-	if (args->target == PIPE_TEXTURE_2D || args->target == PIPE_TEXTURE_RECT) {
-	    if (args->depth != 1 || args->array_size != 1)
-		return -1;
-	}
-	if (args->target == PIPE_TEXTURE_1D_ARRAY) {
-	    if (args->height != 1 || args->depth != 1)
-		return -1;
-	}
-	if (args->target == PIPE_TEXTURE_2D_ARRAY) {
+	if (!((args->bind & PIPE_BIND_SAMPLER_VIEW) ||
+	      (args->bind & PIPE_BIND_DEPTH_STENCIL) ||
+	      (args->bind & PIPE_BIND_RENDER_TARGET)))
+	    return -1;
+
+	if (args->target == PIPE_TEXTURE_2D ||
+	    args->target == PIPE_TEXTURE_RECT ||
+	    args->target == PIPE_TEXTURE_CUBE ||
+	    args->target == PIPE_TEXTURE_2D_ARRAY ||
+	    args->target == PIPE_TEXTURE_CUBE_ARRAY) {
 	    if (args->depth != 1)
+		return -1;
+	}
+	if (args->target == PIPE_TEXTURE_1D ||
+	    args->target == PIPE_TEXTURE_1D_ARRAY) {
+	    if (args->height != 1 || args->depth != 1)
 		return -1;
 	}
     }
