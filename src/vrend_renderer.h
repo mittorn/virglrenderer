@@ -222,15 +222,21 @@ void vrend_set_index_buffer(struct vrend_context *ctx,
                             uint32_t index_size,
                             uint32_t offset);
 
-void vrend_renderer_transfer_write_iov(uint32_t handle, 
-                                      uint32_t ctx_id,
-                                      int level,
-                                      uint32_t stride,
-                                      uint32_t layer_stride,
-                                      struct pipe_box *box,
-                                      uint64_t offset,
-                                      struct iovec *iovec,
-                                      unsigned int iovec_cnt);
+struct vrend_transfer_info {
+  uint32_t handle;
+  uint32_t ctx_id;
+  int level;
+  uint32_t stride;
+  uint32_t layer_stride;
+  struct pipe_box *box;
+  uint64_t offset;
+  struct iovec *iovec;
+  unsigned int iovec_cnt;
+};
+
+#define VREND_TRANSFER_WRITE 1
+#define VREND_TRANSFER_READ 2
+int vrend_renderer_transfer_iov(const struct vrend_transfer_info *info, int transfer_mode);
 
 void vrend_renderer_resource_copy_region(struct vrend_context *ctx,
                                         uint32_t dst_handle, uint32_t dst_level,
@@ -242,12 +248,6 @@ void vrend_renderer_blit(struct vrend_context *ctx,
                         uint32_t dst_handle, uint32_t src_handle,
                         const struct pipe_blit_info *info);
 
-void vrend_renderer_transfer_send_iov(uint32_t handle, uint32_t ctx_id,
-                                     uint32_t level, uint32_t stride,
-                                     uint32_t layer_stride,
-                                     struct pipe_box *box,
-                                     uint64_t offset, struct iovec *iov,
-                                     int iovec_cnt);
 void vrend_set_stencil_ref(struct vrend_context *ctx, struct pipe_stencil_ref *ref);
 void vrend_set_blend_color(struct vrend_context *ctx, struct pipe_blend_color *color);
 void vrend_set_scissor_state(struct vrend_context *ctx, struct pipe_scissor_state *ss);

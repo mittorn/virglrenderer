@@ -96,22 +96,22 @@ VIRGL_EXPORT void virgl_renderer_submit_cmd(void *buffer,
                                             int ctx_id,
                                             int ndw);
 
-VIRGL_EXPORT void virgl_renderer_transfer_read_iov(uint32_t handle, uint32_t ctx_id,
+VIRGL_EXPORT int virgl_renderer_transfer_read_iov(uint32_t handle, uint32_t ctx_id,
                                                    uint32_t level, uint32_t stride,
                                                    uint32_t layer_stride,
                                                    struct virgl_box *box,
                                                    uint64_t offset, struct iovec *iov,
                                                    int iovec_cnt);
 
-VIRGL_EXPORT void virgl_renderer_transfer_write_iov(uint32_t handle, 
-                                       uint32_t ctx_id,
-                                       int level,
-                                       uint32_t stride,
-                                       uint32_t layer_stride,
-                                       struct virgl_box *box,
-                                       uint64_t offset,
-                                       struct iovec *iovec,
-                                       unsigned int iovec_cnt);
+VIRGL_EXPORT int virgl_renderer_transfer_write_iov(uint32_t handle,
+						   uint32_t ctx_id,
+						   int level,
+						   uint32_t stride,
+						   uint32_t layer_stride,
+						   struct virgl_box *box,
+						   uint64_t offset,
+						   struct iovec *iovec,
+						   unsigned int iovec_cnt);
 
 VIRGL_EXPORT void virgl_renderer_get_cap_set(uint32_t set, uint32_t *max_ver,
                                              uint32_t *max_size);

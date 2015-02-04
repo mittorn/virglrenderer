@@ -77,7 +77,7 @@ void virgl_renderer_submit_cmd(void *buffer,
    vrend_decode_block(ctx_id, buffer, ndw);
 }
 
-void virgl_renderer_transfer_write_iov(uint32_t handle, 
+int virgl_renderer_transfer_write_iov(uint32_t handle,
                                        uint32_t ctx_id,
                                        int level,
                                        uint32_t stride,
@@ -87,21 +87,41 @@ void virgl_renderer_transfer_write_iov(uint32_t handle,
                                        struct iovec *iovec,
                                        unsigned int iovec_cnt)
 {
-   vrend_renderer_transfer_write_iov(handle, ctx_id, level,
-                                    stride, layer_stride, (struct pipe_box *)box,
-                                    offset, iovec, iovec_cnt);
+  struct vrend_transfer_info transfer_info;
+
+  transfer_info.handle = handle;
+  transfer_info.ctx_id = ctx_id;
+  transfer_info.level = level;
+  transfer_info.stride = stride;
+  transfer_info.layer_stride = layer_stride;
+  transfer_info.box = (struct pipe_box *)box;
+  transfer_info.offset = offset;
+  transfer_info.iovec = iovec;
+  transfer_info.iovec_cnt = iovec_cnt;
+
+  return vrend_renderer_transfer_iov(&transfer_info, VREND_TRANSFER_WRITE);
 }
 
-void virgl_renderer_transfer_read_iov(uint32_t handle, uint32_t ctx_id,
+int virgl_renderer_transfer_read_iov(uint32_t handle, uint32_t ctx_id,
                                      uint32_t level, uint32_t stride,
                                      uint32_t layer_stride,
                                      struct virgl_box *box,
-                                     uint64_t offset, struct iovec *iov,
+                                     uint64_t offset, struct iovec *iovec,
                                      int iovec_cnt)
 {
-   vrend_renderer_transfer_send_iov(handle, ctx_id, level, stride,
-                                   layer_stride, (struct pipe_box *)box,
-                                   offset, iov, iovec_cnt);
+  struct vrend_transfer_info transfer_info;
+
+  transfer_info.handle = handle;
+  transfer_info.ctx_id = ctx_id;
+  transfer_info.level = level;
+  transfer_info.stride = stride;
+  transfer_info.layer_stride = layer_stride;
+  transfer_info.box = (struct pipe_box *)box;
+  transfer_info.offset = offset;
+  transfer_info.iovec = iovec;
+  transfer_info.iovec_cnt = iovec_cnt;
+
+  return vrend_renderer_transfer_iov(&transfer_info, VREND_TRANSFER_READ);
 }
 
 int virgl_renderer_resource_attach_iov(int res_handle, struct iovec *iov,

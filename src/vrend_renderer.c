@@ -3642,53 +3642,62 @@ static void copy_transfer_data(struct pipe_resource *res,
    }
 }
 
-void vrend_renderer_transfer_write_iov(uint32_t res_handle,
-                                      uint32_t ctx_id,
-                                      int level,
-                                      uint32_t stride,
-                                      uint32_t layer_stride,
-                                      struct pipe_box *box,
-                                      uint64_t offset,
-                                      struct iovec *iov,
-                                      unsigned int num_iovs)
+static bool check_transfer_bounds(struct vrend_resource *res,
+				  uint32_t level, struct pipe_box *box)
 {
-   struct vrend_resource *res;
-   struct vrend_context *ctx = vrend_lookup_renderer_ctx(ctx_id);
+   int lwidth, lheight;
+   /* check mipmap level is in bounds */
+   if (level > res->base.last_level)
+      return false;
+   /* these will catch bad y/z/w/d with 1D textures etc */
+   lwidth = u_minify(res->base.width0, level);
+   if (box->width > lwidth)
+       return false;
+   if (box->x > lwidth)
+       return false;
+   if (box->width + box->x > lwidth)
+       return false;
+
+   lheight = u_minify(res->base.height0, level);
+   if (box->height > lheight)
+       return false;
+   if (box->y > lheight)
+       return false;
+   if (box->height + box->y > lheight)
+       return false;
+
+   if (res->base.target == PIPE_TEXTURE_3D) {
+      int ldepth = u_minify(res->base.depth0, level);
+      if (box->depth > ldepth)
+	 return false;
+      if (box->z > ldepth)
+	 return false;
+      if (box->z + box->depth > ldepth)
+	 return false;
+   } else {
+      if (box->depth > res->base.array_size)
+	 return false;
+      if (box->z > res->base.array_size)
+	 return false;
+      if (box->z + box->depth > res->base.array_size)
+	 return false;
+   }
+
+   return true;
+}
+
+static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
+					    struct vrend_resource *res,
+					    struct iovec *iov, int num_iovs,
+					    const struct vrend_transfer_info *info)
+{
    void *data;
-
-   if (!ctx)
-     return;
-
-   if (ctx_id == 0)
-     res = vrend_resource_lookup(res_handle, ctx_id);
-   else
-     res = vrend_renderer_ctx_res_lookup(ctx, res_handle);
-
-   if (res == NULL) {
-      struct vrend_context *ctx = vrend_lookup_renderer_ctx(ctx_id);
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, res_handle);
-      return;
-   }
-
-   if ((res->iov && !iov) || num_iovs == 0) {
-      iov = res->iov;
-      num_iovs = res->num_iovs;
-   }
-
-   if (!box)
-     return;
-
-   if (!iov) {
-      struct vrend_context *ctx = vrend_lookup_renderer_ctx(ctx_id);
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, res_handle);
-      return;
-   }
 
    vrend_hw_switch_context(vrend_lookup_renderer_ctx(0), TRUE);
 
    if (res->target == 0 && res->ptr) {
-      vrend_read_from_iovec(iov, num_iovs, offset, res->ptr + box->x, box->width);
-      return;
+      vrend_read_from_iovec(iov, num_iovs, info->offset, res->ptr + info->box->x, info->box->width);
+      return 0;
    }
    if (res->target == GL_TRANSFORM_FEEDBACK_BUFFER ||
        res->target == GL_ELEMENT_ARRAY_BUFFER_ARB ||
@@ -3696,24 +3705,23 @@ void vrend_renderer_transfer_write_iov(uint32_t res_handle,
        res->target == GL_TEXTURE_BUFFER ||
        res->target == GL_UNIFORM_BUFFER) {
       struct virgl_sub_upload_data d;
-      d.box = box;
+      d.box = info->box;
       d.target = res->target;
 
       glBindBufferARB(res->target, res->id);
       if (use_sub_data == 1) {
-         vrend_read_from_iovec_cb(iov, num_iovs, offset, box->width, &iov_buffer_upload, &d);
+         vrend_read_from_iovec_cb(iov, num_iovs, info->offset, info->box->width, &iov_buffer_upload, &d);
       } else {
-         data = glMapBufferRange(res->target, box->x, box->width, GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_UNSYNCHRONIZED_BIT | GL_MAP_WRITE_BIT);
+         data = glMapBufferRange(res->target, info->box->x, info->box->width, GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_UNSYNCHRONIZED_BIT | GL_MAP_WRITE_BIT);
          if (data == NULL) {
             fprintf(stderr,"map failed for element buffer\n");
-            vrend_read_from_iovec_cb(iov, num_iovs, offset, box->width, &iov_buffer_upload, &d);
+            vrend_read_from_iovec_cb(iov, num_iovs, info->offset, info->box->width, &iov_buffer_upload, &d);
          } else {
-            vrend_read_from_iovec(iov, num_iovs, offset, data, box->width);
+            vrend_read_from_iovec(iov, num_iovs, info->offset, data, info->box->width);
             glUnmapBuffer(res->target);
          }
       }
    } else {
-      struct vrend_context *ctx = vrend_lookup_renderer_ctx(ctx_id);
       GLenum glformat;
       GLenum gltype;
       int need_temp = 0;
@@ -3723,10 +3731,11 @@ void vrend_renderer_transfer_write_iov(uint32_t res_handle,
       bool invert = false;
       float depth_scale;
       GLuint send_size = 0;
+      uint32_t stride = info->stride;
       vrend_use_program(0);
 
       if (!stride)
-         stride = util_format_get_nblocksx(res->base.format, u_minify(res->base.width0, level)) * elsize;
+         stride = util_format_get_nblocksx(res->base.format, u_minify(res->base.width0, info->level)) * elsize;
 
       compressed = util_format_is_compressed(res->base.format);
       if (num_iovs > 1 || compressed) {
@@ -3740,15 +3749,15 @@ void vrend_renderer_transfer_write_iov(uint32_t res_handle,
       }
 
       if (need_temp) {
-         send_size = util_format_get_nblocks(res->base.format, box->width,
-                                             box->height) * elsize * box->depth;
+         send_size = util_format_get_nblocks(res->base.format, info->box->width,
+                                             info->box->height) * elsize * info->box->depth;
          data = malloc(send_size);
          if (!data)
-            return;
+            return ENOMEM;
          copy_transfer_data(&res->base, iov, num_iovs, data, stride,
-                            box, offset, invert);
+                            info->box, info->offset, invert);
       } else {
-         data = iov[0].iov_base + offset;
+         data = iov[0].iov_base + info->offset;
       }
 
       if (stride && !need_temp) {
@@ -3776,17 +3785,17 @@ void vrend_renderer_transfer_write_iov(uint32_t res_handle,
       gltype = tex_conv_table[res->base.format].gltype; 
 
       if ((!use_core_profile) && (res->y_0_top)) {
-         if (res->readback_fb_id == 0 || res->readback_fb_level != level) {
+         if (res->readback_fb_id == 0 || res->readback_fb_level != info->level) {
             GLuint fb_id;
             if (res->readback_fb_id)
                glDeleteFramebuffers(1, &res->readback_fb_id);
             
             glGenFramebuffers(1, &fb_id);
             glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fb_id);
-            vrend_fb_bind_texture(res, 0, level, 0);
+            vrend_fb_bind_texture(res, 0, info->level, 0);
 
             res->readback_fb_id = fb_id;
-            res->readback_fb_level = level;
+            res->readback_fb_level = info->level;
          } else {
             glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, res->readback_fb_id);
          }
@@ -3796,8 +3805,8 @@ void vrend_renderer_transfer_write_iov(uint32_t res_handle,
          vrend_alpha_test_enable(ctx, GL_FALSE);
          vrend_stencil_test_enable(GL_FALSE);
          glPixelZoom(1.0f, res->y_0_top ? -1.0f : 1.0f);
-         glWindowPos2i(box->x, res->y_0_top ? res->base.height0 - box->y : box->y);
-         glDrawPixels(box->width, box->height, glformat, gltype,
+         glWindowPos2i(info->box->x, res->y_0_top ? res->base.height0 - info->box->y : info->box->y);
+         glDrawPixels(info->box->width, info->box->height, glformat, gltype,
                       data);
       } else {
          uint32_t comp_size;
@@ -3805,8 +3814,8 @@ void vrend_renderer_transfer_write_iov(uint32_t res_handle,
 
          if (compressed) {
             glformat = tex_conv_table[res->base.format].internalformat;
-            comp_size = util_format_get_nblocks(res->base.format, box->width,
-                                                box->height) * util_format_get_blocksize(res->base.format);
+            comp_size = util_format_get_nblocks(res->base.format, info->box->width,
+                                                info->box->height) * util_format_get_blocksize(res->base.format);
          }
 
          if (glformat == 0) {
@@ -3814,8 +3823,8 @@ void vrend_renderer_transfer_write_iov(uint32_t res_handle,
             gltype = GL_UNSIGNED_BYTE;
          }
 
-         x = box->x;
-         y = invert ? res->base.height0 - box->y - box->height : box->y;
+         x = info->box->x;
+         y = invert ? res->base.height0 - info->box->y - info->box->height : info->box->y;
 
          if (res->base.format == (enum pipe_format)VIRGL_FORMAT_Z24X8_UNORM) {
             /* we get values from the guest as 24-bit scaled integers
@@ -3828,42 +3837,42 @@ void vrend_renderer_transfer_write_iov(uint32_t res_handle,
                vrend_scale_depth(data, send_size, depth_scale);
          }
          if (res->target == GL_TEXTURE_CUBE_MAP) {
-            GLenum ctarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X + box->z;
+            GLenum ctarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X + info->box->z;
             if (compressed) {
-               glCompressedTexSubImage2D(ctarget, level, x, y,
-                                         box->width, box->height,
+               glCompressedTexSubImage2D(ctarget, info->level, x, y,
+                                         info->box->width, info->box->height,
                                          glformat, comp_size, data);
             } else {
-               glTexSubImage2D(ctarget, level, x, y, box->width, box->height,
+               glTexSubImage2D(ctarget, info->level, x, y, info->box->width, info->box->height,
                                glformat, gltype, data);
             }
          } else if (res->target == GL_TEXTURE_3D || res->target == GL_TEXTURE_2D_ARRAY || res->target == GL_TEXTURE_CUBE_MAP_ARRAY) {
             if (compressed) {
-               glCompressedTexSubImage3D(res->target, level, x, y, box->z,
-                                         box->width, box->height, box->depth,
+               glCompressedTexSubImage3D(res->target, info->level, x, y, info->box->z,
+                                         info->box->width, info->box->height, info->box->depth,
                                          glformat, comp_size, data);
             } else {
-               glTexSubImage3D(res->target, level, x, y, box->z,
-                               box->width, box->height, box->depth,
+               glTexSubImage3D(res->target, info->level, x, y, info->box->z,
+                               info->box->width, info->box->height, info->box->depth,
                                glformat, gltype, data);
             }
          } else if (res->target == GL_TEXTURE_1D) {
             if (compressed) {
-               glCompressedTexSubImage1D(res->target, level, box->x,
-                                         box->width,
+               glCompressedTexSubImage1D(res->target, info->level, info->box->x,
+                                         info->box->width,
                                          glformat, comp_size, data);
             } else {
-               glTexSubImage1D(res->target, level, box->x, box->width,
+               glTexSubImage1D(res->target, info->level, info->box->x, info->box->width,
                                glformat, gltype, data);
             }
          } else {
             if (compressed) {
-               glCompressedTexSubImage2D(res->target, level, x, res->target == GL_TEXTURE_1D_ARRAY ? box->z : y,
-                                         box->width, box->height,
+               glCompressedTexSubImage2D(res->target, info->level, x, res->target == GL_TEXTURE_1D_ARRAY ? info->box->z : y,
+                                         info->box->width, info->box->height,
                                          glformat, comp_size, data);
             } else {
-               glTexSubImage2D(res->target, level, x, res->target == GL_TEXTURE_1D_ARRAY ? box->z : y,
-                               box->width, box->height,
+               glTexSubImage2D(res->target, info->level, x, res->target == GL_TEXTURE_1D_ARRAY ? info->box->z : y,
+                               info->box->width, info->box->height,
                                glformat, gltype, data);
             }
          }
@@ -3879,13 +3888,13 @@ void vrend_renderer_transfer_write_iov(uint32_t res_handle,
       if (need_temp)
          free(data);
    }
-
+   return 0;
 }
 
-static void vrend_transfer_send_getteximage(struct vrend_resource *res,
-                                            uint32_t level, uint32_t stride,
-                                            struct pipe_box *box, uint64_t offset,
-                                            struct iovec *iov, int num_iovs)
+static int vrend_transfer_send_getteximage(struct vrend_context *ctx,
+					   struct vrend_resource *res,
+					   struct iovec *iov, int num_iovs,
+					   const struct vrend_transfer_info *info)
 {
    GLenum format, type;
    uint32_t send_size, tex_size;
@@ -3902,21 +3911,21 @@ static void vrend_transfer_send_getteximage(struct vrend_resource *res,
       format = tex_conv_table[res->base.format].internalformat;
 
    if (res->target == GL_TEXTURE_3D)
-      depth = u_minify(res->base.depth0, level);
+      depth = u_minify(res->base.depth0, info->level);
    else if (res->target == GL_TEXTURE_2D_ARRAY || res->target == GL_TEXTURE_1D_ARRAY || res->target == GL_TEXTURE_CUBE_MAP_ARRAY)
       depth = res->base.array_size;
 
-   tex_size = util_format_get_nblocks(res->base.format, u_minify(res->base.width0, level), u_minify(res->base.height0, level)) * util_format_get_blocksize(res->base.format) * depth;
+   tex_size = util_format_get_nblocks(res->base.format, u_minify(res->base.width0, info->level), u_minify(res->base.height0, info->level)) * util_format_get_blocksize(res->base.format) * depth;
    
-   send_size = util_format_get_nblocks(res->base.format, box->width, box->height) * util_format_get_blocksize(res->base.format) * box->depth;
+   send_size = util_format_get_nblocks(res->base.format, info->box->width, info->box->height) * util_format_get_blocksize(res->base.format) * info->box->depth;
 
-   if (box->z && res->target != GL_TEXTURE_CUBE_MAP) {
-      send_offset = util_format_get_nblocks(res->base.format, u_minify(res->base.width0, level), u_minify(res->base.height0, level)) * util_format_get_blocksize(res->base.format) * box->z;
+   if (info->box->z && res->target != GL_TEXTURE_CUBE_MAP) {
+      send_offset = util_format_get_nblocks(res->base.format, u_minify(res->base.width0, info->level), u_minify(res->base.height0, info->level)) * util_format_get_blocksize(res->base.format) * info->box->z;
    }
 
    data = malloc(tex_size);
    if (!data)
-      return;
+      return ENOMEM;
 
    switch (elsize) {
    case 1:
@@ -3936,34 +3945,37 @@ static void vrend_transfer_send_getteximage(struct vrend_resource *res,
 
    glBindTexture(res->target, res->id);
    if (res->target == GL_TEXTURE_CUBE_MAP) {
-      target = GL_TEXTURE_CUBE_MAP_POSITIVE_X + box->z;
+      target = GL_TEXTURE_CUBE_MAP_POSITIVE_X + info->box->z;
    } else
       target = res->target;
       
    if (compressed) {
       if (vrend_state.have_robustness)
-         glGetnCompressedTexImageARB(target, level, tex_size, data);
+         glGetnCompressedTexImageARB(target, info->level, tex_size, data);
       else
-         glGetCompressedTexImage(target, level, data);
+         glGetCompressedTexImage(target, info->level, data);
    } else {
       if (vrend_state.have_robustness)
-         glGetnTexImageARB(target, level, format, type, tex_size, data);
+         glGetnTexImageARB(target, info->level, format, type, tex_size, data);
       else
-         glGetTexImage(target, level, format, type, data);
+         glGetTexImage(target, info->level, format, type, data);
    }
       
    glPixelStorei(GL_PACK_ALIGNMENT, 4);
 
-   vrend_transfer_write_tex_return(&res->base, box, level, stride, offset, iov, num_iovs, data + send_offset, send_size, FALSE);
+   vrend_transfer_write_tex_return(&res->base, info->box, info->level,
+				   info->stride, info->offset, iov, num_iovs,
+				   data + send_offset, send_size, FALSE);
    free(data);
+   return 0;
 }
 
-static void vrend_transfer_send_readpixels(struct vrend_resource *res,
-                                           uint32_t level, uint32_t stride,
-                                           struct pipe_box *box, uint64_t offset,
-                                           struct iovec *iov, int num_iovs)
+static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
+					  struct vrend_resource *res,
+					  struct iovec *iov, int num_iovs,
+					  const struct vrend_transfer_info *info)
 {
-   void *myptr = iov[0].iov_base + offset;
+   void *myptr = iov[0].iov_base + info->offset;
    int need_temp = 0;
    GLuint fb_id;
    void *data;
@@ -3971,7 +3983,7 @@ static void vrend_transfer_send_readpixels(struct vrend_resource *res,
    GLenum format, type;
    GLint y1;
    uint32_t send_size = 0;
-   uint32_t h = u_minify(res->base.height0, level);
+   uint32_t h = u_minify(res->base.height0, info->level);
    int elsize = util_format_get_blocksize(res->base.format);
    float depth_scale;
    vrend_use_program(0);
@@ -3988,18 +4000,18 @@ static void vrend_transfer_send_readpixels(struct vrend_resource *res,
    if (num_iovs > 1 || separate_invert)
       need_temp = 1;
 
-   send_size = box->width * box->height * box->depth * util_format_get_blocksize(res->base.format);
+   send_size = info->box->width * info->box->height * info->box->depth * util_format_get_blocksize(res->base.format);
 
    if (need_temp) {
       data = malloc(send_size);
       if (!data) {
          fprintf(stderr,"malloc failed %d\n", send_size);
-         return;
+         return ENOMEM;
       }
    } else
       data = myptr;
 
-   if (res->readback_fb_id == 0 || res->readback_fb_level != level || res->readback_fb_z != box->z) {
+   if (res->readback_fb_id == 0 || res->readback_fb_level != info->level || res->readback_fb_z != info->box->z) {
 
       if (res->readback_fb_id)
          glDeleteFramebuffers(1, &res->readback_fb_id);
@@ -4007,24 +4019,24 @@ static void vrend_transfer_send_readpixels(struct vrend_resource *res,
       glGenFramebuffers(1, &fb_id);
       glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fb_id);
 
-      vrend_fb_bind_texture(res, 0, level, box->z);
+      vrend_fb_bind_texture(res, 0, info->level, info->box->z);
 
       res->readback_fb_id = fb_id;
-      res->readback_fb_level = level;
-      res->readback_fb_z = box->z;
+      res->readback_fb_level = info->level;
+      res->readback_fb_z = info->box->z;
    } else
       glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, res->readback_fb_id);
    if (actually_invert)
-      y1 = h - box->y - box->height;
+      y1 = h - info->box->y - info->box->height;
    else
-      y1 = box->y;
+      y1 = info->box->y;
 
    if (have_invert_mesa && actually_invert)
       glPixelStorei(GL_PACK_INVERT_MESA, 1);
    if (!vrend_format_is_ds(res->base.format))
       glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
-   if (!need_temp && stride)
-      glPixelStorei(GL_PACK_ROW_LENGTH, stride);
+   if (!need_temp && info->stride)
+      glPixelStorei(GL_PACK_ROW_LENGTH, info->stride);
 
    switch (elsize) {
    case 1:
@@ -4052,9 +4064,9 @@ static void vrend_transfer_send_readpixels(struct vrend_resource *res,
       }
    }
    if (vrend_state.have_robustness)
-      glReadnPixelsARB(box->x, y1, box->width, box->height, format, type, send_size, data);
+      glReadnPixelsARB(info->box->x, y1, info->box->width, info->box->height, format, type, send_size, data);
    else
-      glReadPixels(box->x, y1, box->width, box->height, format, type, data);
+      glReadPixels(info->box->x, y1, info->box->width, info->box->height, format, type, data);
 
    if (res->base.format == (enum pipe_format)VIRGL_FORMAT_Z24X8_UNORM) {
       if (!use_core_profile)
@@ -4064,80 +4076,27 @@ static void vrend_transfer_send_readpixels(struct vrend_resource *res,
    }
    if (have_invert_mesa && actually_invert)
       glPixelStorei(GL_PACK_INVERT_MESA, 0);
-   if (!need_temp && stride)
+   if (!need_temp && info->stride)
       glPixelStorei(GL_PACK_ROW_LENGTH, 0);
    glPixelStorei(GL_PACK_ALIGNMENT, 4);
    if (need_temp) {
-      vrend_transfer_write_tex_return(&res->base, box, level, stride, offset, iov, num_iovs, data, send_size, separate_invert);
+      vrend_transfer_write_tex_return(&res->base, info->box, info->level,
+				      info->stride, info->offset, iov, num_iovs,
+				      data, send_size, separate_invert);
       free(data);
    }
+   return 0;
 }
 
-static bool check_tsend_bounds(struct vrend_resource *res,
-                               uint32_t level, struct pipe_box *box)
+static int vrend_renderer_transfer_send_iov(struct vrend_context *ctx,
+					    struct vrend_resource *res,
+					    struct iovec *iov, int num_iovs,
+					    const struct vrend_transfer_info *info)
 {
-
-   if (box->width > u_minify(res->base.width0, level))
-       return false;
-   if (box->x > u_minify(res->base.width0, level))
-       return false;
-   if (box->width + box->x > u_minify(res->base.width0, level))
-       return false;
-
-   if (box->height > u_minify(res->base.height0, level))
-       return false;
-   if (box->y > u_minify(res->base.height0, level))
-       return false;
-   if (box->height + box->y > u_minify(res->base.height0, level))
-       return false;
-
-   /* bounds checks TODO,
-      box depth / box->z and array layers */
-   return true;
-}
-
-void vrend_renderer_transfer_send_iov(uint32_t res_handle, uint32_t ctx_id,
-                                     uint32_t level, uint32_t stride,
-                                     uint32_t layer_stride,
-                                     struct pipe_box *box,
-                                     uint64_t offset, struct iovec *iov,
-                                     int num_iovs)
-{
-   struct vrend_resource *res;
-   struct vrend_context *ctx = vrend_lookup_renderer_ctx(ctx_id);
-
-   if (!ctx)
-     return;
-
-   if (ctx_id == 0)
-     res = vrend_resource_lookup(res_handle, ctx_id);
-   else
-     res = vrend_renderer_ctx_res_lookup(ctx, res_handle);
-   if (!res) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, res_handle);
-      return;
-   }
-
-   if (!box)
-     return;
-
-   if (res->iov && (!iov || num_iovs == 0)) {
-      iov = res->iov;
-      num_iovs = res->num_iovs;
-   }
-
-   if (!iov) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, res_handle);
-      return;
-   }
-
-   if (!check_tsend_bounds(res, level, box))
-      return;
-
    if (res->target == 0 && res->ptr) {
-      uint32_t send_size = box->width * util_format_get_blocksize(res->base.format);      
-      vrend_transfer_write_return(res->ptr + box->x, send_size, offset, iov, num_iovs);
-      return;
+      uint32_t send_size = info->box->width * util_format_get_blocksize(res->base.format);
+      vrend_transfer_write_return(res->ptr + info->box->x, send_size, info->offset, iov, num_iovs);
+      return 0;
    }
 
    vrend_hw_switch_context(vrend_lookup_renderer_ctx(0), TRUE);
@@ -4147,15 +4106,15 @@ void vrend_renderer_transfer_send_iov(uint32_t res_handle, uint32_t ctx_id,
        res->target == GL_TRANSFORM_FEEDBACK_BUFFER ||
        res->target == GL_TEXTURE_BUFFER ||
        res->target == GL_UNIFORM_BUFFER) {
-      uint32_t send_size = box->width * util_format_get_blocksize(res->base.format);      
+      uint32_t send_size = info->box->width * util_format_get_blocksize(res->base.format);
       void *data;
 
       glBindBufferARB(res->target, res->id);
-      data = glMapBufferRange(res->target, box->x, box->width, GL_MAP_READ_BIT);
+      data = glMapBufferRange(res->target, info->box->x, info->box->width, GL_MAP_READ_BIT);
       if (!data)
          fprintf(stderr,"unable to open buffer for reading %d\n", res->target);
       else
-         vrend_transfer_write_return(data, send_size, offset, iov, num_iovs);
+         vrend_transfer_write_return(data, send_size, info->offset, iov, num_iovs);
       glUnmapBuffer(res->target);
    } else {
       boolean can_readpixels = TRUE;
@@ -4163,15 +4122,66 @@ void vrend_renderer_transfer_send_iov(uint32_t res_handle, uint32_t ctx_id,
       can_readpixels = vrend_format_can_render(res->base.format) || vrend_format_is_ds(res->base.format);
 
       if (can_readpixels) {
-         vrend_transfer_send_readpixels(res, level, stride, box, offset,
-                                        iov, num_iovs);
-         return;
+         return vrend_transfer_send_readpixels(ctx, res,
+					       iov, num_iovs, info);
       }
 
-      vrend_transfer_send_getteximage(res, level, stride, box, offset,
-                                      iov, num_iovs);
+      return vrend_transfer_send_getteximage(ctx, res,
+					     iov, num_iovs, info);
 
    }
+   return 0;
+}
+
+int vrend_renderer_transfer_iov(const struct vrend_transfer_info *info,
+				int transfer_mode)
+{
+   struct vrend_resource *res;
+   struct vrend_context *ctx = vrend_lookup_renderer_ctx(info->ctx_id);
+   struct iovec *iov;
+   int num_iovs;
+
+   if (!info->box)
+      return EINVAL;
+
+   ctx = vrend_lookup_renderer_ctx(info->ctx_id);
+   if (!ctx)
+      return EINVAL;
+
+   if (info->ctx_id == 0)
+     res = vrend_resource_lookup(info->handle, 0);
+   else
+     res = vrend_renderer_ctx_res_lookup(ctx, info->handle);
+
+   if (!res) {
+      if (info->ctx_id)
+	 report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, info->handle);
+      return EINVAL;
+   }
+
+   iov = info->iovec;
+   num_iovs = info->iovec_cnt;
+
+   if (res->iov && (!iov || num_iovs == 0)) {
+      iov = res->iov;
+      num_iovs = res->num_iovs;
+   }
+
+   if (!iov) {
+      if (info->ctx_id)
+	 report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, info->handle);
+      return EINVAL;
+   }
+
+   if (!check_transfer_bounds(res, info->level, info->box))
+      return EINVAL;
+
+   if (transfer_mode == VREND_TRANSFER_WRITE)
+      return vrend_renderer_transfer_write_iov(ctx, res, iov, num_iovs,
+					       info);
+   else
+      return vrend_renderer_transfer_send_iov(ctx, res, iov, num_iovs,
+					      info);
 }
 
 void vrend_set_stencil_ref(struct vrend_context *ctx,
@@ -5364,9 +5374,11 @@ void vrend_renderer_get_rect(int res_handle, struct iovec *iov, unsigned int num
                             uint32_t offset, int x, int y, int width, int height)
 {
    struct vrend_resource *res = vrend_resource_lookup(res_handle, 0);
+   struct vrend_transfer_info transfer_info;
    struct pipe_box box;
    int elsize;
-   int stride;
+
+   memset(&transfer_info, 0, sizeof(transfer_info));
 
    elsize = util_format_get_blocksize(res->base.format);
    box.x = x;
@@ -5376,11 +5388,16 @@ void vrend_renderer_get_rect(int res_handle, struct iovec *iov, unsigned int num
    box.height = height;
    box.depth = 1;
 
-   stride = util_format_get_nblocksx(res->base.format, res->base.width0) * elsize;
-   vrend_renderer_transfer_send_iov(res->handle, 0,
-                                   0, stride, 0, &box, offset, iov, num_iovs);
+   transfer_info.box = &box;
+
+   transfer_info.stride = util_format_get_nblocksx(res->base.format, res->base.width0) * elsize;
+   transfer_info.offset = offset;
+   transfer_info.handle = res->handle;
+   transfer_info.iovec = iov;
+   transfer_info.iovec_cnt = num_iovs;
+   vrend_renderer_transfer_iov(&transfer_info, VREND_TRANSFER_READ);
 }
-                                   
+
 void vrend_renderer_attach_res_ctx(int ctx_id, int resource_id)
 {
    struct vrend_context *ctx = vrend_lookup_renderer_ctx(ctx_id);
