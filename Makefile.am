@@ -26,3 +26,5 @@ pkgconfig_DATA = virglrenderer.pc
 
 EXTRA_DIST = \
 	virglrenderer.pc.in
+
+@CODE_COVERAGE_RULES@

@@ -1,5 +1,8 @@
 SUBDIRS := gallium/auxiliary
-AM_LDFLAGS = $(EPOXY_LIBS) $(GL_LIBS) -lgbm -lm -ldl -I./gallium/include
+AM_LDFLAGS = -lgbm -lm -ldl -I./gallium/include \
+	$(EPOXY_LIBS) \
+	$(GL_LIBS) \
+	$(CODE_COVERAGE_LDFLAGS)
 
 AM_CFLAGS = \
         -I$(top_srcdir)/src/gallium/drivers/virgl \
@@ -11,7 +14,8 @@ AM_CFLAGS = \
 	$(PIC_FLAGS) \
 	$(LIBDRM_CFLAGS) \
 	$(EPOXY_CFLAGS) \
-	$(VISIBILITY_CFLAGS)
+	$(VISIBILITY_CFLAGS) \
+	$(CODE_COVERAGE_CFLAGS)
 
 libvrend_la_SOURCES = \
         vrend_renderer.c \
