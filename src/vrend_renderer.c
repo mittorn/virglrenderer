@@ -3362,7 +3362,8 @@ static int check_resource_valid(struct vrend_renderer_resource_create_args *args
     } else {
 	if (!((args->bind & PIPE_BIND_SAMPLER_VIEW) ||
 	      (args->bind & PIPE_BIND_DEPTH_STENCIL) ||
-	      (args->bind & PIPE_BIND_RENDER_TARGET)))
+	      (args->bind & PIPE_BIND_RENDER_TARGET) ||
+	      (args->bind & PIPE_BIND_CURSOR)))
 	    return -1;
 
 	if (args->target == PIPE_TEXTURE_2D ||
