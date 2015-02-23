@@ -14,7 +14,7 @@
    match-leak-kinds: definite
    fun:malloc
    ...
-   fun:dri_screen_create_dri2
+   fun:dri_screen_create*
    fun:dri_device_create
    fun:_gbm_create_device
    fun:gbm_create_device
