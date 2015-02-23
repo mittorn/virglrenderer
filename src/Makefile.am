@@ -40,3 +40,5 @@ libvirglrenderer_la_LDFLAGS = $(GM_LDFLAGS) $(EPOXY_LDFLAGS)
 
 libvirglrendererincludedir = ${includedir}
 libvirglrendererinclude_HEADERS = virglrenderer.h virgl_helper.h
+
+-include $(top_srcdir)/git.mk

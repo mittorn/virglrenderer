@@ -17,3 +17,5 @@ libgallium_la_SOURCES = \
 	$(C_SOURCES) \
 	$(GENERATED_SOURCES)
 
+
+-include $(top_srcdir)/git.mk
