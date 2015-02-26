@@ -1,13 +1,13 @@
 if BUILD_TESTS
 
-AM_CPPFLAGS = -I$(top_srcdir)/src -I$(top_srcdir)/src/gallium/include $(CHECK_CFLAGS)
+AM_CPPFLAGS = -I$(top_srcdir)/src -I$(top_srcdir)/src/gallium/include $(CHECK_CFLAGS) -I$(top_srcdir)/src/gallium/auxiliary
 
 TEST_LIBS = libvrtest.la $(top_builddir)/src/libvirglrenderer.la $(CHECK_LIBS)
 
 run_tests = test_virgl_init test_virgl_transfer test_virgl_resource
 
 noinst_LTLIBRARIES = libvrtest.la
-libvrtest_la_SOURCES = testvirgl.c
+libvrtest_la_SOURCES = testvirgl.c testvirgl_encode.c
 noinst_PROGRAMS = $(run_tests)
 TESTS = $(run_tests)
 

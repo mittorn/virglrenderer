@@ -26,6 +26,31 @@
 #define TESTVIRGL_H
 
 #include "virglrenderer.h"
+#include "pipe/p_state.h"
+
+#define VIRGL_MAX_CMDBUF_DWORDS (16*1024)
+
+struct virgl_cmd_buf {
+    unsigned cdw;
+    uint32_t *buf;
+};
+
+struct virgl_context {
+    struct virgl_cmd_buf *cbuf;
+};
+
+struct virgl_so_target {
+    uint32_t handle;
+};
+struct virgl_sampler_view {
+    uint32_t handle;
+};
+
+struct virgl_resource {
+    struct pipe_resource base;
+    uint32_t handle;
+};
+
 
 void testvirgl_init_simple_buffer(struct virgl_renderer_resource_create_args *res, int handle);
 void testvirgl_init_simple_1d_resource(struct virgl_renderer_resource_create_args *args, int handle);
