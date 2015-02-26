@@ -24,6 +24,34 @@ AC_PROG_LIBTOOL
 AC_SYS_LARGEFILE
 AX_CODE_COVERAGE
 
+DEFINES="-D_GNU_SOURCE"
+
+AC_ARG_ENABLE([debug],
+    [AS_HELP_STRING([--enable-debug],
+        [use debug compiler flags and macros @<:@default=disabled@:>@])],
+    [enable_debug="$enableval"],
+    [enable_debug=no]
+)
+if test "x$enable_debug" = xyes; then
+    DEFINES="$DEFINES -DDEBUG"
+    if test "x$GCC" = xyes; then
+        if ! echo "$CFLAGS" | grep -q -e '-g'; then
+            CFLAGS="$CFLAGS -g"
+        fi
+        if ! echo "$CFLAGS" | grep -q -e '-O'; then
+            CFLAGS="$CFLAGS -O0"
+        fi
+    fi
+    if test "x$GXX" = xyes; then
+        if ! echo "$CXXFLAGS" | grep -q -e '-g'; then
+            CXXFLAGS="$CXXFLAGS -g"
+        fi
+        if ! echo "$CXXFLAGS" | grep -q -e '-O'; then
+            CXXFLAGS="$CXXFLAGS -O0"
+        fi
+    fi
+fi
+
 AC_ARG_ENABLE(tests,
 	      AS_HELP_STRING([--enable-tests], [Build the tests (default=auto)]),
 	      [build_tests="$enableval"],
@@ -55,14 +83,13 @@ if test "x$GCC" = xyes; then
 	CFLAGS="$CFLAGS -Wall -std=c99"
 fi
 
-DEFINES="-D_GNU_SOURCE"
-AC_SUBST([DEFINES])
 PKG_CHECK_MODULES([LIBDRM], [libdrm >= $LIBDRM_REQUIRED],
                   [have_libdrm=yes], [have_libdrm=no])
 
 PKG_CHECK_MODULES([EPOXY], [epoxy],
                   [have_epoxy=yes], [have_epoxy=no])
 
+AC_SUBST([DEFINES])
 AC_CONFIG_FILES([
 		virglrenderer.pc
 		Makefile
@@ -71,4 +98,3 @@ AC_CONFIG_FILES([
 		tests/Makefile
 ])
 AC_OUTPUT
-
