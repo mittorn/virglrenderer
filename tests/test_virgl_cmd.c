@@ -35,40 +35,20 @@ START_TEST(virgl_test_clear)
 {
     struct virgl_context ctx;
     struct virgl_resource res;
-    struct virgl_renderer_resource_create_args args;
     struct virgl_surface surf;
     struct pipe_framebuffer_state fb_state;
     union pipe_color_union color;
     struct virgl_box box;
-    struct iovec iovs[1];
-    int niovs = 1;
     int ret;
     int i;
     
     ret = testvirgl_init_ctx_cmdbuf(&ctx);
     ck_assert_int_eq(ret, 0);    
 
-    /* clear buffer to green */
-    color.f[0] = 0.0;
-    color.f[1] = 1.0;
-    color.f[2] = 0.0;
-    color.f[3] = 1.0;
-
     /* init and create simple 2D resource */
-    testvirgl_init_simple_2d_resource(&args, 1);
-    ret = virgl_renderer_resource_create(&args, NULL, 0);
+    ret = testvirgl_create_backed_simple_2d_res(&res, 1);
     ck_assert_int_eq(ret, 0);
     
-    res.handle = 1;
-    res.base.target = PIPE_TEXTURE_2D;
-
-    /* create and attach some backing store for resource */
-    iovs[0].iov_base = calloc(1, 50*50*4);
-    iovs[0].iov_len = 50*50*4;
-
-    virgl_renderer_resource_attach_iov(res.handle, iovs, niovs);
-    ck_assert_int_eq(ret, 0);
-
     /* attach resource to context */
     virgl_renderer_ctx_attach_resource(ctx.ctx_id, res.handle);
 
@@ -87,6 +67,11 @@ START_TEST(virgl_test_clear)
     virgl_encoder_set_framebuffer_state(&ctx, &fb_state);
 
     /* clear the resource */
+    /* clear buffer to green */
+    color.f[0] = 0.0;
+    color.f[1] = 1.0;
+    color.f[2] = 0.0;
+    color.f[3] = 1.0;
     virgl_encode_clear(&ctx, PIPE_CLEAR_COLOR0, &color, 0.0, 0);
 
     /* submit the cmd stream */
@@ -104,15 +89,15 @@ START_TEST(virgl_test_clear)
 
     /* check the returned values */
     for (i = 0; i < 5; i++) {
-	uint32_t *ptr = iovs[0].iov_base;
+	uint32_t *ptr = res.iovs[0].iov_base;
 	ck_assert_int_eq(ptr[i], 0xff00ff00);
     }
 
     /* cleanup */
     virgl_renderer_ctx_detach_resource(1, res.handle);
-    virgl_renderer_resource_detach_iov(res.handle, NULL, NULL);
 
-    free(iovs[0].iov_base);
+    testvirgl_destroy_backed_res(&res);
+
     testvirgl_fini_ctx_cmdbuf(&ctx);
 }
 END_TEST

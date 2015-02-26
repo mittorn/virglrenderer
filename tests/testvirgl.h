@@ -50,6 +50,8 @@ struct virgl_sampler_view {
 struct virgl_resource {
     struct pipe_resource base;
     uint32_t handle;
+    struct iovec *iovs;
+    int niovs;
 };
 
 
@@ -62,4 +64,8 @@ void testvirgl_fini_single_ctx(void);
 
 int testvirgl_init_ctx_cmdbuf(struct virgl_context *ctx);
 void testvirgl_fini_ctx_cmdbuf(struct virgl_context *ctx);
+
+int testvirgl_create_backed_simple_2d_res(struct virgl_resource *res,
+					  int handle);
+void testvirgl_destroy_backed_res(struct virgl_resource *res);
 #endif

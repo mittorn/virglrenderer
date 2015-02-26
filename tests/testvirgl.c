@@ -25,9 +25,11 @@
 /* helper functions for testing purposes */
 #include <check.h>
 #include <errno.h>
+#include <sys/uio.h>
 #include "pipe/p_defines.h"
 #include "pipe/p_format.h"
 #include "util/u_memory.h"
+#include "util/u_format.h"
 #include "testvirgl.h"
 
 #include "virglrenderer.h"
@@ -140,4 +142,42 @@ void testvirgl_fini_ctx_cmdbuf(struct virgl_context *ctx)
     FREE(ctx->cbuf->buf);
     FREE(ctx->cbuf);
     testvirgl_fini_single_ctx();
+}
+
+int testvirgl_create_backed_simple_2d_res(struct virgl_resource *res,
+					  int handle)
+{
+    struct virgl_renderer_resource_create_args args;
+    uint32_t backing_size;
+    int ret;
+
+    testvirgl_init_simple_2d_resource(&args, handle);
+    ret = virgl_renderer_resource_create(&args, NULL, 0);
+    ck_assert_int_eq(ret, 0);
+
+    res->handle = handle;
+    res->base.target = args.target;
+    res->base.format = args.format;
+
+    backing_size = args.width * args.height * util_format_get_blocksize(res->base.format);
+    res->iovs = malloc(sizeof(struct iovec));
+
+    res->iovs[0].iov_base = malloc(backing_size);
+    res->iovs[0].iov_len = backing_size;
+    res->niovs = 1;
+
+    virgl_renderer_resource_attach_iov(res->handle, res->iovs, res->niovs);
+    return 0;
+}
+
+void testvirgl_destroy_backed_res(struct virgl_resource *res)
+{
+    struct iovec *iovs;
+    int niovs;
+
+    virgl_renderer_resource_detach_iov(res->handle, &iovs, &niovs);
+
+    free(iovs[0].iov_base);
+    free(iovs);
+    virgl_renderer_resource_unref(res->handle);
 }
