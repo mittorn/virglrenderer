@@ -24,8 +24,10 @@
 
 /* helper functions for testing purposes */
 #include <check.h>
+#include <errno.h>
 #include "pipe/p_defines.h"
 #include "pipe/p_format.h"
+#include "util/u_memory.h"
 #include "testvirgl.h"
 
 #include "virglrenderer.h"
@@ -108,4 +110,34 @@ void testvirgl_fini_single_ctx(void)
 {
     virgl_renderer_context_destroy(1);
     virgl_renderer_cleanup(&mystruct);
+}
+
+int testvirgl_init_ctx_cmdbuf(struct virgl_context *ctx)
+{
+    int ret;
+    ret = testvirgl_init_single_ctx();
+    if (ret)
+	return ret;
+
+    ctx->ctx_id = 1;
+    ctx->cbuf = CALLOC_STRUCT(virgl_cmd_buf);
+    if (!ctx->cbuf) {
+	testvirgl_fini_single_ctx();
+	return ENOMEM;
+    }
+
+    ctx->cbuf->buf = CALLOC(1, VIRGL_MAX_CMDBUF_DWORDS);
+    if (!ctx->cbuf->buf) {
+	FREE(ctx->cbuf);
+	testvirgl_fini_single_ctx();
+	return ENOMEM;
+    }
+    return 0;
+}
+
+void testvirgl_fini_ctx_cmdbuf(struct virgl_context *ctx)
+{
+    FREE(ctx->cbuf->buf);
+    FREE(ctx->cbuf);
+    testvirgl_fini_single_ctx();
 }

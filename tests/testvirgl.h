@@ -37,6 +37,7 @@ struct virgl_cmd_buf {
 
 struct virgl_context {
     struct virgl_cmd_buf *cbuf;
+    int ctx_id;
 };
 
 struct virgl_so_target {
@@ -59,4 +60,6 @@ int testvirgl_init_single_ctx(void);
 void testvirgl_init_single_ctx_nr(void);
 void testvirgl_fini_single_ctx(void);
 
+int testvirgl_init_ctx_cmdbuf(struct virgl_context *ctx);
+void testvirgl_fini_ctx_cmdbuf(struct virgl_context *ctx);
 #endif
