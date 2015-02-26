@@ -3687,6 +3687,21 @@ static bool check_transfer_bounds(struct vrend_resource *res,
    return true;
 }
 
+static bool check_iov_bounds(struct vrend_resource *res,
+			     const struct vrend_transfer_info *info,
+			     struct iovec *iov, int num_iovs)
+{
+    int elsize = util_format_get_blocksize(res->base.format);
+    GLuint send_size = util_format_get_nblocks(res->base.format, info->box->width,
+					       info->box->height) * elsize * info->box->depth;
+
+    GLuint iovsize = vrend_get_iovec_size(iov, num_iovs);
+
+    if (iovsize < send_size)
+        return false;
+    return true;
+}
+
 static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
 					    struct vrend_resource *res,
 					    struct iovec *iov, int num_iovs,
@@ -4175,6 +4190,9 @@ int vrend_renderer_transfer_iov(const struct vrend_transfer_info *info,
    }
 
    if (!check_transfer_bounds(res, info->level, info->box))
+      return EINVAL;
+
+   if (!check_iov_bounds(res, info, iov, num_iovs))
       return EINVAL;
 
    if (transfer_mode == VREND_TRANSFER_WRITE)
