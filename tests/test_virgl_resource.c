@@ -146,6 +146,7 @@ static struct res_test testlist[] = {
 
   /* 2D texture - PASS */
   TEST(1, PIPE_TEXTURE_2D, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 1, 0, 0),
+  TEST(1, PIPE_TEXTURE_2D, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_CURSOR, 50, 50, 1, 1, 0, 0),
   /* 2D texture with height - PASS */
   TEST(1, PIPE_TEXTURE_2D, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 50, 1, 1, 0, 0),
   /* 2D texture with depth - FAIL */
