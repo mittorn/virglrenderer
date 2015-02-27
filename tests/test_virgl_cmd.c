@@ -247,7 +247,7 @@ START_TEST(virgl_test_render_simple)
     /* create a surface for the resource */
     memset(&surf, 0, sizeof(surf));
     surf.base.format = PIPE_FORMAT_B8G8R8X8_UNORM;
-    surf.handle = 1;
+    surf.handle = ctx_handle++;
     surf.base.texture = &res.base;
 
     virgl_encoder_create_surface(&ctx, surf.handle, &res, &surf.base);
