@@ -1,6 +1,6 @@
 if BUILD_TESTS
 
-AM_CPPFLAGS = -I$(top_srcdir)/src -I$(top_srcdir)/src/gallium/include $(CHECK_CFLAGS) -I$(top_srcdir)/src/gallium/auxiliary
+AM_CPPFLAGS = -I$(top_srcdir)/src -I$(top_srcdir)/src/gallium/include $(CHECK_CFLAGS) -I$(top_srcdir)/src/gallium/auxiliary $(DEFINES)
 
 TEST_LIBS = libvrtest.la $(top_builddir)/src/libvirglrenderer.la $(CHECK_LIBS)
 
