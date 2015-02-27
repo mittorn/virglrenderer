@@ -178,25 +178,32 @@ int virgl_encode_rasterizer_state(struct virgl_context *ctx,
 int virgl_encode_shader_state(struct virgl_context *ctx,
                              uint32_t handle,
 			     uint32_t type,
-                             const struct pipe_shader_state *shader)
+			      const struct pipe_shader_state *shader,
+			      const char *shad_str)
 {
    char *str;
    uint32_t shader_len, len;
    int i;
    int ret;
    uint32_t tmp;
-   int num_tokens = tgsi_num_tokens(shader->tokens);
+   int num_tokens;
    int str_total_size = 65536;
 
-   str = CALLOC(1, str_total_size);
-   if (!str)
-      return -1;
+   if (!shad_str) {
+       num_tokens = tgsi_num_tokens(shader->tokens);
+       str = CALLOC(1, str_total_size);
+       if (!str)
+	   return -1;
 
-   ret = tgsi_dump_str(shader->tokens, TGSI_DUMP_FLOAT_AS_HEX, str, str_total_size);
-   if (ret == -1) {
-      fprintf(stderr, "Failed to translate shader in available space\n");
-      FREE(str);
-      return -1;
+       ret = tgsi_dump_str(shader->tokens, TGSI_DUMP_FLOAT_AS_HEX, str, str_total_size);
+       if (ret == -1) {
+	   fprintf(stderr, "Failed to translate shader in available space\n");
+	   FREE(str);
+	   return -1;
+       }
+   } else {
+       num_tokens = 0;
+       str = (char *)shad_str;
    }
 
    shader_len = strlen(str) + 1;
@@ -222,7 +229,8 @@ int virgl_encode_shader_state(struct virgl_context *ctx,
    }
    virgl_encoder_write_block(ctx->cbuf, (uint8_t *)str, shader_len);
 
-   FREE(str);
+   if (str != shad_str)
+       FREE(str);
    return 0;
 }
 

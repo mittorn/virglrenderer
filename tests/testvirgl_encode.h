@@ -49,7 +49,8 @@ extern int virgl_encode_rasterizer_state(struct virgl_context *ctx,
 extern int virgl_encode_shader_state(struct virgl_context *ctx,
                                     uint32_t handle,
                                     uint32_t type,
-                                    const struct pipe_shader_state *shader);
+				     const struct pipe_shader_state *shader,
+				     const char *shad_str);
 
 int virgl_encode_stream_output_info(struct virgl_context *ctx,
                                    uint32_t handle,
