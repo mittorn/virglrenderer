@@ -93,11 +93,23 @@ static struct myinfo_struct mystruct;
 
 static struct virgl_renderer_callbacks test_cbs;
 
+static uint32_t testvirgl_last_fence;
+static void testvirgl_write_fence(void *cookie, uint32_t fence)
+{
+    testvirgl_last_fence = fence;
+}
+
+uint32_t testvirgl_get_last_fence(void)
+{
+    return testvirgl_last_fence;
+}
+
 int testvirgl_init_single_ctx(void)
 {
     int ret;
 
     test_cbs.version = 1;
+    test_cbs.write_fence = testvirgl_write_fence;
     ret = virgl_renderer_init(&mystruct, VIRGL_RENDERER_USE_EGL, &test_cbs);
     ck_assert_int_eq(ret, 0);
     if (ret)
