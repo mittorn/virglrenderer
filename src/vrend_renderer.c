@@ -740,9 +740,9 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
      return NULL;
   }
 
-  sprog->ss[0] = vs;
-  sprog->ss[1] = fs;
-  sprog->ss[2] = gs;
+  sprog->ss[PIPE_SHADER_VERTEX] = vs;
+  sprog->ss[PIPE_SHADER_FRAGMENT] = fs;
+  sprog->ss[PIPE_SHADER_GEOMETRY] = gs;
 
   sprog->id = prog_id;
 
