@@ -576,9 +576,7 @@ static int vrend_decode_create_ve(struct vrend_decode_ctx *ctx, uint32_t handle,
 
    ret = vrend_create_vertex_elements_state(ctx->grctx, handle, num_elements,
                                             ve);
-   if (ret) {
-      FREE(ve);
-   }
+   FREE(ve);
    return ret;
 }
 
