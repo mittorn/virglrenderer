@@ -56,6 +56,7 @@ struct virgl_resource {
 
 
 void testvirgl_init_simple_buffer(struct virgl_renderer_resource_create_args *res, int handle);
+void testvirgl_init_simple_buffer_sized(struct virgl_renderer_resource_create_args *res, int handle, int width);
 void testvirgl_init_simple_1d_resource(struct virgl_renderer_resource_create_args *args, int handle);
 void testvirgl_init_simple_2d_resource(struct virgl_renderer_resource_create_args *res, int handle);
 int testvirgl_init_single_ctx(void);
@@ -66,6 +67,8 @@ int testvirgl_init_ctx_cmdbuf(struct virgl_context *ctx);
 void testvirgl_fini_ctx_cmdbuf(struct virgl_context *ctx);
 
 int testvirgl_create_backed_simple_2d_res(struct virgl_resource *res,
-					  int handle);
+					  int handle, int w, int h);
+int testvirgl_create_backed_simple_buffer(struct virgl_resource *res,
+					  int handle, int size, int bind);
 void testvirgl_destroy_backed_res(struct virgl_resource *res);
 #endif

@@ -46,7 +46,7 @@ START_TEST(virgl_test_clear)
     ck_assert_int_eq(ret, 0);    
 
     /* init and create simple 2D resource */
-    ret = testvirgl_create_backed_simple_2d_res(&res, 1);
+    ret = testvirgl_create_backed_simple_2d_res(&res, 1, 50, 50);
     ck_assert_int_eq(ret, 0);
     
     /* attach resource to context */
@@ -118,11 +118,11 @@ START_TEST(virgl_test_blit_simple)
     ck_assert_int_eq(ret, 0);
 
     /* init and create simple 2D resource */
-    ret = testvirgl_create_backed_simple_2d_res(&res, 1);
+    ret = testvirgl_create_backed_simple_2d_res(&res, 1, 50, 50);
     ck_assert_int_eq(ret, 0);
 
     /* init and create simple 2D resource */
-    ret = testvirgl_create_backed_simple_2d_res(&res2, 2);
+    ret = testvirgl_create_backed_simple_2d_res(&res2, 2, 50, 50);
     ck_assert_int_eq(ret, 0);
 
     /* attach resource to context */

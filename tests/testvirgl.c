@@ -49,12 +49,12 @@ void testvirgl_init_simple_1d_resource(struct virgl_renderer_resource_create_arg
     res->flags = 0;
 }
 
-void testvirgl_init_simple_buffer(struct virgl_renderer_resource_create_args *res, int handle)
+void testvirgl_init_simple_buffer_sized(struct virgl_renderer_resource_create_args *res, int handle, int width)
 {
     res->handle = handle;
     res->target = PIPE_BUFFER;
     res->format = PIPE_FORMAT_R8_UNORM;
-    res->width = 50;
+    res->width = width;
     res->height = 1;
     res->depth = 1;
     res->array_size = 1;
@@ -62,6 +62,11 @@ void testvirgl_init_simple_buffer(struct virgl_renderer_resource_create_args *re
     res->nr_samples = 0;
     res->bind = 0;
     res->flags = 0;
+}
+
+void testvirgl_init_simple_buffer(struct virgl_renderer_resource_create_args *res, int handle)
+{
+    testvirgl_init_simple_buffer_sized(res, handle, 50);
 }
 
 void testvirgl_init_simple_2d_resource(struct virgl_renderer_resource_create_args *res, int handle)
@@ -145,13 +150,15 @@ void testvirgl_fini_ctx_cmdbuf(struct virgl_context *ctx)
 }
 
 int testvirgl_create_backed_simple_2d_res(struct virgl_resource *res,
-					  int handle)
+					  int handle, int w, int h)
 {
     struct virgl_renderer_resource_create_args args;
     uint32_t backing_size;
     int ret;
 
     testvirgl_init_simple_2d_resource(&args, handle);
+    args.width = w;
+    args.height = h;
     ret = virgl_renderer_resource_create(&args, NULL, 0);
     ck_assert_int_eq(ret, 0);
 
@@ -180,4 +187,31 @@ void testvirgl_destroy_backed_res(struct virgl_resource *res)
     free(iovs[0].iov_base);
     free(iovs);
     virgl_renderer_resource_unref(res->handle);
+}
+
+int testvirgl_create_backed_simple_buffer(struct virgl_resource *res,
+					  int handle, int size, int binding)
+{
+    struct virgl_renderer_resource_create_args args;
+    uint32_t backing_size;
+    int ret;
+
+    testvirgl_init_simple_buffer_sized(&args, handle, size);
+    args.bind = binding;
+    ret = virgl_renderer_resource_create(&args, NULL, 0);
+    ck_assert_int_eq(ret, 0);
+
+    res->handle = handle;
+    res->base.target = args.target;
+    res->base.format = args.format;
+    res->base.bind = args.bind;
+    backing_size = args.width * args.height * util_format_get_blocksize(res->base.format);
+    res->iovs = malloc(sizeof(struct iovec));
+
+    res->iovs[0].iov_base = malloc(backing_size);
+    res->iovs[0].iov_len = backing_size;
+    res->niovs = 1;
+
+    virgl_renderer_resource_attach_iov(res->handle, res->iovs, res->niovs);
+    return 0;
 }
