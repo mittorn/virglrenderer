@@ -18,12 +18,19 @@ AM_CFLAGS = \
 	$(CODE_COVERAGE_CFLAGS)
 
 libvrend_la_SOURCES = \
+        virgl_hw.h \
+        virgl_protocol.h \
+        vrend_iov.h \
         vrend_renderer.c \
+        vrend_renderer.h \
         vrend_shader.c \
+        vrend_shader.h \
         vrend_object.c \
+        vrend_object.h \
         vrend_decode.c \
         vrend_formats.c \
         vrend_blitter.c \
+        vrend_blitter.h \
         iov.c \
         vrend_renderer_helper.c \
 	virgl_egl_context.c
@@ -39,6 +46,9 @@ libvirglrenderer_la_LIBADD = libvrend.la gallium/auxiliary/libgallium.la
 libvirglrenderer_la_LDFLAGS = $(GM_LDFLAGS) $(EPOXY_LDFLAGS)
 
 libvirglrendererincludedir = ${includedir}
-libvirglrendererinclude_HEADERS = virglrenderer.h virgl_helper.h
+libvirglrendererinclude_HEADERS = virglrenderer.h virgl_helper.h virgl_egl.h
+
+EXTRA_DIST = gallium/include
 
 -include $(top_srcdir)/git.mk
+

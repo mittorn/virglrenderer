@@ -7,7 +7,11 @@ TEST_LIBS = libvrtest.la $(top_builddir)/src/libvirglrenderer.la $(CHECK_LIBS)
 run_tests = test_virgl_init test_virgl_transfer test_virgl_resource test_virgl_cmd
 
 noinst_LTLIBRARIES = libvrtest.la
-libvrtest_la_SOURCES = testvirgl.c testvirgl_encode.c
+libvrtest_la_SOURCES = testvirgl.c \
+                       testvirgl.h \
+                       testvirgl_encode.c \
+                       testvirgl_encode.h
+
 noinst_PROGRAMS = $(run_tests)
 TESTS = $(run_tests)
 
@@ -28,16 +32,18 @@ test_virgl_cmd_LDADD = $(TEST_LIBS)
 test_virgl_cmd_LDFLAGS = -no-install
 
 if HAVE_VALGRIND
-VALGRIND_FLAGS=--leak-check=full \
-	       --quiet \
-	       --error-exitcode=3 \
-		--suppressions=$(srcdir)/valgrind.suppressions
+VALGRIND_FLAGS= \
+	--leak-check=full \
+	--quiet \
+	--error-exitcode=3 \
+	--suppressions=$(srcdir)/valgrind.suppressions
 
 valgrind:
 	$(MAKE) check-TESTS LOG_COMPILER="$(VALGRIND)" LOG_FLAGS="$(VALGRIND_FLAGS)" CK_FORK=no
 
 check: valgrind
 
+EXTRA_DIST = valgrind.suppressions
 endif
 endif
 
