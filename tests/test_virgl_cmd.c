@@ -435,6 +435,7 @@ START_TEST(virgl_test_render_simple)
     /* cleanup */
     virgl_renderer_ctx_detach_resource(ctx.ctx_id, res.handle);
 
+    testvirgl_destroy_backed_res(&vbo);
     testvirgl_destroy_backed_res(&res);
 
     testvirgl_fini_ctx_cmdbuf(&ctx);
