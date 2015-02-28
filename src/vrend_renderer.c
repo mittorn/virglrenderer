@@ -76,17 +76,10 @@ struct vrend_fence {
    struct list_head fences;
 };
 
-struct vrend_nontimer_hw_query {
-   struct list_head query_list;
-   GLuint id;
-   uint64_t result;
-};
-
 struct vrend_query {
    struct list_head waiting_queries;
 
-   struct list_head hw_queries;
-   GLuint timer_query_id;
+   GLuint id;
    GLuint type;
    GLuint gltype;
    int ctx_id;
@@ -366,7 +359,6 @@ struct vrend_context {
    struct vrend_shader_cfg shader_cfg;
 };
 
-static struct vrend_nontimer_hw_query *vrend_create_hw_query(struct vrend_query *query);
 static void vrend_destroy_program(struct vrend_linked_shader_program *ent);
 
 static struct vrend_format_table tex_conv_table[VIRGL_FORMAT_MAX];
@@ -4791,38 +4783,15 @@ static boolean vrend_check_query(struct vrend_query *query)
 {
    uint64_t result;
    struct virgl_host_query_state *state;
-   struct vrend_nontimer_hw_query *hwq, *stor;
    boolean ret;
 
-   if (vrend_is_timer_query(query->gltype)) {
-       ret = vrend_get_one_query_result(query->timer_query_id, TRUE, &result);
-       if (ret == FALSE)
-           return FALSE;
-       goto out_write_val;
-   }
+   ret = vrend_get_one_query_result(query->id, FALSE, &result);
+   if (ret == FALSE)
+       return FALSE;
 
-   /* for non-timer queries we have to iterate over all hw queries and remove and total them */
-   LIST_FOR_EACH_ENTRY_SAFE(hwq, stor, &query->hw_queries, query_list) {
-       ret = vrend_get_one_query_result(hwq->id, FALSE, &result);
-       if (ret == FALSE)
-           return FALSE;
-       
-       /* if this query is done drop it from the list */
-       list_del(&hwq->query_list);
-       glDeleteQueries(1, &hwq->id);
-       FREE(hwq);
-
-       query->current_total += result;
-   }
-   result = query->current_total;
-
-out_write_val:
    state = query->res->ptr;
-
    state->result = result;
    state->query_state = VIRGL_QUERY_STATE_DONE;
-
-   query->current_total = 0;
    return TRUE;
 }
 
@@ -4899,21 +4868,6 @@ uint32_t vrend_renderer_object_insert(struct vrend_context *ctx, void *data,
    return vrend_object_insert(ctx->sub->object_hash, data, size, handle, type);
 }
 
-static struct vrend_nontimer_hw_query *vrend_create_hw_query(struct vrend_query *query)
-{
-   struct vrend_nontimer_hw_query *hwq;
-
-   hwq = CALLOC_STRUCT(vrend_nontimer_hw_query);
-   if (!hwq)
-      return NULL;
-
-   glGenQueries(1, &hwq->id);
-   
-   list_add(&hwq->query_list, &query->hw_queries);
-   return hwq;
-}
-
-
 int vrend_create_query(struct vrend_context *ctx, uint32_t handle,
                        uint32_t query_type, uint32_t res_handle,
                        uint32_t offset)
@@ -4932,7 +4886,6 @@ int vrend_create_query(struct vrend_context *ctx, uint32_t handle,
       return ENOMEM;
 
    list_inithead(&q->waiting_queries);
-   list_inithead(&q->hw_queries);
    q->type = query_type;
    q->ctx_id = ctx->ctx_id;
 
@@ -4962,8 +4915,7 @@ int vrend_create_query(struct vrend_context *ctx, uint32_t handle,
       break;
    }
 
-   if (vrend_is_timer_query(q->gltype))
-      glGenQueries(1, &q->timer_query_id);
+   glGenQueries(1, &q->id);
 
    ret_handle = vrend_renderer_object_insert(ctx, q, sizeof(struct vrend_query), handle,
                                              VIRGL_OBJECT_QUERY);
@@ -4976,19 +4928,9 @@ int vrend_create_query(struct vrend_context *ctx, uint32_t handle,
 
 static void vrend_destroy_query(struct vrend_query *query)
 {
-   struct vrend_nontimer_hw_query *hwq, *stor;
-
    vrend_resource_reference(&query->res, NULL);
    list_del(&query->waiting_queries);
-   if (vrend_is_timer_query(query->gltype)) {
-       glDeleteQueries(1, &query->timer_query_id);
-       FREE(query);
-       return;
-   }
-   LIST_FOR_EACH_ENTRY_SAFE(hwq, stor, &query->hw_queries, query_list) {
-      glDeleteQueries(1, &hwq->id);
-      FREE(hwq);
-   }
+   glDeleteQueries(1, &query->id);
    free(query);
 }
 
@@ -5001,7 +4943,6 @@ static void vrend_destroy_query_object(void *obj_ptr)
 void vrend_begin_query(struct vrend_context *ctx, uint32_t handle)
 {
    struct vrend_query *q;
-   struct vrend_nontimer_hw_query *hwq;
 
    q = vrend_object_lookup(ctx->sub->object_hash, handle, VIRGL_OBJECT_QUERY);
    if (!q)
@@ -5010,14 +4951,7 @@ void vrend_begin_query(struct vrend_context *ctx, uint32_t handle)
    if (q->gltype == GL_TIMESTAMP)
       return;
 
-   if (vrend_is_timer_query(q->gltype)) {
-      glBeginQuery(q->gltype, q->timer_query_id);
-      return;
-   }
-   hwq = vrend_create_hw_query(q);
-   
-   /* add to active query list for this context */
-   glBeginQuery(q->gltype, hwq->id);
+   glBeginQuery(q->gltype, q->id);
 }
 
 void vrend_end_query(struct vrend_context *ctx, uint32_t handle)
@@ -5029,7 +4963,7 @@ void vrend_end_query(struct vrend_context *ctx, uint32_t handle)
 
    if (vrend_is_timer_query(q->gltype)) {
       if (q->gltype == GL_TIMESTAMP)
-         glQueryCounter(q->timer_query_id, q->gltype);
+         glQueryCounter(q->id, q->gltype);
          /* remove from active query list for this context */
       else
          glEndQuery(q->gltype);
@@ -5061,7 +4995,6 @@ void vrend_render_condition(struct vrend_context *ctx,
 {
    struct vrend_query *q;
    GLenum glmode = 0;
-   struct vrend_nontimer_hw_query *hwq, *last = NULL;
 
    if (handle == 0) {
       glEndConditionalRenderNV();
@@ -5087,13 +5020,8 @@ void vrend_render_condition(struct vrend_context *ctx,
       break;
    }
 
-   LIST_FOR_EACH_ENTRY(hwq, &q->hw_queries, query_list)
-      last = hwq;
+   glBeginConditionalRender(q->id, glmode);
 
-   if (!last)
-      return;
-   glBeginConditionalRender(last->id, glmode);
-   
 }
 
 int vrend_create_so_target(struct vrend_context *ctx,
