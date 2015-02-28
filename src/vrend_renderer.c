@@ -5006,6 +5006,7 @@ static void vrend_destroy_query(struct vrend_query *query)
    list_del(&query->waiting_queries);
    if (vrend_is_timer_query(query->gltype)) {
        glDeleteQueries(1, &query->timer_query_id);
+       FREE(query);
        return;
    }
    LIST_FOR_EACH_ENTRY_SAFE(hwq, stor, &query->hw_queries, query_list) {
