@@ -640,6 +640,8 @@ static int vrend_decode_create_object(struct vrend_decode_ctx *ctx, int length)
    case VIRGL_OBJECT_STREAMOUT_TARGET:
       ret = vrend_decode_create_stream_output_target(ctx, handle, length);
       break;
+   default:
+      return EINVAL;
    }
 
    return ret;
@@ -676,7 +678,10 @@ static int vrend_decode_bind_object(struct vrend_decode_ctx *ctx, uint16_t lengt
    case VIRGL_OBJECT_VERTEX_ELEMENTS:
       vrend_bind_vertex_elements_state(ctx->grctx, handle);
       break;
+   default:
+      return EINVAL;
    }
+
    return 0;
 }
 
