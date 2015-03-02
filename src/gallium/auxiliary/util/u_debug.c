@@ -38,7 +38,6 @@
 #include "util/u_memory.h" 
 #include "util/u_string.h" 
 #include "util/u_math.h" 
-#include "util/u_tile.h" 
 #include "util/u_prim.h"
 #include "util/u_surface.h"
 
@@ -468,117 +467,6 @@ void debug_funclog_enter_exit(const char* f, const int line, const char* file)
 
 
 #ifdef DEBUG
-/**
- * Dump an image to .ppm file.
- * \param format  PIPE_FORMAT_x
- * \param cpp  bytes per pixel
- * \param width  width in pixels
- * \param height height in pixels
- * \param stride  row stride in bytes
- */
-void debug_dump_image(const char *prefix,
-                      enum pipe_format format, unsigned cpp,
-                      unsigned width, unsigned height,
-                      unsigned stride,
-                      const void *data)     
-{
-   /* write a ppm file */
-   char filename[256];
-   unsigned char *rgb8;
-   FILE *f;
-
-   util_snprintf(filename, sizeof(filename), "%s.ppm", prefix);
-
-   rgb8 = MALLOC(height * width * 3);
-   if (!rgb8) {
-      return;
-   }
-
-   util_format_translate(
-         PIPE_FORMAT_R8G8B8_UNORM,
-         rgb8, width * 3,
-         0, 0,
-         format,
-         data, stride,
-         0, 0, width, height);
-
-   /* Must be opened in binary mode or DOS line ending causes data
-    * to be read with one byte offset.
-    */
-   f = fopen(filename, "wb");
-   if (f) {
-      fprintf(f, "P6\n");
-      fprintf(f, "# ppm-file created by gallium\n");
-      fprintf(f, "%i %i\n", width, height);
-      fprintf(f, "255\n");
-      fwrite(rgb8, 1, height * width * 3, f);
-      fclose(f);
-   }
-   else {
-      fprintf(stderr, "Can't open %s for writing\n", filename);
-   }
-
-   FREE(rgb8);
-}
-
-/* FIXME: dump resources, not surfaces... */
-void debug_dump_surface(struct pipe_context *pipe,
-                        const char *prefix,
-                        struct pipe_surface *surface)
-{
-   struct pipe_resource *texture;
-   struct pipe_transfer *transfer;
-   void *data;
-
-   if (!surface)
-      return;
-
-   /* XXX: this doesn't necessarily work, as the driver may be using
-    * temporary storage for the surface which hasn't been propagated
-    * back into the texture.  Need to nail down the semantics of views
-    * and transfers a bit better before we can say if extra work needs
-    * to be done here:
-    */
-   texture = surface->texture;
-
-   data = pipe_transfer_map(pipe, texture, surface->u.tex.level,
-                            surface->u.tex.first_layer,
-                            PIPE_TRANSFER_READ,
-                            0, 0, surface->width, surface->height, &transfer);
-   if(!data)
-      return;
-
-   debug_dump_image(prefix,
-                    texture->format,
-                    util_format_get_blocksize(texture->format),
-                    util_format_get_nblocksx(texture->format, surface->width),
-                    util_format_get_nblocksy(texture->format, surface->height),
-                    transfer->stride,
-                    data);
-
-   pipe->transfer_unmap(pipe, transfer);
-}
-
-
-void debug_dump_texture(struct pipe_context *pipe,
-                        const char *prefix,
-                        struct pipe_resource *texture)
-{
-   struct pipe_surface *surface, surf_tmpl;
-
-   if (!texture)
-      return;
-
-   /* XXX for now, just dump image for layer=0, level=0 */
-   u_surface_default_template(&surf_tmpl, texture);
-   surface = pipe->create_surface(pipe, texture, &surf_tmpl);
-   if (surface) {
-      debug_dump_surface(pipe, prefix, surface);
-      pipe->surface_destroy(pipe, surface);
-   }
-}
-
-
 /**
  * Print PIPE_TRANSFER_x flags with a message.
  */

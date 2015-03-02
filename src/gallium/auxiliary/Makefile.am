@@ -39,7 +39,6 @@ libgallium_la_SOURCES = \
 	util/u_string.h \
 	util/u_surface.h \
 	util/u_texture.h \
-	util/u_tile.h \
 	cso_cache/cso_cache.h \
 	cso_cache/cso_hash.h \
 	tgsi/tgsi_build.h \
