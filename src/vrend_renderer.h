@@ -288,7 +288,6 @@ int vrend_renderer_create_fence(int client_fence_id, uint32_t ctx_id);
 
 void vrend_renderer_check_fences(void);
 void vrend_renderer_check_queries(void);
-void vrend_stop_current_queries(void);
 
 boolean vrend_hw_switch_context(struct vrend_context *ctx, boolean now);
 uint32_t vrend_renderer_object_insert(struct vrend_context *ctx, void *data,

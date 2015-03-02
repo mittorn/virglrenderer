@@ -84,7 +84,6 @@ struct vrend_nontimer_hw_query {
 
 struct vrend_query {
    struct list_head waiting_queries;
-   struct list_head ctx_queries;
 
    struct list_head hw_queries;
    GLuint timer_query_id;
@@ -93,7 +92,6 @@ struct vrend_query {
    int ctx_id;
    struct vrend_resource *res;
    uint64_t current_total;
-   boolean active_hw;
 };
 
 #define VIRGL_INVALID_RESOURCE 1
@@ -4841,51 +4839,6 @@ void vrend_renderer_check_queries(void)
    }
 }
 
-static void vrend_do_end_query(struct vrend_query *q)
-{
-   glEndQuery(q->gltype);
-   q->active_hw = FALSE;
-}
-
-static void vrend_ctx_finish_queries(struct vrend_context *ctx)
-{
-   struct vrend_query *query;
-
-   LIST_FOR_EACH_ENTRY(query, &ctx->active_nontimer_query_list, ctx_queries) {
-      if (query->active_hw == TRUE)
-         vrend_do_end_query(query);
-   }
-}
-
-#if 0
-static void vrend_ctx_restart_queries(struct vrend_context *ctx)
-{
-   struct vrend_query *query;
-   struct vrend_nontimer_hw_query *hwq;
-
-   if (ctx->query_on_hw == TRUE)
-      return;
-
-   ctx->query_on_hw = TRUE;
-   LIST_FOR_EACH_ENTRY(query, &ctx->active_nontimer_query_list, ctx_queries) {
-      if (query->active_hw == FALSE) {
-         hwq = vrend_create_hw_query(query);
-         glBeginQuery(query->gltype, hwq->id);
-         query->active_hw = TRUE;
-      }
-   }
-}
-#endif
-
-/* stop all the nontimer queries running in the current context */
-void vrend_stop_current_queries(void)
-{
-   if (vrend_state.current_ctx && vrend_state.current_ctx->query_on_hw) {
-      vrend_ctx_finish_queries(vrend_state.current_ctx);
-      vrend_state.current_ctx->query_on_hw = FALSE;
-   }
-}
-
 boolean vrend_hw_switch_context(struct vrend_context *ctx, boolean now)
 {
    if (ctx == vrend_state.current_ctx && ctx->ctx_switch_pending == FALSE)
@@ -4979,7 +4932,6 @@ int vrend_create_query(struct vrend_context *ctx, uint32_t handle,
       return ENOMEM;
 
    list_inithead(&q->waiting_queries);
-   list_inithead(&q->ctx_queries);
    list_inithead(&q->hw_queries);
    q->type = query_type;
    q->ctx_id = ctx->ctx_id;
@@ -5027,7 +4979,6 @@ static void vrend_destroy_query(struct vrend_query *query)
    struct vrend_nontimer_hw_query *hwq, *stor;
 
    vrend_resource_reference(&query->res, NULL);
-   list_del(&query->ctx_queries);
    list_del(&query->waiting_queries);
    if (vrend_is_timer_query(query->gltype)) {
        glDeleteQueries(1, &query->timer_query_id);
@@ -5067,9 +5018,6 @@ void vrend_begin_query(struct vrend_context *ctx, uint32_t handle)
    
    /* add to active query list for this context */
    glBeginQuery(q->gltype, hwq->id);
-
-   q->active_hw = TRUE;
-   list_addtail(&q->ctx_queries, &ctx->active_nontimer_query_list);
 }
 
 void vrend_end_query(struct vrend_context *ctx, uint32_t handle)
@@ -5088,10 +5036,7 @@ void vrend_end_query(struct vrend_context *ctx, uint32_t handle)
       return;
    }
 
-   if (q->active_hw)
-      vrend_do_end_query(q);
-
-   list_delinit(&q->ctx_queries);
+   glEndQuery(q->gltype);
 }
 
 void vrend_get_query_result(struct vrend_context *ctx, uint32_t handle,
