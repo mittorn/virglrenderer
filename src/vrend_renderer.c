@@ -3204,6 +3204,10 @@ static void vrend_destroy_sub_context(struct vrend_sub_context *sub)
 
    glDeleteVertexArrays(1, &sub->vaoid);
 
+   vrend_shader_state_reference(&sub->vs, NULL);
+   vrend_shader_state_reference(&sub->fs, NULL);
+   vrend_shader_state_reference(&sub->gs, NULL);
+
    vrend_free_programs(sub);
 
    glDeleteVertexArrays(1, &sub->vaoid);
