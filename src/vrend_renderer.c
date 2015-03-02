@@ -1327,11 +1327,6 @@ void vrend_set_framebuffer_state(struct vrend_context *ctx,
    }
 }
 
-static void vrend_hw_emit_depth_range(struct vrend_context *ctx)
-{
-   glDepthRange(ctx->sub->view_near_val, ctx->sub->view_far_val);
-}
-
 /*
  * if the viewport Y scale factor is > 0 then we are rendering to
  * an FBO already so don't need to invert rendering?
@@ -1375,7 +1370,7 @@ void vrend_set_viewport_state(struct vrend_context *ctx,
        ctx->sub->view_far_val != far_val) {
       ctx->sub->view_near_val = near_val;
       ctx->sub->view_far_val = far_val;
-      vrend_hw_emit_depth_range(ctx);
+      glDepthRange(ctx->sub->view_near_val, ctx->sub->view_far_val);
    }
 }
 
