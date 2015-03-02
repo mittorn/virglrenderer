@@ -293,6 +293,8 @@ util_fast_exp(float x)
 }
 
 
+#if 0
+
 #define LOG2_TABLE_SIZE_LOG2 16
 #define LOG2_TABLE_SCALE (1 << LOG2_TABLE_SIZE_LOG2)
 #define LOG2_TABLE_SIZE (LOG2_TABLE_SCALE + 1)
@@ -323,7 +325,7 @@ util_fast_pow(float x, float y)
 {
    return util_fast_exp2(util_fast_log2(x) * y);
 }
-
+#endif
 /* Note that this counts zero as a power of two.
  */
 static INLINE boolean

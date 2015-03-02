@@ -38,7 +38,7 @@
 #define _MM_DENORMALS_ZERO_MASK	0x0040
 #endif
 
-
+#if 0
 /** 2^x, for x in [-1.0, 1.0) */
 float pow2_table[POW2_TABLE_SIZE];
 
@@ -63,7 +63,7 @@ init_log2_table(void)
    for (i = 0; i < LOG2_TABLE_SIZE; i++)
       log2_table[i] = (float) log2(1.0 + i * (1.0 / LOG2_TABLE_SCALE));
 }
-
+#endif
 
 /**
  * One time init for math utilities.
@@ -73,8 +73,8 @@ util_init_math(void)
 {
    static boolean initialized = FALSE;
    if (!initialized) {
-      init_pow2_table();
-      init_log2_table();
+     //      init_pow2_table();
+      /*      init_log2_table();*/
       initialized = TRUE;
    }
 }
