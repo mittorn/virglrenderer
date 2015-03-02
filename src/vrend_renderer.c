@@ -817,10 +817,10 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
     sprog->attrib_locs = NULL;
 
   for (id = PIPE_SHADER_VERTEX; id <= (gs ? PIPE_SHADER_GEOMETRY : PIPE_SHADER_FRAGMENT); id++) {
-     sprog->ubo_locs[id] = calloc(sprog->ss[id]->sel->sinfo.num_ubos, sizeof(uint32_t));
      if (sprog->ss[id]->sel->sinfo.num_ubos) {
         const char *prefix = pipe_shader_to_prefix(id);
 
+	sprog->ubo_locs[id] = calloc(sprog->ss[id]->sel->sinfo.num_ubos, sizeof(uint32_t));
         for (i = 0; i < sprog->ss[id]->sel->sinfo.num_ubos; i++) {
            snprintf(name, 16, "%subo%d", prefix, i + 1);
            sprog->ubo_locs[id][i] = glGetUniformBlockIndex(prog_id, name);
