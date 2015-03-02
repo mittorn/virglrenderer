@@ -6,7 +6,6 @@ C_SOURCES := \
 	os/os_time.c \
 	tgsi/tgsi_build.c \
 	tgsi/tgsi_dump.c \
-	tgsi/tgsi_exec.c \
 	tgsi/tgsi_info.c \
 	tgsi/tgsi_iterate.c \
 	tgsi/tgsi_parse.c \

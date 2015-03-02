@@ -44,7 +44,6 @@ libgallium_la_SOURCES = \
 	cso_cache/cso_hash.h \
 	tgsi/tgsi_build.h \
 	tgsi/tgsi_dump.h \
-	tgsi/tgsi_exec.h \
 	tgsi/tgsi_info.h \
 	tgsi/tgsi_iterate.h \
 	tgsi/tgsi_opcode_tmp.h \
