@@ -27,16 +27,6 @@ libgallium_la_SOURCES = \
 	util/u_double_list.h \
 	util/u_dual_blend.h \
 	util/u_format.h \
-	util/u_format_etc.h \
-	util/u_format_latc.h \
-	util/u_format_other.h \
-	util/u_format_r11g11b10f.h \
-	util/u_format_rgb9e5.h \
-	util/u_format_rgtc.h \
-	util/u_format_s3tc.h \
-	util/u_format_srgb.h \
-	util/u_format_yuv.h \
-	util/u_format_zs.h \
 	util/u_half.h \
 	util/u_hash_table.h \
 	util/u_inlines.h \
@@ -74,5 +64,8 @@ libgallium_la_SOURCES = \
 	os/os_time.h \
 	os/os_thread.h
 
+util/u_format_table.c: $(srcdir)/util/u_format_table.py $(srcdir)/util/u_format_pack.py $(srcdir)/util/u_format_parse.py $(srcdir)/util/u_format.csv
+	$(AM_V_at)$(MKDIR_P) util
+	$(AM_V_GEN) $(PYTHON2) $(srcdir)/util/u_format_table.py $(srcdir)/util/u_format.csv > $@
 
 -include $(top_srcdir)/git.mk
