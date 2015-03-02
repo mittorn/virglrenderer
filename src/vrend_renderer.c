@@ -133,6 +133,7 @@ static struct global_renderer_state vrend_state;
 
 struct vrend_linked_shader_program {
   struct list_head head;
+  struct list_head sl[PIPE_SHADER_TYPES];
   GLuint id;
 
   boolean dual_src_linked;
@@ -165,6 +166,7 @@ struct vrend_shader {
    GLuint id;
    GLuint compiled_fs_id;
    struct vrend_shader_key key;
+   struct list_head programs;
 };
 
 struct vrend_shader_selector {
@@ -367,6 +369,7 @@ struct vrend_context {
 };
 
 static struct vrend_nontimer_hw_query *vrend_create_hw_query(struct vrend_query *query);
+static void vrend_destroy_program(struct vrend_linked_shader_program *ent);
 
 static struct vrend_format_table tex_conv_table[VIRGL_FORMAT_MAX];
 
@@ -488,6 +491,12 @@ vrend_so_target_reference(struct vrend_so_target **ptr, struct vrend_so_target *
 
 static void vrend_shader_destroy(struct vrend_shader *shader)
 {
+   struct vrend_linked_shader_program *ent, *tmp;
+
+   LIST_FOR_EACH_ENTRY_SAFE(ent, tmp, &shader->programs, sl[shader->sel->type]) {
+     vrend_destroy_program(ent);
+   }
+
    glDeleteShader(shader->id);
    free(shader->glsl_prog);
    free(shader);
@@ -744,6 +753,11 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
   sprog->ss[PIPE_SHADER_FRAGMENT] = fs;
   sprog->ss[PIPE_SHADER_GEOMETRY] = gs;
 
+  list_add(&sprog->sl[PIPE_SHADER_VERTEX], &vs->programs);
+  list_add(&sprog->sl[PIPE_SHADER_FRAGMENT], &fs->programs);
+  if (gs)
+      list_add(&sprog->sl[PIPE_SHADER_GEOMETRY], &gs->programs);
+
   sprog->id = prog_id;
 
   list_add(&sprog->head, &ctx->sub->programs);
@@ -862,6 +876,8 @@ static void vrend_destroy_program(struct vrend_linked_shader_program *ent)
     list_del(&ent->head);
 
     for (i = PIPE_SHADER_VERTEX; i <= PIPE_SHADER_GEOMETRY; i++) {
+        if (ent->ss[i])
+	    list_del(&ent->sl[i]);
 	free(ent->shadow_samp_mask_locs[i]);
 	free(ent->shadow_samp_add_locs[i]);
 	free(ent->samp_locs[i]);
@@ -1823,6 +1839,7 @@ static int vrend_shader_select(struct vrend_context *ctx,
    if (!shader) {
       shader = CALLOC_STRUCT(vrend_shader);
       shader->sel = sel;
+      list_inithead(&shader->programs);
 
       r = vrend_shader_create(ctx, shader, key);
       if (r) {
