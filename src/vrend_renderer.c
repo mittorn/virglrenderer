@@ -314,8 +314,6 @@ struct vrend_sub_context {
    struct pipe_depth_stencil_alpha_state dsa_state;
    struct pipe_rasterizer_state rs_state;
 
-   struct pipe_blend_color blend_color;
-
    int num_so_targets;
    struct vrend_so_target *so_targets[16];
 
@@ -4226,18 +4224,11 @@ void vrend_set_stencil_ref(struct vrend_context *ctx,
    
 }
 
-static void vrend_hw_emit_blend_color(struct vrend_context *ctx)
-{
-   struct pipe_blend_color *color = &ctx->sub->blend_color;
-   glBlendColor(color->color[0], color->color[1], color->color[2],
-                color->color[3]);
-}
-
 void vrend_set_blend_color(struct vrend_context *ctx,
                            struct pipe_blend_color *color)
 {
-   ctx->sub->blend_color = *color;
-   vrend_hw_emit_blend_color(ctx);
+   glBlendColor(color->color[0], color->color[1], color->color[2],
+                color->color[3]);
 }
 
 void vrend_set_scissor_state(struct vrend_context *ctx,
