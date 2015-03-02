@@ -855,28 +855,32 @@ static struct vrend_linked_shader_program *lookup_shader_program(struct vrend_co
   return 0;
 }
 
+static void vrend_destroy_program(struct vrend_linked_shader_program *ent)
+{
+    int i;
+    glDeleteProgram(ent->id);
+    list_del(&ent->head);
+
+    for (i = PIPE_SHADER_VERTEX; i <= PIPE_SHADER_GEOMETRY; i++) {
+	free(ent->shadow_samp_mask_locs[i]);
+	free(ent->shadow_samp_add_locs[i]);
+	free(ent->samp_locs[i]);
+	free(ent->const_locs[i]);
+	free(ent->ubo_locs[i]);
+    }
+    free(ent->attrib_locs);
+    free(ent);
+}
+
 static void vrend_free_programs(struct vrend_sub_context *sub)
 {
    struct vrend_linked_shader_program *ent, *tmp;
-   int i;
+
    if (LIST_IS_EMPTY(&sub->programs))
 	return;
 
    LIST_FOR_EACH_ENTRY_SAFE(ent, tmp, &sub->programs, head) {
-      glDeleteProgram(ent->id);
-      list_del(&ent->head);
-
-      for (i = PIPE_SHADER_VERTEX; i <= PIPE_SHADER_GEOMETRY; i++) {
-//         vrend_shader_state_reference(&ent->ss[i], NULL);
-         free(ent->shadow_samp_mask_locs[i]);
-         free(ent->shadow_samp_add_locs[i]);
-         free(ent->samp_locs[i]);
-         free(ent->const_locs[i]);
-         free(ent->ubo_locs[i]);
-
-      }
-      free(ent->attrib_locs);
-      free(ent);
+       vrend_destroy_program(ent);
    }
 }  
 
