@@ -109,10 +109,8 @@ struct global_renderer_state {
    boolean have_robustness;
    boolean have_multisample;
    boolean have_ms_scaled_blit;
-   GLuint vaoid;
 
    struct pipe_rasterizer_state hw_rs_state;
-   struct pipe_depth_stencil_alpha_state hw_dsa_state;
    struct pipe_blend_state hw_blend_state;
 
    boolean have_nv_prim_restart, have_gl_prim_restart, have_bit_encoding;
@@ -352,7 +350,6 @@ struct vrend_context {
 
    boolean ctx_switch_pending;
 
-
    boolean pstip_inited;
    GLuint pstipple_tex_id;
 
@@ -360,6 +357,12 @@ struct vrend_context {
 };
 
 static void vrend_destroy_program(struct vrend_linked_shader_program *ent);
+static void vrend_apply_sampler_state(struct vrend_context *ctx,
+                                      struct vrend_resource *res,
+                                      uint32_t shader_type,
+                                      int id, uint32_t srgb_decode);
+
+void vrend_update_stencil_state(struct vrend_context *ctx);
 
 static struct vrend_format_table tex_conv_table[VIRGL_FORMAT_MAX];
 
@@ -889,13 +892,6 @@ static void vrend_free_programs(struct vrend_sub_context *sub)
        vrend_destroy_program(ent);
    }
 }  
-
-static void vrend_apply_sampler_state(struct vrend_context *ctx,
-                                      struct vrend_resource *res,
-                                      uint32_t shader_type,
-                                      int id, uint32_t srgb_decode);
-
-void vrend_update_stencil_state(struct vrend_context *ctx);
 
 int vrend_create_surface(struct vrend_context *ctx,
                          uint32_t handle,
@@ -4837,22 +4833,6 @@ static void vrend_finish_context_switch(struct vrend_context *ctx)
    vrend_state.current_hw_ctx = ctx;
 
    vrend_clicbs->make_current(0, ctx->sub->gl_context);
-
-#if 0
-   /* re-emit all the state */
-   vrend_hw_emit_framebuffer_state(ctx);
-   vrend_hw_emit_depth_range(ctx);
-   vrend_hw_emit_blend(ctx);
-   vrend_hw_emit_dsa(ctx);
-   vrend_hw_emit_rs(ctx);
-   vrend_hw_emit_blend_color(ctx);
-   vrend_hw_emit_streamout_targets(ctx);
-
-   ctx->sub->stencil_state_dirty = TRUE;
-   ctx->sub->scissor_state_dirty = TRUE;
-   ctx->sub->viewport_state_dirty = TRUE;
-   ctx->sub->shader_dirty = TRUE;
-#endif
 }
 
 
