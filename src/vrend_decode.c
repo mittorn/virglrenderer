@@ -551,7 +551,7 @@ static int vrend_decode_create_sampler_state(struct vrend_decode_ctx *ctx, uint3
 
 static int vrend_decode_create_ve(struct vrend_decode_ctx *ctx, uint32_t handle, uint16_t length)
 {
-   struct pipe_vertex_element *ve;
+   struct pipe_vertex_element *ve = NULL;
    int num_elements;
    int i;
    int ret;
@@ -563,19 +563,23 @@ static int vrend_decode_create_ve(struct vrend_decode_ctx *ctx, uint32_t handle,
       return EINVAL;
 
    num_elements = (length - 1) / 4;
-   ve = calloc(num_elements, sizeof(struct pipe_vertex_element));
-   if (!ve)
-      return ENOMEM;
-      
-   for (i = 0; i < num_elements; i++) {
-      ve[i].src_offset = get_buf_entry(ctx, VIRGL_OBJ_VERTEX_ELEMENTS_V0_SRC_OFFSET(i));
-      ve[i].instance_divisor = get_buf_entry(ctx, VIRGL_OBJ_VERTEX_ELEMENTS_V0_INSTANCE_DIVISOR(i));
-      ve[i].vertex_buffer_index = get_buf_entry(ctx, VIRGL_OBJ_VERTEX_ELEMENTS_V0_VERTEX_BUFFER_INDEX(i));
-      ve[i].src_format = get_buf_entry(ctx, VIRGL_OBJ_VERTEX_ELEMENTS_V0_SRC_FORMAT(i));
+
+   if (num_elements) {
+       ve = calloc(num_elements, sizeof(struct pipe_vertex_element));
+
+       if (!ve)
+           return ENOMEM;
+
+       for (i = 0; i < num_elements; i++) {
+           ve[i].src_offset = get_buf_entry(ctx, VIRGL_OBJ_VERTEX_ELEMENTS_V0_SRC_OFFSET(i));
+           ve[i].instance_divisor = get_buf_entry(ctx, VIRGL_OBJ_VERTEX_ELEMENTS_V0_INSTANCE_DIVISOR(i));
+           ve[i].vertex_buffer_index = get_buf_entry(ctx, VIRGL_OBJ_VERTEX_ELEMENTS_V0_VERTEX_BUFFER_INDEX(i));
+           ve[i].src_format = get_buf_entry(ctx, VIRGL_OBJ_VERTEX_ELEMENTS_V0_SRC_FORMAT(i));
+       }
    }
 
-   ret = vrend_create_vertex_elements_state(ctx->grctx, handle, num_elements,
-                                            ve);
+   ret = vrend_create_vertex_elements_state(ctx->grctx, handle, num_elements, ve);
+
    FREE(ve);
    return ret;
 }
@@ -603,9 +607,8 @@ static int vrend_decode_create_object(struct vrend_decode_ctx *ctx, int length)
    uint8_t obj_type = (header >> 8) & 0xff;
    int ret = 0;
 
-   /* has to be at least 3 length */
-   if (length < 3)
-      return EINVAL;
+   if (length < 1)
+       return EINVAL;
 
    switch (obj_type){
    case VIRGL_OBJECT_BLEND:
