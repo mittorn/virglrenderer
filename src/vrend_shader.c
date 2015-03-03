@@ -808,7 +808,7 @@ static int emit_clip_dist_movs(struct dump_ctx *ctx)
 #define emit_op1(op) snprintf(buf, 255, "%s = %s(%s(%s(%s)));\n", dsts[0], dstconv, dtypeprefix, op, srcs[0])
 #define emit_compare(op) snprintf(buf, 255, "%s = %s(%s((%s(%s, %s)))%s);\n", dsts[0], dstconv, dtypeprefix, op, srcs[0], srcs[1], writemask)
 
-#define emit_ucompare(op) snprintf(buf, 255, "%s = %s(uintBitsToFloat(%s(%s(%s, %s)%s) * %s(0xffffffff)));\n", dsts[0], dstconv, udstconv, op, srcs[0], srcs[1], writemask, udstconv)
+#define emit_ucompare(op) snprintf(buf, 255, "%s = %s(uintBitsToFloat(%s(%s(vec4(%s), vec4(%s))%s) * %s(0xffffffff)));\n", dsts[0], dstconv, udstconv, op, srcs[0], srcs[1], writemask, udstconv)
 
 static int emit_buf(struct dump_ctx *ctx, char *buf)
 {
