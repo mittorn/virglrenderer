@@ -35,6 +35,7 @@ void virgl_egl_destroy_context(struct virgl_egl *ve, virgl_renderer_gl_context v
 int virgl_egl_make_context_current(struct virgl_egl *ve, virgl_renderer_gl_context virglctx);
 virgl_renderer_gl_context virgl_egl_get_current_context(struct virgl_egl *ve);
 
+int virgl_egl_get_fourcc_for_texture(struct virgl_egl *ve, uint32_t tex_id, uint32_t format, int *fourcc);
 int virgl_egl_get_fd_for_texture(struct virgl_egl *ve, uint32_t tex_id, int *fd);
 uint32_t virgl_egl_get_gbm_format(uint32_t format);
 #endif

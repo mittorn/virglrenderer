@@ -42,6 +42,8 @@
 
 #include "virglrenderer.h"
 #include "virgl_egl.h"
+
+struct virgl_egl *egl_info;
 /* new API - just wrap internal API for now */
 
 int virgl_renderer_resource_create(struct virgl_renderer_resource_create_args *args, struct iovec *iov, uint32_t num_iovs)
@@ -161,7 +163,7 @@ int virgl_renderer_resource_get_info(int res_handle,
    int ret;
    ret = vrend_renderer_resource_get_info(res_handle, (struct vrend_renderer_resource_info *)info);
    if (ret == 0)
-       info->gbm_format = virgl_egl_get_gbm_format(info->virgl_format);
+      return virgl_egl_get_fourcc_for_texture(egl_info, info->tex_id, info->virgl_format, &info->drm_fourcc);
    return ret;
 }
 
@@ -182,7 +184,7 @@ static struct virgl_renderer_callbacks *rcbs;
 
 static void *dev_cookie;
 static int use_egl_context;
-struct virgl_egl *egl_info;
+
 static struct vrend_if_cbs virgl_cbs;
 
 void vrend_transfer_write_return(void *data, uint32_t bytes, uint64_t offset,

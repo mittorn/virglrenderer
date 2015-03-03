@@ -258,17 +258,54 @@ virgl_renderer_gl_context virgl_egl_get_current_context(struct virgl_egl *ve)
    return (virgl_renderer_gl_context)eglctx;
 }
 
-int virgl_egl_get_fd_for_texture(struct virgl_egl *ve, uint32_t tex_id, int *fd)
+int virgl_egl_get_fourcc_for_texture(struct virgl_egl *ve, uint32_t tex_id, uint32_t format, int *fourcc)
 {
+   int ret;
+
+#ifndef EGL_MESA_image_dma_buf_export
+   ret = 0;
+   goto fallback;
+#else
    EGLImageKHR image;
    EGLint stride;
    EGLBoolean b;
+
+   if (!ve->have_mesa_dma_buf_img_export)
+      goto fallback;
 
    image = eglCreateImageKHR(ve->egl_display, eglGetCurrentContext(), EGL_GL_TEXTURE_2D_KHR, (EGLClientBuffer)(unsigned long)tex_id, NULL);
 
    if (!image)
       return EINVAL;
 
+   ret = EINVAL;
+   b = eglExportDMABUFImageQueryMESA(ve->egl_display, image, fourcc, NULL);
+   if (!b)
+      goto out_destroy;
+   ret = 0;
+ out_destroy:
+   eglDestroyImageKHR(ve->egl_display, image);
+   return ret;
+
+#endif
+
+fallback:
+   *fourcc = virgl_egl_get_gbm_format(format);
+   return ret;
+}
+
+int virgl_egl_get_fd_for_texture(struct virgl_egl *ve, uint32_t tex_id, int *fd)
+{
+   EGLImageKHR image;
+   EGLint stride;
+   EGLBoolean b;
+   int ret;
+   image = eglCreateImageKHR(ve->egl_display, eglGetCurrentContext(), EGL_GL_TEXTURE_2D_KHR, (EGLClientBuffer)(unsigned long)tex_id, NULL);
+
+   if (!image)
+      return EINVAL;
+
+   ret = EINVAL;
    if (ve->have_mesa_dma_buf_img_export) {
 #ifdef EGL_MESA_image_dma_buf_export
 	b = eglExportDMABUFImageMESA(ve->egl_display,
@@ -276,7 +313,7 @@ int virgl_egl_get_fd_for_texture(struct virgl_egl *ve, uint32_t tex_id, int *fd)
 				     fd,
 				     &stride);
 #else
-        return EINVAL;
+	goto out_destroy;
 #endif
    } else {
 #ifdef EGL_MESA_drm_image
@@ -288,18 +325,21 @@ int virgl_egl_get_fd_for_texture(struct virgl_egl *ve, uint32_t tex_id, int *fd)
                                  &stride);
 
        if (!b)
-           return EINVAL;
+	 goto out_destroy;
 
        fprintf(stderr,"image exported %d %d\n", handle, stride);
 
        r = drmPrimeHandleToFD(ve->fd, handle, DRM_CLOEXEC, fd);
        if (r < 0)
-           return EINVAL;
+	 goto out_destroy;
 #else
-       return EINVAL;
+       goto out_destroy;
 #endif
    }
-   return 0;
+   ret = 0;
+out_destroy:
+   eglDestroyImageKHR(ve->egl_display, image);
+   return ret;
 }
 
 uint32_t virgl_egl_get_gbm_format(uint32_t format)

@@ -141,7 +141,7 @@ struct virgl_renderer_resource_info {
    uint32_t flags;
    uint32_t tex_id;
    uint32_t stride;
-   uint32_t gbm_format;
+   int drm_fourcc;
 };
 
 VIRGL_EXPORT int virgl_renderer_resource_get_info(int res_handle,
