@@ -343,6 +343,33 @@ START_TEST(virgl_test_transfer_1d_bad_iov)
 }
 END_TEST
 
+START_TEST(virgl_test_transfer_1d_bad_iov_offset)
+{
+    struct virgl_renderer_resource_create_args res;
+    unsigned char data[50*4];
+    struct iovec iov = { .iov_base = data, .iov_len = sizeof(data) };
+    int niovs = 1;
+    int ret;
+    struct virgl_box box = { .w = 50, .h = 1, .d = 1 };
+
+    testvirgl_init_simple_1d_resource(&res, 1);
+    res.target = PIPE_TEXTURE_1D;
+    res.depth = 1;
+
+    ret = virgl_renderer_resource_create(&res, NULL, 0);
+    ck_assert_int_eq(ret, 0);
+
+    virgl_renderer_ctx_attach_resource(1, res.handle);
+
+    ret = virgl_renderer_transfer_write_iov(res.handle, 1, 0, 0, 0, &box, 20, &iov, niovs);
+    ck_assert_int_eq(ret, EINVAL);
+
+    virgl_renderer_ctx_detach_resource(1, res.handle);
+
+    virgl_renderer_resource_unref(1);
+}
+END_TEST
+
 Suite *virgl_init_suite(void)
 {
   Suite *s;
@@ -366,6 +393,7 @@ Suite *virgl_init_suite(void)
   tcase_add_test(tc_core, virgl_test_transfer_read_3d_bad_box);
   tcase_add_test(tc_core, virgl_test_transfer_1d);
   tcase_add_test(tc_core, virgl_test_transfer_1d_bad_iov);
+  tcase_add_test(tc_core, virgl_test_transfer_1d_bad_iov_offset);
 
   suite_add_tcase(s, tc_core);
   return s;
