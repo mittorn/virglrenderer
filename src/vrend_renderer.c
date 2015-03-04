@@ -3701,7 +3701,11 @@ static bool check_iov_bounds(struct vrend_resource *res,
 
     GLuint iovsize = vrend_get_iovec_size(iov, num_iovs);
 
+    if (iovsize < info->offset)
+	return false;
     if (iovsize < send_size)
+	return false;
+    if (iovsize < info->offset + send_size)
         return false;
     return true;
 }
