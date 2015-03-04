@@ -27,6 +27,7 @@ libgallium_la_SOURCES = \
 	util/u_double_list.h \
 	util/u_dual_blend.h \
 	util/u_format.h \
+	util/u_format_s3tc.h \
 	util/u_half.h \
 	util/u_hash_table.h \
 	util/u_inlines.h \
