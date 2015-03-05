@@ -30,7 +30,7 @@
 #include <virglrenderer.h>
 #include "pipe/p_defines.h"
 #include "virgl_hw.h"
-#include "testvirgl.h"
+#include "testvirgl_encode.h"
 
 /* pass an illegal context to transfer fn */
 START_TEST(virgl_test_transfer_read_illegal_ctx)
@@ -161,6 +161,8 @@ START_TEST(virgl_test_transfer_write_no_box)
 }
 END_TEST
 
+
+/* pass a bad box argument */
 START_TEST(virgl_test_transfer_read_1d_bad_box)
 {
   struct virgl_renderer_resource_create_args res;
@@ -370,13 +372,184 @@ START_TEST(virgl_test_transfer_1d_bad_iov_offset)
 }
 END_TEST
 
+/* for each texture type construct a valid and invalid transfer,
+   invalid using a box outside the bounds of the transfer */
+void get_resource_args(enum pipe_texture_target target, bool invalid,
+		       struct virgl_renderer_resource_create_args *args,
+		       struct pipe_box *box, int nsamples)
+{
+  memset(args, 0, sizeof(*args));
+  memset(box, 0, sizeof(*box));
+
+  args->handle = 1;
+  args->target = target;
+  if (args->target == PIPE_BUFFER) {
+    args->format = PIPE_FORMAT_R8_UNORM;
+    args->bind = PIPE_BIND_VERTEX_BUFFER;
+  } else {
+    args->bind = PIPE_BIND_SAMPLER_VIEW;
+    args->format = PIPE_FORMAT_B8G8R8X8_UNORM;
+  }
+  args->nr_samples = nsamples;
+  args->flags = 0;
+
+  args->width = 50;
+  args->height = args->depth = args->array_size = 1;
+
+  switch (target) {
+  case PIPE_TEXTURE_CUBE_ARRAY:
+    args->array_size = 12;
+    break;
+  case PIPE_TEXTURE_1D_ARRAY:
+  case PIPE_TEXTURE_2D_ARRAY:
+    args->array_size = 10;
+    break;
+  case PIPE_TEXTURE_3D:
+    args->depth = 8;
+    break;
+  case PIPE_TEXTURE_CUBE:
+    args->array_size = 6;
+    break;
+  default:
+    break;
+  }
+
+  switch (target) {
+  case PIPE_BUFFER:
+  case PIPE_TEXTURE_1D:
+  case PIPE_TEXTURE_1D_ARRAY:
+    break;
+  default:
+    args->height = 50;
+    break;
+  }
+
+  if (invalid) {
+    box->width = args->width + 10;
+    box->height = args->height;
+    box->depth = 1;
+  } else {
+    box->width = args->width;
+    box->height = args->height;
+    box->depth = 1;
+    if (args->depth > 1)
+      box->depth = 6;
+    if (args->array_size > 1)
+      box->depth = 4;
+  }
+}
+
+static void virgl_test_transfer_res(enum pipe_texture_target target,
+				    bool write, bool invalid)
+{
+  struct virgl_renderer_resource_create_args res;
+  struct pipe_box box;
+  void *data;
+  struct iovec iovs[1];
+  int niovs = 1;
+  int ret;
+
+  data = calloc(1, 65536);
+  iovs[0].iov_base = data;
+  iovs[0].iov_len = 65536;
+
+  get_resource_args(target, invalid, &res, &box, 1);
+
+  ret = virgl_renderer_resource_create(&res, NULL, 0);
+  ck_assert_int_eq(ret, 0);
+
+  virgl_renderer_ctx_attach_resource(1, res.handle);
+
+  if (write)
+    ret = virgl_renderer_transfer_write_iov(res.handle, 1, 0, 1, 1,
+					 (struct virgl_box *)&box, 0, iovs, niovs);
+  else
+    ret = virgl_renderer_transfer_read_iov(res.handle, 1, 0, 1, 1,
+					   (struct virgl_box *)&box, 0, iovs, niovs);
+  ck_assert_int_eq(ret, invalid ? EINVAL : 0);
+  virgl_renderer_ctx_detach_resource(1, res.handle);
+
+  virgl_renderer_resource_unref(res.handle);
+  free(data);
+}
+
+START_TEST(virgl_test_transfer_res_read_valid)
+{
+  virgl_test_transfer_res(_i, false, false);
+}
+END_TEST
+
+START_TEST(virgl_test_transfer_res_write_valid)
+{
+  virgl_test_transfer_res(_i, true, false);
+}
+END_TEST
+
+START_TEST(virgl_test_transfer_res_read_invalid)
+{
+  virgl_test_transfer_res(_i, false, true);
+}
+END_TEST
+
+START_TEST(virgl_test_transfer_res_write_invalid)
+{
+  virgl_test_transfer_res(_i, true, true);
+}
+END_TEST
+
+static void virgl_test_transfer_inline(enum pipe_texture_target target,
+				       bool invalid)
+{
+  struct virgl_renderer_resource_create_args args;
+  struct pipe_box box;
+  struct virgl_context ctx;
+  struct virgl_resource res;
+  int ret;
+  int elsize = target == 0 ? 1 : 4;
+  void *data = calloc(1, 65536);
+  ret = testvirgl_init_ctx_cmdbuf(&ctx);
+  ck_assert_int_eq(ret, 0);
+
+  get_resource_args(target, invalid, &args, &box, 1);
+
+  ret = virgl_renderer_resource_create(&args, NULL, 0);
+  ck_assert_int_eq(ret, 0);
+
+  res.handle = args.handle;
+  res.base.target = args.target;
+  res.base.format = args.format;
+
+  virgl_renderer_ctx_attach_resource(ctx.ctx_id, res.handle);
+  virgl_encoder_inline_write(&ctx, &res, 0, 0, (struct pipe_box *)&box, data, box.width * elsize, 0);
+  ret = virgl_renderer_submit_cmd(ctx.cbuf->buf, ctx.ctx_id, ctx.cbuf->cdw);
+  ck_assert_int_eq(ret, invalid ? EINVAL : 0);
+  virgl_renderer_ctx_detach_resource(ctx.ctx_id, res.handle);
+
+  virgl_renderer_resource_unref(res.handle);
+  testvirgl_fini_ctx_cmdbuf(&ctx);
+  free(data);
+}
+
+START_TEST(virgl_test_transfer_inline_valid)
+{
+  virgl_test_transfer_inline(_i, false);
+}
+END_TEST
+
+START_TEST(virgl_test_transfer_inline_invalid)
+{
+  virgl_test_transfer_inline(_i, true);
+}
+END_TEST
+
+
 Suite *virgl_init_suite(void)
 {
   Suite *s;
   TCase *tc_core;
 
   s = suite_create("virgl_transfer");
-  tc_core = tcase_create("transfer");
+  tc_core = tcase_create("transfer_direct");
 
   tcase_add_unchecked_fixture(tc_core, testvirgl_init_single_ctx_nr, testvirgl_fini_single_ctx);
   tcase_add_test(tc_core, virgl_test_transfer_read_illegal_ctx);
@@ -395,6 +568,16 @@ Suite *virgl_init_suite(void)
   tcase_add_test(tc_core, virgl_test_transfer_1d_bad_iov);
   tcase_add_test(tc_core, virgl_test_transfer_1d_bad_iov_offset);
 
+  tcase_add_loop_test(tc_core, virgl_test_transfer_res_read_valid, 0, PIPE_MAX_TEXTURE_TYPES);
+  tcase_add_loop_test(tc_core, virgl_test_transfer_res_write_valid, 0, PIPE_MAX_TEXTURE_TYPES);
+  tcase_add_loop_test(tc_core, virgl_test_transfer_res_read_invalid, 0, PIPE_MAX_TEXTURE_TYPES);
+  tcase_add_loop_test(tc_core, virgl_test_transfer_res_write_invalid, 0, PIPE_MAX_TEXTURE_TYPES);
+  suite_add_tcase(s, tc_core);
+
+  tc_core = tcase_create("transfer_inline_write");
+  /* only support on buffer for now */
+  tcase_add_loop_test(tc_core, virgl_test_transfer_inline_valid, 0, PIPE_BUFFER + 1);//PIPE_MAX_TEXTURE_TYPES);
+  tcase_add_loop_test(tc_core, virgl_test_transfer_inline_invalid, 0, PIPE_BUFFER + 1);//PIPE_MAX_TEXTURE_TYPES);
   suite_add_tcase(s, tc_core);
   return s;
 
