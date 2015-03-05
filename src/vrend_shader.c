@@ -511,7 +511,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
    case TGSI_FILE_CONSTANT:
       if (decl->Declaration.Dimension) {
          ctx->ubo_idx[ctx->num_ubo] = decl->Dim.Index2D;
-         ctx->ubo_sizes[ctx->num_ubo] = decl->Range.Last;
+         ctx->ubo_sizes[ctx->num_ubo] = decl->Range.Last + 1;
          ctx->num_ubo++;
       } else {
          if (decl->Range.Last) {
