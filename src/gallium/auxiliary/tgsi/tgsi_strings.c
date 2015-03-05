@@ -189,7 +189,7 @@ const char *tgsi_immediate_type_names[3] =
 };
 
 
-static INLINE void
+static inline void
 tgsi_strings_check(void)
 {
    STATIC_ASSERT(Elements(tgsi_semantic_names) == TGSI_SEMANTIC_COUNT);

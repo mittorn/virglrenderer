@@ -91,23 +91,6 @@ typedef unsigned char boolean;
 #endif
 #endif
 
-/* XXX: Use standard `inline` keyword instead */
-#ifndef INLINE
-#  define INLINE inline
-#endif
-
-/* Forced function inlining */
-#ifndef ALWAYS_INLINE
-#  ifdef __GNUC__
-#    define ALWAYS_INLINE inline __attribute__((always_inline))
-#  elif defined(_MSC_VER)
-#    define ALWAYS_INLINE __forceinline
-#  else
-#    define ALWAYS_INLINE INLINE
-#  endif
-#endif
-
-
 /* Function visibility */
 #ifndef PUBLIC
 #  if defined(__GNUC__) || (defined(__SUNPRO_C) && (__SUNPRO_C >= 0x590))

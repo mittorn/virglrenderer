@@ -324,7 +324,7 @@ void vrend_renderer_resource_detach_iov(int res_handle,
 					int *num_iovs_p);
 void vrend_renderer_resource_destroy(struct vrend_resource *res, bool remove);
 
-static INLINE void
+static inline void
 vrend_resource_reference(struct vrend_resource **ptr, struct vrend_resource *tex)
 {
    struct vrend_resource *old_tex = *ptr;

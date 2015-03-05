@@ -46,7 +46,7 @@ struct u_prim_vertex_count {
  * Decompose a primitive that is a loop, a strip, or a fan.  Return the
  * original primitive if it is already decomposed.
  */
-static INLINE unsigned
+static inline unsigned
 u_decomposed_prim(unsigned prim)
 {
    switch (prim) {
@@ -71,7 +71,7 @@ u_decomposed_prim(unsigned prim)
  * Reduce a primitive to one of PIPE_PRIM_POINTS, PIPE_PRIM_LINES, and
  * PIPE_PRIM_TRIANGLES.
  */
-static INLINE unsigned
+static inline unsigned
 u_reduced_prim(unsigned prim)
 {
    switch (prim) {
@@ -91,7 +91,7 @@ u_reduced_prim(unsigned prim)
 /**
  * Re-assemble a primitive to remove its adjacency.
  */
-static INLINE unsigned
+static inline unsigned
 u_assembled_prim(unsigned prim)
 {
    switch (prim) {
@@ -113,7 +113,7 @@ u_assembled_prim(unsigned prim)
  * source file, it will increase the size of the binary slightly more than
  * expected because of the use of a table.
  */
-static INLINE const struct u_prim_vertex_count *
+static inline const struct u_prim_vertex_count *
 u_prim_vertex_count(unsigned prim)
 {
    static const struct u_prim_vertex_count prim_table[PIPE_PRIM_MAX] = {
@@ -136,7 +136,7 @@ u_prim_vertex_count(unsigned prim)
    return (likely(prim < PIPE_PRIM_MAX)) ? &prim_table[prim] : NULL;
 }
 
-static INLINE boolean u_validate_pipe_prim( unsigned pipe_prim, unsigned nr )
+static inline boolean u_validate_pipe_prim( unsigned pipe_prim, unsigned nr )
 {
    const struct u_prim_vertex_count *count = u_prim_vertex_count(pipe_prim);
 
@@ -144,7 +144,7 @@ static INLINE boolean u_validate_pipe_prim( unsigned pipe_prim, unsigned nr )
 }
 
 
-static INLINE boolean u_trim_pipe_prim( unsigned pipe_prim, unsigned *nr )
+static inline boolean u_trim_pipe_prim( unsigned pipe_prim, unsigned *nr )
 {
    const struct u_prim_vertex_count *count = u_prim_vertex_count(pipe_prim);
 
@@ -159,7 +159,7 @@ static INLINE boolean u_trim_pipe_prim( unsigned pipe_prim, unsigned *nr )
    }
 }
 
-static INLINE unsigned
+static inline unsigned
 u_vertices_per_prim(int primitive)
 {
    switch(primitive) {
@@ -201,7 +201,7 @@ u_vertices_per_prim(int primitive)
  * statistics depend on knowing the exact number of decomposed
  * primitives for a set of vertices.
  */
-static INLINE unsigned
+static inline unsigned
 u_decomposed_prims_for_vertices(int primitive, int vertices)
 {
    switch (primitive) {
@@ -248,7 +248,7 @@ u_decomposed_prims_for_vertices(int primitive, int vertices)
  * count.  Each quad is treated as two triangles.  Polygons are treated as
  * triangle fans.
  */
-static INLINE unsigned
+static inline unsigned
 u_reduced_prims_for_vertices(int primitive, int vertices)
 {
    switch (primitive) {

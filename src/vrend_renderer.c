@@ -364,16 +364,16 @@ void vrend_update_stencil_state(struct vrend_context *ctx);
 
 static struct vrend_format_table tex_conv_table[VIRGL_FORMAT_MAX];
 
-static INLINE boolean vrend_format_can_sample(enum virgl_formats format)
+static inline boolean vrend_format_can_sample(enum virgl_formats format)
 {
    return tex_conv_table[format].bindings & VREND_BIND_SAMPLER;
 }
-static INLINE boolean vrend_format_can_render(enum virgl_formats format)
+static inline boolean vrend_format_can_render(enum virgl_formats format)
 {
    return tex_conv_table[format].bindings & VREND_BIND_RENDER;
 }
 
-static INLINE boolean vrend_format_is_ds(enum virgl_formats format)
+static inline boolean vrend_format_is_ds(enum virgl_formats format)
 {
    return tex_conv_table[format].bindings & VREND_BIND_DEPTHSTENCIL;
 }
@@ -422,7 +422,7 @@ static void __report_core_warn(const char *fname, struct vrend_context *ctx, enu
    fprintf(stderr,"%s: core profile violation reported %d \"%s\" %s %d\n", fname, ctx->ctx_id, ctx->debug_name, vrend_core_profile_warn_strings[error], value);
 }
 #define report_core_warn(ctx, error, value) __report_core_warn(__func__, ctx, error, value)
-static INLINE boolean should_invert_viewport(struct vrend_context *ctx)
+static inline boolean should_invert_viewport(struct vrend_context *ctx)
 {
    /* if we have a negative viewport then gallium wanted to invert it,
       however since we are rendering to GL FBOs we need to invert it
@@ -438,7 +438,7 @@ static void vrend_destroy_surface(struct vrend_surface *surf)
    free(surf);
 }
 
-static INLINE void
+static inline void
 vrend_surface_reference(struct vrend_surface **ptr, struct vrend_surface *surf)
 {
    struct vrend_surface *old_surf = *ptr;
@@ -454,7 +454,7 @@ static void vrend_destroy_sampler_view(struct vrend_sampler_view *samp)
    free(samp);
 }
 
-static INLINE void
+static inline void
 vrend_sampler_view_reference(struct vrend_sampler_view **ptr, struct vrend_sampler_view *view)
 {
    struct vrend_sampler_view *old_view = *ptr;
@@ -470,7 +470,7 @@ static void vrend_destroy_so_target(struct vrend_so_target *target)
    free(target);
 }
 
-static INLINE void
+static inline void
 vrend_so_target_reference(struct vrend_so_target **ptr, struct vrend_so_target *target)
 {
    struct vrend_so_target *old_target = *ptr;
@@ -529,7 +529,7 @@ static boolean vrend_compile_shader(struct vrend_context *ctx,
    return TRUE;
 }
 
-static INLINE void
+static inline void
 vrend_shader_state_reference(struct vrend_shader_selector **ptr, struct vrend_shader_selector *shader)
 {
    struct vrend_shader_selector *old_shader = *ptr;
@@ -1684,7 +1684,7 @@ static void vrend_destroy_shader_object(void *obj_ptr)
    vrend_shader_state_reference(&state, NULL);
 }
 
-static INLINE void vrend_fill_shader_key(struct vrend_context *ctx,
+static inline void vrend_fill_shader_key(struct vrend_context *ctx,
                                          struct vrend_shader_key *key)
 {
    if (use_core_profile == 1) {
@@ -1718,7 +1718,7 @@ static INLINE void vrend_fill_shader_key(struct vrend_context *ctx,
       key->gs_present = true;
 }
 
-static INLINE int conv_shader_type(int type)
+static inline int conv_shader_type(int type)
 {
    switch (type) {
    case PIPE_SHADER_VERTEX: return GL_VERTEX_SHADER;
@@ -2464,13 +2464,13 @@ translate_stencil_op(GLuint op)
 #undef CASE
 }
 
-static INLINE boolean is_dst_blend(int blend_factor)
+static inline boolean is_dst_blend(int blend_factor)
 {
    return (blend_factor == PIPE_BLENDFACTOR_DST_ALPHA ||
            blend_factor == PIPE_BLENDFACTOR_INV_DST_ALPHA);
 }
 
-static INLINE int conv_dst_blend(int blend_factor)
+static inline int conv_dst_blend(int blend_factor)
 {
    if (blend_factor == PIPE_BLENDFACTOR_DST_ALPHA)
       return PIPE_BLENDFACTOR_ONE;

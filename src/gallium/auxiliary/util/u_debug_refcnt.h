@@ -36,7 +36,7 @@ extern "C" {
 
 typedef void (*debug_reference_descriptor)(char*, const struct pipe_reference*);
 
-static INLINE void debug_reference(const struct pipe_reference* p, debug_reference_descriptor get_desc, int change)
+static inline void debug_reference(const struct pipe_reference* p, debug_reference_descriptor get_desc, int change)
 {
 }
 

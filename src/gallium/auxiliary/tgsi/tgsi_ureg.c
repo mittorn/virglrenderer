@@ -243,7 +243,7 @@ static union tgsi_any_token *retrieve_token( struct ureg_program *ureg,
 
 
 
-static INLINE struct ureg_dst
+static inline struct ureg_dst
 ureg_dst_register( unsigned file,
                    unsigned index )
 {

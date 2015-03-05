@@ -61,7 +61,7 @@ extern "C" {
 
 extern void *__mmap2(void *, size_t, int, int, int, size_t);
 
-static INLINE void *os_mmap(void *addr, size_t length, int prot, int flags, int fd, loff_t offset)
+static inline void *os_mmap(void *addr, size_t length, int prot, int flags, int fd, loff_t offset)
 {
    /* offset must be aligned to 4096 (not necessarily the page size) */
    if (unlikely(offset & 4095)) {

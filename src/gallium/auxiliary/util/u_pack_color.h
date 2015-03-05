@@ -60,7 +60,7 @@ union util_color {
 /**
  * Pack 4 ubytes into a 4-byte word
  */
-static INLINE unsigned
+static inline unsigned
 pack_ub4(ubyte b0, ubyte b1, ubyte b2, ubyte b3)
 {
    return ((((unsigned int)b0) << 0) |
@@ -73,7 +73,7 @@ pack_ub4(ubyte b0, ubyte b1, ubyte b2, ubyte b3)
 /**
  * Pack/convert 4 floats into one 4-byte word.
  */
-static INLINE unsigned
+static inline unsigned
 pack_ui32_float4(float a, float b, float c, float d)
 {
    return pack_ub4( float_to_ubyte(a),
