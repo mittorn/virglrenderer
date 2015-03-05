@@ -72,11 +72,11 @@ void virgl_renderer_context_destroy(uint32_t handle)
    vrend_renderer_context_destroy(handle);
 }
 
-void virgl_renderer_submit_cmd(void *buffer,
-                               int ctx_id,
-                               int ndw)
+int virgl_renderer_submit_cmd(void *buffer,
+			      int ctx_id,
+			      int ndw)
 {
-   vrend_decode_block(ctx_id, buffer, ndw);
+  return vrend_decode_block(ctx_id, buffer, ndw);
 }
 
 int virgl_renderer_transfer_write_iov(uint32_t handle,

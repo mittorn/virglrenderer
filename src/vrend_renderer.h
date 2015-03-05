@@ -281,7 +281,7 @@ void vrend_transfer_write_tex_return(struct pipe_resource *res,
 
 void vrend_renderer_fini(void);
 
-void vrend_decode_block(uint32_t ctx_id, uint32_t *block, int ndw);
+int vrend_decode_block(uint32_t ctx_id, uint32_t *block, int ndw);
 struct vrend_context *vrend_lookup_renderer_ctx(uint32_t ctx_id);
 
 int vrend_renderer_create_fence(int client_fence_id, uint32_t ctx_id);

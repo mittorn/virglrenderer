@@ -92,9 +92,9 @@ VIRGL_EXPORT void virgl_renderer_resource_unref(uint32_t res_handle);
 VIRGL_EXPORT int virgl_renderer_context_create(uint32_t handle, uint32_t nlen, const char *name);
 VIRGL_EXPORT void virgl_renderer_context_destroy(uint32_t handle);
 
-VIRGL_EXPORT void virgl_renderer_submit_cmd(void *buffer,
-                                            int ctx_id,
-                                            int ndw);
+VIRGL_EXPORT int virgl_renderer_submit_cmd(void *buffer,
+					   int ctx_id,
+					   int ndw);
 
 VIRGL_EXPORT int virgl_renderer_transfer_read_iov(uint32_t handle, uint32_t ctx_id,
                                                    uint32_t level, uint32_t stride,

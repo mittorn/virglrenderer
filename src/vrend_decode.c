@@ -1033,22 +1033,22 @@ struct vrend_context *vrend_lookup_renderer_ctx(uint32_t ctx_id)
    return dec_ctx[ctx_id]->grctx;
 }
 
-void vrend_decode_block(uint32_t ctx_id, uint32_t *block, int ndw)
+int vrend_decode_block(uint32_t ctx_id, uint32_t *block, int ndw)
 {
    struct vrend_decode_ctx *gdctx;
    boolean bret;
    int ret;
    if (ctx_id > VREND_MAX_CTX)
-      return;
+      return EINVAL;
 
    if (dec_ctx[ctx_id] == NULL)
-      return;
+      return EINVAL;
 
    gdctx = dec_ctx[ctx_id];
 
    bret = vrend_hw_switch_context(gdctx->grctx, TRUE);
    if (bret == FALSE)
-      return;
+      return EINVAL;
 
    gdctx->ds->buf = block;
    gdctx->ds->buf_total = ndw;
@@ -1161,13 +1161,15 @@ void vrend_decode_block(uint32_t ctx_id, uint32_t *block, int ndw)
 
       if (ret == EINVAL) {
          vrend_report_buffer_error(gdctx->grctx, header);
-         break;
+         goto out;
       }
       if (ret == ENOMEM)
-         break;
+	goto out;
       gdctx->ds->buf_offset += (len) + 1;
    }
-
+   return 0;
+out:
+   return ret;
 }
 
 void vrend_decode_reset(bool ctx_0_only)
