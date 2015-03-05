@@ -678,8 +678,8 @@ static int emit_color_select(struct dump_ctx *ctx)
 {
    char buf[255];
    char *sret = NULL;
-   
-   if (!ctx->key->color_two_side)
+
+   if (!ctx->key->color_two_side || !(ctx->color_in_mask & 0x3))
       return 0;
 
    if (ctx->color_in_mask & 1) {
