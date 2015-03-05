@@ -1674,41 +1674,7 @@ void vrend_set_num_sampler_views(struct vrend_context *ctx,
    ctx->sub->views[shader_type].num_views = start_slot + num_sampler_views;
 }
 
-void vrend_transfer_inline_write(struct vrend_context *ctx,
-                                 uint32_t res_handle,
-                                 unsigned level,
-                                 unsigned usage,
-                                 const struct pipe_box *box,
-                                 const void *data,
-                                 unsigned stride,
-                                 unsigned layer_stride)
-{
-   struct vrend_resource *res;
 
-   res = vrend_renderer_ctx_res_lookup(ctx, res_handle);
-   if (!res) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, res_handle);
-      return;
-   }
-   if (res->ptr) {
-      memcpy(res->ptr + box->x, data, box->width);
-   } else if (res->target == GL_ELEMENT_ARRAY_BUFFER_ARB ||
-              res->target == GL_ARRAY_BUFFER_ARB ||
-              res->target == GL_TEXTURE_BUFFER ||
-              res->target == GL_UNIFORM_BUFFER ||
-              res->target == GL_TRANSFORM_FEEDBACK_BUFFER) {
-      glBindBufferARB(res->target, res->id);
-      glBufferSubData(res->target, box->x, box->width, data);
-   } else {
-      GLenum glformat, gltype;
-      glBindTexture(res->target, res->id);
-      glformat = tex_conv_table[res->base.format].glformat;
-      gltype = tex_conv_table[res->base.format].gltype; 
-
-      glTexSubImage2D(res->target, level, box->x, box->y, box->width, box->height,
-                      glformat, gltype, data);
-   }
-}
 
 
 static void vrend_destroy_shader_object(void *obj_ptr)
@@ -4209,6 +4175,32 @@ int vrend_renderer_transfer_iov(const struct vrend_transfer_info *info,
    else
       return vrend_renderer_transfer_send_iov(ctx, res, iov, num_iovs,
 					      info);
+}
+
+int vrend_transfer_inline_write(struct vrend_context *ctx,
+				struct vrend_transfer_info *info,
+				unsigned usage)
+{
+   struct vrend_resource *res;
+
+   res = vrend_renderer_ctx_res_lookup(ctx, info->handle);
+   if (!res) {
+      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, info->handle);
+      return EINVAL;
+   }
+
+   if (!check_transfer_bounds(res, info->level, info->box)) {
+      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_CMD_BUFFER, info->handle);
+      return EINVAL;
+   }
+
+   if (!check_iov_bounds(res, info, info->iovec, info->iovec_cnt)) {
+      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_CMD_BUFFER, info->handle);
+      return EINVAL;
+   }
+
+   return vrend_renderer_transfer_write_iov(ctx, res, info->iovec, info->iovec_cnt, info);
+
 }
 
 void vrend_set_stencil_ref(struct vrend_context *ctx,

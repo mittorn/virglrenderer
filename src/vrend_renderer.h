@@ -79,6 +79,18 @@ struct vrend_format_table {
    uint8_t swizzle[4];
 };
 
+struct vrend_transfer_info {
+  uint32_t handle;
+  uint32_t ctx_id;
+  int level;
+  uint32_t stride;
+  uint32_t layer_stride;
+  struct pipe_box *box;
+  uint64_t offset;
+  struct iovec *iovec;
+  unsigned int iovec_cnt;
+};
+
 struct vrend_if_cbs {
    void (*write_fence)(unsigned fence_id);
 
@@ -185,14 +197,9 @@ void vrend_set_single_vbo(struct vrend_context *ctx,
 void vrend_set_num_vbo(struct vrend_context *ctx,
                       int num_vbo);
 
-void vrend_transfer_inline_write(struct vrend_context *ctx,
-                                 uint32_t res_handle,
-                                 unsigned level,
-                                 unsigned usage,
-                                 const struct pipe_box *box,
-                                 const void *data,
-                                 unsigned stride,
-                                 unsigned layer_stride);
+int vrend_transfer_inline_write(struct vrend_context *ctx,
+				struct vrend_transfer_info *info,
+				unsigned usage);
 
 void vrend_set_viewport_state(struct vrend_context *ctx,
                               const struct pipe_viewport_state *state);
@@ -222,17 +229,6 @@ void vrend_set_index_buffer(struct vrend_context *ctx,
                             uint32_t index_size,
                             uint32_t offset);
 
-struct vrend_transfer_info {
-  uint32_t handle;
-  uint32_t ctx_id;
-  int level;
-  uint32_t stride;
-  uint32_t layer_stride;
-  struct pipe_box *box;
-  uint64_t offset;
-  struct iovec *iovec;
-  unsigned int iovec_cnt;
-};
 
 #define VREND_TRANSFER_WRITE 1
 #define VREND_TRANSFER_READ 2
