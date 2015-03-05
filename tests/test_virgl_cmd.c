@@ -33,6 +33,39 @@
 #include "virgl_protocol.h"
 #include "util/u_memory.h"
 
+/* test creating objects with same ID causes context err */
+START_TEST(virgl_test_overlap_obj_id)
+{
+    int ret;
+    struct virgl_context ctx;
+    int ctx_handle = 1;
+    ret = testvirgl_init_ctx_cmdbuf(&ctx);
+    ck_assert_int_eq(ret, 0);    
+
+    /* set blend state */
+    {
+	struct pipe_blend_state blend;
+	int blend_handle = ctx_handle;
+	memset(&blend, 0, sizeof(blend));
+	blend.rt[0].colormask = PIPE_MASK_RGBA;
+	virgl_encode_blend_state(&ctx, blend_handle, &blend);
+	virgl_encode_bind_object(&ctx, blend_handle, VIRGL_OBJECT_BLEND);
+    }
+
+    /* set depth stencil alpha state */
+    {
+	struct pipe_depth_stencil_alpha_state dsa;
+	int dsa_handle = ctx_handle;
+	memset(&dsa, 0, sizeof(dsa));
+	dsa.depth.writemask = 1;
+	dsa.depth.func = PIPE_FUNC_LESS;
+	virgl_encode_dsa_state(&ctx, dsa_handle, &dsa);
+	virgl_encode_bind_object(&ctx, dsa_handle, VIRGL_OBJECT_DSA);
+    }
+    testvirgl_fini_ctx_cmdbuf(&ctx);
+}
+END_TEST
+
 /* create a resource - clear it to a color, do a transfer */
 START_TEST(virgl_test_clear)
 {
@@ -707,6 +740,7 @@ Suite *virgl_init_suite(void)
   tc_core = tcase_create("clear");
   tcase_add_test(tc_core, virgl_test_clear);
   tcase_add_test(tc_core, virgl_test_blit_simple);
+  tcase_add_test(tc_core, virgl_test_overlap_obj_id);
   tcase_add_test(tc_core, virgl_test_render_simple);
   tcase_add_test(tc_core, virgl_test_render_geom_simple);
 
