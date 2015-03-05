@@ -60,7 +60,7 @@ tgsi_scan_shader(const struct tgsi_token *tokens,
    memset(info, 0, sizeof(*info));
    for (i = 0; i < TGSI_FILE_COUNT; i++)
       info->file_max[i] = -1;
-   for (i = 0; i < Elements(info->const_file_max); i++)
+   for (i = 0; i < ARRAY_SIZE(info->const_file_max); i++)
       info->const_file_max[i] = -1;
 
    /**
@@ -136,7 +136,7 @@ tgsi_scan_shader(const struct tgsi_token *tokens,
                /* MSAA samplers */
                if (src->Register.File == TGSI_FILE_SAMPLER) {
                   assert(fullinst->Instruction.Texture);
-                  assert(src->Register.Index < Elements(info->is_msaa_sampler));
+                  assert(src->Register.Index < ARRAY_SIZE(info->is_msaa_sampler));
 
                   if (fullinst->Instruction.Texture &&
                       (fullinst->Texture.Texture == TGSI_TEXTURE_2D_MSAA ||
@@ -299,7 +299,7 @@ tgsi_scan_shader(const struct tgsi_token *tokens,
                = &parse.FullToken.FullProperty;
             unsigned name = fullprop->Property.PropertyName;
 
-            assert(name < Elements(info->properties));
+            assert(name < ARRAY_SIZE(info->properties));
             info->properties[name] = fullprop->u[0].Data;
          }
          break;

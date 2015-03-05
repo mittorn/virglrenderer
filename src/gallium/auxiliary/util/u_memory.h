@@ -80,8 +80,8 @@ mem_dup(const void *src, uint size)
 /**
  * Number of elements in an array.
  */
-#ifndef Elements
-#define Elements(x) (sizeof(x)/sizeof((x)[0]))
+#ifndef ARRAY_SIZE
+#define ARRAY_SIZE(x) (sizeof(x)/sizeof((x)[0]))
 #endif
 
 

@@ -182,7 +182,7 @@ static void tokens_error( struct ureg_tokens *tokens )
       FREE(tokens->tokens);
 
    tokens->tokens = error_tokens;
-   tokens->size = Elements(error_tokens);
+   tokens->size = ARRAY_SIZE(error_tokens);
    tokens->count = 0;
 }
 
@@ -272,7 +272,7 @@ ureg_dst_register( unsigned file,
 void
 ureg_property(struct ureg_program *ureg, unsigned name, unsigned value)
 {
-   assert(name < Elements(ureg->properties));
+   assert(name < ARRAY_SIZE(ureg->properties));
    ureg->properties[name] = value;
 }
 
@@ -1389,7 +1389,7 @@ static void emit_decls( struct ureg_program *ureg )
 {
    unsigned i;
 
-   for (i = 0; i < Elements(ureg->properties); i++)
+   for (i = 0; i < ARRAY_SIZE(ureg->properties); i++)
       if (ureg->properties[i] != ~0)
          emit_property(ureg, i, ureg->properties[i]);
 
@@ -1649,7 +1649,7 @@ struct ureg_program *ureg_create( unsigned processor )
 
    ureg->processor = processor;
 
-   for (i = 0; i < Elements(ureg->properties); i++)
+   for (i = 0; i < ARRAY_SIZE(ureg->properties); i++)
       ureg->properties[i] = ~0;
 
    ureg->free_temps = util_bitmask_create();
@@ -1690,7 +1690,7 @@ void ureg_destroy( struct ureg_program *ureg )
 {
    unsigned i;
 
-   for (i = 0; i < Elements(ureg->domain); i++) {
+   for (i = 0; i < ARRAY_SIZE(ureg->domain); i++) {
       if (ureg->domain[i].tokens && 
           ureg->domain[i].tokens != error_tokens)
          FREE(ureg->domain[i].tokens);

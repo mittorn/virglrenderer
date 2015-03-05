@@ -491,7 +491,7 @@ debug_print_transfer_flags(const char *msg, unsigned usage)
 
    debug_printf("%s ", msg);
 
-   for (i = 0; i < Elements(flags); i++) {
+   for (i = 0; i < ARRAY_SIZE(flags); i++) {
       if (usage & flags[i].bit) {
          debug_printf("%s", flags[i].name);
          usage &= ~flags[i].bit;

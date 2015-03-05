@@ -314,7 +314,7 @@ static void vrend_add_formats(struct vrend_format_table *table, int num_entries)
    }
 }
 
-#define add_formats(x) vrend_add_formats((x), Elements((x)))
+#define add_formats(x) vrend_add_formats((x), ARRAY_SIZE((x)))
 
 void vrend_build_format_list(void)
 {
