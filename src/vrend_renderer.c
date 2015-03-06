@@ -3683,8 +3683,6 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
 {
    void *data;
 
-   vrend_hw_switch_context(vrend_lookup_renderer_ctx(0), TRUE);
-
    if (res->target == 0 && res->ptr) {
       vrend_read_from_iovec(iov, num_iovs, info->offset, res->ptr + info->box->x, info->box->width);
       return 0;
@@ -4089,8 +4087,6 @@ static int vrend_renderer_transfer_send_iov(struct vrend_context *ctx,
       return 0;
    }
 
-   vrend_hw_switch_context(vrend_lookup_renderer_ctx(0), TRUE);
-
    if (res->target == GL_ELEMENT_ARRAY_BUFFER_ARB ||
        res->target == GL_ARRAY_BUFFER_ARB ||
        res->target == GL_TRANSFORM_FEEDBACK_BUFFER ||
@@ -4168,6 +4164,8 @@ int vrend_renderer_transfer_iov(const struct vrend_transfer_info *info,
 
    if (!check_iov_bounds(res, info, iov, num_iovs))
       return EINVAL;
+
+   vrend_hw_switch_context(vrend_lookup_renderer_ctx(0), TRUE);
 
    if (transfer_mode == VREND_TRANSFER_WRITE)
       return vrend_renderer_transfer_write_iov(ctx, res, iov, num_iovs,
