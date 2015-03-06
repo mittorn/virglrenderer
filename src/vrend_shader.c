@@ -24,6 +24,7 @@
 
 #include "tgsi/tgsi_info.h"
 #include "tgsi/tgsi_iterate.h"
+#include "util/u_memory.h"
 #include <string.h>
 #include <stdio.h>
 #include <math.h>
@@ -531,6 +532,10 @@ iter_declaration(struct tgsi_iterate_context *iter,
       break;
    case TGSI_FILE_CONSTANT:
       if (decl->Declaration.Dimension) {
+          if (ctx->num_ubo >= ARRAY_SIZE(ctx->ubo_idx)) {
+              fprintf(stderr, "Number of uniforms exceeded, max is %lu\n", ARRAY_SIZE(ctx->ubo_idx));
+              return FALSE;
+          }
          ctx->ubo_idx[ctx->num_ubo] = decl->Dim.Index2D;
          ctx->ubo_sizes[ctx->num_ubo] = decl->Range.Last + 1;
          ctx->num_ubo++;
@@ -616,8 +621,11 @@ iter_immediate(
    int i;
    int first = ctx->num_imm;
 
-   if (first > MAX_IMMEDIATE)
-     return FALSE;
+   if (first >= ARRAY_SIZE(ctx->imm)) {
+       fprintf(stderr, "Number of immediates exceeded, max is: %lu\n", ARRAY_SIZE(ctx->imm));
+       return FALSE;
+   }
+
    ctx->imm[first].type = imm->Immediate.DataType;
    for (i = 0; i < 4; i++) {
       if (imm->Immediate.DataType == TGSI_IMM_FLOAT32) {
