@@ -152,7 +152,7 @@ int testvirgl_init_ctx_cmdbuf(struct virgl_context *ctx)
 	return ENOMEM;
     }
 
-    ctx->cbuf->buf = CALLOC(1, VIRGL_MAX_CMDBUF_DWORDS);
+    ctx->cbuf->buf = CALLOC(1, VIRGL_MAX_CMDBUF_DWORDS * 4);
     if (!ctx->cbuf->buf) {
 	FREE(ctx->cbuf);
 	testvirgl_fini_single_ctx();
