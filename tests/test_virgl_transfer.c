@@ -376,7 +376,7 @@ END_TEST
    invalid using a box outside the bounds of the transfer */
 void get_resource_args(enum pipe_texture_target target, bool invalid,
 		       struct virgl_renderer_resource_create_args *args,
-		       struct pipe_box *box, int nsamples)
+		       struct pipe_box *box, int nsamples, bool large)
 {
   memset(args, 0, sizeof(*args));
   memset(box, 0, sizeof(*box));
@@ -393,7 +393,10 @@ void get_resource_args(enum pipe_texture_target target, bool invalid,
   args->nr_samples = nsamples;
   args->flags = 0;
 
-  args->width = 50;
+  if (large && target == PIPE_BUFFER)
+    args->width = 65536*2;
+  else
+    args->width = 50;
   args->height = args->depth = args->array_size = 1;
 
   switch (target) {
@@ -453,7 +456,7 @@ static void virgl_test_transfer_res(enum pipe_texture_target target,
   iovs[0].iov_base = data;
   iovs[0].iov_len = 65536;
 
-  get_resource_args(target, invalid, &res, &box, 1);
+  get_resource_args(target, invalid, &res, &box, 1, false);
 
   ret = virgl_renderer_resource_create(&res, NULL, 0);
   ck_assert_int_eq(ret, 0);
@@ -510,7 +513,7 @@ static void virgl_test_transfer_inline(enum pipe_texture_target target,
   ret = testvirgl_init_ctx_cmdbuf(&ctx);
   ck_assert_int_eq(ret, 0);
 
-  get_resource_args(target, invalid, &args, &box, 1);
+  get_resource_args(target, invalid, &args, &box, 1, false);
 
   ret = virgl_renderer_resource_create(&args, NULL, 0);
   ck_assert_int_eq(ret, 0);
