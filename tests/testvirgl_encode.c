@@ -4,6 +4,7 @@
 
 #include "util/u_memory.h"
 #include "util/u_math.h"
+#include "util/u_format.h"
 #include "pipe/p_state.h"
 #include "testvirgl_encode.h"
 #include "virgl_protocol.h"
@@ -405,6 +406,18 @@ static void virgl_encoder_iw_emit_header_1d(struct virgl_context *ctx,
    virgl_encoder_write_dword(ctx->cbuf, box->depth);
 }
 
+static void virgl_encoder_inline_send_box(struct virgl_context *ctx,
+					  struct virgl_resource *res,
+					  unsigned level, unsigned usage,
+					  const struct pipe_box *box,
+					  const void *data, unsigned stride,
+					  unsigned layer_stride, int length)
+{
+  virgl_encoder_write_cmd_dword(ctx, VIRGL_CMD0(VIRGL_CCMD_RESOURCE_INLINE_WRITE, 0, ((length + 3) / 4) + 11));
+  virgl_encoder_iw_emit_header_1d(ctx, res, level, usage, box, stride, layer_stride);
+  virgl_encoder_write_block(ctx->cbuf, data, length);
+}
+
 int virgl_encoder_inline_write(struct virgl_context *ctx,
                               struct virgl_resource *res,
                               unsigned level, unsigned usage,
@@ -412,34 +425,71 @@ int virgl_encoder_inline_write(struct virgl_context *ctx,
                               const void *data, unsigned stride,
                               unsigned layer_stride)
 {
-   uint32_t size = (stride ? stride : box->width) * box->height;
    uint32_t length, thispass, left_bytes;
    struct pipe_box mybox = *box;
+   unsigned elsize, size;
+   unsigned layer_size;
+   unsigned stride_internal = stride;
+   unsigned layer_stride_internal = layer_stride;
+   unsigned layer, row;
+   elsize = util_format_get_blocksize(res->base.format);
+
+   /* total size of data to transfer */
+   if (!stride)
+     stride_internal = box->width * elsize;
+   layer_size = box->height * stride_internal;
+   if (layer_stride && layer_stride < layer_size)
+     return -1;
+   if (!layer_stride)
+     layer_stride_internal = layer_size;
+   size = layer_stride_internal * box->depth;
 
    length = 11 + (size + 3) / 4;
-   if ((ctx->cbuf->cdw + length + 1) > VIRGL_MAX_CMDBUF_DWORDS) {
-      if (box->height > 1 || box->depth > 1) {
-         debug_printf("inline transfer failed due to multi dimensions and too large\n");
-         assert(0);
-      }
+
+   /* can we send it all in one cmdbuf? */
+   if (length < VIRGL_MAX_CMDBUF_DWORDS) {
+     /* is there space in this cmdbuf? if not flush and use another one */
+     if ((ctx->cbuf->cdw + length + 1) > VIRGL_MAX_CMDBUF_DWORDS) {
+       ctx->flush(ctx);
+     }
+     /* send it all in one go. */
+     virgl_encoder_inline_send_box(ctx, res, level, usage, &mybox, data, stride, layer_stride, size);
+     return 0;
    }
 
-   left_bytes = size;
-   while (left_bytes) {
-      if (ctx->cbuf->cdw + 12 > VIRGL_MAX_CMDBUF_DWORDS)
-         ctx->flush(ctx);
+   /* break things down into chunks we can send */
+   /* send layers in separate chunks */
+   for (layer = 0; layer < box->depth; layer++) {
+     const void *layer_data = data;
+     mybox.z = layer;
+     mybox.depth = 1;
 
-      thispass = (VIRGL_MAX_CMDBUF_DWORDS - ctx->cbuf->cdw - 12) * 4;
+     /* send one line in separate chunks */
+     for (row = 0; row < box->height; row++) {
+       const void *row_data = layer_data;
+       mybox.y = row;
+       mybox.height = 1;
+       mybox.x = 0;
 
-      length = MIN2(thispass, left_bytes);
+       left_bytes = box->width * elsize;
+       while (left_bytes) {
+	 if (ctx->cbuf->cdw + 12 > VIRGL_MAX_CMDBUF_DWORDS)
+	   ctx->flush(ctx);
 
-      mybox.width = length;
-      virgl_encoder_write_cmd_dword(ctx, VIRGL_CMD0(VIRGL_CCMD_RESOURCE_INLINE_WRITE, 0, ((length + 3) / 4) + 11));
-      virgl_encoder_iw_emit_header_1d(ctx, res, level, usage, &mybox, stride, layer_stride);
-      virgl_encoder_write_block(ctx->cbuf, data, length);
-      left_bytes -= length;
-      mybox.x += length;
-      data += length;
+	 thispass = (VIRGL_MAX_CMDBUF_DWORDS - ctx->cbuf->cdw - 12) * 4;
+
+	 length = MIN2(thispass, left_bytes);
+
+	 mybox.width = length / elsize;
+
+	 virgl_encoder_inline_send_box(ctx, res, level, usage, &mybox, row_data, stride, layer_stride, length);
+	 left_bytes -= length;
+	 mybox.x += length / elsize;
+	 row_data += length;
+       }
+       layer_data += stride_internal;
+     }
+     data += layer_stride_internal;
    }
    return 0;
 }

@@ -374,9 +374,12 @@ END_TEST
 
 /* for each texture type construct a valid and invalid transfer,
    invalid using a box outside the bounds of the transfer */
+#define LARGE_FLAG_WIDTH (1 << 0)
+#define LARGE_FLAG_HEIGHT (1 << 1)
+#define LARGE_FLAG_DEPTH (1 << 2)
 void get_resource_args(enum pipe_texture_target target, bool invalid,
 		       struct virgl_renderer_resource_create_args *args,
-		       struct pipe_box *box, int nsamples, bool large)
+		       struct pipe_box *box, int nsamples, int large_flags)
 {
   memset(args, 0, sizeof(*args));
   memset(box, 0, sizeof(*box));
@@ -393,7 +396,7 @@ void get_resource_args(enum pipe_texture_target target, bool invalid,
   args->nr_samples = nsamples;
   args->flags = 0;
 
-  if (large && target == PIPE_BUFFER)
+  if (large_flags & LARGE_FLAG_WIDTH)
     args->width = 65536*2;
   else
     args->width = 50;
@@ -423,7 +426,10 @@ void get_resource_args(enum pipe_texture_target target, bool invalid,
   case PIPE_TEXTURE_1D_ARRAY:
     break;
   default:
-    args->height = 50;
+    if (large_flags & LARGE_FLAG_HEIGHT)
+      args->height = 64000;
+    else
+      args->height = 50;
     break;
   }
 
@@ -442,6 +448,11 @@ void get_resource_args(enum pipe_texture_target target, bool invalid,
   }
 }
 
+static unsigned get_box_size(struct pipe_box *box, int elsize)
+{
+  return elsize * box->width * box->height * box->depth;
+}
+
 static void virgl_test_transfer_res(enum pipe_texture_target target,
 				    bool write, bool invalid)
 {
@@ -451,12 +462,14 @@ static void virgl_test_transfer_res(enum pipe_texture_target target,
   struct iovec iovs[1];
   int niovs = 1;
   int ret;
+  int size;
 
-  data = calloc(1, 65536);
+  get_resource_args(target, invalid, &res, &box, 1, 0);
+
+  size = get_box_size(&box, target == PIPE_BUFFER ? 1 : 4);
+  data = calloc(1, size);
   iovs[0].iov_base = data;
-  iovs[0].iov_len = 65536;
-
-  get_resource_args(target, invalid, &res, &box, 1, false);
+  iovs[0].iov_len = size;
 
   ret = virgl_renderer_resource_create(&res, NULL, 0);
   ck_assert_int_eq(ret, 0);
@@ -501,7 +514,7 @@ START_TEST(virgl_test_transfer_res_write_invalid)
 END_TEST
 
 static void virgl_test_transfer_inline(enum pipe_texture_target target,
-				       bool invalid)
+				       bool invalid, int large_flags)
 {
   struct virgl_renderer_resource_create_args args;
   struct pipe_box box;
@@ -509,12 +522,15 @@ static void virgl_test_transfer_inline(enum pipe_texture_target target,
   struct virgl_resource res;
   int ret;
   int elsize = target == 0 ? 1 : 4;
-  void *data = calloc(1, 65536);
+  void *data;
+  unsigned size;
   ret = testvirgl_init_ctx_cmdbuf(&ctx);
   ck_assert_int_eq(ret, 0);
 
-  get_resource_args(target, invalid, &args, &box, 1, false);
+  get_resource_args(target, invalid, &args, &box, 1, large_flags);
 
+  size = get_box_size(&box, elsize);
+  data = calloc(1, size);
   ret = virgl_renderer_resource_create(&args, NULL, 0);
   ck_assert_int_eq(ret, 0);
 
@@ -535,13 +551,54 @@ static void virgl_test_transfer_inline(enum pipe_texture_target target,
 
 START_TEST(virgl_test_transfer_inline_valid)
 {
-  virgl_test_transfer_inline(_i, false);
+  virgl_test_transfer_inline(_i, false, 0);
 }
 END_TEST
 
 START_TEST(virgl_test_transfer_inline_invalid)
 {
-  virgl_test_transfer_inline(_i, true);
+  virgl_test_transfer_inline(_i, true, 0);
+}
+END_TEST
+
+START_TEST(virgl_test_transfer_inline_valid_large)
+{
+  virgl_test_transfer_inline(_i, false, LARGE_FLAG_WIDTH);
+}
+END_TEST
+
+/* transfer writes have to fit in cmd stream, make sure we split them */
+START_TEST(virgl_test_transfer_inline_large_buffer)
+{
+  struct virgl_renderer_resource_create_args args;
+  struct pipe_box box;
+  struct virgl_context ctx;
+  struct virgl_resource res;
+  int ret;
+  int elsize = 1;
+  void *data = calloc(1, 65536*3);
+
+  ret = testvirgl_init_ctx_cmdbuf(&ctx);
+  ck_assert_int_eq(ret, 0);
+
+  get_resource_args(PIPE_BUFFER, false, &args, &box, 1, LARGE_FLAG_WIDTH);
+
+  ret = virgl_renderer_resource_create(&args, NULL, 0);
+  ck_assert_int_eq(ret, 0);
+
+  res.handle = args.handle;
+  res.base.target = args.target;
+  res.base.format = args.format;
+
+  virgl_renderer_ctx_attach_resource(ctx.ctx_id, res.handle);
+
+  virgl_encoder_inline_write(&ctx, &res, 0, 0, (struct pipe_box *)&box, data, box.width * elsize, 0);
+  ret = virgl_renderer_submit_cmd(ctx.cbuf->buf, ctx.ctx_id, ctx.cbuf->cdw);
+  ck_assert_int_eq(ret, 0);
+  virgl_renderer_ctx_detach_resource(ctx.ctx_id, res.handle);
+  virgl_renderer_resource_unref(res.handle);
+  testvirgl_fini_ctx_cmdbuf(&ctx);
+  free(data);
 }
 END_TEST
 
@@ -578,9 +635,10 @@ Suite *virgl_init_suite(void)
   suite_add_tcase(s, tc_core);
 
   tc_core = tcase_create("transfer_inline_write");
-  /* only support on buffer for now */
-  tcase_add_loop_test(tc_core, virgl_test_transfer_inline_valid, 0, PIPE_BUFFER + 1);//PIPE_MAX_TEXTURE_TYPES);
-  tcase_add_loop_test(tc_core, virgl_test_transfer_inline_invalid, 0, PIPE_BUFFER + 1);//PIPE_MAX_TEXTURE_TYPES);
+  tcase_add_loop_test(tc_core, virgl_test_transfer_inline_valid, 0, PIPE_MAX_TEXTURE_TYPES);
+  tcase_add_loop_test(tc_core, virgl_test_transfer_inline_invalid, 0, PIPE_MAX_TEXTURE_TYPES);
+  tcase_add_loop_test(tc_core, virgl_test_transfer_inline_valid_large, 0, PIPE_MAX_TEXTURE_TYPES);
+
   suite_add_tcase(s, tc_core);
   return s;
 
