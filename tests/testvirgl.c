@@ -131,6 +131,12 @@ void testvirgl_fini_single_ctx(void)
     virgl_renderer_cleanup(&mystruct);
 }
 
+static void testvirgl_flush(struct virgl_context *ctx)
+{
+    virgl_renderer_submit_cmd(ctx->cbuf->buf, ctx->ctx_id, ctx->cbuf->cdw);
+    ctx->cbuf->cdw = 0;
+}
+
 int testvirgl_init_ctx_cmdbuf(struct virgl_context *ctx)
 {
     int ret;
@@ -138,6 +144,7 @@ int testvirgl_init_ctx_cmdbuf(struct virgl_context *ctx)
     if (ret)
 	return ret;
 
+    ctx->flush = testvirgl_flush;
     ctx->ctx_id = 1;
     ctx->cbuf = CALLOC_STRUCT(virgl_cmd_buf);
     if (!ctx->cbuf) {

@@ -13,10 +13,10 @@
 static int virgl_encoder_write_cmd_dword(struct virgl_context *ctx,
                                         uint32_t dword)
 {
-  //   int len = (dword >> 16);
+  int len = (dword >> 16);
 
-   //   if ((ctx->cbuf->cdw + len + 1) > VIRGL_MAX_CMDBUF_DWORDS)
-   //      ctx->base.flush(&ctx->base, NULL, 0);
+  if ((ctx->cbuf->cdw + len + 1) > VIRGL_MAX_CMDBUF_DWORDS)
+    ctx->flush(ctx);
 
    virgl_encoder_write_dword(ctx->cbuf, dword);
    return 0;
@@ -426,8 +426,8 @@ int virgl_encoder_inline_write(struct virgl_context *ctx,
 
    left_bytes = size;
    while (left_bytes) {
-     //    if (ctx->cbuf->cdw + 12 > VIRGL_MAX_CMDBUF_DWORDS)
-     //       ctx->base.flush(&ctx->base, NULL, 0);
+      if (ctx->cbuf->cdw + 12 > VIRGL_MAX_CMDBUF_DWORDS)
+         ctx->flush(ctx);
 
       thispass = (VIRGL_MAX_CMDBUF_DWORDS - ctx->cbuf->cdw - 12) * 4;
 

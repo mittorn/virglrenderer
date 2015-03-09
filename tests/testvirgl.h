@@ -36,6 +36,7 @@ struct virgl_cmd_buf {
 };
 
 struct virgl_context {
+    void (*flush)(struct virgl_context *ctx);
     struct virgl_cmd_buf *cbuf;
     int ctx_id;
 };
