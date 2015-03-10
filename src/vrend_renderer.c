@@ -2094,7 +2094,7 @@ void vrend_draw_vbo(struct vrend_context *ctx,
      if (ctx->sub->gs)
         vrend_shader_select(ctx, ctx->sub->gs, &gs_dirty);
 
-     if (!ctx->sub->vs->current || !ctx->sub->fs->current) {
+     if (!ctx->sub->vs->current || !ctx->sub->fs->current || (ctx->sub->gs && !ctx->sub->gs->current)) {
         fprintf(stderr, "failure to compile shader variants\n");
         return;
      }
