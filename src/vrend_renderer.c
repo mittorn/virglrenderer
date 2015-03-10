@@ -3683,6 +3683,16 @@ static bool check_iov_bounds(struct vrend_resource *res,
 	return false;
     if (iovsize < info->offset + send_size)
         return false;
+
+    /* layer stride only makes sense for 3d,cube and arrays */
+    if (info->layer_stride &&
+	(res->base.target != PIPE_TEXTURE_3D &&
+	 res->base.target != PIPE_TEXTURE_CUBE &&
+	 res->base.target != PIPE_TEXTURE_1D_ARRAY &&
+	 res->base.target != PIPE_TEXTURE_2D_ARRAY &&
+	 res->base.target != PIPE_TEXTURE_CUBE_ARRAY))
+      return false;
+
     return true;
 }
 
