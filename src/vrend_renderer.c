@@ -3294,11 +3294,21 @@ static int check_resource_valid(struct vrend_renderer_resource_create_args *args
 
     if (args->format >= VIRGL_FORMAT_MAX)
 	return -1;
+
     /* only texture 2d and 2d array can have multiple samples */
-    if (args->nr_samples > 1)
+    if (args->nr_samples > 1) {
 	if (args->target != PIPE_TEXTURE_2D && args->target != PIPE_TEXTURE_2D_ARRAY)
 	    return -1;
+	/* multisample can't have miplevels */
+	if (args->last_level > 0)
+	    return -1;
+    }
 
+    if (args->last_level > 0) {
+	/* buffer and rect textures can't have mipmaps */
+	if (args->target == PIPE_BUFFER || args->target == PIPE_TEXTURE_RECT)
+	    return -1;
+    }
     if (args->flags != 0 && args->flags != VIRGL_RESOURCE_Y_0_TOP)
       return -1;
 
