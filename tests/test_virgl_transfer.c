@@ -465,7 +465,7 @@ START_TEST(virgl_test_transfer_2d_bad_level)
 
     virgl_renderer_ctx_attach_resource(1, res.handle);
 
-    ret = virgl_renderer_transfer_write_iov(res.handle, 1, 2, 0, 50, &box, 0, &iov, niovs);
+    ret = virgl_renderer_transfer_write_iov(res.handle, 1, 2, 0, 0, &box, 0, &iov, niovs);
     ck_assert_int_eq(ret, EINVAL);
 
     virgl_renderer_ctx_detach_resource(1, res.handle);
