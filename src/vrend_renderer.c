@@ -3624,43 +3624,45 @@ static void copy_transfer_data(struct pipe_resource *res,
 }
 
 static bool check_transfer_bounds(struct vrend_resource *res,
-				  uint32_t level, struct pipe_box *box)
+				  const struct vrend_transfer_info *info)
 {
    int lwidth, lheight;
+
    /* check mipmap level is in bounds */
-   if (level > res->base.last_level)
+   if (info->level > res->base.last_level)
       return false;
+
    /* these will catch bad y/z/w/d with 1D textures etc */
-   lwidth = u_minify(res->base.width0, level);
-   if (box->width > lwidth)
+   lwidth = u_minify(res->base.width0, info->level);
+   if (info->box->width > lwidth)
        return false;
-   if (box->x > lwidth)
+   if (info->box->x > lwidth)
        return false;
-   if (box->width + box->x > lwidth)
+   if (info->box->width + info->box->x > lwidth)
        return false;
 
-   lheight = u_minify(res->base.height0, level);
-   if (box->height > lheight)
+   lheight = u_minify(res->base.height0, info->level);
+   if (info->box->height > lheight)
        return false;
-   if (box->y > lheight)
+   if (info->box->y > lheight)
        return false;
-   if (box->height + box->y > lheight)
+   if (info->box->height + info->box->y > lheight)
        return false;
 
    if (res->base.target == PIPE_TEXTURE_3D) {
-      int ldepth = u_minify(res->base.depth0, level);
-      if (box->depth > ldepth)
+      int ldepth = u_minify(res->base.depth0, info->level);
+      if (info->box->depth > ldepth)
 	 return false;
-      if (box->z > ldepth)
+      if (info->box->z > ldepth)
 	 return false;
-      if (box->z + box->depth > ldepth)
+      if (info->box->z + info->box->depth > ldepth)
 	 return false;
    } else {
-      if (box->depth > res->base.array_size)
+      if (info->box->depth > res->base.array_size)
 	 return false;
-      if (box->z > res->base.array_size)
+      if (info->box->z > res->base.array_size)
 	 return false;
-      if (box->z + box->depth > res->base.array_size)
+      if (info->box->z + info->box->depth > res->base.array_size)
 	 return false;
    }
 
@@ -3672,26 +3674,48 @@ static bool check_iov_bounds(struct vrend_resource *res,
 			     struct iovec *iov, int num_iovs)
 {
     int elsize = util_format_get_blocksize(res->base.format);
-    GLuint send_size = util_format_get_nblocks(res->base.format, info->box->width,
-					       info->box->height) * elsize * info->box->depth;
-
+    GLuint send_size;
     GLuint iovsize = vrend_get_iovec_size(iov, num_iovs);
+    GLuint valid_stride, valid_layer_stride;
 
+    /* validate the send size */
+    valid_stride = info->box->width * elsize;
+    if (info->stride) {
+	/* only validate passed in stride for boxes with height */
+	if (info->box->height > 1) {
+	    if (info->stride < valid_stride)
+		return false;
+	    valid_stride = info->stride;
+	}
+    }
+
+    valid_layer_stride = util_format_get_nblocks(res->base.format, valid_stride / elsize,
+						 info->box->height) * elsize;
+
+    /* layer stride only makes sense for 3d,cube and arrays */
+    if (info->layer_stride) {
+	if ((res->base.target != PIPE_TEXTURE_3D &&
+	     res->base.target != PIPE_TEXTURE_CUBE &&
+	     res->base.target != PIPE_TEXTURE_1D_ARRAY &&
+	     res->base.target != PIPE_TEXTURE_2D_ARRAY &&
+	     res->base.target != PIPE_TEXTURE_CUBE_ARRAY))
+	    return false;
+
+	/* only validate passed in layer_stride for boxes with depth */
+	if (info->box->depth > 1) {
+	    if (info->layer_stride < valid_layer_stride)
+		return false;
+	    valid_layer_stride = info->layer_stride;
+	}
+    }
+
+    send_size = valid_layer_stride * info->box->depth;
     if (iovsize < info->offset)
 	return false;
     if (iovsize < send_size)
 	return false;
     if (iovsize < info->offset + send_size)
         return false;
-
-    /* layer stride only makes sense for 3d,cube and arrays */
-    if (info->layer_stride &&
-	(res->base.target != PIPE_TEXTURE_3D &&
-	 res->base.target != PIPE_TEXTURE_CUBE &&
-	 res->base.target != PIPE_TEXTURE_1D_ARRAY &&
-	 res->base.target != PIPE_TEXTURE_2D_ARRAY &&
-	 res->base.target != PIPE_TEXTURE_CUBE_ARRAY))
-      return false;
 
     return true;
 }
@@ -4179,7 +4203,7 @@ int vrend_renderer_transfer_iov(const struct vrend_transfer_info *info,
       return EINVAL;
    }
 
-   if (!check_transfer_bounds(res, info->level, info->box))
+   if (!check_transfer_bounds(res, info))
       return EINVAL;
 
    if (!check_iov_bounds(res, info, iov, num_iovs))
@@ -4207,7 +4231,7 @@ int vrend_transfer_inline_write(struct vrend_context *ctx,
       return EINVAL;
    }
 
-   if (!check_transfer_bounds(res, info->level, info->box)) {
+   if (!check_transfer_bounds(res, info)) {
       report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_CMD_BUFFER, info->handle);
       return EINVAL;
    }
