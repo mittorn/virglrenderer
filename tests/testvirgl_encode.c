@@ -278,10 +278,11 @@ int virgl_encoder_set_viewport_state(struct virgl_context *ctx,
 				    const struct pipe_viewport_state *state)
 {
    int i;
-   virgl_encoder_write_cmd_dword(ctx, VIRGL_CMD0(VIRGL_CCMD_SET_VIEWPORT_STATE, 0, VIRGL_SET_VIEWPORT_STATE_SIZE));
-   for (i = 0; i < 4; i++)
+   virgl_encoder_write_cmd_dword(ctx, VIRGL_CMD0(VIRGL_CCMD_SET_VIEWPORT_STATE, 0, VIRGL_SET_VIEWPORT_STATE_SIZE(1)));
+   virgl_encoder_write_dword(ctx->cbuf, 0);
+   for (i = 0; i < 3; i++)
       virgl_encoder_write_dword(ctx->cbuf, fui(state->scale[i]));
-   for (i = 0; i < 4; i++)
+   for (i = 0; i < 3; i++)
       virgl_encoder_write_dword(ctx->cbuf, fui(state->translate[i]));
    return 0;
 }
@@ -640,11 +641,17 @@ int virgl_encoder_set_blend_color(struct virgl_context *ctx,
 }
 
 int virgl_encoder_set_scissor_state(struct virgl_context *ctx,
+				    int start_slot,
+				    int num_scissors,
                                    const struct pipe_scissor_state *ss)
 {
-   virgl_encoder_write_cmd_dword(ctx, VIRGL_CMD0(VIRGL_CCMD_SET_SCISSOR_STATE, 0, VIRGL_SET_SCISSOR_STATE_SIZE));
-   virgl_encoder_write_dword(ctx->cbuf, (ss->minx | ss->miny << 16));
-   virgl_encoder_write_dword(ctx->cbuf, (ss->maxx | ss->maxy << 16));
+   int s;
+   virgl_encoder_write_cmd_dword(ctx, VIRGL_CMD0(VIRGL_CCMD_SET_SCISSOR_STATE, 0, VIRGL_SET_SCISSOR_STATE_SIZE(num_scissors)));
+   virgl_encoder_write_dword(ctx->cbuf, start_slot);
+   for (s = 0; s < num_scissors; s++) {
+      virgl_encoder_write_dword(ctx->cbuf, (ss[s].minx | ss[s].miny << 16));
+      virgl_encoder_write_dword(ctx->cbuf, (ss[s].maxx | ss[s].maxy << 16));
+   }
    return 0;
 }
 

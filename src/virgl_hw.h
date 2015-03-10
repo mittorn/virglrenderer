@@ -220,6 +220,7 @@ struct virgl_caps_v1 {
         uint32_t prim_mask;
         uint32_t max_tbo_size;
         uint32_t max_uniform_blocks;
+        uint32_t max_viewports;
 };
 
 union virgl_caps {

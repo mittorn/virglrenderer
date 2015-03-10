@@ -1331,8 +1331,10 @@ void vrend_set_framebuffer_state(struct vrend_context *ctx,
  * if the viewport Y scale factor is > 0 then we are rendering to
  * an FBO already so don't need to invert rendering?
  */
-void vrend_set_viewport_state(struct vrend_context *ctx,
-                              const struct pipe_viewport_state *state)
+void vrend_set_viewport_states(struct vrend_context *ctx,
+			       int start_slots,
+			       int num_viewports,
+			       const struct pipe_viewport_state *state)
 {
    /* convert back to glViewport */
    GLint x, y;
@@ -5203,6 +5205,9 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
       glGetIntegerv(GL_MAX_TEXTURE_BUFFER_SIZE, &max);
       caps->v1.max_tbo_size = max;
    }
+
+   /* initial support */
+   caps->v1.max_viewports = 1;
 
    caps->v1.prim_mask = (1 << PIPE_PRIM_POINTS) | (1 << PIPE_PRIM_LINES) | (1 << PIPE_PRIM_LINE_STRIP) | (1 << PIPE_PRIM_LINE_LOOP) | (1 << PIPE_PRIM_TRIANGLES) | (1 << PIPE_PRIM_TRIANGLE_STRIP) | (1 << PIPE_PRIM_TRIANGLE_FAN);
    if (use_core_profile == 0) {

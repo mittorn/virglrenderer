@@ -198,15 +198,14 @@ enum virgl_context_cmd {
 #define VIRGL_OBJ_SHADER_SO_OUTPUT_DST_OFFSET(x) (((x) & 0xffff) << 16)
 
 /* viewport state */
-#define VIRGL_SET_VIEWPORT_STATE_SIZE 8
-#define VIRGL_SET_VIEWPORT_STATE_SCALE_0 1
-#define VIRGL_SET_VIEWPORT_STATE_SCALE_1 2
-#define VIRGL_SET_VIEWPORT_STATE_SCALE_2 3 
-#define VIRGL_SET_VIEWPORT_STATE_SCALE_3 4
-#define VIRGL_SET_VIEWPORT_STATE_TRANSLATE_0 5
-#define VIRGL_SET_VIEWPORT_STATE_TRANSLATE_1 6
-#define VIRGL_SET_VIEWPORT_STATE_TRANSLATE_2 7 
-#define VIRGL_SET_VIEWPORT_STATE_TRANSLATE_3 8
+#define VIRGL_SET_VIEWPORT_STATE_SIZE(num_viewports) ((6 * num_viewports) + 1)
+#define VIRGL_SET_VIEWPORT_START_SLOT 1
+#define VIRGL_SET_VIEWPORT_STATE_SCALE_0(x) (2 + (x * 6))
+#define VIRGL_SET_VIEWPORT_STATE_SCALE_1(x) (3 + (x * 6))
+#define VIRGL_SET_VIEWPORT_STATE_SCALE_2(x) (4 + (x * 6))
+#define VIRGL_SET_VIEWPORT_STATE_TRANSLATE_0(x) (5 + (x * 6))
+#define VIRGL_SET_VIEWPORT_STATE_TRANSLATE_1(x) (6 + (x * 6))
+#define VIRGL_SET_VIEWPORT_STATE_TRANSLATE_2(x) (7 + (x * 6))
 
 /* framebuffer state */
 #define VIRGL_SET_FRAMEBUFFER_STATE_SIZE(nr_cbufs) (nr_cbufs + 2)
@@ -333,9 +332,10 @@ enum virgl_context_cmd {
 #define VIRGL_SET_BLEND_COLOR(x) ((x) + 1)
 
 /* set scissor state */
-#define VIRGL_SET_SCISSOR_STATE_SIZE 2
-#define VIRGL_SET_SCISSOR_MINX_MINY 1
-#define VIRGL_SET_SCISSOR_MAXX_MAXY 2
+#define VIRGL_SET_SCISSOR_STATE_SIZE(x) (1 + 2 * x)
+#define VIRGL_SET_SCISSOR_START_SLOT 1
+#define VIRGL_SET_SCISSOR_MINX_MINY(x) (2 + (x * 2))
+#define VIRGL_SET_SCISSOR_MAXX_MAXY(x) (3 + (x * 3))
 
 /* resource copy region */
 #define VIRGL_CMD_RESOURCE_COPY_REGION_SIZE 13

@@ -159,7 +159,9 @@ int virgl_encoder_set_blend_color(struct virgl_context *ctx,
                                  const struct pipe_blend_color *color);
 
 int virgl_encoder_set_scissor_state(struct virgl_context *ctx,
-                                   const struct pipe_scissor_state *ss);
+				    int start_slot,
+				    int num_scissors,
+				    const struct pipe_scissor_state *ss);
 
 void virgl_encoder_set_polygon_stipple(struct virgl_context *ctx,
                                       const struct pipe_poly_stipple *ps);

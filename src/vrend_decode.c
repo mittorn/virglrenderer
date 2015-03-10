@@ -187,18 +187,28 @@ static float uif(unsigned int ui)
 
 static int vrend_decode_set_viewport_state(struct vrend_decode_ctx *ctx, int length)
 {
-   struct pipe_viewport_state vps;
-   int i;
-
-   if (length != VIRGL_SET_VIEWPORT_STATE_SIZE)
+   struct pipe_viewport_state vps[PIPE_MAX_VIEWPORTS];
+   int i, v;
+   int num_viewports, start_slot;
+   if (length < 1)
       return EINVAL;
 
-   for (i = 0; i < 4; i++)
-      vps.scale[i] = uif(get_buf_entry(ctx, VIRGL_SET_VIEWPORT_STATE_SCALE_0 + i));
-   for (i = 0; i < 4; i++)
-      vps.translate[i] = uif(get_buf_entry(ctx, VIRGL_SET_VIEWPORT_STATE_TRANSLATE_0 + i));
+   if ((length - 1) % 6)
+      return EINVAL;
+
+   num_viewports = (length - 1) / 6;
+   if (num_viewports > PIPE_MAX_VIEWPORTS)
+      return EINVAL;
+
+   start_slot = get_buf_entry(ctx, VIRGL_SET_VIEWPORT_START_SLOT);
+   for (v = 0; v < num_viewports; v++) {
+      for (i = 0; i < 3; i++)
+	 vps[v].scale[i] = uif(get_buf_entry(ctx, VIRGL_SET_VIEWPORT_STATE_SCALE_0(v) + i));
+      for (i = 0; i < 3; i++)
+	 vps[v].translate[i] = uif(get_buf_entry(ctx, VIRGL_SET_VIEWPORT_STATE_TRANSLATE_0(v) + i));
+   }
    
-   vrend_set_viewport_state(ctx->grctx, &vps);
+   vrend_set_viewport_states(ctx->grctx, start_slot, num_viewports, vps);
    return 0;
 }
 
@@ -748,21 +758,33 @@ static int vrend_decode_set_blend_color(struct vrend_decode_ctx *ctx, int length
 
 static int vrend_decode_set_scissor_state(struct vrend_decode_ctx *ctx, int length)
 {
-   struct pipe_scissor_state ss;
+   struct pipe_scissor_state ss[PIPE_MAX_VIEWPORTS];
    uint32_t temp;
-
-   if (length != VIRGL_SET_SCISSOR_STATE_SIZE)
+   int num_scissor, start_slot;
+   int s;
+   if (length < 1)
       return EINVAL;
 
-   temp = get_buf_entry(ctx, VIRGL_SET_SCISSOR_MINX_MINY);
-   ss.minx = temp & 0xffff;
-   ss.miny = (temp >> 16) & 0xffff;
+   if ((length - 1) % 2)
+      return EINVAL;
 
-   temp = get_buf_entry(ctx, VIRGL_SET_SCISSOR_MAXX_MAXY);
-   ss.maxx = temp & 0xffff;
-   ss.maxy = (temp >> 16) & 0xffff;
+   num_scissor = (length - 1) / 2;
+   if (num_scissor > PIPE_MAX_VIEWPORTS)
+      return EINVAL;
 
-   vrend_set_scissor_state(ctx->grctx, &ss);
+   start_slot = get_buf_entry(ctx, VIRGL_SET_SCISSOR_START_SLOT);
+
+   for (s = 0; s < num_scissor; s++) {
+      temp = get_buf_entry(ctx, VIRGL_SET_SCISSOR_MINX_MINY(s));
+      ss[s].minx = temp & 0xffff;
+      ss[s].miny = (temp >> 16) & 0xffff;
+
+      temp = get_buf_entry(ctx, VIRGL_SET_SCISSOR_MAXX_MAXY(s));
+      ss[s].maxx = temp & 0xffff;
+      ss[s].maxy = (temp >> 16) & 0xffff;
+   }
+
+   vrend_set_scissor_state(ctx->grctx, &ss[0]);
    return 0;
 }
 
