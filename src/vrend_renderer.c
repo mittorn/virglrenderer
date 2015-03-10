@@ -5243,7 +5243,11 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
       caps->v1.max_tbo_size = max;
    }
 
-   /* initial support */
+   if (glewIsSupported("GL_ARB_texture_gather")) {
+     glGetIntegerv(GL_MAX_PROGRAM_TEXTURE_GATHER_COMPONENTS_ARB, &max);
+     caps->v1.max_texture_gather_components = max;
+   }
+
    if (glewIsSupported("GL_ARB_viewport_array")) {
       glGetIntegerv(GL_MAX_VIEWPORTS, &max);
       caps->v1.max_viewports = max;

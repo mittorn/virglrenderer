@@ -111,7 +111,7 @@ struct dump_ctx {
    bool uses_sampler_rect;
    bool uses_lodq;
    bool uses_txq_levels;
-
+   bool uses_tg4;
    /* create a shader with lower left if upper left is primary variant
       or vice versa */
    uint32_t shadow_samp_mask;
@@ -1024,8 +1024,10 @@ static int translate_tex(struct dump_ctx *ctx,
    } else if (inst->Instruction.Opcode == TGSI_OPCODE_TXD) {
       snprintf(bias, 128, ", %s%s, %s%s", srcs[1], gwm, srcs[2], gwm);
       sampler_index = 3;
-   }
-   else
+   } else if (inst->Instruction.Opcode == TGSI_OPCODE_TG4) {
+      sampler_index = 2;
+      ctx->uses_tg4 = true;
+   } else
       bias[0] = 0;
 
    if (inst->Instruction.Opcode == TGSI_OPCODE_LODQ) {
@@ -1047,6 +1049,11 @@ static int translate_tex(struct dump_ctx *ctx,
          tex_ext = "GradOffset";
       else
          tex_ext = "Grad";
+   } else if (inst->Instruction.Opcode == TGSI_OPCODE_TG4) {
+      if (inst->Texture.NumOffsets == 1)
+	 tex_ext = "GatherOffset";
+      else
+	 tex_ext = "Gather";
    } else {
       if (inst->Texture.NumOffsets == 1)
          tex_ext = "Offset";
@@ -1611,6 +1618,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
    case TGSI_OPCODE_TXL2:
    case TGSI_OPCODE_TXD:
    case TGSI_OPCODE_TXF:
+   case TGSI_OPCODE_TG4:
    case TGSI_OPCODE_TXP:
    case TGSI_OPCODE_TXQ:
    case TGSI_OPCODE_LODQ:
@@ -1818,6 +1826,8 @@ static char *emit_header(struct dump_ctx *ctx, char *glsl_hdr)
       STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_texture_query_lod : require\n");
    if (ctx->uses_txq_levels)
       STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_texture_query_levels : require\n");
+   if (ctx->uses_tg4)
+      STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_texture_gather : require\n");
    if (ctx->has_viewport_idx)
       STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_viewport_array : require\n");
    return glsl_hdr;
