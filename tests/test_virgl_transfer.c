@@ -482,7 +482,7 @@ START_TEST(virgl_test_transfer_2d_bad_stride)
     struct iovec iov = { .iov_base = data, .iov_len = sizeof(data) };
     int niovs = 1;
     int ret;
-    struct virgl_box box = { .w = 50, .h = 1, .d = 1 };
+    struct virgl_box box = { .w = 50, .h = 2, .d = 1 };
 
     testvirgl_init_simple_2d_resource(&res, 1);
 
