@@ -567,42 +567,6 @@ START_TEST(virgl_test_transfer_inline_valid_large)
 }
 END_TEST
 
-/* transfer writes have to fit in cmd stream, make sure we split them */
-START_TEST(virgl_test_transfer_inline_large_buffer)
-{
-  struct virgl_renderer_resource_create_args args;
-  struct pipe_box box;
-  struct virgl_context ctx;
-  struct virgl_resource res;
-  int ret;
-  int elsize = 1;
-  void *data = calloc(1, 65536*3);
-
-  ret = testvirgl_init_ctx_cmdbuf(&ctx);
-  ck_assert_int_eq(ret, 0);
-
-  get_resource_args(PIPE_BUFFER, false, &args, &box, 1, LARGE_FLAG_WIDTH);
-
-  ret = virgl_renderer_resource_create(&args, NULL, 0);
-  ck_assert_int_eq(ret, 0);
-
-  res.handle = args.handle;
-  res.base.target = args.target;
-  res.base.format = args.format;
-
-  virgl_renderer_ctx_attach_resource(ctx.ctx_id, res.handle);
-
-  virgl_encoder_inline_write(&ctx, &res, 0, 0, (struct pipe_box *)&box, data, box.width * elsize, 0);
-  ret = virgl_renderer_submit_cmd(ctx.cbuf->buf, ctx.ctx_id, ctx.cbuf->cdw);
-  ck_assert_int_eq(ret, 0);
-  virgl_renderer_ctx_detach_resource(ctx.ctx_id, res.handle);
-  virgl_renderer_resource_unref(res.handle);
-  testvirgl_fini_ctx_cmdbuf(&ctx);
-  free(data);
-}
-END_TEST
-
-
 Suite *virgl_init_suite(void)
 {
   Suite *s;
