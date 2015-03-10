@@ -509,7 +509,7 @@ END_TEST
 START_TEST(virgl_test_transfer_2d_bad_stride)
 {
     struct virgl_renderer_resource_create_args res;
-    unsigned char data[50*4];
+    unsigned char data[50*4*2];
     struct iovec iov = { .iov_base = data, .iov_len = sizeof(data) };
     int niovs = 1;
     int ret;
