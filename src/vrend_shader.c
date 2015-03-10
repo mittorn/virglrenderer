@@ -840,9 +840,9 @@ static int emit_clip_dist_movs(struct dump_ctx *ctx)
 
 #define emit_arit_op2(op) snprintf(buf, 255, "%s = %s(%s((%s %s %s))%s);\n", dsts[0], dstconv, dtypeprefix, srcs[0], op, srcs[1], writemask)
 #define emit_op1(op) snprintf(buf, 255, "%s = %s(%s(%s(%s))%s);\n", dsts[0], dstconv, dtypeprefix, op, srcs[0], writemask)
-#define emit_compare(op) snprintf(buf, 255, "%s = %s(%s((%s(%s, %s)))%s);\n", dsts[0], dstconv, dtypeprefix, op, srcs[0], srcs[1], writemask)
+#define emit_compare(op) snprintf(buf, 255, "%s = %s(%s((%s(%s(%s), %s(%s))))%s);\n", dsts[0], dstconv, dtypeprefix, op, svec4, srcs[0], svec4, srcs[1], writemask)
 
-#define emit_ucompare(op) snprintf(buf, 255, "%s = %s(uintBitsToFloat(%s(%s(vec4(%s), vec4(%s))%s) * %s(0xffffffff)));\n", dsts[0], dstconv, udstconv, op, srcs[0], srcs[1], writemask, udstconv)
+#define emit_ucompare(op) snprintf(buf, 255, "%s = %s(uintBitsToFloat(%s(%s(%s(%s), %s(%s))%s) * %s(0xffffffff)));\n", dsts[0], dstconv, udstconv, op, svec4, srcs[0], svec4, srcs[1], writemask, udstconv)
 
 static int emit_buf(struct dump_ctx *ctx, char *buf)
 {
@@ -1143,7 +1143,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
    char writemask[6] = {0};
    enum tgsi_opcode_type dtype = tgsi_opcode_infer_dst_type(inst->Instruction.Opcode);
    enum tgsi_opcode_type stype = tgsi_opcode_infer_src_type(inst->Instruction.Opcode);
-   char *dtypeprefix="", *stypeprefix = "";
+   char *dtypeprefix="", *stypeprefix = "", *svec4 = "vec4";
    bool stprefix = false;
    bool override_no_wm[4];
    char *sret;
@@ -1173,10 +1173,12 @@ iter_instruction(struct tgsi_iterate_context *iter,
    switch (stype) {
    case TGSI_TYPE_UNSIGNED:
       stypeprefix = "floatBitsToUint";
+      svec4 = "uvec4";
       stprefix = true;
       break;
    case TGSI_TYPE_SIGNED:
       stypeprefix = "floatBitsToInt";
+      svec4 = "ivec4";
       stprefix = true;
       break;
    default:
