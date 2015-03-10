@@ -449,6 +449,37 @@ START_TEST(virgl_test_transfer_buffer_bad_layer_stride)
 }
 END_TEST
 
+START_TEST(virgl_test_transfer_2d_array_bad_layer_stride)
+{
+    struct virgl_renderer_resource_create_args res;
+    unsigned char *data;
+    struct iovec iov;
+    int niovs = 1;
+    int ret;
+    struct virgl_box box = { .w = 50, .h = 5, .d = 2 };
+    int size = 50*50*2*4;
+    data = calloc(1, size);
+    iov.iov_base = data;
+    iov.iov_len = size;
+    testvirgl_init_simple_2d_resource(&res, 1);
+    res.target = PIPE_TEXTURE_2D_ARRAY;
+    res.array_size = 5;
+
+    ret = virgl_renderer_resource_create(&res, NULL, 0);
+    ck_assert_int_eq(ret, 0);
+
+    virgl_renderer_ctx_attach_resource(1, res.handle);
+
+    ret = virgl_renderer_transfer_write_iov(res.handle, 1, 0, 0, 100, &box, 0, &iov, niovs);
+    ck_assert_int_eq(ret, EINVAL);
+
+    virgl_renderer_ctx_detach_resource(1, res.handle);
+
+    virgl_renderer_resource_unref(1);
+    free(data);
+}
+END_TEST
+
 START_TEST(virgl_test_transfer_2d_bad_level)
 {
     struct virgl_renderer_resource_create_args res;
@@ -722,6 +753,7 @@ Suite *virgl_init_suite(void)
   tcase_add_test(tc_core, virgl_test_transfer_1d_bad_layer_stride);
   tcase_add_test(tc_core, virgl_test_transfer_2d_bad_layer_stride);
   tcase_add_test(tc_core, virgl_test_transfer_buffer_bad_layer_stride);
+  tcase_add_test(tc_core, virgl_test_transfer_2d_array_bad_layer_stride);
   tcase_add_test(tc_core, virgl_test_transfer_2d_bad_level);
   tcase_add_test(tc_core, virgl_test_transfer_2d_bad_stride);
 
