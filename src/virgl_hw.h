@@ -197,6 +197,7 @@ struct virgl_caps_bool_set1 {
         unsigned color_clamping:1; /* not in GL 3.1 core profile */
         unsigned poly_stipple:1; /* not in GL 3.1 core profile */
         unsigned mirror_clamp:1;
+        unsigned texture_query_lod:1;
 };
 
 /* endless expansion capabilites - current gallium has 252 formats */
@@ -221,6 +222,7 @@ struct virgl_caps_v1 {
         uint32_t max_tbo_size;
         uint32_t max_uniform_blocks;
         uint32_t max_viewports;
+        uint32_t max_texture_gather_components;
 };
 
 union virgl_caps {
