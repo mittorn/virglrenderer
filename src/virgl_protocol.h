@@ -335,7 +335,7 @@ enum virgl_context_cmd {
 #define VIRGL_SET_SCISSOR_STATE_SIZE(x) (1 + 2 * x)
 #define VIRGL_SET_SCISSOR_START_SLOT 1
 #define VIRGL_SET_SCISSOR_MINX_MINY(x) (2 + (x * 2))
-#define VIRGL_SET_SCISSOR_MAXX_MAXY(x) (3 + (x * 3))
+#define VIRGL_SET_SCISSOR_MAXX_MAXY(x) (3 + (x * 2))
 
 /* resource copy region */
 #define VIRGL_CMD_RESOURCE_COPY_REGION_SIZE 13
