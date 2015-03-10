@@ -1714,6 +1714,9 @@ iter_instruction(struct tgsi_iterate_context *iter,
       EMIT_BUF_WITH_RET(ctx, buf);
       break;
    case TGSI_OPCODE_CMP:
+       snprintf(buf, 255, "%s = mix(%s, %s, greaterThanEqual(%s, vec4(0.0)))%s;\n", dsts[0], srcs[1], srcs[2], srcs[0], writemask);
+       EMIT_BUF_WITH_RET(ctx, buf);
+       break;
    case TGSI_OPCODE_UCMP:
       snprintf(buf, 255, "%s = mix(%s, %s, notEqual(%s, vec4(0.0)))%s;\n", dsts[0], srcs[2], srcs[1], srcs[0], writemask);
       EMIT_BUF_WITH_RET(ctx, buf);
