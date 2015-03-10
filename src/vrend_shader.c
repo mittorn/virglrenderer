@@ -110,6 +110,8 @@ struct dump_ctx {
    bool uses_sampler_buf;
    bool uses_sampler_rect;
    bool uses_lodq;
+   bool uses_txq_levels;
+
    /* create a shader with lower left if upper left is primary variant
       or vice versa */
    uint32_t shadow_samp_mask;
@@ -905,8 +907,16 @@ static int translate_tex(struct dump_ctx *ctx,
           inst->Texture.Texture != TGSI_TEXTURE_2D_MSAA &&
           inst->Texture.Texture != TGSI_TEXTURE_2D_ARRAY_MSAA)
          snprintf(bias, 128, ", int(%s.w)", srcs[0]);
-      snprintf(buf, 255, "%s = %s(%s(textureSize(%s%s)));\n", dsts[0], dstconv, dtypeprefix, srcs[sampler_index], bias);
-      return emit_buf(ctx, buf);
+
+      /* need to emit a textureQueryLevels */
+      if (inst->Dst[0].Register.WriteMask & 0x8) {
+	ctx->uses_txq_levels = true;
+	snprintf(buf, 255, "%s = %s(%s(textureQueryLevels(%s)));\n", dsts[0], dstconv, dtypeprefix, srcs[sampler_index]);
+	return emit_buf(ctx, buf);
+      } else {
+	snprintf(buf, 255, "%s = %s(%s(textureSize(%s%s)));\n", dsts[0], dstconv, dtypeprefix, srcs[sampler_index], bias);
+	return emit_buf(ctx, buf);
+      }
    }
 
    switch (inst->Texture.Texture) {
@@ -1806,6 +1816,8 @@ static char *emit_header(struct dump_ctx *ctx, char *glsl_hdr)
       STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_uniform_buffer_object : require\n");
    if (ctx->uses_lodq)
       STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_texture_query_lod : require\n");
+   if (ctx->uses_txq_levels)
+      STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_texture_query_levels : require\n");
    if (ctx->has_viewport_idx)
       STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_viewport_array : require\n");
    return glsl_hdr;
