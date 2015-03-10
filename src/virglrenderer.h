@@ -70,6 +70,18 @@ VIRGL_EXPORT int virgl_renderer_get_fd_for_texture(uint32_t tex_id, int *fd);
 
 struct virgl_resource;
 
+/* virgl bind flags - these are compatible with mesa 10.5 gallium.
+   but are fixed, no other should be passed to virgl either. */
+#define VIRGL_RES_BIND_DEPTH_STENCIL (1 << 0)
+#define VIRGL_RES_BIND_RENDER_TARGET (1 << 1)
+#define VIRGL_RES_BIND_SAMPLER_VIEW  (1 << 3)
+#define VIRGL_RES_BIND_VERTEX_BUFFER (1 << 4)
+#define VIRGL_RES_BIND_INDEX_BUFFER  (1 << 5)
+#define VIRGL_RES_BIND_CONSTANT_BUFFER (1 << 6)
+#define VIRGL_RES_BIND_STREAM_OUTPUT (1 << 11)
+#define VIRGL_RES_BIND_CURSOR        (1 << 16)
+#define VIRGL_RES_BIND_CUSTOM        (1 << 17)
+
 struct virgl_renderer_resource_create_args {
    uint32_t handle;
    uint32_t target;

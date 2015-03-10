@@ -3330,20 +3330,20 @@ static int check_resource_valid(struct vrend_renderer_resource_create_args *args
     }
 
     if (args->bind == 0 ||
-	args->bind == PIPE_BIND_CUSTOM ||
-	args->bind == PIPE_BIND_INDEX_BUFFER ||
-	args->bind == PIPE_BIND_STREAM_OUTPUT ||
-	args->bind == PIPE_BIND_VERTEX_BUFFER ||
-	args->bind == PIPE_BIND_CONSTANT_BUFFER) {
+	args->bind == VREND_RES_BIND_CUSTOM ||
+	args->bind == VREND_RES_BIND_INDEX_BUFFER ||
+	args->bind == VREND_RES_BIND_STREAM_OUTPUT ||
+	args->bind == VREND_RES_BIND_VERTEX_BUFFER ||
+	args->bind == VREND_RES_BIND_CONSTANT_BUFFER) {
 	if (args->target != PIPE_BUFFER)
 	    return -1;
 	if (args->height != 1 || args->depth != 1)
 	    return -1;
     } else {
-	if (!((args->bind & PIPE_BIND_SAMPLER_VIEW) ||
-	      (args->bind & PIPE_BIND_DEPTH_STENCIL) ||
-	      (args->bind & PIPE_BIND_RENDER_TARGET) ||
-	      (args->bind & PIPE_BIND_CURSOR)))
+	if (!((args->bind & VREND_RES_BIND_SAMPLER_VIEW) ||
+	      (args->bind & VREND_RES_BIND_DEPTH_STENCIL) ||
+	      (args->bind & VREND_RES_BIND_RENDER_TARGET) ||
+	      (args->bind & VREND_RES_BIND_CURSOR)))
 	    return -1;
 
 	if (args->target == PIPE_TEXTURE_2D ||
@@ -3393,29 +3393,29 @@ int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *a
 
    pipe_reference_init(&gr->base.reference, 1);
 
-   if (args->bind == PIPE_BIND_CUSTOM) {
+   if (args->bind == VREND_RES_BIND_CUSTOM) {
       /* custom shuold only be for buffers */
       gr->ptr = malloc(args->width);
       if (!gr->ptr) {
          FREE(gr);
          return ENOMEM;
       }
-   } else if (args->bind == PIPE_BIND_INDEX_BUFFER) {
+   } else if (args->bind == VREND_RES_BIND_INDEX_BUFFER) {
       gr->target = GL_ELEMENT_ARRAY_BUFFER_ARB;
       glGenBuffersARB(1, &gr->id);
       glBindBufferARB(gr->target, gr->id);
       glBufferData(gr->target, args->width, NULL, GL_STREAM_DRAW);
-   } else if (args->bind == PIPE_BIND_STREAM_OUTPUT) {
+   } else if (args->bind == VREND_RES_BIND_STREAM_OUTPUT) {
       gr->target = GL_TRANSFORM_FEEDBACK_BUFFER;
       glGenBuffersARB(1, &gr->id);
       glBindBuffer(gr->target, gr->id);
       glBufferData(gr->target, args->width, NULL, GL_STREAM_DRAW);
-   } else if (args->bind == PIPE_BIND_VERTEX_BUFFER) {
+   } else if (args->bind == VREND_RES_BIND_VERTEX_BUFFER) {
       gr->target = GL_ARRAY_BUFFER_ARB;
       glGenBuffersARB(1, &gr->id);
       glBindBufferARB(gr->target, gr->id);
       glBufferData(gr->target, args->width, NULL, GL_STREAM_DRAW);
-   } else if (args->bind == PIPE_BIND_CONSTANT_BUFFER) {
+   } else if (args->bind == VREND_RES_BIND_CONSTANT_BUFFER) {
       gr->target = GL_UNIFORM_BUFFER;
       glGenBuffersARB(1, &gr->id);
       glBindBufferARB(gr->target, gr->id);
@@ -3425,7 +3425,7 @@ int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *a
       glGenBuffersARB(1, &gr->id);
       glBindBufferARB(gr->target, gr->id);
       glBufferData(gr->target, args->width, NULL, GL_STREAM_DRAW);
-   } else if (args->target == PIPE_BUFFER && (args->bind & PIPE_BIND_SAMPLER_VIEW)) {
+   } else if (args->target == PIPE_BUFFER && (args->bind & VREND_RES_BIND_SAMPLER_VIEW)) {
       GLenum internalformat;
       /* need to check GL version here */
       gr->target = GL_TEXTURE_BUFFER;

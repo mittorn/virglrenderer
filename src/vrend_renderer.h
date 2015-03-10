@@ -140,6 +140,18 @@ int vrend_renderer_context_create(uint32_t handle, uint32_t nlen, const char *na
 void vrend_renderer_context_create_internal(uint32_t handle, uint32_t nlen, const char *name);
 void vrend_renderer_context_destroy(uint32_t handle);
 
+/* virgl bind flags - these are compatible with mesa 10.5 gallium.
+   but are fixed, no other should be passed to virgl either. */
+#define VREND_RES_BIND_DEPTH_STENCIL (1 << 0)
+#define VREND_RES_BIND_RENDER_TARGET (1 << 1)
+#define VREND_RES_BIND_SAMPLER_VIEW  (1 << 3)
+#define VREND_RES_BIND_VERTEX_BUFFER (1 << 4)
+#define VREND_RES_BIND_INDEX_BUFFER  (1 << 5)
+#define VREND_RES_BIND_CONSTANT_BUFFER (1 << 6)
+#define VREND_RES_BIND_STREAM_OUTPUT (1 << 11)
+#define VREND_RES_BIND_CURSOR        (1 << 16)
+#define VREND_RES_BIND_CUSTOM        (1 << 17)
+
 struct vrend_renderer_resource_create_args {
    uint32_t handle;
    enum pipe_texture_target target;
