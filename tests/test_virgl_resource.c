@@ -56,6 +56,21 @@ struct res_test {
 	      .height = (theight),					\
 	      .depth = (tdepth),					\
 	      .array_size = (tarray_size),				\
+	      .last_level = 0,						\
+	      .nr_samples = (tnr_samples),				\
+	      .flags = 0 },					\
+      .retval = (tretval)}
+
+#define TEST_MIP(thandle, ttarget, tformat, tbind, twidth, theight, tdepth, tarray_size, tnr_samples, tlast_level, tretval) \
+  { .args = { .handle = (thandle),					\
+	      .target = (ttarget),					\
+	      .format = (tformat),					\
+	      .bind = (tbind),						\
+	      .width = (twidth),					\
+	      .height = (theight),					\
+	      .depth = (tdepth),					\
+	      .array_size = (tarray_size),				\
+	      .last_level = (tlast_level),				\
 	      .nr_samples = (tnr_samples),				\
 	      .flags = 0 },					\
       .retval = (tretval)}
@@ -103,6 +118,8 @@ static struct res_test testlist[] = {
   TEST(1, PIPE_BUFFER, PIPE_FORMAT_R8_UNORM, 0, 50, 1, 1, 4, 0, EINVAL),
   /* buffer test with samples - FAIL */
   TEST(1, PIPE_BUFFER, PIPE_FORMAT_R8_UNORM, 0, 50, 1, 1, 1, 4, EINVAL),
+  /* buffer test with miplevels - FAIL */
+  TEST_MIP(1, PIPE_BUFFER, PIPE_FORMAT_R8_UNORM, 0, 50, 1, 1, 1, 1, 4, EINVAL),
 
   /* buffer test - sampler view */
   TEST(1, PIPE_BUFFER, PIPE_FORMAT_R8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 1, 0, 0),
@@ -132,6 +149,8 @@ static struct res_test testlist[] = {
   TEST(1, PIPE_TEXTURE_1D, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 5, 0, EINVAL),
   /* 1D texture with samples - FAIL */
   TEST(1, PIPE_TEXTURE_1D, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 1, 4, EINVAL),
+  /* 1D texture with miplevels - PASS */
+  TEST_MIP(1, PIPE_TEXTURE_1D, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 1, 1, 4, 0),
 
   /* 1D array texture - PASS */
   TEST(1, PIPE_TEXTURE_1D_ARRAY, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 1, 0, 0),
@@ -143,6 +162,8 @@ static struct res_test testlist[] = {
   TEST(1, PIPE_TEXTURE_1D_ARRAY, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 5, 0, 0),
   /* 1D texture with samples - FAIL */
   TEST(1, PIPE_TEXTURE_1D_ARRAY, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 1, 4, EINVAL),
+  /* 1D array texture with miplevels - PASS */
+  TEST_MIP(1, PIPE_TEXTURE_1D_ARRAY, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 1, 1, 4, 0),
 
   /* 2D texture - PASS */
   TEST(1, PIPE_TEXTURE_2D, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 1, 0, 0),
@@ -155,6 +176,10 @@ static struct res_test testlist[] = {
   TEST(1, PIPE_TEXTURE_2D, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 5, 0, EINVAL),
   /* 2D texture with samples - PASS */
   TEST(1, PIPE_TEXTURE_2D, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 1, 4, 0),
+  /* 2D texture with miplevels - PASS */
+  TEST_MIP(1, PIPE_TEXTURE_2D, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 1, 1, 4, 0),
+  /* 2D texture with samples and miplevels - FAIL */
+  TEST_MIP(1, PIPE_TEXTURE_2D, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 1, 4, 4, EINVAL),
 
   /* RECT texture - PASS */
   TEST(1, PIPE_TEXTURE_RECT, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 1, 0, 0),
@@ -166,6 +191,8 @@ static struct res_test testlist[] = {
   TEST(1, PIPE_TEXTURE_RECT, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 5, 0, EINVAL),
   /* RECT texture with samples - FAIL */
   TEST(1, PIPE_TEXTURE_RECT, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 1, 4, EINVAL),
+  /* RECT texture with miplevels - FAIL */
+  TEST_MIP(1, PIPE_TEXTURE_RECT, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 1, 1, 4, EINVAL),
 
   /* 2D texture array - PASS */
   TEST(1, PIPE_TEXTURE_2D_ARRAY, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 1, 0, 0),
@@ -177,6 +204,10 @@ static struct res_test testlist[] = {
   TEST(1, PIPE_TEXTURE_2D_ARRAY, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 5, 0, 0),
   /* 2D texture with samples - PASS */
   TEST(1, PIPE_TEXTURE_2D_ARRAY, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 1, 4, 0),
+  /* 2D texture with miplevels - PASS */
+  TEST_MIP(1, PIPE_TEXTURE_2D_ARRAY, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 1, 1, 4, 0),
+  /* 2D texture with samplesmiplevels - FAIL */
+  TEST_MIP(1, PIPE_TEXTURE_2D_ARRAY, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 1, 4, 4, EINVAL),
 
   /* 3D texture - PASS */
   TEST(1, PIPE_TEXTURE_3D, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 1, 0, 0),
@@ -188,6 +219,8 @@ static struct res_test testlist[] = {
   TEST(1, PIPE_TEXTURE_3D, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 5, 0, EINVAL),
   /* 3D texture with samples - FAIL */
   TEST(1, PIPE_TEXTURE_3D, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 1, 4, EINVAL),
+  /* 3D texture with miplevels - PASS */
+  TEST_MIP(1, PIPE_TEXTURE_3D, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 1, 1, 4, 0),
 
   /* CUBE texture with array size == 6 - PASS */
   TEST(1, PIPE_TEXTURE_CUBE, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 6, 0, 0),
@@ -199,6 +232,8 @@ static struct res_test testlist[] = {
   TEST(1, PIPE_TEXTURE_CUBE, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 5, 6, 0, EINVAL),
   /* CUBE texture with samples - FAIL */
   TEST(1, PIPE_TEXTURE_CUBE, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 6, 4, EINVAL),
+  /* CUBE texture with miplevels - PASS */
+  TEST_MIP(1, PIPE_TEXTURE_CUBE, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 1, 1, 6, 1, 4, 0),
 };
 
 /* separate since these may fail on a GL that doesn't support cube map arrays */
@@ -215,6 +250,8 @@ static struct res_test cubemaparray_testlist[] = {
   TEST(1, PIPE_TEXTURE_CUBE_ARRAY, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 50, 5, 12, 1, EINVAL),
   /* CUBE array with array size = 12 and samples - FAIL */
   TEST(1, PIPE_TEXTURE_CUBE_ARRAY, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 50, 1, 12, 4, EINVAL),
+  /* CUBE array with array size = 12 and miplevels - PASS */
+  TEST_MIP(1, PIPE_TEXTURE_CUBE_ARRAY, PIPE_FORMAT_B8G8R8X8_UNORM, PIPE_BIND_SAMPLER_VIEW, 50, 50, 1, 12, 1, 4, 0),
 };
 
 START_TEST(virgl_res_tests)
