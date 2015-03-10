@@ -289,7 +289,7 @@ static int vrend_decode_resource_inline_write(struct vrend_decode_ctx *ctx, uint
 {
    struct vrend_transfer_info info;
    struct pipe_box box;
-   uint32_t res_handle = get_buf_entry(ctx, VIRGL_RESOURCE_IW_RES_HANDLE);
+   uint32_t res_handle;
    uint32_t level, usage, stride, layer_stride, data_len;
    struct iovec dataiovec;
    void *data;
@@ -300,11 +300,12 @@ static int vrend_decode_resource_inline_write(struct vrend_decode_ctx *ctx, uint
    if (length + ctx->ds->buf_offset > ctx->ds->buf_total)
      return EINVAL;
 
+   res_handle = get_buf_entry(ctx, VIRGL_RESOURCE_IW_RES_HANDLE);
    data_len = (length - 11) * 4;
    level = get_buf_entry(ctx, VIRGL_RESOURCE_IW_LEVEL);
    usage = get_buf_entry(ctx, VIRGL_RESOURCE_IW_USAGE);
    stride = get_buf_entry(ctx, VIRGL_RESOURCE_IW_STRIDE);
-   layer_stride = get_buf_entry(ctx, VIRGL_RESOURCE_IW_STRIDE);
+   layer_stride = get_buf_entry(ctx, VIRGL_RESOURCE_IW_LAYER_STRIDE);
    box.x = get_buf_entry(ctx, VIRGL_RESOURCE_IW_X);
    box.y = get_buf_entry(ctx, VIRGL_RESOURCE_IW_Y);
    box.z = get_buf_entry(ctx, VIRGL_RESOURCE_IW_Z);
