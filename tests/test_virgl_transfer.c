@@ -474,6 +474,32 @@ START_TEST(virgl_test_transfer_2d_bad_level)
 }
 END_TEST
 
+/* test stride less than box size */
+START_TEST(virgl_test_transfer_2d_bad_stride)
+{
+    struct virgl_renderer_resource_create_args res;
+    unsigned char data[50*4];
+    struct iovec iov = { .iov_base = data, .iov_len = sizeof(data) };
+    int niovs = 1;
+    int ret;
+    struct virgl_box box = { .w = 50, .h = 1, .d = 1 };
+
+    testvirgl_init_simple_2d_resource(&res, 1);
+
+    ret = virgl_renderer_resource_create(&res, NULL, 0);
+    ck_assert_int_eq(ret, 0);
+
+    virgl_renderer_ctx_attach_resource(1, res.handle);
+
+    ret = virgl_renderer_transfer_write_iov(res.handle, 1, 0, 10, 0, &box, 0, &iov, niovs);
+    ck_assert_int_eq(ret, EINVAL);
+
+    virgl_renderer_ctx_detach_resource(1, res.handle);
+
+    virgl_renderer_resource_unref(1);
+}
+END_TEST
+
 /* for each texture type construct a valid and invalid transfer,
    invalid using a box outside the bounds of the transfer */
 #define LARGE_FLAG_WIDTH (1 << 0)
@@ -697,6 +723,7 @@ Suite *virgl_init_suite(void)
   tcase_add_test(tc_core, virgl_test_transfer_2d_bad_layer_stride);
   tcase_add_test(tc_core, virgl_test_transfer_buffer_bad_layer_stride);
   tcase_add_test(tc_core, virgl_test_transfer_2d_bad_level);
+  tcase_add_test(tc_core, virgl_test_transfer_2d_bad_stride);
 
   tcase_add_loop_test(tc_core, virgl_test_transfer_res_read_valid, 0, PIPE_MAX_TEXTURE_TYPES);
   tcase_add_loop_test(tc_core, virgl_test_transfer_res_write_valid, 0, PIPE_MAX_TEXTURE_TYPES);
