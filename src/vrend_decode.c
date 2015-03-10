@@ -784,7 +784,7 @@ static int vrend_decode_set_scissor_state(struct vrend_decode_ctx *ctx, int leng
       ss[s].maxy = (temp >> 16) & 0xffff;
    }
 
-   vrend_set_scissor_state(ctx->grctx, &ss[0]);
+   vrend_set_scissor_state(ctx->grctx, start_slot, num_scissor, ss);
    return 0;
 }
 

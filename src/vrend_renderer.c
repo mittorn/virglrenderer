@@ -93,8 +93,6 @@ struct global_error_state {
 };
 
 struct global_renderer_state {
-   bool viewport_dirty;
-   bool scissor_dirty;
    GLboolean blend_enabled;
    GLboolean depth_test_enabled;
    GLboolean alpha_test_enabled;
@@ -249,6 +247,11 @@ struct vrend_shader_view {
    uint32_t old_ids[PIPE_MAX_SHADER_SAMPLER_VIEWS];
 };
 
+struct vrend_viewport {
+   GLint cur_x, cur_y;
+   GLsizei width, height;
+   GLclampd near_val, far_val;
+};
 struct vrend_sub_context {
 
    struct list_head head;
@@ -294,21 +297,19 @@ struct vrend_sub_context {
    struct vrend_surface *zsurf;
    struct vrend_surface *surf[8];
 
-   GLint view_cur_x, view_cur_y;
-   GLsizei view_width, view_height;
-   GLclampd view_near_val, view_far_val;
+   struct vrend_viewport vps[PIPE_MAX_VIEWPORTS];
    float depth_transform, depth_scale;
    /* viewport is negative */
    GLboolean viewport_is_negative;
    /* this is set if the contents of the FBO look upside down when viewed
       with 0,0 as the bottom corner */
    GLboolean inverted_fbo_content;
-   boolean scissor_state_dirty;
-   boolean viewport_state_dirty;
+   uint32_t scissor_state_dirty;
+   uint32_t viewport_state_dirty;
    boolean stencil_state_dirty;
    uint32_t fb_height;
 
-   struct pipe_scissor_state ss;
+   struct pipe_scissor_state ss[PIPE_MAX_VIEWPORTS];
 
    struct pipe_blend_state blend_state;
    struct pipe_depth_stencil_alpha_state dsa_state;
@@ -1313,8 +1314,8 @@ void vrend_set_framebuffer_state(struct vrend_context *ctx,
       if (ctx->sub->fb_height != new_height || ctx->sub->inverted_fbo_content != new_ibf) {
          ctx->sub->fb_height = new_height;
          ctx->sub->inverted_fbo_content = new_ibf;
-         ctx->sub->scissor_state_dirty = TRUE;
-         ctx->sub->viewport_state_dirty = TRUE;
+         ctx->sub->scissor_state_dirty = (1 << 0);
+         ctx->sub->viewport_state_dirty = (1 << 0);
       }
    }
 
@@ -1332,7 +1333,7 @@ void vrend_set_framebuffer_state(struct vrend_context *ctx,
  * an FBO already so don't need to invert rendering?
  */
 void vrend_set_viewport_states(struct vrend_context *ctx,
-			       int start_slots,
+			       int start_slot,
 			       int num_viewports,
 			       const struct pipe_viewport_state *state)
 {
@@ -1340,39 +1341,50 @@ void vrend_set_viewport_states(struct vrend_context *ctx,
    GLint x, y;
    GLsizei width, height;
    GLclampd near_val, far_val;
-   GLboolean viewport_is_negative = (state->scale[1] < 0) ? GL_TRUE : GL_FALSE;
+   GLboolean viewport_is_negative = (state[0].scale[1] < 0) ? GL_TRUE : GL_FALSE;
    GLfloat abs_s1 = fabsf(state->scale[1]);
+   int i, idx;
 
-   width = state->scale[0] * 2.0f;
-   height = abs_s1 * 2.0f;
-   x = state->translate[0] - state->scale[0];
-   y = state->translate[1] - state->scale[1];
+   for (i = 0; i < num_viewports; i++) {
+      idx = start_slot + i;
 
-   near_val = state->translate[2] - state->scale[2];
-   far_val = near_val + (state->scale[2] * 2.0);
+      abs_s1 = fabsf(state[i].scale[1]);
+      width = state[i].scale[0] * 2.0f;
+      height = abs_s1 * 2.0f;
+      x = state[i].translate[0] - state[i].scale[0];
+      y = state[i].translate[1] - state[i].scale[1];
 
-   if (ctx->sub->view_cur_x != x ||
-       ctx->sub->view_cur_y != y ||
-       ctx->sub->view_width != width ||
-       ctx->sub->view_height != height) {
-      ctx->sub->viewport_state_dirty = TRUE;
-      ctx->sub->view_cur_x = x;
-      ctx->sub->view_cur_y = y;
-      ctx->sub->view_width = width;
-      ctx->sub->view_height = height;
-   }
+      near_val = state[i].translate[2] - state[i].scale[2];
+      far_val = near_val + (state[i].scale[2] * 2.0);
 
-   if (ctx->sub->viewport_is_negative != viewport_is_negative)
-      ctx->sub->viewport_is_negative = viewport_is_negative;
+      if (ctx->sub->vps[idx].cur_x != x ||
+	  ctx->sub->vps[idx].cur_y != y ||
+	  ctx->sub->vps[idx].width != width ||
+	  ctx->sub->vps[idx].height != height) {
+	 ctx->sub->viewport_state_dirty |= (1 << idx);
+	 ctx->sub->vps[idx].cur_x = x;
+	 ctx->sub->vps[idx].cur_y = y;
+	 ctx->sub->vps[idx].width = width;
+	 ctx->sub->vps[idx].height = height;
+      }
 
-   ctx->sub->depth_scale = fabsf(far_val - near_val);
-   ctx->sub->depth_transform = near_val;
+      if (idx == 0) {
+	 if (ctx->sub->viewport_is_negative != viewport_is_negative)
+	    ctx->sub->viewport_is_negative = viewport_is_negative;
 
-   if (ctx->sub->view_near_val != near_val ||
-       ctx->sub->view_far_val != far_val) {
-      ctx->sub->view_near_val = near_val;
-      ctx->sub->view_far_val = far_val;
-      glDepthRange(ctx->sub->view_near_val, ctx->sub->view_far_val);
+	 ctx->sub->depth_scale = fabsf(far_val - near_val);
+	 ctx->sub->depth_transform = near_val;
+      }
+
+      if (ctx->sub->vps[idx].near_val != near_val ||
+	  ctx->sub->vps[idx].far_val != far_val) {
+	 ctx->sub->vps[idx].near_val = near_val;
+	 ctx->sub->vps[idx].far_val = far_val;
+	 if (idx)
+	    glDepthRangeIndexed(idx, ctx->sub->vps[idx].near_val, ctx->sub->vps[idx].far_val);
+	 else
+	    glDepthRange(ctx->sub->vps[idx].near_val, ctx->sub->vps[idx].far_val);
+      }
    }
 }
 
@@ -1915,9 +1927,9 @@ void vrend_clear(struct vrend_context *ctx,
    vrend_update_frontface_state(ctx);
    if (ctx->sub->stencil_state_dirty)
       vrend_update_stencil_state(ctx);
-   if (ctx->sub->scissor_state_dirty || vrend_state.scissor_dirty)
+   if (ctx->sub->scissor_state_dirty)
       vrend_update_scissor_state(ctx);
-   if (ctx->sub->viewport_state_dirty || vrend_state.viewport_dirty)
+   if (ctx->sub->viewport_state_dirty)
       vrend_update_viewport_state(ctx);
 
    vrend_use_program(0);
@@ -1949,35 +1961,52 @@ void vrend_clear(struct vrend_context *ctx,
 
 static void vrend_update_scissor_state(struct vrend_context *ctx)
 {
-   struct pipe_scissor_state *ss = &ctx->sub->ss;
+   struct pipe_scissor_state *ss;
    struct pipe_rasterizer_state *state = &ctx->sub->rs_state;
    GLint y;
+   GLuint idx;
+   unsigned mask = ctx->sub->scissor_state_dirty;
 
-   if (ctx->sub->viewport_is_negative)
-      y = ss->miny;
-   else
-      y = ss->miny;
    if (state->scissor)
       glEnable(GL_SCISSOR_TEST);
    else
       glDisable(GL_SCISSOR_TEST);
 
-   glScissor(ss->minx, y, ss->maxx - ss->minx, ss->maxy - ss->miny);
-   ctx->sub->scissor_state_dirty = FALSE;
-   vrend_state.scissor_dirty = FALSE;
+   while (mask) {
+      idx = u_bit_scan(&mask);
+      ss = &ctx->sub->ss[idx];
+      if (ctx->sub->viewport_is_negative)
+	 y = ss->miny;
+      else
+	 y = ss->miny;
+
+      if (idx > 0)
+	 glScissorIndexed(idx, ss->minx, y, ss->maxx - ss->minx, ss->maxy - ss->miny);
+      else
+	 glScissor(ss->minx, y, ss->maxx - ss->minx, ss->maxy - ss->miny);
+   }
+   ctx->sub->scissor_state_dirty = 0;
 }
 
 static void vrend_update_viewport_state(struct vrend_context *ctx)
 {
    GLint cy;
-   if (ctx->sub->viewport_is_negative)
-      cy = ctx->sub->view_cur_y - ctx->sub->view_height;
-   else
-      cy = ctx->sub->view_cur_y;
-   glViewport(ctx->sub->view_cur_x, cy, ctx->sub->view_width, ctx->sub->view_height);
+   unsigned mask = ctx->sub->viewport_state_dirty;
+   int idx;
+   while (mask) {
+      idx = u_bit_scan(&mask);
 
-   ctx->sub->viewport_state_dirty = FALSE;
-   vrend_state.viewport_dirty = FALSE;
+      if (ctx->sub->viewport_is_negative)
+	 cy = ctx->sub->vps[idx].cur_y - ctx->sub->vps[idx].height;
+      else
+	 cy = ctx->sub->vps[idx].cur_y;
+      if (idx > 0)
+	 glViewportIndexedf(idx, ctx->sub->vps[idx].cur_x, cy, ctx->sub->vps[idx].width, ctx->sub->vps[idx].height);
+      else
+	 glViewport(ctx->sub->vps[idx].cur_x, cy, ctx->sub->vps[idx].width, ctx->sub->vps[idx].height);
+   }
+
+   ctx->sub->viewport_state_dirty = 0;
 }
 
 static GLenum get_gs_xfb_mode(GLenum mode)
@@ -2037,10 +2066,10 @@ void vrend_draw_vbo(struct vrend_context *ctx,
    vrend_update_frontface_state(ctx);
    if (ctx->sub->stencil_state_dirty)
       vrend_update_stencil_state(ctx);
-   if (ctx->sub->scissor_state_dirty || vrend_state.scissor_dirty)
+   if (ctx->sub->scissor_state_dirty)
       vrend_update_scissor_state(ctx);
 
-   if (ctx->sub->viewport_state_dirty || vrend_state.viewport_dirty)
+   if (ctx->sub->viewport_state_dirty)
       vrend_update_viewport_state(ctx);
 
    vrend_patch_blend_func(ctx);
@@ -2935,7 +2964,7 @@ void vrend_object_bind_rasterizer(struct vrend_context *ctx,
    }
 
    ctx->sub->rs_state = *state;
-   ctx->sub->scissor_state_dirty = TRUE;
+   ctx->sub->scissor_state_dirty = (1 << 0);
    ctx->sub->shader_dirty = TRUE;
    vrend_hw_emit_rs(ctx);
 }
@@ -3132,7 +3161,6 @@ void vrend_renderer_init(struct vrend_if_cbs *cbs)
    vrend_build_format_list();
 
    vrend_clicbs->destroy_gl_context(gl_context);
-   vrend_state.viewport_dirty = vrend_state.scissor_dirty = TRUE;
    vrend_state.program_id = (GLuint)-1;
    list_inithead(&vrend_state.fence_list);
    list_inithead(&vrend_state.waiting_query_list);
@@ -4267,10 +4295,16 @@ void vrend_set_blend_color(struct vrend_context *ctx,
 }
 
 void vrend_set_scissor_state(struct vrend_context *ctx,
+			     int start_slot,
+			     int num_scissor,
                              struct pipe_scissor_state *ss)
 {
-   ctx->sub->ss = *ss;
-   ctx->sub->scissor_state_dirty = TRUE;
+   int i, idx;
+   for (i = 0; i < num_scissor; i++) {
+      idx = start_slot + i;
+      ctx->sub->ss[idx] = ss[i];
+      ctx->sub->scissor_state_dirty |= (1 << idx);
+   }
 }
 
 void vrend_set_polygon_stipple(struct vrend_context *ctx,
@@ -4667,7 +4701,7 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
 
    if (info->scissor_enable) {
       glScissor(info->scissor.minx, info->scissor.miny, info->scissor.maxx - info->scissor.minx, info->scissor.maxy - info->scissor.miny);
-      ctx->sub->scissor_state_dirty = TRUE;
+      ctx->sub->scissor_state_dirty = (1 << 0);
       glEnable(GL_SCISSOR_TEST);
    } else
       glDisable(GL_SCISSOR_TEST);
@@ -5210,7 +5244,11 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
    }
 
    /* initial support */
-   caps->v1.max_viewports = 1;
+   if (glewIsSupported("GL_ARB_viewport_array")) {
+      glGetIntegerv(GL_MAX_VIEWPORTS, &max);
+      caps->v1.max_viewports = max;
+   } else
+      caps->v1.max_viewports = 1;
 
    caps->v1.prim_mask = (1 << PIPE_PRIM_POINTS) | (1 << PIPE_PRIM_LINES) | (1 << PIPE_PRIM_LINE_STRIP) | (1 << PIPE_PRIM_LINE_LOOP) | (1 << PIPE_PRIM_TRIANGLES) | (1 << PIPE_PRIM_TRIANGLE_STRIP) | (1 << PIPE_PRIM_TRIANGLE_FAN);
    if (use_core_profile == 0) {
@@ -5499,7 +5537,6 @@ void vrend_renderer_reset(void)
    vrend_object_fini_resource_table();
    vrend_decode_reset(true);
    vrend_object_init_resource_table();
-   vrend_state.viewport_dirty = vrend_state.scissor_dirty = TRUE;
    vrend_state.program_id = (GLuint)-1;
    vrend_renderer_context_create_internal(0, 0, NULL);
 }
