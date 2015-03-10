@@ -554,10 +554,10 @@ static void virgl_test_transfer_res(enum pipe_texture_target target,
   virgl_renderer_ctx_attach_resource(1, res.handle);
 
   if (write)
-    ret = virgl_renderer_transfer_write_iov(res.handle, 1, 0, 1, 1,
+    ret = virgl_renderer_transfer_write_iov(res.handle, 1, 0, 1, 0,
 					 (struct virgl_box *)&box, 0, iovs, niovs);
   else
-    ret = virgl_renderer_transfer_read_iov(res.handle, 1, 0, 1, 1,
+    ret = virgl_renderer_transfer_read_iov(res.handle, 1, 0, 1, 0,
 					   (struct virgl_box *)&box, 0, iovs, niovs);
   ck_assert_int_eq(ret, invalid ? EINVAL : 0);
   virgl_renderer_ctx_detach_resource(1, res.handle);
