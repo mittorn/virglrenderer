@@ -109,6 +109,7 @@ struct dump_ctx {
    bool uses_sampler_ms;
    bool uses_sampler_buf;
    bool uses_sampler_rect;
+   bool uses_lodq;
    /* create a shader with lower left if upper left is primary variant
       or vice versa */
    uint32_t shadow_samp_mask;
@@ -881,6 +882,9 @@ static int translate_tex(struct dump_ctx *ctx,
 
    sampler_index = 1;
 
+   if (inst->Instruction.Opcode == TGSI_OPCODE_LODQ)
+      ctx->uses_lodq = true;
+
    if (inst->Instruction.Opcode == TGSI_OPCODE_TXQ) {
       /* no lod parameter for txq for these */
       if (inst->Texture.Texture != TGSI_TEXTURE_RECT &&
@@ -1002,7 +1006,9 @@ static int translate_tex(struct dump_ctx *ctx,
    else
       bias[0] = 0;
 
-   if (inst->Instruction.Opcode == TGSI_OPCODE_TXP) {
+   if (inst->Instruction.Opcode == TGSI_OPCODE_LODQ) {
+      tex_ext = "QueryLOD";
+   } else if (inst->Instruction.Opcode == TGSI_OPCODE_TXP) {
       if (inst->Texture.Texture == TGSI_TEXTURE_CUBE || inst->Texture.Texture == TGSI_TEXTURE_2D_ARRAY || inst->Texture.Texture == TGSI_TEXTURE_1D_ARRAY)
          tex_ext = "";
       else if (inst->Texture.NumOffsets == 1)
@@ -1585,6 +1591,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
    case TGSI_OPCODE_TXF:
    case TGSI_OPCODE_TXP:
    case TGSI_OPCODE_TXQ:
+   case TGSI_OPCODE_LODQ:
       ret = translate_tex(ctx, inst, sreg_index, srcs, dsts, writemask, dstconv, dtypeprefix);
       if (ret)
          return FALSE;
@@ -1785,6 +1792,8 @@ static char *emit_header(struct dump_ctx *ctx, char *glsl_hdr)
       STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_draw_instanced : require\n");
    if (ctx->num_ubo)
       STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_uniform_buffer_object : require\n");
+   if (ctx->uses_lodq)
+      STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_texture_query_lod : require\n");
    return glsl_hdr;
 }
 

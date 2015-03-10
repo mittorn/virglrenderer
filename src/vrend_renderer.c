@@ -5153,11 +5153,14 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
    if (gl_ver >= 40) {
       caps->v1.bset.indep_blend_func = 1;
       caps->v1.bset.cube_map_array = 1;
+      caps->v1.bset.texture_query_lod = 1;
    } else {
       if (glewIsSupported("GL_ARB_draw_buffers_blend"))
          caps->v1.bset.indep_blend_func = 1;
       if (glewIsSupported("GL_ARB_texture_cube_map_array"))
          caps->v1.bset.cube_map_array = 1;
+      if (glewIsSupported("GL_ARB_texture_query_lod"))
+         caps->v1.bset.texture_query_lod = 1;
    }
 
    if (gl_ver >= 42) {
