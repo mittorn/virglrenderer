@@ -102,10 +102,6 @@ struct global_renderer_state {
    boolean have_robustness;
    boolean have_multisample;
    boolean have_ms_scaled_blit;
-
-   struct pipe_rasterizer_state hw_rs_state;
-   struct pipe_blend_state hw_blend_state;
-
    boolean have_nv_prim_restart, have_gl_prim_restart, have_bit_encoding;
 
    uint32_t max_uniform_blocks;
@@ -247,8 +243,8 @@ struct vrend_viewport {
    GLsizei width, height;
    GLclampd near_val, far_val;
 };
-struct vrend_sub_context {
 
+struct vrend_sub_context {
    struct list_head head;
 
    virgl_gl_context gl_context;
@@ -326,6 +322,9 @@ struct vrend_sub_context {
    GLboolean alpha_test_enabled;
    GLboolean stencil_test_enabled;
    GLuint program_id;
+
+   struct pipe_rasterizer_state hw_rs_state;
+   struct pipe_blend_state hw_blend_state;
 };
 
 struct vrend_context {
@@ -2574,8 +2573,8 @@ static void vrend_hw_emit_blend(struct vrend_context *ctx)
 {
    struct pipe_blend_state *state = &ctx->sub->blend_state;
 
-   if (state->logicop_enable != vrend_state.hw_blend_state.logicop_enable) {
-      vrend_state.hw_blend_state.logicop_enable = state->logicop_enable;
+   if (state->logicop_enable != ctx->sub->hw_blend_state.logicop_enable) {
+      ctx->sub->hw_blend_state.logicop_enable = state->logicop_enable;
       if (state->logicop_enable) {
          glEnable(GL_COLOR_LOGIC_OP);
          glLogicOp(translate_logicop(state->logicop_func));
@@ -2599,8 +2598,8 @@ static void vrend_hw_emit_blend(struct vrend_context *ctx)
          } else
             glDisableIndexedEXT(GL_BLEND, i);
 
-         if (state->rt[i].colormask != vrend_state.hw_blend_state.rt[i].colormask) {
-            vrend_state.hw_blend_state.rt[i].colormask = state->rt[i].colormask;
+         if (state->rt[i].colormask != ctx->sub->hw_blend_state.rt[i].colormask) {
+            ctx->sub->hw_blend_state.rt[i].colormask = state->rt[i].colormask;
             glColorMaskIndexedEXT(i, state->rt[i].colormask & PIPE_MASK_R ? GL_TRUE : GL_FALSE,
                                   state->rt[i].colormask & PIPE_MASK_G ? GL_TRUE : GL_FALSE,
                                   state->rt[i].colormask & PIPE_MASK_B ? GL_TRUE : GL_FALSE,
@@ -2618,12 +2617,12 @@ static void vrend_hw_emit_blend(struct vrend_context *ctx)
          vrend_blend_enable(ctx, GL_TRUE);
       } 
       else
-         vrend_blend_enable(ctx, GL_FALSE);
+	 vrend_blend_enable(ctx, GL_FALSE);
 
-      if (state->rt[0].colormask != vrend_state.hw_blend_state.rt[0].colormask) {
+      if (state->rt[0].colormask != ctx->sub->hw_blend_state.rt[0].colormask) {
          int i;
          for (i = 0; i < PIPE_MAX_COLOR_BUFS; i++)
-            vrend_state.hw_blend_state.rt[i].colormask = state->rt[i].colormask;
+            ctx->sub->hw_blend_state.rt[i].colormask = state->rt[i].colormask;
          glColorMask(state->rt[0].colormask & PIPE_MASK_R ? GL_TRUE : GL_FALSE,
                      state->rt[0].colormask & PIPE_MASK_G ? GL_TRUE : GL_FALSE,
                      state->rt[0].colormask & PIPE_MASK_B ? GL_TRUE : GL_FALSE,
@@ -2803,8 +2802,8 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
           glPointSize(state->point_size);
    }
 
-   if (state->rasterizer_discard != vrend_state.hw_rs_state.rasterizer_discard) {
-      vrend_state.hw_rs_state.rasterizer_discard = state->rasterizer_discard;
+   if (state->rasterizer_discard != ctx->sub->hw_rs_state.rasterizer_discard) {
+      ctx->sub->hw_rs_state.rasterizer_discard = state->rasterizer_discard;
       if (state->rasterizer_discard)
          glEnable(GL_RASTERIZER_DISCARD);
       else
@@ -2835,8 +2834,8 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
       glDisable(GL_POLYGON_OFFSET_POINT);
 
 
-   if (state->flatshade != vrend_state.hw_rs_state.flatshade) {
-      vrend_state.hw_rs_state.flatshade = state->flatshade;
+   if (state->flatshade != ctx->sub->hw_rs_state.flatshade) {
+      ctx->sub->hw_rs_state.flatshade = state->flatshade;
       if (use_core_profile == 0) {
          if (state->flatshade) {
             glShadeModel(GL_FLAT);
@@ -2846,8 +2845,8 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
       }
    }
 
-   if (state->flatshade_first != vrend_state.hw_rs_state.flatshade_first) {
-      vrend_state.hw_rs_state.flatshade_first = state->flatshade_first;
+   if (state->flatshade_first != ctx->sub->hw_rs_state.flatshade_first) {
+      ctx->sub->hw_rs_state.flatshade_first = state->flatshade_first;
       if (state->flatshade_first)
          glProvokingVertexEXT(GL_FIRST_VERTEX_CONVENTION_EXT);
       else
@@ -2898,8 +2897,8 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
          glDisable(GL_VERTEX_PROGRAM_TWO_SIDE);
    }
 
-   if (state->clip_plane_enable != vrend_state.hw_rs_state.clip_plane_enable) {
-      vrend_state.hw_rs_state.clip_plane_enable = state->clip_plane_enable;
+   if (state->clip_plane_enable != ctx->sub->hw_rs_state.clip_plane_enable) {
+      ctx->sub->hw_rs_state.clip_plane_enable = state->clip_plane_enable;
       for (i = 0; i < 8; i++) {
          if (state->clip_plane_enable & (1 << i))
             glEnable(GL_CLIP_PLANE0 + i);
