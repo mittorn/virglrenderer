@@ -257,14 +257,13 @@ static int vrend_decode_set_vertex_buffers(struct vrend_decode_ctx *ctx, uint16_
    int num_vbo;
    int i;
 
-   if (length < 3)
-      return EINVAL;
-
    /* must be a multiple of 3 */
-   if (length % 3)
+   if (length && (length % 3))
       return EINVAL;
 
    num_vbo = (length / 3);
+   if (num_vbo > PIPE_MAX_ATTRIBS)
+	return EINVAL;
   
    for (i = 0; i < num_vbo; i++) {
       vrend_set_single_vbo(ctx->grctx, i,
