@@ -194,7 +194,7 @@ enum virgl_context_cmd {
 #define VIRGL_OBJ_SHADER_SO_OUTPUT_REGISTER_INDEX(x) (((x) & 0xff) << 0)
 #define VIRGL_OBJ_SHADER_SO_OUTPUT_START_COMPONENT(x) (((x) & 0x3) << 8)
 #define VIRGL_OBJ_SHADER_SO_OUTPUT_NUM_COMPONENTS(x) (((x) & 0x7) << 10)
-#define VIRGL_OBJ_SHADER_SO_OUTPUT_BUFFER(x) (((x) & 0x7) << 1)
+#define VIRGL_OBJ_SHADER_SO_OUTPUT_BUFFER(x) (((x) & 0x7) << 13)
 #define VIRGL_OBJ_SHADER_SO_OUTPUT_DST_OFFSET(x) (((x) & 0xffff) << 16)
 
 /* viewport state */
