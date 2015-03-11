@@ -93,10 +93,6 @@ struct global_error_state {
 };
 
 struct global_renderer_state {
-   GLboolean blend_enabled;
-   GLboolean depth_test_enabled;
-   GLboolean alpha_test_enabled;
-   GLboolean stencil_test_enabled;
    GLuint program_id;
    struct list_head fence_list;
    struct vrend_context *current_ctx;
@@ -325,6 +321,11 @@ struct vrend_sub_context {
    struct pipe_depth_stencil_alpha_state *dsa;
 
    struct pipe_clip_state ucp_state;
+
+   GLboolean blend_enabled;
+   GLboolean depth_test_enabled;
+   GLboolean alpha_test_enabled;
+   GLboolean stencil_test_enabled;
 };
 
 struct vrend_context {
@@ -590,10 +591,10 @@ void vrend_bind_va(GLuint vaoid)
    glBindVertexArray(vaoid);
 }
 
-void vrend_blend_enable(GLboolean blend_enable)
+static void vrend_blend_enable(struct vrend_context *ctx, GLboolean blend_enable)
 {
-   if (vrend_state.blend_enabled != blend_enable) {
-      vrend_state.blend_enabled = blend_enable;
+   if (ctx->sub->blend_enabled != blend_enable) {
+      ctx->sub->blend_enabled = blend_enable;
       if (blend_enable)
          glEnable(GL_BLEND);
       else
@@ -601,10 +602,10 @@ void vrend_blend_enable(GLboolean blend_enable)
    }
 }
 
-void vrend_depth_test_enable(GLboolean depth_test_enable)
+static void vrend_depth_test_enable(struct vrend_context *ctx, GLboolean depth_test_enable)
 {
-   if (vrend_state.depth_test_enabled != depth_test_enable) {
-      vrend_state.depth_test_enabled = depth_test_enable;
+   if (ctx->sub->depth_test_enabled != depth_test_enable) {
+      ctx->sub->depth_test_enabled = depth_test_enable;
       if (depth_test_enable)
          glEnable(GL_DEPTH_TEST);
       else
@@ -619,18 +620,19 @@ static void vrend_alpha_test_enable(struct vrend_context *ctx,
        /* handled in shaders */
        return;
    }
-   if (vrend_state.alpha_test_enabled != alpha_test_enable) {
-      vrend_state.alpha_test_enabled = alpha_test_enable;
+   if (ctx->sub->alpha_test_enabled != alpha_test_enable) {
+      ctx->sub->alpha_test_enabled = alpha_test_enable;
       if (alpha_test_enable)
          glEnable(GL_ALPHA_TEST);
       else
          glDisable(GL_ALPHA_TEST);
    }
 }
-static void vrend_stencil_test_enable(GLboolean stencil_test_enable)
+static void vrend_stencil_test_enable(struct vrend_context *ctx,
+				      GLboolean stencil_test_enable)
 {
-   if (vrend_state.stencil_test_enabled != stencil_test_enable) {
-      vrend_state.stencil_test_enabled = stencil_test_enable;
+   if (ctx->sub->stencil_test_enabled != stencil_test_enable) {
+      ctx->sub->stencil_test_enabled = stencil_test_enable;
       if (stencil_test_enable)
          glEnable(GL_STENCIL_TEST);
       else
@@ -2613,10 +2615,10 @@ static void vrend_hw_emit_blend(struct vrend_context *ctx)
                              translate_blend_factor(state->rt[0].alpha_dst_factor));
          glBlendEquationSeparate(translate_blend_func(state->rt[0].rgb_func),
                                  translate_blend_func(state->rt[0].alpha_func));
-         vrend_blend_enable(GL_TRUE);
+         vrend_blend_enable(ctx, GL_TRUE);
       } 
       else
-         vrend_blend_enable(GL_FALSE);
+         vrend_blend_enable(ctx, GL_FALSE);
 
       if (state->rt[0].colormask != vrend_state.hw_blend_state.rt[0].colormask) {
          int i;
@@ -2649,7 +2651,7 @@ void vrend_object_bind_blend(struct vrend_context *ctx,
 
    if (handle == 0) {
       memset(&ctx->sub->blend_state, 0, sizeof(ctx->sub->blend_state));
-      vrend_blend_enable(GL_FALSE);
+      vrend_blend_enable(ctx, GL_FALSE);
       return;
    }
    state = vrend_object_lookup(ctx->sub->object_hash, handle, VIRGL_OBJECT_BLEND);
@@ -2668,14 +2670,14 @@ static void vrend_hw_emit_dsa(struct vrend_context *ctx)
    struct pipe_depth_stencil_alpha_state *state = &ctx->sub->dsa_state;
 
    if (state->depth.enabled) {
-      vrend_depth_test_enable(GL_TRUE);
+      vrend_depth_test_enable(ctx, GL_TRUE);
       glDepthFunc(GL_NEVER + state->depth.func);
       if (state->depth.writemask)
          glDepthMask(GL_TRUE);
       else
          glDepthMask(GL_FALSE);
    } else
-      vrend_depth_test_enable(GL_FALSE);
+      vrend_depth_test_enable(ctx, GL_FALSE);
  
    if (state->alpha.enabled) {
       vrend_alpha_test_enable(ctx, GL_TRUE);
@@ -2737,7 +2739,7 @@ void vrend_update_stencil_state(struct vrend_context *ctx)
 
    if (!state->stencil[1].enabled) {
       if (state->stencil[0].enabled) {
-         vrend_stencil_test_enable(GL_TRUE);
+         vrend_stencil_test_enable(ctx, GL_TRUE);
 
          glStencilOp(translate_stencil_op(state->stencil[0].fail_op), 
                      translate_stencil_op(state->stencil[0].zfail_op),
@@ -2748,9 +2750,9 @@ void vrend_update_stencil_state(struct vrend_context *ctx)
                        state->stencil[0].valuemask);
          glStencilMask(state->stencil[0].writemask);
       } else
-         vrend_stencil_test_enable(GL_FALSE);
+         vrend_stencil_test_enable(ctx, GL_FALSE);
    } else {
-      vrend_stencil_test_enable(GL_TRUE);
+      vrend_stencil_test_enable(ctx, GL_TRUE);
 
       for (i = 0; i < 2; i++) {
          GLenum face = (i == 1) ? GL_BACK : GL_FRONT;
@@ -3866,10 +3868,10 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
             glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, res->readback_fb_id);
          }
          glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
-         vrend_blend_enable(GL_FALSE);
-         vrend_depth_test_enable(GL_FALSE);
+         vrend_blend_enable(ctx, GL_FALSE);
+         vrend_depth_test_enable(ctx, GL_FALSE);
          vrend_alpha_test_enable(ctx, GL_FALSE);
-         vrend_stencil_test_enable(GL_FALSE);
+         vrend_stencil_test_enable(ctx, GL_FALSE);
          glPixelZoom(1.0f, res->y_0_top ? -1.0f : 1.0f);
          glWindowPos2i(info->box->x, res->y_0_top ? res->base.height0 - info->box->y : info->box->y);
          glDrawPixels(info->box->width, info->box->height, glformat, gltype,
