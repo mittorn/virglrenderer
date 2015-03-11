@@ -210,6 +210,11 @@ iter_declaration(struct tgsi_iterate_context *iter,
 
    if (ctx->prog_type == -1)
       ctx->prog_type = iter->processor.Processor;
+
+   if (iter->processor.Processor == TGSI_PROCESSOR_VERTEX &&
+       ctx->key->gs_present && ctx->key->clip_plane_enable)
+     ctx->glsl_ver_required = 150;
+
    switch (decl->Declaration.File) {
    case TGSI_FILE_INPUT:
       i = ctx->num_inputs++;
@@ -1971,8 +1976,8 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
    }
 
    if (ctx->prog_type == TGSI_PROCESSOR_GEOMETRY) {
-      if (ctx->num_in_clip_dist) {
-         snprintf(buf, 255, "in gl_PerVertex {\n vec4 gl_Position;\n float gl_PointSize; \n float gl_ClipDistance[%d];\n} gl_in[];\n", ctx->num_clip_dist);
+      if (ctx->num_in_clip_dist || ctx->key->clip_plane_enable) {
+         snprintf(buf, 255, "in gl_PerVertex {\n vec4 gl_Position;\n float gl_PointSize; \n float gl_ClipDistance[%d];\n} gl_in[];\n", ctx->num_in_clip_dist ? ctx->num_in_clip_dist : 8);
          STRCAT_WITH_RET(glsl_hdr, buf);
       }
       if (ctx->num_clip_dist) {
