@@ -3210,8 +3210,6 @@ static void vrend_destroy_sub_context(struct vrend_sub_context *sub)
 
    vrend_free_programs(sub);
 
-   glDeleteVertexArrays(1, &sub->vaoid);
-
    vrend_object_fini_ctx_table(sub->object_hash);
    vrend_clicbs->destroy_gl_context(sub->gl_context);
 
@@ -3248,10 +3246,6 @@ bool vrend_destroy_context(struct vrend_context *ctx)
 
    LIST_FOR_EACH_ENTRY_SAFE(sub, tmp, &ctx->sub_ctxs, head)
       vrend_destroy_sub_context(sub);      
-      
-
-   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-   vrend_bind_va(0);
 
    vrend_object_fini_ctx_table(ctx->res_hash);
    FREE(ctx);
@@ -4203,7 +4197,7 @@ int vrend_renderer_transfer_iov(const struct vrend_transfer_info *info,
 				int transfer_mode)
 {
    struct vrend_resource *res;
-   struct vrend_context *ctx = vrend_lookup_renderer_ctx(info->ctx_id);
+   struct vrend_context *ctx;
    struct iovec *iov;
    int num_iovs;
 
