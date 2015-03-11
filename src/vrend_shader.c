@@ -63,6 +63,7 @@ struct vrend_shader_sampler {
    int tgsi_sampler_type;
 };
 
+#define MAX_IMMEDIATE 1024
 struct immed {
    int type;
    union imm {
@@ -94,7 +95,7 @@ struct dump_ctx {
    int num_consts;
 
    int num_imm;
-   struct immed imm[32];
+   struct immed imm[MAX_IMMEDIATE];
    unsigned fragcoord_input;
 
    int num_ubo;
@@ -614,6 +615,9 @@ iter_immediate(
    struct dump_ctx *ctx = (struct dump_ctx *) iter;
    int i;
    int first = ctx->num_imm;
+
+   if (first > MAX_IMMEDIATE)
+     return FALSE;
    ctx->imm[first].type = imm->Immediate.DataType;
    for (i = 0; i < 4; i++) {
       if (imm->Immediate.DataType == TGSI_IMM_FLOAT32) {
