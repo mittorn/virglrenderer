@@ -759,7 +759,10 @@ static int emit_so_movs(struct dump_ctx *ctx)
          writemask[0] = 0;
 
       if (ctx->so->output[i].num_components == 4 && writemask[0] == 0 && !(ctx->outputs[ctx->so->output[i].register_index].name == TGSI_SEMANTIC_CLIPDIST)) {
-         ctx->so_names[i] = strdup(ctx->outputs[ctx->so->output[i].register_index].glsl_name);
+	 if (ctx->so->output[i].register_index > ctx->num_outputs)
+	    ctx->so_names[i] = NULL;
+	 else
+	    ctx->so_names[i] = strdup(ctx->outputs[ctx->so->output[i].register_index].glsl_name);
          ctx->write_so_outputs[i] = false;
 
       } else {

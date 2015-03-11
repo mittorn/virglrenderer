@@ -644,18 +644,19 @@ static void set_stream_out_varyings(int prog_id, struct vrend_shader_info *sinfo
    struct pipe_stream_output_info *so = &sinfo->so_info;
    char *varyings[PIPE_MAX_SHADER_OUTPUTS];
    int i;
-   
+   int n_outputs = 0;
    if (!so->num_outputs)
       return;
 
    for (i = 0; i < so->num_outputs; i++) {
-      varyings[i] = strdup(sinfo->so_names[i]);
+      if (sinfo->so_names[i])
+	 varyings[n_outputs++] = strdup(sinfo->so_names[i]);
    }
 
-   glTransformFeedbackVaryings(prog_id, so->num_outputs,
+   glTransformFeedbackVaryings(prog_id, n_outputs,
                                (const GLchar **)varyings, GL_INTERLEAVED_ATTRIBS_EXT);
 
-   for (i = 0; i < so->num_outputs; i++)
+   for (i = 0; i < n_outputs; i++)
       if (varyings[i])
          free(varyings[i]);
 }
