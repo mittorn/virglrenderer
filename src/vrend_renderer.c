@@ -1442,6 +1442,8 @@ int vrend_create_vertex_elements_state(struct vrend_context *ctx,
                elements[i].src_format == PIPE_FORMAT_R10G10B10A2_UNORM ||
                elements[i].src_format == PIPE_FORMAT_B10G10R10A2_UNORM)
          type = GL_UNSIGNED_INT_2_10_10_10_REV;
+      else if (elements[i].src_format == PIPE_FORMAT_R11G11B10_FLOAT)
+	 type = GL_UNSIGNED_INT_10F_11F_11F_REV;
 
       if (type == GL_FALSE) {
          report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_VERTEX_FORMAT, elements[i].src_format);
@@ -1454,6 +1456,8 @@ int vrend_create_vertex_elements_state(struct vrend_context *ctx,
          v->elements[i].norm = GL_TRUE;
       if (desc->nr_channels == 4 && desc->swizzle[0] == UTIL_FORMAT_SWIZZLE_Z)
          v->elements[i].nr_chan = GL_BGRA;
+      else if (elements[i].src_format == PIPE_FORMAT_R11G11B10_FLOAT)
+	 v->elements[i].nr_chan = 3;
       else
          v->elements[i].nr_chan = desc->nr_channels;
    }
@@ -5263,6 +5267,15 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
          (1 << PIPE_PRIM_LINE_STRIP_ADJACENCY) |
          (1 << PIPE_PRIM_TRIANGLES_ADJACENCY) |
          (1 << PIPE_PRIM_TRIANGLE_STRIP_ADJACENCY);
+
+
+   if (glewIsSupported("GL_ARB_vertex_type_10f_11f_11f_rev")) {
+      int i = VIRGL_FORMAT_R11G11B10_FLOAT;
+      uint32_t offset = i / 32;
+      uint32_t index = i % 32;
+
+      caps->v1.vertexbuffer.bitmask[offset] |= (1 << index);
+   }
 
    for (i = 0; i < VIRGL_FORMAT_MAX; i++) {
       uint32_t offset = i / 32;
