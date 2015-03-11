@@ -93,7 +93,6 @@ struct global_error_state {
 };
 
 struct global_renderer_state {
-   GLuint program_id;
    struct list_head fence_list;
    struct vrend_context *current_ctx;
    struct vrend_context *current_hw_ctx;
@@ -326,6 +325,7 @@ struct vrend_sub_context {
    GLboolean depth_test_enabled;
    GLboolean alpha_test_enabled;
    GLboolean stencil_test_enabled;
+   GLuint program_id;
 };
 
 struct vrend_context {
@@ -565,11 +565,11 @@ static boolean vrend_is_timer_query(GLenum gltype)
                gltype == GL_TIME_ELAPSED;
 }
 
-void vrend_use_program(GLuint program_id)
+static void vrend_use_program(struct vrend_context *ctx, GLuint program_id)
 {
-   if (vrend_state.program_id != program_id) {
+   if (ctx->sub->program_id != program_id) {
       glUseProgram(program_id);
-      vrend_state.program_id = program_id;
+      ctx->sub->program_id = program_id;
    }
 }
 
@@ -1938,7 +1938,7 @@ void vrend_clear(struct vrend_context *ctx,
    if (ctx->sub->viewport_state_dirty)
       vrend_update_viewport_state(ctx);
 
-   vrend_use_program(0);
+   vrend_use_program(ctx, 0);
 
    if (buffers & PIPE_CLEAR_COLOR)
       glClearColor(color->f[0], color->f[1], color->f[2], color->f[3]);
@@ -2112,7 +2112,7 @@ void vrend_draw_vbo(struct vrend_context *ctx,
 
    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, ctx->sub->fb_id);
    
-   vrend_use_program(ctx->sub->prog->id);
+   vrend_use_program(ctx, ctx->sub->prog->id);
 
    for (shader_type = PIPE_SHADER_VERTEX; shader_type <= (ctx->sub->gs ? PIPE_SHADER_GEOMETRY : PIPE_SHADER_FRAGMENT); shader_type++) {
       if (ctx->sub->prog->const_locs[shader_type] && (ctx->sub->const_dirty[shader_type] || new_program)) {
@@ -3167,7 +3167,6 @@ void vrend_renderer_init(struct vrend_if_cbs *cbs)
    vrend_build_format_list();
 
    vrend_clicbs->destroy_gl_context(gl_context);
-   vrend_state.program_id = (GLuint)-1;
    list_inithead(&vrend_state.fence_list);
    list_inithead(&vrend_state.waiting_query_list);
 
@@ -3800,7 +3799,8 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
       float depth_scale;
       GLuint send_size = 0;
       uint32_t stride = info->stride;
-      vrend_use_program(0);
+
+      vrend_use_program(ctx, 0);
 
       if (!stride)
          stride = util_format_get_nblocksx(res->base.format, u_minify(res->base.width0, info->level)) * elsize;
@@ -4054,7 +4054,8 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
    uint32_t h = u_minify(res->base.height0, info->level);
    int elsize = util_format_get_blocksize(res->base.format);
    float depth_scale;
-   vrend_use_program(0);
+
+   vrend_use_program(ctx, 0);
 
    format = tex_conv_table[res->base.format].glformat;
    type = tex_conv_table[res->base.format].gltype; 
@@ -5556,6 +5557,5 @@ void vrend_renderer_reset(void)
    vrend_object_fini_resource_table();
    vrend_decode_reset(true);
    vrend_object_init_resource_table();
-   vrend_state.program_id = (GLuint)-1;
    vrend_renderer_context_create_internal(0, 0, NULL);
 }
