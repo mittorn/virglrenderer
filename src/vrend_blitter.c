@@ -205,19 +205,22 @@ static GLuint blit_build_frag_blit_msaa_depth(struct vrend_blitter_ctx *blit_ctx
     char shader_buf[4096];
     int is_shad;
     const char *twm;
-    
+    const char *ivec;
+
     switch (tgsi_tex_target) {
     case TGSI_TEXTURE_2D_MSAA:
         twm = ".xy";
+        ivec = "ivec2";
         break;
     case TGSI_TEXTURE_2D_ARRAY_MSAA:
         twm = ".xyz";
+        ivec = "ivec3";
         break;
     default:
         return 0;
     }
 
-    snprintf(shader_buf, 4096, fs_texfetch_ds_msaa, vrend_shader_samplertypeconv(tgsi_tex_target, &is_shad), twm);
+    snprintf(shader_buf, 4096, fs_texfetch_ds_msaa, vrend_shader_samplertypeconv(tgsi_tex_target, &is_shad), ivec, twm);
 
     fs_id = glCreateShader(GL_FRAGMENT_SHADER);
 

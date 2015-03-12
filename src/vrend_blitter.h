@@ -38,8 +38,8 @@ static const char *fs_texfetch_ds_msaa = {
    "uniform sampler%s samp;\n"
    "in vec4 tc;\n"
    "void main() {\n"
-   "   gl_FragDepth = float(texelFetch(samp, tc%s, tc.z).x);\n"
+   "   gl_FragDepth = float(texelFetch(samp, %s(tc%s), int(tc.z)).x);\n"
    "}\n"
 };
-   
+
 #endif
