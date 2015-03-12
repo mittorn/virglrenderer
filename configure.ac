@@ -96,6 +96,7 @@ AC_CONFIG_FILES([
 		Makefile
 		src/Makefile
 		src/gallium/auxiliary/Makefile
+		vtest/Makefile
 		tests/Makefile
 ])
 AC_OUTPUT
