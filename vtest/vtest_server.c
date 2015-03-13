@@ -6,6 +6,8 @@
 #include <sys/un.h>
 
 #include "vtest.h"
+#include "vtest_protocol.h"
+
 static int vtest_open_socket(const char *path)
 {
     struct sockaddr_un un;
@@ -77,7 +79,7 @@ int wait_for_socket_read(int sock)
 int main(void)
 {
     int sock, new_fd, ret;
-    uint32_t header[2];
+    uint32_t header[VTEST_HDR_SIZE];
     sock = vtest_open_socket("/tmp/.virgl_test");
 
     new_fd = wait_for_socket_accept(sock);
@@ -88,13 +90,23 @@ again:
       goto err;
     
     vtest_create_renderer(new_fd);
-    ret = read(new_fd, &header, 2 * sizeof(uint32_t));
+    ret = read(new_fd, &header, sizeof(header));
 
     if (ret == 8) {
-      fprintf(stderr, "got %d %d\n", header[0], header[1]);
+      fprintf(stderr, "got length: %d cmd: %d\n", header[0], header[1]);
 
-      if (header[1] == 1) {
+      switch (header[1]) {
+      case VCMD_GET_CAPS:
 	vtest_send_caps();
+	break;
+      case VCMD_RESOURCE_CREATE:
+	vtest_create_resource();
+	break;
+      case VCMD_RESOURCE_UNREF:
+	vtest_resource_unref();
+	break;
+      default:
+	break;
       }
       goto again;
     }
