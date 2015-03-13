@@ -1296,7 +1296,9 @@ iter_instruction(struct tgsi_iterate_context *iter,
                }
                else if (ctx->inputs[j].name == TGSI_SEMANTIC_PRIMID)
                   snprintf(srcs[i], 255, "%s(vec4(intBitsToFloat(%s)))", stypeprefix, ctx->inputs[j].glsl_name);
-               else
+               else if (ctx->inputs[j].name == TGSI_SEMANTIC_FACE)
+                  snprintf(srcs[i], 255, "%s(%s ? 1.0 : -1.0)", stypeprefix, ctx->inputs[j].glsl_name);
+	       else
                   snprintf(srcs[i], 255, "%s(%s%s%s%s)", stypeprefix, prefix, ctx->inputs[j].glsl_name, arrayname, swizzle);
                override_no_wm[i] = ctx->inputs[j].override_no_wm;
                break;
