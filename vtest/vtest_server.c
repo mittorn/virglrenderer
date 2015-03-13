@@ -84,12 +84,12 @@ int main(void)
 
     new_fd = wait_for_socket_accept(sock);
 
+    vtest_create_renderer(new_fd);
 again:
     ret = wait_for_socket_read(new_fd);
     if (ret < 0)
       goto err;
-    
-    vtest_create_renderer(new_fd);
+
     ret = read(new_fd, &header, sizeof(header));
 
     if (ret == 8) {
