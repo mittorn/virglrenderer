@@ -363,7 +363,7 @@ static void vrend_destroy_program(struct vrend_linked_shader_program *ent);
 static void vrend_apply_sampler_state(struct vrend_context *ctx,
                                       struct vrend_resource *res,
                                       uint32_t shader_type,
-                                      int id, uint32_t srgb_decode);
+                                      int id, int sampler_id, uint32_t srgb_decode);
 
 void vrend_update_stencil_state(struct vrend_context *ctx);
 
@@ -2177,7 +2177,7 @@ void vrend_draw_vbo(struct vrend_context *ctx,
 
             glBindTexture(texture->target, id);
             if (ctx->sub->views[shader_type].old_ids[i] != id || ctx->sub->sampler_state_dirty) {
-               vrend_apply_sampler_state(ctx, texture, shader_type, i, ctx->sub->views[shader_type].views[i]->srgb_decode);
+               vrend_apply_sampler_state(ctx, texture, shader_type, i, sampler_id, ctx->sub->views[shader_type].views[i]->srgb_decode);
                ctx->sub->views[shader_type].old_ids[i] = id;
             }
             if (ctx->sub->rs_state.point_quad_rasterization) {
@@ -3003,10 +3003,11 @@ void vrend_bind_sampler_states(struct vrend_context *ctx,
 
 
 
-static void vrend_apply_sampler_state(struct vrend_context *ctx, 
+static void vrend_apply_sampler_state(struct vrend_context *ctx,
                                       struct vrend_resource *res,
                                       uint32_t shader_type,
                                       int id,
+                                      int sampler_id,
                                       uint32_t srgb_decode)
 {
    struct vrend_texture *tex = (struct vrend_texture *)res;
@@ -3030,7 +3031,7 @@ static void vrend_apply_sampler_state(struct vrend_context *ctx,
    }
 
    if (vrend_state.have_samplers) {
-      glBindSampler(id, vstate->id);
+      glBindSampler(sampler_id, vstate->id);
       glSamplerParameteri(vstate->id, GL_TEXTURE_SRGB_DECODE_EXT,
                       srgb_decode);
       return;
