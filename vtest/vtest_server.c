@@ -105,6 +105,9 @@ again:
       case VCMD_RESOURCE_UNREF:
 	vtest_resource_unref();
 	break;
+      case VCMD_SUBMIT_CMD:
+	vtest_submit_cmd(header[0]);
+	break;
       default:
 	break;
       }

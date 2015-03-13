@@ -93,3 +93,22 @@ int vtest_resource_unref(void)
     virgl_renderer_resource_unref(handle);
     return 0;
 }
+
+int vtest_submit_cmd(uint32_t length_dw)
+{
+    uint32_t *cbuf;
+    int ret;
+
+    cbuf = malloc(length_dw * 4);
+    if (!cbuf)
+	return -1;
+
+    ret = read(renderer.remote_fd, cbuf, length_dw * 4);
+    if (ret != length_dw * 4)
+	return -1;
+
+    virgl_renderer_submit_cmd(cbuf, ctx_id, length_dw);
+
+    free(cbuf);
+    return 0;
+}
