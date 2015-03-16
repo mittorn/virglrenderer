@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -80,6 +81,8 @@ int main(void)
 {
     int sock, new_fd, ret;
     uint32_t header[VTEST_HDR_SIZE];
+    static int fence_id = 1;
+    bool do_fence;
     sock = vtest_open_socket("/tmp/.virgl_test");
 
     new_fd = wait_for_socket_accept(sock);
@@ -90,11 +93,12 @@ again:
     if (ret < 0)
       goto err;
 
-    ret = read(new_fd, &header, sizeof(header));
+    ret = vtest_block_read(new_fd, &header, sizeof(header));
 
     if (ret == 8) {
       fprintf(stderr, "got length: %d cmd: %d\n", header[0], header[1]);
-
+      vtest_poll();
+      do_fence = false;
       switch (header[1]) {
       case VCMD_GET_CAPS:
 	vtest_send_caps();
@@ -107,10 +111,22 @@ again:
 	break;
       case VCMD_SUBMIT_CMD:
 	vtest_submit_cmd(header[0]);
+	do_fence = true;
 	break;
+      case VCMD_TRANSFER_GET:
+	vtest_transfer_get(header[0]);
+	break;
+      case VCMD_TRANSFER_PUT:
+	vtest_transfer_put(header[0]);
+	do_fence = true;
+	break;
+      case VCMD_RESOURCE_BUSY_WAIT:
+	vtest_resource_busy_wait();
       default:
 	break;
       }
+      if (do_fence)
+	vtest_renderer_create_fence();
       goto again;
     }
 err:
