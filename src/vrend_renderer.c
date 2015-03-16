@@ -60,6 +60,7 @@ static void vrend_patch_blend_func(struct vrend_context *ctx);
 static void vrend_update_frontface_state(struct vrend_context *ctx);
 static void vrender_get_glsl_version(int *glsl_version);
 static void vrend_destroy_resource_object(void *obj_ptr);
+static void vrend_renderer_detach_res_ctx_p(struct vrend_context *ctx, int res_handle);
 extern int vrend_shader_use_explicit;
 static int have_invert_mesa = 0;
 static int use_core_profile = 0;
@@ -105,6 +106,7 @@ struct global_renderer_state {
    boolean have_nv_prim_restart, have_gl_prim_restart, have_bit_encoding;
 
    uint32_t max_uniform_blocks;
+   struct list_head active_ctx_list;
 };
 
 static struct global_renderer_state vrend_state;
@@ -353,6 +355,8 @@ struct vrend_context {
    GLuint pstipple_tex_id;
 
    struct vrend_shader_cfg shader_cfg;
+
+   struct list_head ctx_entry;
 };
 
 static void vrend_destroy_program(struct vrend_linked_shader_program *ent);
@@ -3169,7 +3173,7 @@ void vrend_renderer_init(struct vrend_if_cbs *cbs)
    vrend_clicbs->destroy_gl_context(gl_context);
    list_inithead(&vrend_state.fence_list);
    list_inithead(&vrend_state.waiting_query_list);
-
+   list_inithead(&vrend_state.active_ctx_list);
    /* create 0 context */
    vrend_renderer_context_create_internal(0, 0, NULL);
 }
@@ -3249,6 +3253,9 @@ bool vrend_destroy_context(struct vrend_context *ctx)
       vrend_destroy_sub_context(sub);      
 
    vrend_object_fini_ctx_table(ctx->res_hash);
+
+   list_del(&ctx->ctx_entry);
+
    FREE(ctx);
 
    return switch_0;
@@ -3279,6 +3286,7 @@ struct vrend_context *vrend_create_context(int id, uint32_t nlen, const char *de
 
    vrender_get_glsl_version(&grctx->shader_cfg.glsl_version);
 
+   list_addtail(&grctx->ctx_entry, &vrend_state.active_ctx_list);
    return grctx;
 }
 
@@ -3580,10 +3588,18 @@ static void vrend_destroy_resource_object(void *obj_ptr)
 void vrend_renderer_resource_unref(uint32_t res_handle)
 {
    struct vrend_resource *res;
+   struct vrend_context *ctx;
 
    res = vrend_resource_lookup(res_handle, 0);
    if (!res)
       return;
+
+   /* find in all contexts and detach also */
+
+   /* remove from any contexts */
+   LIST_FOR_EACH_ENTRY(ctx, &vrend_state.active_ctx_list, ctx_entry) {
+      vrend_renderer_detach_res_ctx_p(ctx, res->handle);
+   }
 
    vrend_resource_remove(res->handle);
    res->handle = 0;
@@ -5396,13 +5412,9 @@ void vrend_renderer_attach_res_ctx(int ctx_id, int resource_id)
    vrend_object_insert_nofree(ctx->res_hash, res, sizeof(*res), resource_id, 1, false);
 }
 
-void vrend_renderer_detach_res_ctx(int ctx_id, int res_handle)
+static void vrend_renderer_detach_res_ctx_p(struct vrend_context *ctx, int res_handle)
 {
-   struct vrend_context *ctx = vrend_lookup_renderer_ctx(ctx_id);
    struct vrend_resource *res;
-
-   if (!ctx)
-     return;
    res = vrend_object_lookup(ctx->res_hash, res_handle, 1);
    if (!res)
       return;
@@ -5410,6 +5422,13 @@ void vrend_renderer_detach_res_ctx(int ctx_id, int res_handle)
    vrend_object_remove(ctx->res_hash, res_handle, 1);
 }
 
+void vrend_renderer_detach_res_ctx(int ctx_id, int res_handle)
+{
+   struct vrend_context *ctx = vrend_lookup_renderer_ctx(ctx_id);
+   if (!ctx)
+      return;
+   vrend_renderer_detach_res_ctx_p(ctx, res_handle);
+}
 static struct vrend_resource *vrend_renderer_ctx_res_lookup(struct vrend_context *ctx, int res_handle)
 {
    struct vrend_resource *res = vrend_object_lookup(ctx->res_hash, res_handle, 1);
