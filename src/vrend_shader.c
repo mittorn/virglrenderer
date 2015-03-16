@@ -133,6 +133,7 @@ struct dump_ctx {
    bool front_face_emitted;
    int color_in_mask;
    bool has_clipvertex;
+   bool has_clipvertex_so;
    bool has_viewport_idx;
 };
 
@@ -768,7 +769,10 @@ static int emit_so_movs(struct dump_ctx *ctx)
       if (ctx->so->output[i].num_components == 4 && writemask[0] == 0 && !(ctx->outputs[ctx->so->output[i].register_index].name == TGSI_SEMANTIC_CLIPDIST) && !(ctx->outputs[ctx->so->output[i].register_index].name == TGSI_SEMANTIC_POSITION)) {
 	 if (ctx->so->output[i].register_index > ctx->num_outputs)
 	    ctx->so_names[i] = NULL;
-	 else
+	 else if (ctx->outputs[ctx->so->output[i].register_index].name == TGSI_SEMANTIC_CLIPVERTEX && ctx->has_clipvertex) {
+	    ctx->so_names[i] = strdup("clipv_tmp");
+	    ctx->has_clipvertex_so = true;
+	 } else
 	    ctx->so_names[i] = strdup(ctx->outputs[ctx->so->output[i].register_index].glsl_name);
          ctx->write_so_outputs[i] = false;
 
@@ -1976,8 +1980,8 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
       STRCAT_WITH_RET(glsl_hdr, buf);
 
       if (ctx->has_clipvertex) {
-            snprintf(buf, 255, "vec4 clipv_tmp;\n");
-            STRCAT_WITH_RET(glsl_hdr, buf);
+	 snprintf(buf, 255, "%svec4 clipv_tmp;\n", ctx->has_clipvertex_so ? "out " : "");
+	 STRCAT_WITH_RET(glsl_hdr, buf);
       }
       if (ctx->num_clip_dist || ctx->key->clip_plane_enable) {
 
