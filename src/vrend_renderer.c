@@ -2387,10 +2387,10 @@ void vrend_draw_vbo(struct vrend_context *ctx,
             glDrawRangeElementsBaseVertex(mode, info->min_index, info->max_index, info->count, elsz, (void *)(unsigned long)ctx->sub->ib.offset, info->index_bias);
          else
             glDrawElementsBaseVertex(mode, info->count, elsz, (void *)(unsigned long)ctx->sub->ib.offset, info->index_bias);
-      } else if (info->min_index != 0 || info->max_index != -1)
-         glDrawRangeElements(mode, info->min_index, info->max_index, info->count, elsz, (void *)(unsigned long)ctx->sub->ib.offset);                  
-      else if (info->instance_count > 1)
+      } else if (info->instance_count > 1) {
          glDrawElementsInstancedARB(mode, info->count, elsz, (void *)(unsigned long)ctx->sub->ib.offset, info->instance_count);
+      } else if (info->min_index != 0 || info->max_index != -1)
+	 glDrawRangeElements(mode, info->min_index, info->max_index, info->count, elsz, (void *)(unsigned long)ctx->sub->ib.offset);
       else
          glDrawElements(mode, info->count, elsz, (void *)(unsigned long)ctx->sub->ib.offset);
    }
