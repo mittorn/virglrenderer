@@ -3719,13 +3719,12 @@ static bool check_iov_bounds(struct vrend_resource *res,
 			     const struct vrend_transfer_info *info,
 			     struct iovec *iov, int num_iovs)
 {
-    int elsize = util_format_get_blocksize(res->base.format);
     GLuint send_size;
     GLuint iovsize = vrend_get_iovec_size(iov, num_iovs);
     GLuint valid_stride, valid_layer_stride;
 
     /* validate the send size */
-    valid_stride = info->box->width * elsize;
+    valid_stride = util_format_get_stride(res->base.format, info->box->width);
     if (info->stride) {
 	/* only validate passed in stride for boxes with height */
 	if (info->box->height > 1) {
@@ -3735,8 +3734,8 @@ static bool check_iov_bounds(struct vrend_resource *res,
 	}
     }
 
-    valid_layer_stride = util_format_get_nblocks(res->base.format, valid_stride / elsize,
-						 info->box->height) * elsize;
+    valid_layer_stride = util_format_get_2d_size(res->base.format, valid_stride,
+						 info->box->height);
 
     /* layer stride only makes sense for 3d,cube and arrays */
     if (info->layer_stride) {
