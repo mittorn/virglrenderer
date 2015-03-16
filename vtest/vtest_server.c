@@ -142,7 +142,7 @@ fail:
 
 int main(int argc, char **argv)
 {
-    int sock, new_fd, ret;
+    int sock, new_fd;
     pid_t pid;
     bool do_fork = true;
     struct sigaction sa;

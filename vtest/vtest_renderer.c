@@ -277,7 +277,6 @@ int vtest_resource_busy_wait(void)
 {
   uint32_t bw_buf[VCMD_BUSY_WAIT_SIZE];
   int ret;
-  int handle;
   int flags;
   uint32_t hdr_buf[VTEST_HDR_SIZE];
   uint32_t reply_buf[1];
@@ -286,7 +285,7 @@ int vtest_resource_busy_wait(void)
   if (ret != sizeof(bw_buf))
     return -1;
 
-  handle = bw_buf[VCMD_BUSY_WAIT_HANDLE];
+  /*  handle = bw_buf[VCMD_BUSY_WAIT_HANDLE]; unused as of now */
   flags = bw_buf[VCMD_BUSY_WAIT_FLAGS];
 
   if (flags == VCMD_BUSY_WAIT_FLAG_WAIT) {
