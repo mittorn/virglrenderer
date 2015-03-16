@@ -765,7 +765,7 @@ static int emit_so_movs(struct dump_ctx *ctx)
       } else
          writemask[0] = 0;
 
-      if (ctx->so->output[i].num_components == 4 && writemask[0] == 0 && !(ctx->outputs[ctx->so->output[i].register_index].name == TGSI_SEMANTIC_CLIPDIST)) {
+      if (ctx->so->output[i].num_components == 4 && writemask[0] == 0 && !(ctx->outputs[ctx->so->output[i].register_index].name == TGSI_SEMANTIC_CLIPDIST) && !(ctx->outputs[ctx->so->output[i].register_index].name == TGSI_SEMANTIC_POSITION)) {
 	 if (ctx->so->output[i].register_index > ctx->num_outputs)
 	    ctx->so_names[i] = NULL;
 	 else
@@ -1725,14 +1725,15 @@ iter_instruction(struct tgsi_iterate_context *iter,
       break;
    case TGSI_OPCODE_END:
       if (iter->processor.Processor == TGSI_PROCESSOR_VERTEX) {
-         ret = emit_prescale(ctx);
-         if (ret)
-            return FALSE;
          if (ctx->so && !ctx->key->gs_present) {
             ret = emit_so_movs(ctx);
             if (ret)
                return FALSE;
          }
+	 ret = emit_prescale(ctx);
+         if (ret)
+            return FALSE;
+
          ret = emit_clip_dist_movs(ctx);
          if (ret)
             return FALSE;
