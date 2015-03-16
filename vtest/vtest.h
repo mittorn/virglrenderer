@@ -18,5 +18,7 @@ int vtest_block_read(int fd, void *buf, int size);
 int vtest_resource_busy_wait(void);
 int vtest_renderer_create_fence(void);
 int vtest_poll(void);
+
+void vtest_destroy_renderer(void);
 #endif
 

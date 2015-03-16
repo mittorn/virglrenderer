@@ -84,7 +84,7 @@ int main(void)
     static int fence_id = 1;
     bool do_fence;
     sock = vtest_open_socket("/tmp/.virgl_test");
-
+restart:
     new_fd = wait_for_socket_accept(sock);
 
     vtest_create_renderer(new_fd);
@@ -101,33 +101,47 @@ again:
       do_fence = false;
       switch (header[1]) {
       case VCMD_GET_CAPS:
-	vtest_send_caps();
+	ret = vtest_send_caps();
 	break;
       case VCMD_RESOURCE_CREATE:
-	vtest_create_resource();
+	ret = vtest_create_resource();
 	break;
       case VCMD_RESOURCE_UNREF:
-	vtest_resource_unref();
+	ret = vtest_resource_unref();
 	break;
       case VCMD_SUBMIT_CMD:
-	vtest_submit_cmd(header[0]);
+	ret = vtest_submit_cmd(header[0]);
 	do_fence = true;
 	break;
       case VCMD_TRANSFER_GET:
-	vtest_transfer_get(header[0]);
+	ret = vtest_transfer_get(header[0]);
 	break;
       case VCMD_TRANSFER_PUT:
-	vtest_transfer_put(header[0]);
+	ret = vtest_transfer_put(header[0]);
 	do_fence = true;
 	break;
       case VCMD_RESOURCE_BUSY_WAIT:
-	vtest_resource_busy_wait();
+	ret = vtest_resource_busy_wait();
       default:
 	break;
       }
+
+      if (ret < 0) {
+	fprintf(stderr, "socket failed - relistening\n");
+	close(new_fd);
+	vtest_destroy_renderer();
+	goto restart;
+      }
+
       if (do_fence)
 	vtest_renderer_create_fence();
       goto again;
+    }
+    if (ret <= 0) {
+      fprintf(stderr, "socket failed - relistening\n");
+      close(new_fd);
+      vtest_destroy_renderer();
+      goto restart;
     }
 err:
     close(new_fd);

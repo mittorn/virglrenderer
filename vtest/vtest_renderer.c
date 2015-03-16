@@ -58,8 +58,8 @@ int vtest_block_read(int fd, void *buf, int size)
    left = size;
    do {
       ret = read(fd, ptr, left);
-      if (ret < 0)
-         return -errno;
+      if (ret <= 0)
+	return ret == -1 ? -errno : 0;
       left -= ret;
       ptr += ret;
    } while (left);
@@ -78,11 +78,20 @@ int vtest_create_renderer(int fd)
     return ret;
 }
 
+void vtest_destroy_renderer(void)
+{
+  virgl_renderer_context_destroy(ctx_id);
+  virgl_renderer_cleanup(&renderer);
+  renderer.remote_fd = 0;
+}
+
 int vtest_send_caps(void)
 {
     uint32_t  max_ver, max_size;
     void *caps_buf;
     uint32_t hdr_buf[2];
+    int ret;
+
     virgl_renderer_get_cap_set(1, &max_ver, &max_size);
 
     caps_buf = malloc(max_size);
@@ -93,8 +102,13 @@ int vtest_send_caps(void)
 
     hdr_buf[0] = max_size + 1;
     hdr_buf[1] = 1;
-    vtest_block_write(renderer.remote_fd, hdr_buf, 8);
+    ret = vtest_block_write(renderer.remote_fd, hdr_buf, 8);
+    if (ret < 0)
+      return ret;
     vtest_block_write(renderer.remote_fd, caps_buf, max_size);
+    if (ret < 0)
+      return ret;
+
     return 0;
 }
 
@@ -201,7 +215,7 @@ int vtest_transfer_get(uint32_t length_dw)
 
     iovec.iov_len = data_size;
     iovec.iov_base = ptr;
-    virgl_renderer_transfer_read_iov(handle,
+    ret = virgl_renderer_transfer_read_iov(handle,
 				     ctx_id,
 				     level,
 				     stride,
@@ -209,8 +223,12 @@ int vtest_transfer_get(uint32_t length_dw)
 				     &box,
 				     0,
 				     &iovec, 1);
+    if (ret)
+      fprintf(stderr," transfer read failed %d\n", ret);
+    ret = vtest_block_write(renderer.remote_fd, ptr, data_size);
+    if (ret < 0)
+      return ret;
 
-    vtest_block_write(renderer.remote_fd, ptr, data_size);
     free(ptr);
     return 0;
 }
@@ -235,18 +253,22 @@ int vtest_transfer_put(uint32_t length_dw)
     if (!ptr)
       return -ENOMEM;
 
-    vtest_block_read(renderer.remote_fd, ptr, data_size);
+    ret = vtest_block_read(renderer.remote_fd, ptr, data_size);
+    if (ret < 0)
+      return ret;
 
     iovec.iov_len = data_size;
     iovec.iov_base = ptr;
-    virgl_renderer_transfer_write_iov(handle,
-				      ctx_id,
-				      level,
-				      stride,
-				      layer_stride,
-				      &box,
-				      0,
-				      &iovec, 1);
+    ret = virgl_renderer_transfer_write_iov(handle,
+					    ctx_id,
+					    level,
+					    stride,
+					    layer_stride,
+					    &box,
+					    0,
+					    &iovec, 1);
+    if (ret)
+      fprintf(stderr," transfer write failed %d\n", ret);
     free(ptr);
     return 0;
 }
@@ -284,8 +306,14 @@ int vtest_resource_busy_wait(void)
   reply_buf[0] = busy ? 1 : 0;
   fprintf(stderr, "busy check %d, %d\n", handle, flags);
 
-  vtest_block_write(renderer.remote_fd, hdr_buf, sizeof(hdr_buf));
-  vtest_block_write(renderer.remote_fd, reply_buf, sizeof(reply_buf));
+  ret = vtest_block_write(renderer.remote_fd, hdr_buf, sizeof(hdr_buf));
+  if (ret < 0)
+    return ret;
+
+  ret = vtest_block_write(renderer.remote_fd, reply_buf, sizeof(reply_buf));
+  if (ret < 0)
+    return ret;
+
   return 0;
 }
 
@@ -298,4 +326,5 @@ int vtest_renderer_create_fence(void)
 int vtest_poll(void)
 {
   virgl_renderer_poll();
+  return 0;
 }
