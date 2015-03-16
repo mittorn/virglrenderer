@@ -4063,16 +4063,17 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
    if (num_iovs > 1 || separate_invert)
       need_temp = 1;
 
-   send_size = info->box->width * info->box->height * info->box->depth * util_format_get_blocksize(res->base.format);
-
    if (need_temp) {
+      send_size = info->box->width * info->box->height * info->box->depth * util_format_get_blocksize(res->base.format);
       data = malloc(send_size);
       if (!data) {
          fprintf(stderr,"malloc failed %d\n", send_size);
          return ENOMEM;
       }
-   } else
+   } else {
+      send_size = iov[0].iov_len - info->offset;
       data = myptr;
+   }
 
    if (res->readback_fb_id == 0 || res->readback_fb_level != info->level || res->readback_fb_z != info->box->z) {
 
@@ -4099,7 +4100,7 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
    if (!vrend_format_is_ds(res->base.format))
       glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
    if (!need_temp && info->stride)
-      glPixelStorei(GL_PACK_ROW_LENGTH, info->stride);
+      glPixelStorei(GL_PACK_ROW_LENGTH, info->stride / elsize);
 
    switch (elsize) {
    case 1:
