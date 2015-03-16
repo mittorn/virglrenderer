@@ -137,35 +137,53 @@ fail:
     fprintf(stderr, "socket failed - closing renderer\n");
     vtest_destroy_renderer();
     close(new_fd);
-    exit(0);
+    return 0;
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
     int sock, new_fd, ret;
     pid_t pid;
+    bool do_fork = true;
     struct sigaction sa;
 
-    sa.sa_handler = SIG_IGN;
-    sigemptyset(&sa.sa_mask);
-    sa.sa_flags = 0;
-    if (sigaction(SIGCHLD, &sa, 0) == -1) {
-      perror(0);
-      exit(1);
+    if (argc > 1) {
+      if (!strcmp(argv[1], "--no-fork"))
+	do_fork = false;
+      else {
+	fprintf(stderr, "illegal command line parameter\n");
+	exit(-1);
+      }
+    }
+
+    if (do_fork) {
+      sa.sa_handler = SIG_IGN;
+      sigemptyset(&sa.sa_mask);
+      sa.sa_flags = 0;
+      if (sigaction(SIGCHLD, &sa, 0) == -1) {
+	perror(0);
+	exit(1);
+      }
     }
 
     sock = vtest_open_socket("/tmp/.virgl_test");
 restart:
     new_fd = wait_for_socket_accept(sock);
 
-    /* fork a renderer process */
-    switch ((pid = fork())) {
-    case 0:
+    if (do_fork) {
+      /* fork a renderer process */
+      switch ((pid = fork())) {
+      case 0:
+	run_renderer(new_fd);
+	exit(0);
+	break;
+      case -1:
+      default:
+	close(new_fd);
+	goto restart;
+      }
+    } else {
       run_renderer(new_fd);
-      break;
-    case -1:
-    default:
-      close(new_fd);
       goto restart;
     }
     close(sock);
