@@ -243,6 +243,7 @@ int vtest_transfer_put(uint32_t length_dw)
     uint32_t data_size;
     void *ptr;
     struct iovec iovec;
+
     ret = vtest_block_read(renderer.remote_fd, thdr_buf, VCMD_TRANSFER_HDR_SIZE * 4);
     if (ret != VCMD_TRANSFER_HDR_SIZE * 4)
       return ret;

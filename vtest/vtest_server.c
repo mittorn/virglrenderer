@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <unistd.h>
+#include <stdlib.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -71,32 +72,26 @@ int wait_for_socket_read(int sock)
     if (ret < 0)
 	return ret;
 
-    if (FD_ISSET(sock, &read_fds)) {	
+    if (FD_ISSET(sock, &read_fds)) {
       return 0;
     }
     return -1;
 }
 
-int main(void)
+int run_renderer(int new_fd)
 {
-    int sock, new_fd, ret;
+    int ret;
     uint32_t header[VTEST_HDR_SIZE];
-    static int fence_id = 1;
     bool do_fence;
-    sock = vtest_open_socket("/tmp/.virgl_test");
-restart:
-    new_fd = wait_for_socket_accept(sock);
-
     vtest_create_renderer(new_fd);
 again:
     ret = wait_for_socket_read(new_fd);
     if (ret < 0)
-      goto err;
+      goto fail;
 
     ret = vtest_block_read(new_fd, &header, sizeof(header));
 
     if (ret == 8) {
-      fprintf(stderr, "got length: %d cmd: %d\n", header[0], header[1]);
       vtest_poll();
       do_fence = false;
       switch (header[1]) {
@@ -127,10 +122,7 @@ again:
       }
 
       if (ret < 0) {
-	fprintf(stderr, "socket failed - relistening\n");
-	close(new_fd);
-	vtest_destroy_renderer();
-	goto restart;
+	goto fail;
       }
 
       if (do_fence)
@@ -138,12 +130,32 @@ again:
       goto again;
     }
     if (ret <= 0) {
-      fprintf(stderr, "socket failed - relistening\n");
+      goto fail;
+    }
+fail:
+    fprintf(stderr, "socket failed - closing renderer\n");
+    vtest_destroy_renderer();
+    close(new_fd);
+    exit(0);
+}
+
+int main(void)
+{
+    int sock, new_fd, ret;
+    pid_t pid;
+    sock = vtest_open_socket("/tmp/.virgl_test");
+restart:
+    new_fd = wait_for_socket_accept(sock);
+
+    /* fork a renderer process */
+    switch ((pid = fork())) {
+    case 0:
+      run_renderer(new_fd);
+      break;
+    case -1:
+    default:
       close(new_fd);
-      vtest_destroy_renderer();
       goto restart;
     }
-err:
-    close(new_fd);
     close(sock);
 }
