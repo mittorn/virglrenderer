@@ -14,7 +14,6 @@ static int fence_id = 1;
 static int last_fence;
 static void vtest_write_fence(void *cookie, uint32_t fence_id)
 {
-  fprintf(stderr, "fence %d expired\n", fence_id);
   last_fence = fence_id;
 }
 
@@ -305,7 +304,6 @@ int vtest_resource_busy_wait(void)
   hdr_buf[VTEST_CMD_LEN] = 1;
   hdr_buf[VTEST_CMD_ID] = VCMD_RESOURCE_BUSY_WAIT;
   reply_buf[0] = busy ? 1 : 0;
-  fprintf(stderr, "busy check %d, %d\n", handle, flags);
 
   ret = vtest_block_write(renderer.remote_fd, hdr_buf, sizeof(hdr_buf));
   if (ret < 0)
