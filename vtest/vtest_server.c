@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <signal.h>
 #include <stdbool.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -143,6 +144,16 @@ int main(void)
 {
     int sock, new_fd, ret;
     pid_t pid;
+    struct sigaction sa;
+
+    sa.sa_handler = SIG_IGN;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    if (sigaction(SIGCHLD, &sa, 0) == -1) {
+      perror(0);
+      exit(1);
+    }
+
     sock = vtest_open_socket("/tmp/.virgl_test");
 restart:
     new_fd = wait_for_socket_accept(sock);
