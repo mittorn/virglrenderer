@@ -211,13 +211,6 @@ iter_declaration(struct tgsi_iterate_context *iter,
    char *name_prefix = "";
    bool add_two_side = false;
 
-   if (ctx->prog_type == -1)
-      ctx->prog_type = iter->processor.Processor;
-
-   if (iter->processor.Processor == TGSI_PROCESSOR_VERTEX &&
-       ctx->key->gs_present && ctx->key->clip_plane_enable)
-     ctx->glsl_ver_required = 150;
-
    switch (decl->Declaration.File) {
    case TGSI_FILE_INPUT:
       i = ctx->num_inputs++;
@@ -1820,6 +1813,15 @@ iter_instruction(struct tgsi_iterate_context *iter,
 static boolean
 prolog(struct tgsi_iterate_context *iter)
 {
+   struct dump_ctx *ctx = (struct dump_ctx *)iter;
+
+   if (ctx->prog_type == -1)
+      ctx->prog_type = iter->processor.Processor;
+
+   if (iter->processor.Processor == TGSI_PROCESSOR_VERTEX &&
+       ctx->key->gs_present)
+      ctx->glsl_ver_required = 150;
+
    return TRUE;
 }
 
