@@ -1738,9 +1738,11 @@ iter_instruction(struct tgsi_iterate_context *iter,
             if (ret)
                return FALSE;
          }
-	 ret = emit_prescale(ctx);
-         if (ret)
-            return FALSE;
+         if (!ctx->key->gs_present) {
+            ret = emit_prescale(ctx);
+            if (ret)
+               return FALSE;
+         }
 
          ret = emit_clip_dist_movs(ctx);
          if (ret)
@@ -1798,9 +1800,15 @@ iter_instruction(struct tgsi_iterate_context *iter,
       EMIT_BUF_WITH_RET(ctx, buf);
       break;
    case TGSI_OPCODE_EMIT:
-      if (ctx->so && ctx->key->gs_present)
-            emit_so_movs(ctx);
-      emit_clip_dist_movs(ctx);
+      if (ctx->so && ctx->key->gs_present) {
+	 emit_so_movs(ctx);
+      }
+      ret = emit_prescale(ctx);
+      if (ret)
+         return FALSE;
+      ret = emit_clip_dist_movs(ctx);
+      if (ret)
+         return FALSE;
       snprintf(buf, 255, "EmitVertex();\n");
       EMIT_BUF_WITH_RET(ctx, buf);
       break;
@@ -2015,6 +2023,8 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
    }
 
    if (ctx->prog_type == TGSI_PROCESSOR_GEOMETRY) {
+      snprintf(buf, 255, "uniform vec4 winsys_adjust;\n");
+      STRCAT_WITH_RET(glsl_hdr, buf);
       if (ctx->num_in_clip_dist || ctx->key->clip_plane_enable) {
          snprintf(buf, 255, "in gl_PerVertex {\n vec4 gl_Position;\n float gl_PointSize; \n float gl_ClipDistance[%d];\n} gl_in[];\n", ctx->num_in_clip_dist ? ctx->num_in_clip_dist : 8);
          STRCAT_WITH_RET(glsl_hdr, buf);
