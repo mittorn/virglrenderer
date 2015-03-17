@@ -1668,9 +1668,13 @@ void vrend_set_single_sampler_view(struct vrend_context *ctx,
             tex->cur_swizzle_a = view->gl_swizzle_a;
          }
          if (tex->srgb_decode != view->srgb_decode && util_format_is_srgb(tex->base.base.format)) {
-            glTexParameteri(view->texture->target, GL_TEXTURE_SRGB_DECODE_EXT,
-                            view->srgb_decode);
-            tex->srgb_decode = view->srgb_decode;
+	    if (vrend_state.have_samplers)
+	       ctx->sub->sampler_state_dirty = TRUE;
+	    else {
+	       glTexParameteri(view->texture->target, GL_TEXTURE_SRGB_DECODE_EXT,
+			       view->srgb_decode);
+	       tex->srgb_decode = view->srgb_decode;
+	    }
          }
       } else {
 	GLenum internalformat;
