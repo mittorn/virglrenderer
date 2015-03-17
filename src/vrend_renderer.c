@@ -2387,6 +2387,8 @@ void vrend_draw_vbo(struct vrend_context *ctx,
       GLenum mode = info->mode;
       if (info->instance_count <= 1)
          glDrawArrays(mode, info->start, info->count);
+      else if (info->start_instance)
+         glDrawArraysInstancedBaseInstance(mode, info->start, info->count, info->instance_count, info->start_instance);
       else
          glDrawArraysInstancedARB(mode, info->start, info->count, info->instance_count);
    } else {
