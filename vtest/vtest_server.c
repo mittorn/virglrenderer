@@ -84,7 +84,7 @@ int run_renderer(int new_fd)
     int ret;
     uint32_t header[VTEST_HDR_SIZE];
     bool do_fence;
-    vtest_create_renderer(new_fd);
+    bool inited = false;
 again:
     ret = wait_for_socket_read(new_fd);
     if (ret < 0)
@@ -93,6 +93,12 @@ again:
     ret = vtest_block_read(new_fd, &header, sizeof(header));
 
     if (ret == 8) {
+      if (!inited) {
+	if (header[1] != VCMD_CREATE_RENDERER)
+	  goto fail;
+	ret = vtest_create_renderer(new_fd, header[0]);
+	inited = true;
+      }
       vtest_poll();
       do_fence = false;
       switch (header[1]) {
@@ -118,6 +124,7 @@ again:
 	break;
       case VCMD_RESOURCE_BUSY_WAIT:
 	ret = vtest_resource_busy_wait();
+	break;
       default:
 	break;
       }

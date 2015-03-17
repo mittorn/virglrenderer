@@ -24,6 +24,8 @@
 
 #define VCMD_RESOURCE_BUSY_WAIT 7
 
+/* pass the process cmd line for debugging */
+#define VCMD_CREATE_RENDERER 8
 /* get caps */
 /* 0 length cmd */
 /* resp VCMD_GET_CAPS + caps */
