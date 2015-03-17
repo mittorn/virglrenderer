@@ -16,6 +16,7 @@ static const char *vs_passthrough = {
 
 static const char *fs_texfetch_col = {
    "#version 130\n"
+   "%s"
    "uniform sampler%s samp;\n"
    "in vec4 tc;\n"
    "void main() {\n"

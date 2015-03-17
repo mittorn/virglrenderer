@@ -107,7 +107,7 @@ static GLuint blit_build_frag_tex_col(struct vrend_blitter_ctx *blit_ctx, int tg
     char shader_buf[4096];
     int is_shad;
     const char *twm;
-
+    char *ext_str = "";
     switch (tgsi_tex_target) {
     case TGSI_TEXTURE_1D:
     case TGSI_TEXTURE_BUFFER:
@@ -138,7 +138,11 @@ static GLuint blit_build_frag_tex_col(struct vrend_blitter_ctx *blit_ctx, int tg
         break;
     }
 
-    snprintf(shader_buf, 4096, fs_texfetch_col, vrend_shader_samplertypeconv(tgsi_tex_target, &is_shad), twm, "");
+    if (tgsi_tex_target == TGSI_TEXTURE_CUBE_ARRAY ||
+	tgsi_tex_target == TGSI_TEXTURE_SHADOWCUBE_ARRAY)
+      ext_str = "#extension GL_ARB_texture_cube_map_array : require\n";
+
+    snprintf(shader_buf, 4096, fs_texfetch_col, ext_str, vrend_shader_samplertypeconv(tgsi_tex_target, &is_shad), twm, "");
 
     fs_id = glCreateShader(GL_FRAGMENT_SHADER);
 
