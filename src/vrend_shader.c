@@ -297,6 +297,12 @@ iter_declaration(struct tgsi_iterate_context *iter,
             ctx->inputs[i].glsl_gl_in = TRUE;
             ctx->num_in_clip_dist += 4;
             break;
+         } else if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
+            name_prefix = "gl_ClipDistance";
+            ctx->inputs[i].glsl_predefined_no_emit = TRUE;
+            ctx->inputs[i].glsl_no_index = TRUE;
+            ctx->num_in_clip_dist += 4;
+            break;
          }
       case TGSI_SEMANTIC_POSITION:
          if (iter->processor.Processor == TGSI_PROCESSOR_GEOMETRY) {
@@ -1296,7 +1302,12 @@ iter_instruction(struct tgsi_iterate_context *iter,
                   snprintf(srcs[i], 255, "%s(vec4(intBitsToFloat(%s)))", stypeprefix, ctx->inputs[j].glsl_name);
                else if (ctx->inputs[j].name == TGSI_SEMANTIC_FACE)
                   snprintf(srcs[i], 255, "%s(%s ? 1.0 : -1.0)", stypeprefix, ctx->inputs[j].glsl_name);
-	       else
+	       else if (ctx->inputs[j].name == TGSI_SEMANTIC_CLIPDIST) {
+		  int idx;
+		  idx = ctx->inputs[j].sid * 4;
+		  idx += src->Register.SwizzleX;
+		  snprintf(srcs[i], 255, "%s(vec4(%s%s%s[%d]))", stypeprefix, prefix, arrayname, ctx->inputs[j].glsl_name, idx);
+	       } else
                   snprintf(srcs[i], 255, "%s(%s%s%s%s)", stypeprefix, prefix, ctx->inputs[j].glsl_name, arrayname, swizzle);
                override_no_wm[i] = ctx->inputs[j].override_no_wm;
                break;
