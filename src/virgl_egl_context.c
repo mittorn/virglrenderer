@@ -80,7 +80,6 @@ static int egl_rendernode_open(void)
 	    continue;
 	}
 	fd = r;
-	fprintf(stderr, "using render node %s\n", p);
 	free(p);
 	break;
     }
@@ -161,13 +160,14 @@ struct virgl_egl *virgl_egl_init(void)
 	    goto fail;
 
         extension_list = eglQueryString(d->egl_display, EGL_EXTENSIONS);
+#ifdef VIRGL_EGL_DEBUG
 	fprintf(stderr, "EGL major/minor: %d.%d\n", major, minor);
 	fprintf(stderr, "EGL version: %s\n",
 		eglQueryString(d->egl_display, EGL_VERSION));
 	fprintf(stderr, "EGL vendor: %s\n",
 		eglQueryString(d->egl_display, EGL_VENDOR));
         fprintf(stderr, "EGL extensions: %s\n", extension_list);
-
+#endif
         /* require surfaceless context */
         if (!virgl_egl_has_extension_in_string(extension_list, "EGL_KHR_surfaceless_context"))
             goto fail;
