@@ -2112,7 +2112,7 @@ void vrend_draw_vbo(struct vrend_context *ctx,
      boolean fs_dirty, vs_dirty, gs_dirty;
      boolean dual_src = util_blend_state_is_dual(&ctx->sub->blend_state, 0);
      if (!ctx->sub->vs || !ctx->sub->fs) {
-        fprintf(stderr,"dropping rendering due to missing shaders\n");
+        fprintf(stderr,"dropping rendering due to missing shaders: %s\n", ctx->debug_name);
         return;
      }
 
@@ -2122,7 +2122,7 @@ void vrend_draw_vbo(struct vrend_context *ctx,
         vrend_shader_select(ctx, ctx->sub->gs, &gs_dirty);
 
      if (!ctx->sub->vs->current || !ctx->sub->fs->current || (ctx->sub->gs && !ctx->sub->gs->current)) {
-        fprintf(stderr, "failure to compile shader variants\n");
+        fprintf(stderr, "failure to compile shader variants: %s\n", ctx->debug_name);
         return;
      }
      prog = lookup_shader_program(ctx, ctx->sub->vs->current->id, ctx->sub->fs->current->id, ctx->sub->gs ? ctx->sub->gs->current->id : 0, dual_src);
@@ -2285,10 +2285,10 @@ void vrend_draw_vbo(struct vrend_context *ctx,
 	} else loc = -1;
 
 	if (loc == -1) {
-           fprintf(stderr,"cannot find loc %d %d %d\n", i, ctx->sub->ve->count, ctx->sub->prog->ss[PIPE_SHADER_VERTEX]->sel->sinfo.num_inputs);
+           fprintf(stderr,"%s: cannot find loc %d %d %d\n", ctx->debug_name, i, ctx->sub->ve->count, ctx->sub->prog->ss[PIPE_SHADER_VERTEX]->sel->sinfo.num_inputs);
           num_enable--;
           if (i == 0) {
-             fprintf(stderr,"shader probably didn't compile - skipping rendering\n");
+             fprintf(stderr,"%s: shader probably didn't compile - skipping rendering\n", ctx->debug_name);
              return;
           }
           continue;

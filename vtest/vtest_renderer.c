@@ -81,9 +81,6 @@ int vtest_create_renderer(int fd, uint32_t length)
     ret = vtest_block_read(renderer.remote_fd, vtestname, length);
     if (ret != length)
 	return -1;
-
-    fprintf(stderr, "string len is %d: %s\n", length, vtestname);
-
     ret = virgl_renderer_context_create(ctx_id, strlen(vtestname), vtestname);
     return ret;
 }
