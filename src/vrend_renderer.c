@@ -2408,7 +2408,9 @@ void vrend_draw_vbo(struct vrend_context *ctx,
       }
 
       if (info->index_bias) {
-         if (info->min_index != 0 || info->max_index != -1)
+	 if (info->instance_count > 1)
+            glDrawElementsInstancedBaseVertex(mode, info->count, elsz, (void *)(unsigned long)ctx->sub->ib.offset, info->instance_count, info->index_bias);
+	 else if (info->min_index != 0 || info->max_index != -1)
             glDrawRangeElementsBaseVertex(mode, info->min_index, info->max_index, info->count, elsz, (void *)(unsigned long)ctx->sub->ib.offset, info->index_bias);
          else
             glDrawElementsBaseVertex(mode, info->count, elsz, (void *)(unsigned long)ctx->sub->ib.offset, info->index_bias);
