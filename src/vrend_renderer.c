@@ -5305,6 +5305,7 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
    if (glewIsSupported("GL_ARB_transform_feedback3")) {
       glGetIntegerv(GL_MAX_TRANSFORM_FEEDBACK_BUFFERS, &max);
       caps->v1.max_streamout_buffers = max;
+      caps->v1.bset.streamout_pause_resume = 1;
    }
    if (glewIsSupported("GL_ARB_blend_func_extended")) {
       glGetIntegerv(GL_MAX_DUAL_SOURCE_DRAW_BUFFERS, &max);
