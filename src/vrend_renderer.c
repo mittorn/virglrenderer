@@ -653,13 +653,18 @@ static void vrend_stencil_test_enable(struct vrend_context *ctx,
 static void set_stream_out_varyings(int prog_id, struct vrend_shader_info *sinfo)
 {
    struct pipe_stream_output_info *so = &sinfo->so_info;
-   char *varyings[PIPE_MAX_SHADER_OUTPUTS];
+   char *varyings[PIPE_MAX_SHADER_OUTPUTS*2];
    int i;
    int n_outputs = 0;
+   int last_buffer = 0;
    if (!so->num_outputs)
       return;
 
    for (i = 0; i < so->num_outputs; i++) {
+      if (last_buffer != so->output[i].output_buffer) {
+	 varyings[n_outputs++] = strdup("gl_NextBuffer");
+	 last_buffer = so->output[i].output_buffer;
+      }
       if (sinfo->so_names[i])
 	 varyings[n_outputs++] = strdup(sinfo->so_names[i]);
    }
@@ -5295,8 +5300,12 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
       glGetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS, &max);
       caps->v1.max_texture_array_layers = max;
    }
-   glGetIntegerv(GL_MAX_TRANSFORM_FEEDBACK_BUFFERS, &max);
-   caps->v1.max_streamout_buffers = max;
+
+   /* we need tf3 so we can do gallium skip buffers */
+   if (glewIsSupported("GL_ARB_transform_feedback3")) {
+      glGetIntegerv(GL_MAX_TRANSFORM_FEEDBACK_BUFFERS, &max);
+      caps->v1.max_streamout_buffers = max;
+   }
    if (glewIsSupported("GL_ARB_blend_func_extended")) {
       glGetIntegerv(GL_MAX_DUAL_SOURCE_DRAW_BUFFERS, &max);
       caps->v1.max_dual_source_render_targets = max;
