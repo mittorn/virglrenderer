@@ -2212,6 +2212,111 @@ static GLenum get_xfb_mode(GLenum mode)
    return GL_POINTS;
 }
 
+static void vrend_draw_bind_vertex_legacy(struct vrend_context *ctx,
+                                          struct vrend_vertex_element_array *va)
+{
+   uint32_t num_enable;
+   uint32_t enable_bitmask;
+   uint32_t disable_bitmask;
+   int i;
+
+   num_enable = va->count;
+   enable_bitmask = 0;
+   disable_bitmask = ~((1ull << num_enable) - 1);
+   for (i = 0; i < va->count; i++) {
+      struct vrend_vertex_element *ve = &va->elements[i];
+      int vbo_index = ve->base.vertex_buffer_index;
+      struct vrend_buffer *buf;
+      GLint loc;
+
+      if (i >= ctx->sub->prog->ss[PIPE_SHADER_VERTEX]->sel->sinfo.num_inputs) {
+         /* XYZZY: debug this? */
+         num_enable = ctx->sub->prog->ss[PIPE_SHADER_VERTEX]->sel->sinfo.num_inputs;
+         break;
+      }
+      buf = (struct vrend_buffer *)ctx->sub->vbo[vbo_index].buffer;
+
+      if (!buf) {
+           fprintf(stderr,"cannot find vbo buf %d %d %d\n", i, va->count, ctx->sub->prog->ss[PIPE_SHADER_VERTEX]->sel->sinfo.num_inputs);
+           continue;
+      }
+
+      if (vrend_shader_use_explicit) {
+         loc = i;
+      } else {
+	if (ctx->sub->prog->attrib_locs) {
+	  loc = ctx->sub->prog->attrib_locs[i];
+	} else loc = -1;
+
+	if (loc == -1) {
+           fprintf(stderr,"%s: cannot find loc %d %d %d\n", ctx->debug_name, i, va->count, ctx->sub->prog->ss[PIPE_SHADER_VERTEX]->sel->sinfo.num_inputs);
+          num_enable--;
+          if (i == 0) {
+             fprintf(stderr,"%s: shader probably didn't compile - skipping rendering\n", ctx->debug_name);
+             return;
+          }
+          continue;
+        }
+      }
+
+      if (ve->type == GL_FALSE) {
+	fprintf(stderr,"failed to translate vertex type - skipping render\n");
+	return;
+      }
+
+      glBindBuffer(GL_ARRAY_BUFFER, buf->base.id);
+
+      if (ctx->sub->vbo[vbo_index].stride == 0) {
+         void *data;
+         /* for 0 stride we are kinda screwed */
+         data = glMapBufferRange(GL_ARRAY_BUFFER, ctx->sub->vbo[vbo_index].buffer_offset, ve->nr_chan * sizeof(GLfloat), GL_MAP_READ_BIT);
+
+         switch (ve->nr_chan) {
+         case 1:
+            glVertexAttrib1fv(loc, data);
+            break;
+         case 2:
+            glVertexAttrib2fv(loc, data);
+            break;
+         case 3:
+            glVertexAttrib3fv(loc, data); 
+            break;
+         case 4:
+         default:
+            glVertexAttrib4fv(loc, data);
+            break;
+         }
+         glUnmapBuffer(GL_ARRAY_BUFFER);
+         disable_bitmask |= (1 << loc);
+      } else {
+         enable_bitmask |= (1 << loc);
+         if (util_format_is_pure_integer(ve->base.src_format)) {
+            glVertexAttribIPointer(loc, ve->nr_chan, ve->type, ctx->sub->vbo[vbo_index].stride, (void *)(unsigned long)(ve->base.src_offset + ctx->sub->vbo[vbo_index].buffer_offset));
+         } else {
+            glVertexAttribPointer(loc, ve->nr_chan, ve->type, ve->norm, ctx->sub->vbo[vbo_index].stride, (void *)(unsigned long)(ve->base.src_offset + ctx->sub->vbo[vbo_index].buffer_offset));
+         }
+         glVertexAttribDivisorARB(loc, ve->base.instance_divisor);
+      }
+   }
+   if (ctx->sub->enabled_attribs_bitmask != enable_bitmask) {
+      uint32_t mask = ctx->sub->enabled_attribs_bitmask & disable_bitmask;
+
+      while (mask) {
+         i = u_bit_scan(&mask);
+         glDisableVertexAttribArray(i);
+      }
+      ctx->sub->enabled_attribs_bitmask &= ~disable_bitmask;
+
+      mask = ctx->sub->enabled_attribs_bitmask ^ enable_bitmask;
+      while (mask) {
+         i = u_bit_scan(&mask);
+         glEnableVertexAttribArray(i);
+      }
+
+      ctx->sub->enabled_attribs_bitmask = enable_bitmask;
+   }
+}
+
 void vrend_draw_vbo(struct vrend_context *ctx,
                     const struct pipe_draw_info *info,
                     uint32_t cso)
@@ -2221,9 +2326,6 @@ void vrend_draw_vbo(struct vrend_context *ctx,
    int ubo_id;
    bool new_program = FALSE;
    uint32_t shader_type;
-   uint32_t num_enable;
-   uint32_t enable_bitmask;
-   uint32_t disable_bitmask;
 
    if (ctx->in_error)
       return;
@@ -2391,107 +2493,14 @@ void vrend_draw_vbo(struct vrend_context *ctx,
       glBindTexture(GL_TEXTURE_2D, ctx->pstipple_tex_id);
       glUniform1i(ctx->sub->prog->fs_stipple_loc, sampler_id);
    }
-   num_enable = ctx->sub->ve->count;
-   enable_bitmask = 0;
-   disable_bitmask = ~((1ull << num_enable) - 1);
-   for (i = 0; i < ctx->sub->ve->count; i++) {
-      struct vrend_vertex_element *ve = &ctx->sub->ve->elements[i];
-      int vbo_index = ctx->sub->ve->elements[i].base.vertex_buffer_index;
-      struct vrend_buffer *buf;
-      GLint loc;
-
-      if (i >= ctx->sub->prog->ss[PIPE_SHADER_VERTEX]->sel->sinfo.num_inputs) {
-         /* XYZZY: debug this? */
-         num_enable = ctx->sub->prog->ss[PIPE_SHADER_VERTEX]->sel->sinfo.num_inputs;
-         break;
-      }
-      buf = (struct vrend_buffer *)ctx->sub->vbo[vbo_index].buffer;
-
-      if (!buf) {
-           fprintf(stderr,"cannot find vbo buf %d %d %d\n", i, ctx->sub->ve->count, ctx->sub->prog->ss[PIPE_SHADER_VERTEX]->sel->sinfo.num_inputs);
-           continue;
-      }
-
-      if (vrend_shader_use_explicit) {
-         loc = i;
-      } else {
-	if (ctx->sub->prog->attrib_locs) {
-	  loc = ctx->sub->prog->attrib_locs[i];
-	} else loc = -1;
-
-	if (loc == -1) {
-           fprintf(stderr,"%s: cannot find loc %d %d %d\n", ctx->debug_name, i, ctx->sub->ve->count, ctx->sub->prog->ss[PIPE_SHADER_VERTEX]->sel->sinfo.num_inputs);
-          num_enable--;
-          if (i == 0) {
-             fprintf(stderr,"%s: shader probably didn't compile - skipping rendering\n", ctx->debug_name);
-             return;
-          }
-          continue;
-        }
-      }
-
-      if (ve->type == GL_FALSE) {
-	fprintf(stderr,"failed to translate vertex type - skipping render\n");
-	return;
-      }
-
-      glBindBuffer(GL_ARRAY_BUFFER, buf->base.id);
-
-      if (ctx->sub->vbo[vbo_index].stride == 0) {
-         void *data;
-         /* for 0 stride we are kinda screwed */
-         data = glMapBufferRange(GL_ARRAY_BUFFER, ctx->sub->vbo[vbo_index].buffer_offset, ve->nr_chan * sizeof(GLfloat), GL_MAP_READ_BIT);
-         
-         switch (ve->nr_chan) {
-         case 1:
-            glVertexAttrib1fv(loc, data);
-            break;
-         case 2:
-            glVertexAttrib2fv(loc, data);
-            break;
-         case 3:
-            glVertexAttrib3fv(loc, data);
-            break;
-         case 4:
-         default:
-            glVertexAttrib4fv(loc, data);
-            break;
-         }
-         glUnmapBuffer(GL_ARRAY_BUFFER);
-         disable_bitmask |= (1 << loc);
-      } else {
-         enable_bitmask |= (1 << loc);
-         if (util_format_is_pure_integer(ve->base.src_format)) {
-            glVertexAttribIPointer(loc, ve->nr_chan, ve->type, ctx->sub->vbo[vbo_index].stride, (void *)(unsigned long)(ve->base.src_offset + ctx->sub->vbo[vbo_index].buffer_offset));
-         } else {
-            glVertexAttribPointer(loc, ve->nr_chan, ve->type, ve->norm, ctx->sub->vbo[vbo_index].stride, (void *)(unsigned long)(ve->base.src_offset + ctx->sub->vbo[vbo_index].buffer_offset));
-         }
-         glVertexAttribDivisorARB(loc, ve->base.instance_divisor);
-      }
-   }
 
    if (ctx->sub->rs_state.clip_plane_enable) {
       for (i = 0 ; i < 8; i++) {
          glUniform4fv(ctx->sub->prog->clip_locs[i], 1, (const GLfloat *)&ctx->sub->ucp_state.ucp[i]);
       }
    }
-   if (ctx->sub->enabled_attribs_bitmask != enable_bitmask) {
-      uint32_t mask = ctx->sub->enabled_attribs_bitmask & disable_bitmask;
 
-      while (mask) {
-         i = u_bit_scan(&mask);
-         glDisableVertexAttribArray(i);
-      }
-      ctx->sub->enabled_attribs_bitmask &= ~disable_bitmask;
-
-      mask = ctx->sub->enabled_attribs_bitmask ^ enable_bitmask;
-      while (mask) {
-         i = u_bit_scan(&mask);
-         glEnableVertexAttribArray(i);
-      }
-
-      ctx->sub->enabled_attribs_bitmask = enable_bitmask;
-   }
+   vrend_draw_bind_vertex_legacy(ctx, ctx->sub->ve);
 
    if (info->indexed) {
       struct vrend_resource *res = (struct vrend_resource *)ctx->sub->ib.buffer;
