@@ -343,7 +343,7 @@ static int vrend_decode_resource_inline_write(struct vrend_decode_ctx *ctx, uint
 static int vrend_decode_draw_vbo(struct vrend_decode_ctx *ctx, int length)
 {
    struct pipe_draw_info info;
-
+   uint32_t cso;
    if (length != VIRGL_DRAW_VBO_SIZE)
       return EINVAL;
    memset(&info, 0, sizeof(struct pipe_draw_info));
@@ -359,7 +359,10 @@ static int vrend_decode_draw_vbo(struct vrend_decode_ctx *ctx, int length)
    info.restart_index = get_buf_entry(ctx, VIRGL_DRAW_VBO_RESTART_INDEX);
    info.min_index = get_buf_entry(ctx, VIRGL_DRAW_VBO_MIN_INDEX);
    info.max_index = get_buf_entry(ctx, VIRGL_DRAW_VBO_MAX_INDEX);
-   vrend_draw_vbo(ctx->grctx, &info);
+
+   cso = get_buf_entry(ctx, VIRGL_DRAW_VBO_COUNT_FROM_SO);
+
+   vrend_draw_vbo(ctx->grctx, &info, cso);
    return 0;
 }
 

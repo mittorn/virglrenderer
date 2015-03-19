@@ -351,6 +351,7 @@ int virgl_encoder_draw_vbo(struct virgl_context *ctx,
    virgl_encoder_write_dword(ctx->cbuf, info->restart_index);
    virgl_encoder_write_dword(ctx->cbuf, info->min_index);
    virgl_encoder_write_dword(ctx->cbuf, info->max_index);
+   virgl_encoder_write_dword(ctx->cbuf, 0);
    return 0;
 }
 

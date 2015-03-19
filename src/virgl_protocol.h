@@ -246,7 +246,7 @@ enum virgl_context_cmd {
 #define VIRGL_SET_UNIFORM_BUFFER_RES_HANDLE 5
 
 /* draw VBO */
-#define VIRGL_DRAW_VBO_SIZE 11
+#define VIRGL_DRAW_VBO_SIZE 12
 #define VIRGL_DRAW_VBO_START 1
 #define VIRGL_DRAW_VBO_COUNT 2
 #define VIRGL_DRAW_VBO_MODE 3
@@ -258,6 +258,7 @@ enum virgl_context_cmd {
 #define VIRGL_DRAW_VBO_RESTART_INDEX 9
 #define VIRGL_DRAW_VBO_MIN_INDEX 10
 #define VIRGL_DRAW_VBO_MAX_INDEX 11
+#define VIRGL_DRAW_VBO_COUNT_FROM_SO 12
 
 /* create surface */
 #define VIRGL_OBJ_SURFACE_SIZE 5

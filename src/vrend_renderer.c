@@ -194,6 +194,7 @@ struct vrend_so_target {
    unsigned buffer_offset;
    unsigned buffer_size;
    struct vrend_resource *buffer;
+   struct vrend_sub_context *sub_ctx;
 };
 
 struct vrend_sampler_view {
@@ -244,6 +245,16 @@ struct vrend_viewport {
    GLint cur_x, cur_y;
    GLsizei width, height;
    GLclampd near_val, far_val;
+};
+
+/* create a streamout object to support pause/resume */
+struct vrend_streamout_object {
+   GLuint id;
+   uint32_t num_targets;
+   uint32_t handles[16];
+   struct list_head head;
+   int xfb_state;
+   struct vrend_so_target *so_targets[16];
 };
 
 #define XFB_STATE_OFF 0
@@ -313,9 +324,6 @@ struct vrend_sub_context {
    struct pipe_depth_stencil_alpha_state dsa_state;
    struct pipe_rasterizer_state rs_state;
 
-   int num_so_targets;
-   struct vrend_so_target *so_targets[16];
-
    uint8_t stencil_refs[2];
 
    GLuint blit_fb_ids[2];
@@ -333,7 +341,8 @@ struct vrend_sub_context {
    struct pipe_rasterizer_state hw_rs_state;
    struct pipe_blend_state hw_blend_state;
 
-   int xfb_state;
+   struct vrend_streamout_object *current_so;
+   struct list_head streamout_list;
 };
 
 struct vrend_context {
@@ -650,23 +659,101 @@ static void vrend_stencil_test_enable(struct vrend_context *ctx,
    }
 }
 
+static void dump_stream_out(struct pipe_stream_output_info *so)
+{
+   int i;
+   if (!so)
+      return;
+   printf("streamout: %d\n", so->num_outputs);
+   printf("strides: ");
+   for (i = 0; i < 4; i++)
+      printf("%d ", so->stride[i]);
+   printf("\n");
+   printf("outputs:\n");
+   for (i = 0; i < so->num_outputs; i++) {
+      printf("\t%d: reg: %d sc: %d, nc: %d ob: %d do: %d\n",
+             i,
+             so->output[i].register_index,
+             so->output[i].start_component,
+             so->output[i].num_components,
+             so->output[i].output_buffer,
+             so->output[i].dst_offset);
+   }
+}
+
+static char *get_skip_str(int *skip_val)
+{
+   char *start_skip = NULL;
+   if (*skip_val < 0) {
+      *skip_val = 0;
+      return NULL;
+   }
+
+   if (*skip_val == 1) {
+      start_skip = strdup("gl_SkipComponents1");
+      *skip_val -= 1;
+   } else if (*skip_val == 2) {
+      start_skip = strdup("gl_SkipComponents2");
+      *skip_val -= 2;
+   } else if (*skip_val == 3) {
+      start_skip = strdup("gl_SkipComponents3");
+      *skip_val -= 3;
+   } else if (*skip_val >= 4) {
+      start_skip = strdup("gl_SkipComponents4");
+      *skip_val -= 4;
+   }
+   return start_skip;
+}
+
 static void set_stream_out_varyings(int prog_id, struct vrend_shader_info *sinfo)
 {
    struct pipe_stream_output_info *so = &sinfo->so_info;
    char *varyings[PIPE_MAX_SHADER_OUTPUTS*2];
-   int i;
+   int i, j;
    int n_outputs = 0;
    int last_buffer = 0;
+   char *start_skip;
+   int buf_offset = 0;
+   int skip;
    if (!so->num_outputs)
       return;
 
+   if (vrend_dump_shaders)
+      dump_stream_out(so);
+
    for (i = 0; i < so->num_outputs; i++) {
       if (last_buffer != so->output[i].output_buffer) {
-	 varyings[n_outputs++] = strdup("gl_NextBuffer");
+
+         skip = so->stride[last_buffer] - buf_offset;
+         while (skip) {
+            start_skip = get_skip_str(&skip);
+            if (start_skip)
+               varyings[n_outputs++] = start_skip;
+         }
+         for (j = last_buffer; j < so->output[i].output_buffer; j++)
+            varyings[n_outputs++] = strdup("gl_NextBuffer");
 	 last_buffer = so->output[i].output_buffer;
+         buf_offset = 0;
       }
+
+      skip = so->output[i].dst_offset - buf_offset;
+      while (skip) {
+         start_skip = get_skip_str(&skip);
+         if (start_skip)
+            varyings[n_outputs++] = start_skip;
+      }
+      buf_offset = so->output[i].dst_offset;
+
+      buf_offset += so->output[i].num_components;
       if (sinfo->so_names[i])
 	 varyings[n_outputs++] = strdup(sinfo->so_names[i]);
+   }
+
+   skip = so->stride[last_buffer] - buf_offset;
+   while (skip) {
+      start_skip = get_skip_str(&skip);
+      if (start_skip)
+         varyings[n_outputs++] = start_skip;
    }
 
    glTransformFeedbackVaryings(prog_id, n_outputs,
@@ -910,6 +997,16 @@ static void vrend_free_programs(struct vrend_sub_context *sub)
    }
 }  
 
+static void vrend_destroy_streamout_object(struct vrend_streamout_object *obj)
+{
+   int i;
+   list_del(&obj->head);
+   for (i = 0; i < obj->num_targets; i++)
+      vrend_so_target_reference(&obj->so_targets[i], NULL);
+   glDeleteTransformFeedbacks(1, &obj->id);
+   FREE(obj);
+}
+
 int vrend_create_surface(struct vrend_context *ctx,
                          uint32_t handle,
                          uint32_t res_handle, uint32_t format,
@@ -963,6 +1060,31 @@ static void vrend_destroy_sampler_view_object(void *obj_ptr)
 static void vrend_destroy_so_target_object(void *obj_ptr)
 {
    struct vrend_so_target *target = obj_ptr;
+   struct vrend_sub_context *sub_ctx = target->sub_ctx;
+   struct vrend_streamout_object *obj, *tmp;
+   bool found;
+   int i;
+
+   LIST_FOR_EACH_ENTRY_SAFE(obj, tmp, &sub_ctx->streamout_list, head) {
+      found = false;
+      for (i = 0; i < obj->num_targets; i++) {
+	 if (obj->so_targets[i] == target) {
+	    found = true;
+	    break;
+	 }
+      }
+      if (found) {
+	 if (obj == sub_ctx->current_so)
+	    sub_ctx->current_so = NULL;
+	 if (obj->xfb_state == XFB_STATE_PAUSED) {
+	    glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, obj->id);
+	    glEndTransformFeedback();
+	    if (sub_ctx->current_so)
+	       glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, sub_ctx->current_so->id);
+	 }
+	 vrend_destroy_streamout_object(obj);
+      }
+   }
 
    vrend_so_target_reference(&target, NULL);
 }
@@ -2091,7 +2213,8 @@ static GLenum get_xfb_mode(GLenum mode)
 }
 
 void vrend_draw_vbo(struct vrend_context *ctx,
-                    const struct pipe_draw_info *info)
+                    const struct pipe_draw_info *info,
+                    uint32_t cso)
 {
    int i;
    int sampler_id;
@@ -2377,15 +2500,17 @@ void vrend_draw_vbo(struct vrend_context *ctx,
       glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
 //   vrend_ctx_restart_queries(ctx);
-   if (ctx->sub->xfb_state == XFB_STATE_STARTED_NEED_BEGIN) {
-      if (ctx->sub->gs)
-         glBeginTransformFeedback(get_gs_xfb_mode(ctx->sub->gs->sinfo.gs_out_prim));
-      else
-         glBeginTransformFeedback(get_xfb_mode(info->mode));
-      ctx->sub->xfb_state = XFB_STATE_STARTED;
-   } else if (ctx->sub->xfb_state == XFB_STATE_PAUSED) {
-      glResumeTransformFeedback();
-      ctx->sub->xfb_state = XFB_STATE_STARTED;
+   if (ctx->sub->current_so) {
+      if (ctx->sub->current_so->xfb_state == XFB_STATE_STARTED_NEED_BEGIN) {
+         if (ctx->sub->gs)
+            glBeginTransformFeedback(get_gs_xfb_mode(ctx->sub->gs->sinfo.gs_out_prim));
+         else
+            glBeginTransformFeedback(get_xfb_mode(info->mode));
+         ctx->sub->current_so->xfb_state = XFB_STATE_STARTED;
+      } else if (ctx->sub->current_so->xfb_state == XFB_STATE_PAUSED) {
+         glResumeTransformFeedback();
+         ctx->sub->current_so->xfb_state = XFB_STATE_STARTED;
+      }
    }
 
    if (info->primitive_restart) {
@@ -2400,12 +2525,14 @@ void vrend_draw_vbo(struct vrend_context *ctx,
    /* set the vertex state up now on a delay */
    if (!info->indexed) {
       GLenum mode = info->mode;
+      int count = cso ? cso : info->count;
+      int start = cso ? 0 : info->start;
       if (info->instance_count <= 1)
-         glDrawArrays(mode, info->start, info->count);
+         glDrawArrays(mode, start, count);
       else if (info->start_instance)
-         glDrawArraysInstancedBaseInstance(mode, info->start, info->count, info->instance_count, info->start_instance);
+         glDrawArraysInstancedBaseInstance(mode, start, count, info->instance_count, info->start_instance);
       else
-         glDrawArraysInstancedARB(mode, info->start, info->count, info->instance_count);
+         glDrawArraysInstancedARB(mode, start, count, info->instance_count);
    } else {
       GLenum elsz;
       GLenum mode = info->mode;
@@ -2444,9 +2571,11 @@ void vrend_draw_vbo(struct vrend_context *ctx,
          glDisable(GL_PRIMITIVE_RESTART);
    }
 
-   if (ctx->sub->xfb_state == XFB_STATE_STARTED) {
-     glPauseTransformFeedback();
-     ctx->sub->xfb_state = XFB_STATE_PAUSED;
+   if (ctx->sub->current_so) {
+      if (ctx->sub->current_so->xfb_state == XFB_STATE_STARTED) {
+         glPauseTransformFeedback();
+         ctx->sub->current_so->xfb_state = XFB_STATE_PAUSED;
+      }
    }
 }
 
@@ -3239,6 +3368,8 @@ vrend_renderer_fini(void)
 static void vrend_destroy_sub_context(struct vrend_sub_context *sub)
 {
    int i;
+   struct vrend_streamout_object *obj, *tmp;
+
    if (sub->fb_id)
       glDeleteFramebuffers(1, &sub->fb_id);
  
@@ -3254,6 +3385,12 @@ static void vrend_destroy_sub_context(struct vrend_sub_context *sub)
 
    glDeleteVertexArrays(1, &sub->vaoid);
 
+   if (sub->current_so)
+     glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, 0);
+
+   LIST_FOR_EACH_ENTRY_SAFE(obj, tmp, &sub->streamout_list, head) {
+      vrend_destroy_streamout_object(obj);
+   }
    vrend_shader_state_reference(&sub->vs, NULL);
    vrend_shader_state_reference(&sub->fs, NULL);
    vrend_shader_state_reference(&sub->gs, NULL);
@@ -4424,15 +4561,15 @@ void vrend_set_sample_mask(struct vrend_context *ctx, unsigned sample_mask)
 }
 
 
-static void vrend_hw_emit_streamout_targets(struct vrend_context *ctx)
+static void vrend_hw_emit_streamout_targets(struct vrend_context *ctx, struct vrend_streamout_object *so_obj)
 {
    int i;
 
-   for (i = 0; i < ctx->sub->num_so_targets; i++) {
-      if (ctx->sub->so_targets[i]->buffer_offset || ctx->sub->so_targets[i]->buffer_size < ctx->sub->so_targets[i]->buffer->base.width0)
-         glBindBufferRange(GL_TRANSFORM_FEEDBACK_BUFFER, i, ctx->sub->so_targets[i]->buffer->id, ctx->sub->so_targets[i]->buffer_offset, ctx->sub->so_targets[i]->buffer_size);
+   for (i = 0; i < so_obj->num_targets; i++) {
+      if (so_obj->so_targets[i]->buffer_offset || so_obj->so_targets[i]->buffer_size < so_obj->so_targets[i]->buffer->base.width0)
+         glBindBufferRange(GL_TRANSFORM_FEEDBACK_BUFFER, i, so_obj->so_targets[i]->buffer->id, so_obj->so_targets[i]->buffer_offset, so_obj->so_targets[i]->buffer_size);
       else
-         glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, i, ctx->sub->so_targets[i]->buffer->id);
+         glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, i, so_obj->so_targets[i]->buffer->id);
    }
 }
 
@@ -4443,36 +4580,45 @@ void vrend_set_streamout_targets(struct vrend_context *ctx,
 {
    struct vrend_so_target *target;
    int i;
-   int old_num = ctx->sub->num_so_targets;
 
-   ctx->sub->num_so_targets = num_targets;
-
-   if (num_targets == 0 && (ctx->sub->xfb_state == XFB_STATE_STARTED || ctx->sub->xfb_state == XFB_STATE_PAUSED)) {
-      glEndTransformFeedback();
-      ctx->sub->xfb_state = XFB_STATE_OFF;
-   }
-
-   for (i = 0; i < num_targets; i++) {
-      target = vrend_object_lookup(ctx->sub->object_hash, handles[i], VIRGL_OBJECT_STREAMOUT_TARGET);
-      if (!target) {
-         report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_HANDLE, handles[i]);
-         return;
+   if (num_targets) {
+      bool found = false;
+      struct vrend_streamout_object *obj;
+      LIST_FOR_EACH_ENTRY(obj, &ctx->sub->streamout_list, head) {
+	 if (obj->num_targets == num_targets) {
+	    if (!memcmp(handles, obj->handles, num_targets * 4)) {
+	       found = true;
+	       break;
+	    }
+	 }
       }
-      vrend_so_target_reference(&ctx->sub->so_targets[i], target);
+      if (found) {
+         ctx->sub->current_so = obj;
+	 glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, obj->id);
+	 return;
+      }
+
+      obj = CALLOC_STRUCT(vrend_streamout_object);
+      glGenTransformFeedbacks(1, &obj->id);
+      glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, obj->id);
+      obj->num_targets = num_targets;
+      for (i = 0; i < num_targets; i++) {
+	 obj->handles[i] = handles[i];
+	 target = vrend_object_lookup(ctx->sub->object_hash, handles[i], VIRGL_OBJECT_STREAMOUT_TARGET);
+	 if (!target) {
+	    report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_HANDLE, handles[i]);
+	    return;
+	 }
+	 vrend_so_target_reference(&obj->so_targets[i], target);
+      }
+      vrend_hw_emit_streamout_targets(ctx, obj);
+      list_addtail(&obj->head, &ctx->sub->streamout_list);
+      ctx->sub->current_so = obj;
+      obj->xfb_state = XFB_STATE_STARTED_NEED_BEGIN;
+   } else {
+     glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, 0);
+     ctx->sub->current_so = NULL;
    }
-
-   for (i = num_targets; i < old_num; i++) {
-      glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, i, 0);
-      vrend_so_target_reference(&ctx->sub->so_targets[i], NULL);
-   }
-
-   vrend_hw_emit_streamout_targets(ctx);
-
-   if (ctx->sub->num_so_targets) {
-      if (ctx->sub->xfb_state == XFB_STATE_OFF)
-        ctx->sub->xfb_state = XFB_STATE_STARTED_NEED_BEGIN;
-   }
-
 }
 
 static void vrend_resource_buffer_copy(struct vrend_context *ctx,
@@ -5163,7 +5309,7 @@ int vrend_create_so_target(struct vrend_context *ctx,
    target->res_handle = res_handle;
    target->buffer_offset = buffer_offset;
    target->buffer_size = buffer_size;
-
+   target->sub_ctx = ctx->sub;
    vrend_resource_reference(&target->buffer, res);
 
    ret_handle = vrend_renderer_object_insert(ctx, target, sizeof(*target), handle,
@@ -5566,6 +5712,8 @@ void vrend_renderer_create_sub_ctx(struct vrend_context *ctx, int sub_ctx_id)
    glGenFramebuffers(2, sub->blit_fb_ids);
 
    list_inithead(&sub->programs);
+   list_inithead(&sub->streamout_list);
+
    sub->object_hash = vrend_object_init_ctx_table();
    vrend_bind_va(sub->vaoid);
 

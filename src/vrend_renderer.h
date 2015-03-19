@@ -124,7 +124,8 @@ void vrend_clear(struct vrend_context *ctx,
                  double depth, unsigned stencil);
 
 void vrend_draw_vbo(struct vrend_context *ctx,
-                    const struct pipe_draw_info *info);
+                    const struct pipe_draw_info *info,
+                    uint32_t cso);
 
 void vrend_set_framebuffer_state(struct vrend_context *ctx,
                                  uint32_t nr_cbufs, uint32_t surf_handle[8],
