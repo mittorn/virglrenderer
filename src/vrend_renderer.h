@@ -131,10 +131,6 @@ void vrend_set_framebuffer_state(struct vrend_context *ctx,
                                  uint32_t nr_cbufs, uint32_t surf_handle[8],
                                  uint32_t zsurf_handle);
 
-void vrend_flush(struct vrend_context *ctx);
-
-
-void vrend_flush_frontbuffer(uint32_t res_handle);
 struct vrend_context *vrend_create_context(int id, uint32_t nlen, const char *debug_name);
 bool vrend_destroy_context(struct vrend_context *ctx);
 int vrend_renderer_context_create(uint32_t handle, uint32_t nlen, const char *name);
@@ -243,7 +239,6 @@ void vrend_set_index_buffer(struct vrend_context *ctx,
                             uint32_t index_size,
                             uint32_t offset);
 
-
 #define VREND_TRANSFER_WRITE 1
 #define VREND_TRANSFER_READ 2
 int vrend_renderer_transfer_iov(const struct vrend_transfer_info *info, int transfer_mode);
@@ -328,7 +323,7 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
                               union virgl_caps *caps);
 
 GLint64 vrend_renderer_get_timestamp(void);
-/* formats */
+
 void vrend_build_format_list(void);
 
 int vrend_renderer_resource_attach_iov(int res_handle, struct iovec *iov,
@@ -354,7 +349,6 @@ void vrend_renderer_get_rect(int resource_id, struct iovec *iov, unsigned int nu
                              uint32_t offset, int x, int y, int width, int height);
 void vrend_renderer_attach_res_ctx(int ctx_id, int resource_id);
 void vrend_renderer_detach_res_ctx(int ctx_id, int resource_id);
-
 
 struct vrend_renderer_resource_info {
    uint32_t handle;

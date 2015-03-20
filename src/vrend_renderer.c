@@ -46,22 +46,8 @@
 #include "vrend_renderer.h"
 
 #include "virgl_hw.h"
-/* transfer boxes from the guest POV are in y = 0 = top orientation */
-/* blit/copy operations from the guest POV are in y = 0 = top orientation */
 
-/* since we are storing things in OpenGL FBOs we need to flip transfer operations by default */
-
-static struct vrend_resource *vrend_renderer_ctx_res_lookup(struct vrend_context *ctx, int res_handle);
-static void vrend_update_viewport_state(struct vrend_context *ctx);
-static void vrend_update_scissor_state(struct vrend_context *ctx);
-static void vrend_destroy_query_object(void *obj_ptr);
-static void vrend_finish_context_switch(struct vrend_context *ctx);
-static void vrend_patch_blend_func(struct vrend_context *ctx);
-static void vrend_update_frontface_state(struct vrend_context *ctx);
-static void vrender_get_glsl_version(int *glsl_version);
-static void vrend_destroy_resource_object(void *obj_ptr);
-static void vrend_renderer_detach_res_ctx_p(struct vrend_context *ctx, int res_handle);
-
+/* debugging aid to dump shaders */
 int vrend_dump_shaders;
 
 struct vrend_if_cbs *vrend_clicbs;
@@ -165,10 +151,6 @@ struct vrend_shader_selector {
 
    struct vrend_shader *current;
    struct tgsi_token *tokens;
-};
-
-struct vrend_buffer {
-   struct vrend_resource base;
 };
 
 struct vrend_texture {
@@ -386,6 +368,16 @@ struct vrend_context {
    struct vrend_shader_cfg shader_cfg;
 };
 
+static struct vrend_resource *vrend_renderer_ctx_res_lookup(struct vrend_context *ctx, int res_handle);
+static void vrend_update_viewport_state(struct vrend_context *ctx);
+static void vrend_update_scissor_state(struct vrend_context *ctx);
+static void vrend_destroy_query_object(void *obj_ptr);
+static void vrend_finish_context_switch(struct vrend_context *ctx);
+static void vrend_patch_blend_func(struct vrend_context *ctx);
+static void vrend_update_frontface_state(struct vrend_context *ctx);
+static void vrender_get_glsl_version(int *glsl_version);
+static void vrend_destroy_resource_object(void *obj_ptr);
+static void vrend_renderer_detach_res_ctx_p(struct vrend_context *ctx, int res_handle);
 static void vrend_destroy_program(struct vrend_linked_shader_program *ent);
 static void vrend_apply_sampler_state(struct vrend_context *ctx,
                                       struct vrend_resource *res,
@@ -652,6 +644,7 @@ static void vrend_alpha_test_enable(struct vrend_context *ctx, bool alpha_test_e
          glDisable(GL_ALPHA_TEST);
    }
 }
+
 static void vrend_stencil_test_enable(struct vrend_context *ctx, bool stencil_test_enable)
 {
    if (ctx->sub->stencil_test_enabled != stencil_test_enable) {
@@ -1736,6 +1729,7 @@ void vrend_set_uniform_buffer(struct vrend_context *ctx,
       ctx->sub->const_bufs_used_mask[shader] &= ~(1 << index);
    }
 }
+
 void vrend_set_index_buffer(struct vrend_context *ctx,
                             uint32_t res_handle,
                             uint32_t index_size,
@@ -1905,9 +1899,6 @@ void vrend_set_num_sampler_views(struct vrend_context *ctx,
    }
    ctx->sub->views[shader_type].num_views = start_slot + num_sampler_views;
 }
-
-
-
 
 static void vrend_destroy_shader_object(void *obj_ptr)
 {
@@ -2277,7 +2268,7 @@ static void vrend_draw_bind_vertex_legacy(struct vrend_context *ctx,
    for (i = 0; i < va->count; i++) {
       struct vrend_vertex_element *ve = &va->elements[i];
       int vbo_index = ve->base.vertex_buffer_index;
-      struct vrend_buffer *buf;
+      struct vrend_resource *res;
       GLint loc;
 
       if (i >= ctx->sub->prog->ss[PIPE_SHADER_VERTEX]->sel->sinfo.num_inputs) {
@@ -2285,9 +2276,9 @@ static void vrend_draw_bind_vertex_legacy(struct vrend_context *ctx,
          num_enable = ctx->sub->prog->ss[PIPE_SHADER_VERTEX]->sel->sinfo.num_inputs;
          break;
       }
-      buf = (struct vrend_buffer *)ctx->sub->vbo[vbo_index].buffer;
+      res = (struct vrend_resource *)ctx->sub->vbo[vbo_index].buffer;
 
-      if (!buf) {
+      if (!res) {
          fprintf(stderr,"cannot find vbo buf %d %d %d\n", i, va->count, ctx->sub->prog->ss[PIPE_SHADER_VERTEX]->sel->sinfo.num_inputs);
          continue;
       }
@@ -2315,7 +2306,7 @@ static void vrend_draw_bind_vertex_legacy(struct vrend_context *ctx,
          return;
       }
 
-      glBindBuffer(GL_ARRAY_BUFFER, buf->base.id);
+      glBindBuffer(GL_ARRAY_BUFFER, res->id);
 
       if (ctx->sub->vbo[vbo_index].stride == 0) {
          void *data;
@@ -3276,8 +3267,6 @@ void vrend_bind_sampler_states(struct vrend_context *ctx,
    ctx->sub->sampler_state_dirty = true;
 }
 
-
-
 static void vrend_apply_sampler_state(struct vrend_context *ctx,
                                       struct vrend_resource *res,
                                       uint32_t shader_type,
@@ -3343,15 +3332,6 @@ static void vrend_apply_sampler_state(struct vrend_context *ctx,
    if (memcmp(&tex->state.border_color, &state->border_color, 16) || set_all)
       glTexParameterIuiv(target, GL_TEXTURE_BORDER_COLOR, state->border_color.ui);
    tex->state = *state;
-}
-
-void vrend_flush(struct vrend_context *ctx)
-{
-   glFlush();
-}
-
-void vrend_flush_frontbuffer(uint32_t res_handle)
-{
 }
 
 static GLenum tgsitargettogltarget(const enum pipe_texture_target target, int nr_samples)
@@ -4664,7 +4644,6 @@ void vrend_set_sample_mask(struct vrend_context *ctx, unsigned sample_mask)
    glSampleMaski(0, sample_mask);
 }
 
-
 static void vrend_hw_emit_streamout_targets(struct vrend_context *ctx, struct vrend_streamout_object *so_obj)
 {
    int i;
@@ -5222,7 +5201,6 @@ static void vrend_finish_context_switch(struct vrend_context *ctx)
    vrend_clicbs->make_current(0, ctx->sub->gl_context);
 }
 
-
 void
 vrend_renderer_object_destroy(struct vrend_context *ctx, uint32_t handle)
 {
@@ -5617,7 +5595,6 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
          }
       }
    }
-
 }
 
 GLint64 vrend_renderer_get_timestamp(void)
@@ -5743,6 +5720,7 @@ void vrend_renderer_detach_res_ctx(int ctx_id, int res_handle)
       return;
    vrend_renderer_detach_res_ctx_p(ctx, res_handle);
 }
+
 static struct vrend_resource *vrend_renderer_ctx_res_lookup(struct vrend_context *ctx, int res_handle)
 {
    struct vrend_resource *res = vrend_object_lookup(ctx->res_hash, res_handle, 1);
@@ -5830,7 +5808,6 @@ void vrend_renderer_create_sub_ctx(struct vrend_context *ctx, int sub_ctx_id)
    if (sub_ctx_id == 0)
       ctx->sub0 = sub;
 }
-
 
 void vrend_renderer_destroy_sub_ctx(struct vrend_context *ctx, int sub_ctx_id)
 {
