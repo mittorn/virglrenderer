@@ -63,9 +63,7 @@ static void vrend_destroy_resource_object(void *obj_ptr);
 static void vrend_renderer_detach_res_ctx_p(struct vrend_context *ctx, int res_handle);
 extern int vrend_shader_use_explicit;
 static int have_invert_mesa = 0;
-static int use_core_profile = 0;
 
-static int renderer_gl_major, renderer_gl_minor;
 int vrend_dump_shaders;
 
 struct vrend_if_cbs *vrend_clicbs;
@@ -95,6 +93,10 @@ struct global_error_state {
 
 struct global_renderer_state {
    bool inited;
+
+   bool use_core_profile;
+   int gl_major_ver;
+   int gl_minor_ver;
 
    struct list_head fence_list;
    struct vrend_context *current_ctx;
@@ -637,7 +639,7 @@ static void vrend_depth_test_enable(struct vrend_context *ctx, GLboolean depth_t
 static void vrend_alpha_test_enable(struct vrend_context *ctx,
                                     GLboolean alpha_test_enable)
 {
-   if (use_core_profile) {
+   if (vrend_state.use_core_profile) {
        /* handled in shaders */
        return;
    }
@@ -1122,7 +1124,7 @@ static GLuint convert_wrap(int wrap)
 {
    switch(wrap){
    case PIPE_TEX_WRAP_REPEAT: return GL_REPEAT;
-   case PIPE_TEX_WRAP_CLAMP: if (use_core_profile == 0) return GL_CLAMP; else return GL_CLAMP_TO_EDGE;
+   case PIPE_TEX_WRAP_CLAMP: if (vrend_state.use_core_profile == false) return GL_CLAMP; else return GL_CLAMP_TO_EDGE;
 
    case PIPE_TEX_WRAP_CLAMP_TO_EDGE: return GL_CLAMP_TO_EDGE;
    case PIPE_TEX_WRAP_CLAMP_TO_BORDER: return GL_CLAMP_TO_BORDER;
@@ -1837,7 +1839,7 @@ void vrend_set_single_sampler_view(struct vrend_context *ctx,
          glBindTexture(view->texture->target, view->texture->id);
 
          if (util_format_is_depth_or_stencil(view->format)) {
-            if (use_core_profile == 0) {
+            if (vrend_state.use_core_profile == false) {
                /* setting depth texture mode is deprecated in core profile */
                if (view->depth_texture_mode != GL_RED) {
                   glTexParameteri(view->texture->target, GL_DEPTH_TEXTURE_MODE, GL_RED);
@@ -1918,7 +1920,7 @@ static void vrend_destroy_shader_object(void *obj_ptr)
 static inline void vrend_fill_shader_key(struct vrend_context *ctx,
                                          struct vrend_shader_key *key)
 {
-   if (use_core_profile == 1) {
+   if (vrend_state.use_core_profile == true) {
       int i;
       boolean add_alpha_test = true;
       for (i = 0; i < ctx->sub->nr_cbufs; i++) {
@@ -2443,7 +2445,7 @@ static void vrend_draw_bind_samplers(struct vrend_context *ctx)
                ctx->sub->views[shader_type].old_ids[i] = id;
             }
             if (ctx->sub->rs_state.point_quad_rasterization) {
-               if (use_core_profile == 0) {
+               if (vrend_state.use_core_profile == false) {
                   if (ctx->sub->rs_state.sprite_coord_enable & (1 << i))
                      glTexEnvi(GL_POINT_SPRITE_ARB, GL_COORD_REPLACE_ARB, GL_TRUE);
                   else
@@ -2456,7 +2458,7 @@ static void vrend_draw_bind_samplers(struct vrend_context *ctx)
       }
    }
 
-   if (use_core_profile && ctx->sub->prog->fs_stipple_loc != -1) {
+   if (vrend_state.use_core_profile && ctx->sub->prog->fs_stipple_loc != -1) {
       glActiveTexture(GL_TEXTURE0 + sampler_id);
       glBindTexture(GL_TEXTURE_2D, ctx->pstipple_tex_id);
       glUniform1i(ctx->sub->prog->fs_stipple_loc, sampler_id);
@@ -2960,7 +2962,7 @@ static void vrend_hw_emit_dsa(struct vrend_context *ctx)
  
    if (state->alpha.enabled) {
       vrend_alpha_test_enable(ctx, GL_TRUE);
-      if (!use_core_profile)
+      if (!vrend_state.use_core_profile)
          glAlphaFunc(GL_NEVER + state->alpha.func, state->alpha.ref_value);
    } else
       vrend_alpha_test_enable(ctx, GL_FALSE);
@@ -3090,7 +3092,7 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
          glDisable(GL_RASTERIZER_DISCARD);
    }
 
-   if (use_core_profile == 0) {
+   if (vrend_state.use_core_profile == false) {
       glPolygonMode(GL_FRONT, translate_fill(state->fill_front));
       glPolygonMode(GL_BACK, translate_fill(state->fill_back));
    } else if (state->fill_front == state->fill_back) {
@@ -3116,7 +3118,7 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
 
    if (state->flatshade != ctx->sub->hw_rs_state.flatshade) {
       ctx->sub->hw_rs_state.flatshade = state->flatshade;
-      if (use_core_profile == 0) {
+      if (vrend_state.use_core_profile == false) {
          if (state->flatshade) {
             glShadeModel(GL_FLAT);
          } else {
@@ -3134,7 +3136,7 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
    }
    glPolygonOffset(state->offset_scale, state->offset_units);
 
-   if (use_core_profile == 0) {
+   if (vrend_state.use_core_profile == false) {
       if (state->poly_stipple_enable)
          glEnable(GL_POLYGON_STIPPLE);
       else
@@ -3145,12 +3147,12 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
    }
 
    if (state->point_quad_rasterization) {
-      if (use_core_profile == 0)
+      if (vrend_state.use_core_profile == false)
          glEnable(GL_POINT_SPRITE);
 
       glPointParameteri(GL_POINT_SPRITE_COORD_ORIGIN, state->sprite_coord_mode ? GL_UPPER_LEFT : GL_LOWER_LEFT);
    } else {
-      if (use_core_profile == 0)
+      if (vrend_state.use_core_profile == false)
          glDisable(GL_POINT_SPRITE);
    }
    if (state->cull_face != PIPE_FACE_NONE) {
@@ -3170,7 +3172,7 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
       glDisable(GL_CULL_FACE);
 
    /* two sided lighting handled in shader for core profile */
-   if (use_core_profile == 0) {
+   if (vrend_state.use_core_profile == false) {
       if (state->light_twoside)
          glEnable(GL_VERTEX_PROGRAM_TWO_SIDE);
       else
@@ -3186,7 +3188,7 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
             glDisable(GL_CLIP_PLANE0 + i);
       }
    }
-   if (use_core_profile == 0) {
+   if (vrend_state.use_core_profile == false) {
       glLineStipple(state->line_stipple_factor, state->line_stipple_pattern);
       if (state->line_stipple_enable)
          glEnable(GL_LINE_STIPPLE);
@@ -3205,7 +3207,7 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
    else
       glDisable(GL_POLYGON_SMOOTH);
 
-   if (use_core_profile == 0) {
+   if (vrend_state.use_core_profile == false) {
       if (state->clamp_vertex_color)
          glClampColor(GL_CLAMP_VERTEX_COLOR_ARB, GL_TRUE);
       else
@@ -3403,11 +3405,11 @@ void vrend_renderer_init(struct vrend_if_cbs *cbs)
    vrend_clicbs->make_current(0, gl_context);
    gl_ver = epoxy_gl_version();
 
-   renderer_gl_major = gl_ver / 10;
-   renderer_gl_minor = gl_ver % 10;
+   vrend_state.gl_major_ver = gl_ver / 10;
+   vrend_state.gl_minor_ver = gl_ver % 10;
    if (gl_ver > 30 && !glewIsSupported("GL_ARB_compatibility")) {
       fprintf(stderr, "gl_version %d - core profile enabled\n", gl_ver);
-      use_core_profile = 1;
+      vrend_state.use_core_profile = 1;
    } else {
       fprintf(stderr, "gl_version %d - compat profile\n", gl_ver);
    }
@@ -3522,7 +3524,7 @@ bool vrend_destroy_context(struct vrend_context *ctx)
       vrend_state.current_hw_ctx = NULL;
    }
 
-   if (use_core_profile) {
+   if (vrend_state.use_core_profile) {
       if (ctx->pstip_inited)
          glDeleteTextures(1, &ctx->pstipple_tex_id);
       ctx->pstip_inited = false;
@@ -3569,7 +3571,7 @@ struct vrend_context *vrend_create_context(int id, uint32_t nlen, const char *de
 
    grctx->res_hash = vrend_object_init_ctx_table();
 
-   grctx->shader_cfg.use_core_profile = use_core_profile;
+   grctx->shader_cfg.use_core_profile = vrend_state.use_core_profile;
 
    vrend_renderer_create_sub_ctx(grctx, 0);
    vrend_renderer_set_sub_ctx(grctx, 0);
@@ -4109,7 +4111,7 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
          need_temp = true;
       }
 
-      if (use_core_profile == 1 && (res->y_0_top || (res->base.format == (enum pipe_format)VIRGL_FORMAT_Z24X8_UNORM))) {
+      if (vrend_state.use_core_profile == true && (res->y_0_top || (res->base.format == (enum pipe_format)VIRGL_FORMAT_Z24X8_UNORM))) {
 	 need_temp = true;
          if (res->y_0_top)
             invert = true;
@@ -4151,7 +4153,7 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
       glformat = tex_conv_table[res->base.format].glformat;
       gltype = tex_conv_table[res->base.format].gltype; 
 
-      if ((!use_core_profile) && (res->y_0_top)) {
+      if ((!vrend_state.use_core_profile) && (res->y_0_top)) {
          if (res->readback_fb_id == 0 || res->readback_fb_level != info->level) {
             GLuint fb_id;
             if (res->readback_fb_id)
@@ -4198,7 +4200,7 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
                but we give them to the host GL and it interprets them
                as 32-bit scaled integers, so we need to scale them here */
             depth_scale = 256.0;
-            if (!use_core_profile)
+            if (!vrend_state.use_core_profile)
                glPixelTransferf(GL_DEPTH_SCALE, depth_scale);
             else
                vrend_scale_depth(data, send_size, depth_scale);
@@ -4244,7 +4246,7 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
             }
          }
          if (res->base.format == (enum pipe_format)VIRGL_FORMAT_Z24X8_UNORM) {
-            if (!use_core_profile)
+            if (!vrend_state.use_core_profile)
                glPixelTransferf(GL_DEPTH_SCALE, 1.0);
          }
       }
@@ -4428,7 +4430,7 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
          but we give them to the host GL and it interprets them
          as 32-bit scaled integers, so we need to scale them here */
       depth_scale = 1.0 / 256.0;
-      if (!use_core_profile) {
+      if (!vrend_state.use_core_profile) {
          glPixelTransferf(GL_DEPTH_SCALE, depth_scale);
       }
    }
@@ -4438,7 +4440,7 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
       glReadPixels(info->box->x, y1, info->box->width, info->box->height, format, type, data);
 
    if (res->base.format == (enum pipe_format)VIRGL_FORMAT_Z24X8_UNORM) {
-      if (!use_core_profile)
+      if (!vrend_state.use_core_profile)
          glPixelTransferf(GL_DEPTH_SCALE, 1.0);
       else
          vrend_scale_depth(data, send_size, depth_scale);
@@ -4617,7 +4619,7 @@ void vrend_set_scissor_state(struct vrend_context *ctx,
 void vrend_set_polygon_stipple(struct vrend_context *ctx,
                                struct pipe_poly_stipple *ps)
 {
-   if (use_core_profile) {
+   if (vrend_state.use_core_profile) {
       static const unsigned bit31 = 1 << 31;
       GLubyte *stip = calloc(1, 1024);
       int i, j;
@@ -4649,7 +4651,7 @@ void vrend_set_polygon_stipple(struct vrend_context *ctx,
 
 void vrend_set_clip_state(struct vrend_context *ctx, struct pipe_clip_state *ucp)
 {
-   if (use_core_profile) {
+   if (vrend_state.use_core_profile) {
       ctx->sub->ucp_state = *ucp;
    } else {
       int i, j;
@@ -5477,7 +5479,7 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
          caps->v1.bset.conditional_render = 1;
    }
 
-   if (use_core_profile) {
+   if (vrend_state.use_core_profile) {
       caps->v1.bset.poly_stipple = 0;
       caps->v1.bset.color_clamping = 0;
    } else {
@@ -5539,7 +5541,7 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
 
    /* we only support up to GLSL 1.40 features now */
    caps->v1.glsl_level = 130;
-   if (use_core_profile) {
+   if (vrend_state.use_core_profile) {
       if (gl_ver == 31)
          caps->v1.glsl_level = 140;
       else if (gl_ver == 32)
@@ -5591,7 +5593,7 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
       caps->v1.max_viewports = 1;
 
    caps->v1.prim_mask = (1 << PIPE_PRIM_POINTS) | (1 << PIPE_PRIM_LINES) | (1 << PIPE_PRIM_LINE_STRIP) | (1 << PIPE_PRIM_LINE_LOOP) | (1 << PIPE_PRIM_TRIANGLES) | (1 << PIPE_PRIM_TRIANGLE_STRIP) | (1 << PIPE_PRIM_TRIANGLE_FAN);
-   if (use_core_profile == 0) {
+   if (vrend_state.use_core_profile == false) {
       caps->v1.prim_mask |= (1 << PIPE_PRIM_QUADS) | (1 << PIPE_PRIM_QUAD_STRIP) | (1 << PIPE_PRIM_POLYGON);
    }
    if (caps->v1.glsl_level >= 150)
@@ -5809,8 +5811,8 @@ void vrend_renderer_create_sub_ctx(struct vrend_context *ctx, int sub_ctx_id)
       return;
 
    ctx_params.shared = (ctx->ctx_id == 0 && sub_ctx_id == 0) ? false : true;
-   ctx_params.major_ver = renderer_gl_major;
-   ctx_params.minor_ver = renderer_gl_minor;
+   ctx_params.major_ver = vrend_state.gl_major_ver;
+   ctx_params.minor_ver = vrend_state.gl_minor_ver;
    sub->gl_context = vrend_clicbs->create_gl_context(0, &ctx_params);
    vrend_clicbs->make_current(0, sub->gl_context);
 
