@@ -53,15 +53,15 @@ struct vrend_shader_info {
 
 struct vrend_shader_key {
    uint32_t coord_replace;
-   boolean invert_fs_origin;
-   boolean pstipple_tex;
-   boolean add_alpha_test;
-   boolean color_two_side;
+   bool invert_fs_origin;
+   bool pstipple_tex;
+   bool add_alpha_test;
+   bool color_two_side;
    uint8_t alpha_test;
    uint8_t clip_plane_enable;
    float alpha_ref_val;
-   boolean gs_present;
-   boolean flatshade;
+   bool gs_present;
+   bool flatshade;
 };
   
 struct vrend_shader_cfg {
@@ -69,10 +69,10 @@ struct vrend_shader_cfg {
    bool use_core_profile;
 };
 
-boolean vrend_patch_vertex_shader_interpolants(char *program,
-                                               struct vrend_shader_info *vs_info,
-                                               struct vrend_shader_info *fs_info,
-                                               bool is_gs, bool flatshade);
+bool vrend_patch_vertex_shader_interpolants(char *program,
+					    struct vrend_shader_info *vs_info,
+					    struct vrend_shader_info *fs_info,
+					    bool is_gs, bool flatshade);
 
 char *vrend_convert_shader(struct vrend_shader_cfg *cfg,
                            const struct tgsi_token *tokens,

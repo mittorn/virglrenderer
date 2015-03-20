@@ -50,13 +50,13 @@ struct vrend_shader_io {
    unsigned		done;
    int			sid;
    unsigned		interpolate;
-   boolean                 centroid;
+   bool                 centroid;
    unsigned first;
-   boolean glsl_predefined_no_emit;
-   boolean glsl_no_index;
-   boolean glsl_gl_in;
-   boolean override_no_wm;
-   boolean is_int;
+   bool glsl_predefined_no_emit;
+   bool glsl_no_index;
+   bool glsl_gl_in;
+   bool override_no_wm;
+   bool is_int;
    char glsl_name[64];
 };
 
@@ -117,14 +117,14 @@ struct dump_ctx {
    /* create a shader with lower left if upper left is primary variant
       or vice versa */
    uint32_t shadow_samp_mask;
-   boolean write_all_cbufs;
+   bool write_all_cbufs;
    int fs_coord_origin, fs_pixel_center;
 
    int gs_in_prim, gs_out_prim, gs_max_out_verts;
 
    struct vrend_shader_key *key;
-   boolean has_ints;
-   boolean has_instanceid;
+   bool has_ints;
+   bool has_instanceid;
    int indent_level;
    int num_in_clip_dist;
    int num_clip_dist;
@@ -173,17 +173,17 @@ static inline int gs_input_prim_to_size(int prim)
    };
 }
 
-static inline boolean fs_emit_layout(struct dump_ctx *ctx)
+static inline bool fs_emit_layout(struct dump_ctx *ctx)
 {
    if (ctx->fs_pixel_center)
-      return TRUE;
+      return true;
    /* if coord origin is 0 and invert is 0 - emit origin_upper_left,
       if coord_origin is 0 and invert is 1 - emit nothing (lower)
       if coord origin is 1 and invert is 0 - emit nothing (lower)
       if coord_origin is 1 and invert is 1 - emit origin upper left */
    if (!(ctx->fs_coord_origin ^ ctx->key->invert_fs_origin))
-       return TRUE;
-   return FALSE;
+       return true;
+   return false;
 }
 
 static char *strcat_realloc(char *str, const char *catstr)
@@ -218,10 +218,10 @@ iter_declaration(struct tgsi_iterate_context *iter,
       ctx->inputs[i].sid = decl->Semantic.Index;
       ctx->inputs[i].interpolate = decl->Interp.Interpolate;
       ctx->inputs[i].first = decl->Range.First;
-      ctx->inputs[i].glsl_predefined_no_emit = FALSE;
-      ctx->inputs[i].glsl_no_index = FALSE;
-      ctx->inputs[i].override_no_wm = FALSE;
-      ctx->inputs[i].glsl_gl_in = FALSE;
+      ctx->inputs[i].glsl_predefined_no_emit = false;
+      ctx->inputs[i].glsl_no_index = false;
+      ctx->inputs[i].override_no_wm = false;
+      ctx->inputs[i].glsl_gl_in = false;
 
       switch (ctx->inputs[i].name) {
       case TGSI_SEMANTIC_COLOR:
@@ -233,7 +233,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
                   name_prefix = "gl_SecondaryColor";
                else
                   fprintf(stderr, "got illegal color semantic index %d\n", decl->Semantic.Index);
-               ctx->inputs[i].glsl_no_index = TRUE;
+               ctx->inputs[i].glsl_no_index = true;
             } else {
                if (ctx->key->color_two_side) {
                   int j = ctx->num_inputs++;
@@ -241,9 +241,9 @@ iter_declaration(struct tgsi_iterate_context *iter,
                   ctx->inputs[j].sid = decl->Semantic.Index;
                   ctx->inputs[j].interpolate = decl->Interp.Interpolate;
                   ctx->inputs[j].first = decl->Range.First;
-                  ctx->inputs[j].glsl_predefined_no_emit = FALSE;
-                  ctx->inputs[j].glsl_no_index = FALSE;
-                  ctx->inputs[j].override_no_wm = FALSE;
+                  ctx->inputs[j].glsl_predefined_no_emit = false;
+                  ctx->inputs[j].glsl_no_index = false;
+                  ctx->inputs[j].override_no_wm = false;
 
                   ctx->color_in_mask |= (1 << decl->Semantic.Index);
 
@@ -254,9 +254,9 @@ iter_declaration(struct tgsi_iterate_context *iter,
                      ctx->inputs[k].interpolate = 0;
                      ctx->inputs[k].centroid = 0;
                      ctx->inputs[k].first = 0;
-                     ctx->inputs[k].override_no_wm = FALSE;
-                     ctx->inputs[k].glsl_predefined_no_emit = TRUE;
-                     ctx->inputs[k].glsl_no_index = TRUE;
+                     ctx->inputs[k].override_no_wm = false;
+                     ctx->inputs[k].glsl_predefined_no_emit = true;
+                     ctx->inputs[k].glsl_no_index = true;
                   }
                   add_two_side = true;
                }
@@ -268,53 +268,53 @@ iter_declaration(struct tgsi_iterate_context *iter,
       case TGSI_SEMANTIC_PRIMID:
          if (iter->processor.Processor == TGSI_PROCESSOR_GEOMETRY) {
             name_prefix = "gl_PrimitiveIDIn";
-            ctx->inputs[i].glsl_predefined_no_emit = TRUE;
-            ctx->inputs[i].glsl_no_index = TRUE;
-            ctx->inputs[i].override_no_wm = TRUE;
-            ctx->has_ints = TRUE;
+            ctx->inputs[i].glsl_predefined_no_emit = true;
+            ctx->inputs[i].glsl_no_index = true;
+            ctx->inputs[i].override_no_wm = true;
+            ctx->has_ints = true;
             break;
          } else if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
             name_prefix = "gl_PrimitiveID";
-            ctx->inputs[i].glsl_predefined_no_emit = TRUE;
-            ctx->inputs[i].glsl_no_index = TRUE;
+            ctx->inputs[i].glsl_predefined_no_emit = true;
+            ctx->inputs[i].glsl_no_index = true;
             ctx->glsl_ver_required = 150;
             break;
          }
       case TGSI_SEMANTIC_PSIZE:
          if (iter->processor.Processor == TGSI_PROCESSOR_GEOMETRY) {
             name_prefix = "gl_PointSize";
-            ctx->inputs[i].glsl_predefined_no_emit = TRUE;
-            ctx->inputs[i].glsl_no_index = TRUE;
-            ctx->inputs[i].override_no_wm = TRUE;
-            ctx->inputs[i].glsl_gl_in = TRUE;
+            ctx->inputs[i].glsl_predefined_no_emit = true;
+            ctx->inputs[i].glsl_no_index = true;
+            ctx->inputs[i].override_no_wm = true;
+            ctx->inputs[i].glsl_gl_in = true;
             break;
          }
       case TGSI_SEMANTIC_CLIPDIST:
          if (iter->processor.Processor == TGSI_PROCESSOR_GEOMETRY) {
             name_prefix = "gl_ClipDistance";
-            ctx->inputs[i].glsl_predefined_no_emit = TRUE;
-            ctx->inputs[i].glsl_no_index = TRUE;
-            ctx->inputs[i].glsl_gl_in = TRUE;
+            ctx->inputs[i].glsl_predefined_no_emit = true;
+            ctx->inputs[i].glsl_no_index = true;
+            ctx->inputs[i].glsl_gl_in = true;
             ctx->num_in_clip_dist += 4;
             break;
          } else if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
             name_prefix = "gl_ClipDistance";
-            ctx->inputs[i].glsl_predefined_no_emit = TRUE;
-            ctx->inputs[i].glsl_no_index = TRUE;
+            ctx->inputs[i].glsl_predefined_no_emit = true;
+            ctx->inputs[i].glsl_no_index = true;
             ctx->num_in_clip_dist += 4;
             break;
          }
       case TGSI_SEMANTIC_POSITION:
          if (iter->processor.Processor == TGSI_PROCESSOR_GEOMETRY) {
             name_prefix = "gl_Position";
-            ctx->inputs[i].glsl_predefined_no_emit = TRUE;
-            ctx->inputs[i].glsl_no_index = TRUE;
-            ctx->inputs[i].glsl_gl_in = TRUE;
+            ctx->inputs[i].glsl_predefined_no_emit = true;
+            ctx->inputs[i].glsl_no_index = true;
+            ctx->inputs[i].glsl_gl_in = true;
             break;
          } else if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
             name_prefix = "gl_FragCoord";
-            ctx->inputs[i].glsl_predefined_no_emit = TRUE;
-            ctx->inputs[i].glsl_no_index = TRUE;
+            ctx->inputs[i].glsl_predefined_no_emit = true;
+            ctx->inputs[i].glsl_no_index = true;
             break;
          }
          /* fallthrough for vertex shader */
@@ -325,17 +325,17 @@ iter_declaration(struct tgsi_iterate_context *iter,
                return TRUE;
             }
             name_prefix = "gl_FrontFacing";
-            ctx->inputs[i].glsl_predefined_no_emit = TRUE;
-            ctx->inputs[i].glsl_no_index = TRUE;
-            ctx->front_face_emitted = TRUE;
+            ctx->inputs[i].glsl_predefined_no_emit = true;
+            ctx->inputs[i].glsl_no_index = true;
+            ctx->front_face_emitted = true;
             break;
          }
       case TGSI_SEMANTIC_GENERIC:
          if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
             if (ctx->key->coord_replace & (1 << ctx->inputs[i].sid)) {
                name_prefix = "vec4(gl_PointCoord, 0.0, 1.0)";
-               ctx->inputs[i].glsl_predefined_no_emit = TRUE;
-               ctx->inputs[i].glsl_no_index = TRUE;
+               ctx->inputs[i].glsl_predefined_no_emit = true;
+               ctx->inputs[i].glsl_no_index = true;
                break;
             }
          }
@@ -378,10 +378,10 @@ iter_declaration(struct tgsi_iterate_context *iter,
       ctx->outputs[i].sid = decl->Semantic.Index;
       ctx->outputs[i].interpolate = decl->Interp.Interpolate;
       ctx->outputs[i].first = decl->Range.First;
-      ctx->outputs[i].glsl_predefined_no_emit = FALSE;
-      ctx->outputs[i].glsl_no_index = FALSE;
-      ctx->outputs[i].override_no_wm = FALSE;
-      ctx->outputs[i].is_int = FALSE;
+      ctx->outputs[i].glsl_predefined_no_emit = false;
+      ctx->outputs[i].glsl_no_index = false;
+      ctx->outputs[i].override_no_wm = false;
+      ctx->outputs[i].is_int = false;
 
       switch (ctx->outputs[i].name) {
       case TGSI_SEMANTIC_POSITION:
@@ -390,21 +390,21 @@ iter_declaration(struct tgsi_iterate_context *iter,
             if (ctx->outputs[i].first > 0)
                fprintf(stderr,"Illegal position input\n");
             name_prefix = "gl_Position";
-            ctx->outputs[i].glsl_predefined_no_emit = TRUE;
-            ctx->outputs[i].glsl_no_index = TRUE;
+            ctx->outputs[i].glsl_predefined_no_emit = true;
+            ctx->outputs[i].glsl_no_index = true;
          } else if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
             if (ctx->outputs[i].first > 0)
                fprintf(stderr,"Illegal position input\n");
             name_prefix = "gl_FragDepth";
-            ctx->outputs[i].glsl_predefined_no_emit = TRUE;
-            ctx->outputs[i].glsl_no_index = TRUE;
-            ctx->outputs[i].override_no_wm = TRUE;
+            ctx->outputs[i].glsl_predefined_no_emit = true;
+            ctx->outputs[i].glsl_no_index = true;
+            ctx->outputs[i].override_no_wm = true;
          }
          break;
       case TGSI_SEMANTIC_CLIPDIST:
          name_prefix = "gl_ClipDistance";
-         ctx->outputs[i].glsl_predefined_no_emit = TRUE;
-         ctx->outputs[i].glsl_no_index = TRUE;
+         ctx->outputs[i].glsl_predefined_no_emit = true;
+         ctx->outputs[i].glsl_no_index = true;
          ctx->num_clip_dist += 4;
          if (iter->processor.Processor == TGSI_PROCESSOR_VERTEX &&
              ctx->key->gs_present)
@@ -412,9 +412,9 @@ iter_declaration(struct tgsi_iterate_context *iter,
          break;
       case TGSI_SEMANTIC_CLIPVERTEX:
          name_prefix = "gl_ClipVertex";
-         ctx->outputs[i].glsl_predefined_no_emit = TRUE;
-         ctx->outputs[i].glsl_no_index = TRUE;
-         ctx->outputs[i].override_no_wm = TRUE;
+         ctx->outputs[i].glsl_predefined_no_emit = true;
+         ctx->outputs[i].glsl_no_index = true;
+         ctx->outputs[i].override_no_wm = true;
          if (ctx->glsl_ver_required >= 140)
             ctx->has_clipvertex = true;
          break;
@@ -422,7 +422,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
       case TGSI_SEMANTIC_COLOR:
          if (iter->processor.Processor == TGSI_PROCESSOR_VERTEX) {
             if (ctx->glsl_ver_required < 140) {
-               ctx->outputs[i].glsl_no_index = TRUE;
+               ctx->outputs[i].glsl_no_index = true;
                if (ctx->outputs[i].sid == 0)
                   name_prefix = "gl_FrontColor";
                else if (ctx->outputs[i].sid == 1)
@@ -435,7 +435,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
       case TGSI_SEMANTIC_BCOLOR:
          if (iter->processor.Processor == TGSI_PROCESSOR_VERTEX) {
             if (ctx->glsl_ver_required < 140) {
-               ctx->outputs[i].glsl_no_index = TRUE;
+               ctx->outputs[i].glsl_no_index = true;
                if (ctx->outputs[i].sid == 0)
                   name_prefix = "gl_BackColor";
                else if (ctx->outputs[i].sid == 1)
@@ -447,42 +447,42 @@ iter_declaration(struct tgsi_iterate_context *iter,
          }
       case TGSI_SEMANTIC_PSIZE:
          if (iter->processor.Processor == TGSI_PROCESSOR_VERTEX) {
-            ctx->outputs[i].glsl_predefined_no_emit = TRUE;
-            ctx->outputs[i].glsl_no_index = TRUE;
-            ctx->outputs[i].override_no_wm = TRUE;
+            ctx->outputs[i].glsl_predefined_no_emit = true;
+            ctx->outputs[i].glsl_no_index = true;
+            ctx->outputs[i].override_no_wm = true;
             name_prefix = "gl_PointSize";
             break;
          } else if (iter->processor.Processor == TGSI_PROCESSOR_GEOMETRY) {
-            ctx->outputs[i].glsl_predefined_no_emit = TRUE;
-            ctx->outputs[i].glsl_no_index = TRUE;
-            ctx->outputs[i].override_no_wm = TRUE;
+            ctx->outputs[i].glsl_predefined_no_emit = true;
+            ctx->outputs[i].glsl_no_index = true;
+            ctx->outputs[i].override_no_wm = true;
             name_prefix = "gl_PointSize";
             break;
          }
       case TGSI_SEMANTIC_LAYER:
          if (iter->processor.Processor == TGSI_PROCESSOR_GEOMETRY) {
-            ctx->outputs[i].glsl_predefined_no_emit = TRUE;
-            ctx->outputs[i].glsl_no_index = TRUE;
-            ctx->outputs[i].override_no_wm = TRUE;
-            ctx->outputs[i].is_int = TRUE;
+            ctx->outputs[i].glsl_predefined_no_emit = true;
+            ctx->outputs[i].glsl_no_index = true;
+            ctx->outputs[i].override_no_wm = true;
+            ctx->outputs[i].is_int = true;
             name_prefix = "gl_Layer";
             break;
          }
       case TGSI_SEMANTIC_PRIMID:
          if (iter->processor.Processor == TGSI_PROCESSOR_GEOMETRY) {
-            ctx->outputs[i].glsl_predefined_no_emit = TRUE;
-            ctx->outputs[i].glsl_no_index = TRUE;
-            ctx->outputs[i].override_no_wm = TRUE;
-            ctx->outputs[i].is_int = TRUE;
+            ctx->outputs[i].glsl_predefined_no_emit = true;
+            ctx->outputs[i].glsl_no_index = true;
+            ctx->outputs[i].override_no_wm = true;
+            ctx->outputs[i].is_int = true;
             name_prefix = "gl_PrimitiveID";
             break;
          }
       case TGSI_SEMANTIC_VIEWPORT_INDEX:
          if (iter->processor.Processor == TGSI_PROCESSOR_GEOMETRY) {
-            ctx->outputs[i].glsl_predefined_no_emit = TRUE;
-            ctx->outputs[i].glsl_no_index = TRUE;
-            ctx->outputs[i].override_no_wm = TRUE;
-            ctx->outputs[i].is_int = TRUE;
+            ctx->outputs[i].glsl_predefined_no_emit = true;
+            ctx->outputs[i].glsl_no_index = true;
+            ctx->outputs[i].override_no_wm = true;
+            ctx->outputs[i].is_int = true;
             name_prefix = "gl_ViewportIndex";
 	    if (ctx->glsl_ver_required >= 140)
 	      ctx->has_viewport_idx = true;
@@ -553,16 +553,16 @@ iter_declaration(struct tgsi_iterate_context *iter,
       i = ctx->num_system_values++;
       ctx->system_values[i].name = decl->Semantic.Name;
       ctx->system_values[i].sid = decl->Semantic.Index;
-      ctx->system_values[i].glsl_predefined_no_emit = TRUE;
-      ctx->system_values[i].glsl_no_index = TRUE;
-      ctx->system_values[i].override_no_wm = TRUE;
+      ctx->system_values[i].glsl_predefined_no_emit = true;
+      ctx->system_values[i].glsl_no_index = true;
+      ctx->system_values[i].override_no_wm = true;
       ctx->system_values[i].first = decl->Range.First;
       if (decl->Semantic.Name == TGSI_SEMANTIC_INSTANCEID) {
          name_prefix = "gl_InstanceID";
-         ctx->has_instanceid = TRUE;
+         ctx->has_instanceid = true;
       } else if (decl->Semantic.Name == TGSI_SEMANTIC_VERTEXID) {
 	 name_prefix = "gl_VertexID";
-         ctx->has_ints = TRUE;
+         ctx->has_ints = true;
       } else {
          fprintf(stderr, "unsupported system value %d\n", decl->Semantic.Name);
          name_prefix = "unknown";
@@ -573,7 +573,6 @@ iter_declaration(struct tgsi_iterate_context *iter,
       fprintf(stderr,"unsupported file %d declaration\n", decl->Declaration.File);
       break;
    }
-
 
    return TRUE;
 }
@@ -586,7 +585,7 @@ iter_property(struct tgsi_iterate_context *iter,
 
    if (prop->Property.PropertyName == TGSI_PROPERTY_FS_COLOR0_WRITES_ALL_CBUFS) {
       if (prop->u[0].Data == 1)
-         ctx->write_all_cbufs = TRUE;
+         ctx->write_all_cbufs = true;
    }
 
    if (prop->Property.PropertyName == TGSI_PROPERTY_FS_COORD_ORIGIN) {
@@ -630,10 +629,10 @@ iter_immediate(
       if (imm->Immediate.DataType == TGSI_IMM_FLOAT32) {
          ctx->imm[first].val[i].f = imm->u[i].Float;
       } else if (imm->Immediate.DataType == TGSI_IMM_UINT32) {
-         ctx->has_ints = TRUE;
+         ctx->has_ints = true;
          ctx->imm[first].val[i].ui  = imm->u[i].Uint;
       } else if (imm->Immediate.DataType == TGSI_IMM_INT32) {
-         ctx->has_ints = TRUE;
+         ctx->has_ints = true;
          ctx->imm[first].val[i].i = imm->u[i].Int;
       } 
    }
@@ -1156,7 +1155,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
       ctx->prog_type = iter->processor.Processor;
    if (dtype == TGSI_TYPE_SIGNED || dtype == TGSI_TYPE_UNSIGNED ||
        stype == TGSI_TYPE_SIGNED || stype == TGSI_TYPE_UNSIGNED)
-      ctx->has_ints = TRUE;
+      ctx->has_ints = true;
 
    if (inst->Instruction.Opcode == TGSI_OPCODE_TXQ) {
       dtypeprefix = "intBitsToFloat";
@@ -1329,7 +1328,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
                 snprintf(srcs[i], 255, "%s(%s%subo%dcontents[%d]%s)", stypeprefix, prefix, cname, dim, src->Register.Index, swizzle);
           } else {
              const char *csp;
-             ctx->has_ints = TRUE;
+             ctx->has_ints = true;
              if (stype == TGSI_TYPE_FLOAT || stype == TGSI_TYPE_UNTYPED)
                 csp = "uintBitsToFloat";
              else if (stype == TGSI_TYPE_SIGNED)
@@ -1387,7 +1386,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
             switch (imd->type) {
             case TGSI_IMM_FLOAT32:
                if (isinf(imd->val[idx].f) || isnan(imd->val[idx].f)) {
-                  ctx->has_ints = TRUE;
+                  ctx->has_ints = true;
                   snprintf(temp, 48, "uintBitsToFloat(%uU)", imd->val[idx].ui);
                } else
                   snprintf(temp, 25, "%.8g", imd->val[idx].f);
@@ -1910,7 +1909,7 @@ const char *vrend_shader_samplertypeconv(int sampler_type, int *is_shad)
         }
 }
 
-static const char *get_interp_string(int interpolate, boolean flatshade)
+static const char *get_interp_string(int interpolate, bool flatshade)
 {
    switch (interpolate) {
    case TGSI_INTERPOLATE_LINEAR:
@@ -1937,7 +1936,7 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
 
    if (ctx->prog_type == TGSI_PROCESSOR_FRAGMENT) {
       if (fs_emit_layout(ctx)) {
-         boolean upper_left = !(ctx->fs_coord_origin ^ ctx->key->invert_fs_origin); 
+         bool upper_left = !(ctx->fs_coord_origin ^ ctx->key->invert_fs_origin); 
          char comma = (upper_left && ctx->fs_pixel_center) ? ',' : ' ';
 
          snprintf(buf, 255, "layout(%s%c%s) in vec4 gl_FragCoord;\n",
@@ -2268,18 +2267,18 @@ static void replace_interp(char *program,
    memcpy(ptr, pstring, strlen(pstring));
 }
 
-boolean vrend_patch_vertex_shader_interpolants(char *program,
-                                               struct vrend_shader_info *vs_info,
-                                               struct vrend_shader_info *fs_info, bool is_gs, bool flatshade)
+bool vrend_patch_vertex_shader_interpolants(char *program,
+					    struct vrend_shader_info *vs_info,
+					    struct vrend_shader_info *fs_info, bool is_gs, bool flatshade)
 {
    int i;
    const char *pstring;
    char glsl_name[64];
    if (!vs_info || !fs_info)
-      return TRUE;
+      return true;
 
    if (!fs_info->interpinfo)
-      return TRUE;
+      return true;
 
    for (i = 0; i < fs_info->num_interps; i++) {
       pstring = get_interp_string(fs_info->interpinfo[i].interpolate, flatshade);
@@ -2313,5 +2312,5 @@ boolean vrend_patch_vertex_shader_interpolants(char *program,
 
    if (vrend_dump_shaders)
       fprintf(stderr,"GLSL: post interp:  %s\n", program);
-   return TRUE;
+   return true;
 }

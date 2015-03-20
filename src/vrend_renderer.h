@@ -56,9 +56,8 @@ struct vrend_resource {
 
    struct iovec *iov;
    uint32_t num_iovs;
-   boolean y_0_top;
+   bool y_0_top;
 
-   boolean scannedout;
    GLuint tbo_tex_id;/* tbos have two ids to track */
 };
 
@@ -302,7 +301,7 @@ int vrend_renderer_create_fence(int client_fence_id, uint32_t ctx_id);
 void vrend_renderer_check_fences(void);
 void vrend_renderer_check_queries(void);
 
-boolean vrend_hw_switch_context(struct vrend_context *ctx, boolean now);
+bool vrend_hw_switch_context(struct vrend_context *ctx, bool now);
 uint32_t vrend_renderer_object_insert(struct vrend_context *ctx, void *data,
                                  uint32_t size, uint32_t handle, enum virgl_object_type type);
 void vrend_renderer_object_destroy(struct vrend_context *ctx, uint32_t handle);
@@ -317,7 +316,7 @@ void vrend_get_query_result(struct vrend_context *ctx, uint32_t handle,
                             uint32_t wait);
 void vrend_render_condition(struct vrend_context *ctx,
                             uint32_t handle,
-                            boolean condtion,
+                            bool condtion,
                             uint mode);
 void *vrend_renderer_get_cursor_contents(uint32_t res_handle, uint32_t *width, uint32_t *height);
 void vrend_bind_va(GLuint vaoid);

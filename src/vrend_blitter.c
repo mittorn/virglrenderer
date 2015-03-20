@@ -351,7 +351,7 @@ static void get_texcoords(struct vrend_resource *src_res,
                           int x1, int y1, int x2, int y2,
                           float out[4])
 {
-   boolean normalized = src_res->base.target != PIPE_TEXTURE_RECT &&
+   bool normalized = src_res->base.target != PIPE_TEXTURE_RECT &&
        src_res->base.nr_samples <= 1;
 
    if (normalized) {
@@ -468,7 +468,7 @@ void vrend_renderer_blit_gl(struct vrend_context *ctx,
     GLenum filter;
     GLuint pos_loc, tc_loc;
     GLuint samp_loc;
-    boolean has_depth, has_stencil;
+    bool has_depth, has_stencil;
     bool blit_stencil, blit_depth;
     int dst_z;
     const struct util_format_description *src_desc =

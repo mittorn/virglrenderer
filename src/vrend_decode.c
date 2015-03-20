@@ -954,7 +954,7 @@ static int vrend_decode_get_query_result(struct vrend_decode_ctx *ctx, int lengt
 static int vrend_decode_set_render_condition(struct vrend_decode_ctx *ctx, int length)
 {
    uint32_t handle = get_buf_entry(ctx, VIRGL_RENDER_CONDITION_HANDLE);
-   boolean condition = get_buf_entry(ctx, VIRGL_RENDER_CONDITION_CONDITION) & 1;
+   bool condition = get_buf_entry(ctx, VIRGL_RENDER_CONDITION_CONDITION) & 1;
    uint mode = get_buf_entry(ctx, VIRGL_RENDER_CONDITION_MODE);
 
    if (length != VIRGL_RENDER_CONDITION_SIZE)
@@ -1061,7 +1061,7 @@ void vrend_renderer_context_destroy(uint32_t handle)
    free(ctx);
    /* switch to ctx 0 */
    if (ret && handle != 0)
-       vrend_hw_switch_context(dec_ctx[0]->grctx, TRUE);
+       vrend_hw_switch_context(dec_ctx[0]->grctx, true);
 }
 
 struct vrend_context *vrend_lookup_renderer_ctx(uint32_t ctx_id)
@@ -1078,7 +1078,7 @@ struct vrend_context *vrend_lookup_renderer_ctx(uint32_t ctx_id)
 int vrend_decode_block(uint32_t ctx_id, uint32_t *block, int ndw)
 {
    struct vrend_decode_ctx *gdctx;
-   boolean bret;
+   bool bret;
    int ret;
    if (ctx_id > VREND_MAX_CTX)
       return EINVAL;
@@ -1088,8 +1088,8 @@ int vrend_decode_block(uint32_t ctx_id, uint32_t *block, int ndw)
 
    gdctx = dec_ctx[ctx_id];
 
-   bret = vrend_hw_switch_context(gdctx->grctx, TRUE);
-   if (bret == FALSE)
+   bret = vrend_hw_switch_context(gdctx->grctx, true);
+   if (bret == false)
       return EINVAL;
 
    gdctx->ds->buf = block;
@@ -1218,7 +1218,7 @@ void vrend_decode_reset(bool ctx_0_only)
 {
    int i;
 
-   vrend_hw_switch_context(dec_ctx[0]->grctx, TRUE);
+   vrend_hw_switch_context(dec_ctx[0]->grctx, true);
 
    if (ctx_0_only == false) {
      for (i = 1; i < VREND_MAX_CTX; i++) {

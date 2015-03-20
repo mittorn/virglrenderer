@@ -248,7 +248,7 @@ static void vrend_add_formats(struct vrend_format_table *table, int num_entries)
    GLuint tex_id, fb_id;
    for (i = 0; i < num_entries; i++) {
       GLenum status;
-      boolean is_depth = FALSE;
+      bool is_depth = false;
       /**/
       glGenTextures(1, &tex_id);
       glGenFramebuffers(1, &fb_id);
@@ -295,7 +295,7 @@ static void vrend_add_formats(struct vrend_format_table *table, int num_entries)
             attachment = GL_DEPTH_STENCIL_ATTACHMENT;
          glFramebufferTexture2D(GL_FRAMEBUFFER_EXT, attachment, GL_TEXTURE_2D, tex_id, 0);
 
-         is_depth = TRUE;
+         is_depth = true;
          glDrawBuffer(GL_NONE);
       } else {
          glFramebufferTexture2D(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, tex_id, 0);
