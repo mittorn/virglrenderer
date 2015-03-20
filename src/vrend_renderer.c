@@ -85,7 +85,6 @@ struct vrend_query {
    uint64_t current_total;
 };
 
-#define VIRGL_INVALID_RESOURCE 1
 struct global_error_state {
    enum virgl_errors last_error;
 };
