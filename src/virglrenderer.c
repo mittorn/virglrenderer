@@ -43,7 +43,7 @@
 #include "virglrenderer.h"
 #include "virgl_egl.h"
 
-struct virgl_egl *egl_info;
+static struct virgl_egl *egl_info;
 /* new API - just wrap internal API for now */
 
 int virgl_renderer_resource_create(struct virgl_renderer_resource_create_args *args, struct iovec *iov, uint32_t num_iovs)

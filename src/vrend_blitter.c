@@ -540,7 +540,7 @@ void vrend_renderer_blit_gl(struct vrend_context *ctx,
     
     glUniform1i(samp_loc, 0);
 
-    glVertexAttribPointer(pos_loc, 4, GL_FLOAT, GL_FALSE, 8 * sizeof(float), 0);
+    glVertexAttribPointer(pos_loc, 4, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)0);
     glVertexAttribPointer(tc_loc, 4, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)(4 * sizeof(float)));
     
     glEnableVertexAttribArray(pos_loc);

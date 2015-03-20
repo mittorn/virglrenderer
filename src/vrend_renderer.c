@@ -976,7 +976,7 @@ static struct vrend_linked_shader_program *lookup_shader_program(struct vrend_co
            return ent;
      }
   }
-  return 0;
+  return NULL;
 }
 
 static void vrend_destroy_program(struct vrend_linked_shader_program *ent)
