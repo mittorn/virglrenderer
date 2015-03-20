@@ -35,9 +35,9 @@ typedef void *virgl_gl_context;
 typedef void *virgl_gl_drawable;
 
 struct virgl_gl_ctx_param {
-   bool shared;
    int major_ver;
    int minor_ver;
+   bool shared;
 };
 
 extern int vrend_dump_shaders;
@@ -51,14 +51,15 @@ struct vrend_resource {
    GLuint readback_fb_id;
    GLuint readback_fb_level;
    GLuint readback_fb_z;
-   void *ptr;
-   GLuint handle;
-
-   struct iovec *iov;
-   uint32_t num_iovs;
-   bool y_0_top;
 
    GLuint tbo_tex_id;/* tbos have two ids to track */
+   bool y_0_top;
+
+   GLuint handle;
+
+   void *ptr;
+   struct iovec *iov;
+   uint32_t num_iovs;
 };
 
 /* assume every format is sampler friendly */
@@ -84,10 +85,10 @@ struct vrend_transfer_info {
    int level;
    uint32_t stride;
    uint32_t layer_stride;
-   struct pipe_box *box;
-   uint64_t offset;
-   struct iovec *iovec;
    unsigned int iovec_cnt;
+   struct iovec *iovec;
+   uint64_t offset;
+   struct pipe_box *box;
 };
 
 struct vrend_if_cbs {

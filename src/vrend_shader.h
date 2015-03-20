@@ -44,10 +44,11 @@ struct vrend_shader_info {
    int num_ucp;
    int glsl_ver;
    uint32_t shadow_samp_mask;
+   int gs_out_prim;
+
    struct pipe_stream_output_info so_info;
 
    struct vrend_interp_info *interpinfo;
-   int gs_out_prim;
    char **so_names;
 };
 
@@ -59,9 +60,9 @@ struct vrend_shader_key {
    bool color_two_side;
    uint8_t alpha_test;
    uint8_t clip_plane_enable;
-   float alpha_ref_val;
    bool gs_present;
    bool flatshade;
+   float alpha_ref_val;
 };
 
 struct vrend_shader_cfg {

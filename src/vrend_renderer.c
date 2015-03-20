@@ -89,9 +89,6 @@ struct global_error_state {
 };
 
 struct global_renderer_state {
-   bool inited;
-
-   bool use_core_profile;
    int gl_major_ver;
    int gl_minor_ver;
 
@@ -99,6 +96,9 @@ struct global_renderer_state {
    struct vrend_context *current_ctx;
    struct vrend_context *current_hw_ctx;
    struct list_head waiting_query_list;
+
+   bool inited;
+   bool use_core_profile;
 
    bool have_mesa_invert;
    bool have_samplers;
@@ -158,13 +158,13 @@ struct vrend_shader {
 
 struct vrend_shader_selector {
    struct pipe_reference reference;
-   struct vrend_shader *current;
-   struct tgsi_token *tokens;
-
-   struct vrend_shader_info sinfo;
 
    unsigned num_shaders;
    unsigned type;
+   struct vrend_shader_info sinfo;
+
+   struct vrend_shader *current;
+   struct tgsi_token *tokens;
 };
 
 struct vrend_buffer {
@@ -210,18 +210,18 @@ struct vrend_sampler_view {
    GLuint res_handle;
    GLuint format;
    GLuint val0, val1;
-   GLuint swizzle_r:3;
-   GLuint swizzle_g:3;
-   GLuint swizzle_b:3;
-   GLuint swizzle_a:3;
    GLuint gl_swizzle_r;
    GLuint gl_swizzle_g;
    GLuint gl_swizzle_b;
    GLuint gl_swizzle_a;
    GLuint cur_base, cur_max;
-   struct vrend_resource *texture;
    GLenum depth_texture_mode;
    GLuint srgb_decode;
+   GLuint swizzle_r:3;
+   GLuint swizzle_g:3;
+   GLuint swizzle_b:3;
+   GLuint swizzle_a:3;
+   struct vrend_resource *texture;
 };
 
 struct vrend_vertex_element {
@@ -280,27 +280,30 @@ struct vrend_sub_context {
    GLuint vaoid;
    uint32_t enabled_attribs_bitmask;
 
-   struct util_hash_table *object_hash;
    struct list_head programs;
+   struct util_hash_table *object_hash;
 
    struct vrend_vertex_element_array *ve;
    int num_vbos;
    int old_num_vbos; /* for cleaning up */
    struct pipe_vertex_buffer vbo[PIPE_MAX_ATTRIBS];
    uint32_t vbo_res_ids[PIPE_MAX_ATTRIBS];
+
+   struct pipe_index_buffer ib;
+   uint32_t index_buffer_res_id;
+
    bool vbo_dirty;
+   bool shader_dirty;
+   bool sampler_state_dirty;
+   bool stencil_state_dirty;
 
    struct vrend_shader_selector *vs;
    struct vrend_shader_selector *gs;
    struct vrend_shader_selector *fs;
 
-   bool shader_dirty;
    struct vrend_linked_shader_program *prog;
 
    struct vrend_shader_view views[PIPE_SHADER_TYPES];
-
-   struct pipe_index_buffer ib;
-   uint32_t index_buffer_res_id;
 
    struct vrend_constants consts[PIPE_SHADER_TYPES];
    bool const_dirty[PIPE_SHADER_TYPES];
@@ -310,7 +313,6 @@ struct vrend_sub_context {
    uint32_t const_bufs_used_mask[PIPE_SHADER_TYPES];
 
    int num_sampler_states[PIPE_SHADER_TYPES];
-   bool sampler_state_dirty;
 
    uint32_t fb_id;
    int nr_cbufs, old_nr_cbufs;
@@ -320,13 +322,9 @@ struct vrend_sub_context {
    struct vrend_viewport vps[PIPE_MAX_VIEWPORTS];
    float depth_transform, depth_scale;
    /* viewport is negative */
-   bool viewport_is_negative;
-   /* this is set if the contents of the FBO look upside down when viewed
-      with 0,0 as the bottom corner */
-   bool inverted_fbo_content;
    uint32_t scissor_state_dirty;
    uint32_t viewport_state_dirty;
-   bool stencil_state_dirty;
+
    uint32_t fb_height;
 
    struct pipe_scissor_state ss[PIPE_MAX_VIEWPORTS];
@@ -336,6 +334,10 @@ struct vrend_sub_context {
    struct pipe_rasterizer_state rs_state;
 
    uint8_t stencil_refs[2];
+   bool viewport_is_negative;
+   /* this is set if the contents of the FBO look upside down when viewed
+      with 0,0 as the bottom corner */
+   bool inverted_fbo_content;
 
    GLuint blit_fb_ids[2];
 
@@ -353,8 +355,8 @@ struct vrend_sub_context {
    struct pipe_rasterizer_state hw_rs_state;
    struct pipe_blend_state hw_blend_state;
 
-   struct vrend_streamout_object *current_so;
    struct list_head streamout_list;
+   struct vrend_streamout_object *current_so;
 };
 
 struct vrend_context {
@@ -366,24 +368,22 @@ struct vrend_context {
    struct vrend_sub_context *sub0;
 
    int ctx_id;
+   /* has this ctx gotten an error? */
+   bool in_error;
+   bool ctx_switch_pending;
+   bool pstip_inited;
+
+   GLuint pstipple_tex_id;
+
+   enum virgl_ctx_errors last_error;
 
    /* resource bounds to this context */
    struct util_hash_table *res_hash;
 
    struct list_head active_nontimer_query_list;
-
-   /* has this ctx gotten an error? */
-   bool in_error;
-   enum virgl_ctx_errors last_error;
-
-   bool ctx_switch_pending;
-
-   bool pstip_inited;
-   GLuint pstipple_tex_id;
+   struct list_head ctx_entry;
 
    struct vrend_shader_cfg shader_cfg;
-
-   struct list_head ctx_entry;
 };
 
 static void vrend_destroy_program(struct vrend_linked_shader_program *ent);

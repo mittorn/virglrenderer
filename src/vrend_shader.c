@@ -42,8 +42,8 @@ struct vrend_shader_io {
    unsigned		done;
    int			sid;
    unsigned		interpolate;
-   bool                 centroid;
    unsigned first;
+   bool                 centroid;
    bool glsl_predefined_no_emit;
    bool glsl_no_index;
    bool glsl_gl_in;
@@ -70,8 +70,8 @@ struct dump_ctx {
    struct tgsi_iterate_context iter;
    struct vrend_shader_cfg *cfg;
    int prog_type;
-   char *glsl_main;
    int size;
+   char *glsl_main;
    uint instno;
 
    int num_interps;
@@ -106,24 +106,24 @@ struct dump_ctx {
    bool uses_lodq;
    bool uses_txq_levels;
    bool uses_tg4;
-   /* create a shader with lower left if upper left is primary variant
-      or vice versa */
-   uint32_t shadow_samp_mask;
    bool write_all_cbufs;
+
+   uint32_t shadow_samp_mask;
+
    int fs_coord_origin, fs_pixel_center;
 
    int gs_in_prim, gs_out_prim, gs_max_out_verts;
 
    struct vrend_shader_key *key;
-   bool has_ints;
-   bool has_instanceid;
    int indent_level;
    int num_in_clip_dist;
    int num_clip_dist;
-
    int glsl_ver_required;
-   bool front_face_emitted;
    int color_in_mask;
+   bool front_face_emitted;
+   bool has_ints;
+   bool has_instanceid;
+
    bool has_clipvertex;
    bool has_clipvertex_so;
    bool has_viewport_idx;
