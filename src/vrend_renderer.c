@@ -62,7 +62,6 @@ static void vrender_get_glsl_version(int *glsl_version);
 static void vrend_destroy_resource_object(void *obj_ptr);
 static void vrend_renderer_detach_res_ctx_p(struct vrend_context *ctx, int res_handle);
 extern int vrend_shader_use_explicit;
-static int have_invert_mesa = 0;
 
 int vrend_dump_shaders;
 
@@ -103,6 +102,7 @@ struct global_renderer_state {
    struct vrend_context *current_hw_ctx;
    struct list_head waiting_query_list;
 
+   boolean have_mesa_invert;
    boolean have_samplers;
    boolean have_robustness;
    boolean have_multisample;
@@ -3419,6 +3419,8 @@ void vrend_renderer_init(struct vrend_if_cbs *cbs)
    else
       fprintf(stderr,"WARNING: running without ARB robustness in place may crash\n");
 
+   if (glewIsSupported("GL_MESA_pack_invert"))
+      vrend_state.have_mesa_invert = TRUE;
    if (gl_ver >= 43 || glewIsSupported("GL_ARB_vertex_attrib_binding"))
       vrend_state.have_vertex_attrib_binding = TRUE;
    if (gl_ver >= 33 || glewIsSupported("GL_ARB_sampler_objects"))
@@ -4364,7 +4366,7 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
 
    actually_invert = res->y_0_top;
 
-   if (actually_invert && !have_invert_mesa)
+   if (actually_invert && !vrend_state.have_mesa_invert)
       separate_invert = TRUE;
 
    if (num_iovs > 1 || separate_invert)
@@ -4402,7 +4404,7 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
    else
       y1 = info->box->y;
 
-   if (have_invert_mesa && actually_invert)
+   if (vrend_state.have_mesa_invert && actually_invert)
       glPixelStorei(GL_PACK_INVERT_MESA, 1);
    if (!vrend_format_is_ds(res->base.format))
       glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
@@ -4445,7 +4447,7 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
       else
          vrend_scale_depth(data, send_size, depth_scale);
    }
-   if (have_invert_mesa && actually_invert)
+   if (vrend_state.have_mesa_invert && actually_invert)
       glPixelStorei(GL_PACK_INVERT_MESA, 0);
    if (!need_temp && info->stride)
       glPixelStorei(GL_PACK_ROW_LENGTH, 0);
