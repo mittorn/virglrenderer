@@ -3383,8 +3383,6 @@ static GLenum tgsitargettogltarget(const enum pipe_texture_target target, int nr
    return PIPE_BUFFER;
 }
 
-#define glewIsSupported epoxy_has_gl_extension
-
 void vrend_renderer_init(struct vrend_if_cbs *cbs)
 {
    int gl_ver;
@@ -3407,34 +3405,34 @@ void vrend_renderer_init(struct vrend_if_cbs *cbs)
 
    vrend_state.gl_major_ver = gl_ver / 10;
    vrend_state.gl_minor_ver = gl_ver % 10;
-   if (gl_ver > 30 && !glewIsSupported("GL_ARB_compatibility")) {
+   if (gl_ver > 30 && !epoxy_has_gl_extension("GL_ARB_compatibility")) {
       fprintf(stderr, "gl_version %d - core profile enabled\n", gl_ver);
       vrend_state.use_core_profile = 1;
    } else {
       fprintf(stderr, "gl_version %d - compat profile\n", gl_ver);
    }
 
-   if (glewIsSupported("GL_ARB_robustness"))
+   if (epoxy_has_gl_extension("GL_ARB_robustness"))
       vrend_state.have_robustness = TRUE;
    else
       fprintf(stderr,"WARNING: running without ARB robustness in place may crash\n");
 
-   if (glewIsSupported("GL_MESA_pack_invert"))
+   if (epoxy_has_gl_extension("GL_MESA_pack_invert"))
       vrend_state.have_mesa_invert = TRUE;
-   if (gl_ver >= 43 || glewIsSupported("GL_ARB_vertex_attrib_binding"))
+   if (gl_ver >= 43 || epoxy_has_gl_extension("GL_ARB_vertex_attrib_binding"))
       vrend_state.have_vertex_attrib_binding = TRUE;
-   if (gl_ver >= 33 || glewIsSupported("GL_ARB_sampler_objects"))
+   if (gl_ver >= 33 || epoxy_has_gl_extension("GL_ARB_sampler_objects"))
       vrend_state.have_samplers = TRUE;
-   if (gl_ver >= 33 || glewIsSupported("GL_ARB_shader_bit_encoding"))
+   if (gl_ver >= 33 || epoxy_has_gl_extension("GL_ARB_shader_bit_encoding"))
       vrend_state.have_bit_encoding = TRUE;
    if (gl_ver >= 31)
       vrend_state.have_gl_prim_restart = TRUE;
-   else if (glewIsSupported("GL_NV_primitive_restart"))
+   else if (epoxy_has_gl_extension("GL_NV_primitive_restart"))
       vrend_state.have_nv_prim_restart = TRUE;
    
-   if (glewIsSupported("GL_EXT_framebuffer_multisample") && glewIsSupported("GL_ARB_texture_multisample")) {
+   if (epoxy_has_gl_extension("GL_EXT_framebuffer_multisample") && epoxy_has_gl_extension("GL_ARB_texture_multisample")) {
       vrend_state.have_multisample = true;
-      if (glewIsSupported("GL_EXT_framebuffer_multisample_blit_scaled"))
+      if (epoxy_has_gl_extension("GL_EXT_framebuffer_multisample_blit_scaled"))
          vrend_state.have_ms_scaled_blit = TRUE;
    }
 
@@ -5475,9 +5473,9 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
       caps->v1.bset.indep_blend_enable = 1;
       caps->v1.bset.conditional_render = 1;
    } else {
-      if (glewIsSupported("GL_EXT_draw_buffers2"))
+      if (epoxy_has_gl_extension("GL_EXT_draw_buffers2"))
          caps->v1.bset.indep_blend_enable = 1;
-      if (glewIsSupported("GL_NV_conditional_render"))
+      if (epoxy_has_gl_extension("GL_NV_conditional_render"))
          caps->v1.bset.conditional_render = 1;
    }
 
@@ -5494,7 +5492,7 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
       vrend_state.max_uniform_blocks = max;
       caps->v1.max_uniform_blocks = max + 1;
    } else {
-      if (glewIsSupported("GL_ARB_draw_instanced"))
+      if (epoxy_has_gl_extension("GL_ARB_draw_instanced"))
          caps->v1.bset.instanceid = 1;
    }
 
@@ -5506,16 +5504,16 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
       caps->v1.bset.depth_clip_disable = 1;
       caps->v1.bset.seamless_cube_map = 1;
    } else {
-      if (glewIsSupported("GL_ARB_fragment_coord_conventions"))
+      if (epoxy_has_gl_extension("GL_ARB_fragment_coord_conventions"))
          caps->v1.bset.fragment_coord_conventions = 1;
-      if (glewIsSupported("GL_ARB_seamless_cube_map"))
+      if (epoxy_has_gl_extension("GL_ARB_seamless_cube_map"))
          caps->v1.bset.seamless_cube_map = 1;
    }
 
-   if (glewIsSupported("GL_AMD_seamless_cube_map_per_texture"))
+   if (epoxy_has_gl_extension("GL_AMD_seamless_cube_map_per_texture"))
       caps->v1.bset.seamless_cube_map_per_texture = 1;
 
-   if (glewIsSupported("GL_ARB_texture_multisample")) {
+   if (epoxy_has_gl_extension("GL_ARB_texture_multisample")) {
        /* disable multisample until developed */
       caps->v1.bset.texture_multisample = 1;
    }
@@ -5524,21 +5522,21 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
       caps->v1.bset.cube_map_array = 1;
       caps->v1.bset.texture_query_lod = 1;
    } else {
-      if (glewIsSupported("GL_ARB_draw_buffers_blend"))
+      if (epoxy_has_gl_extension("GL_ARB_draw_buffers_blend"))
          caps->v1.bset.indep_blend_func = 1;
-      if (glewIsSupported("GL_ARB_texture_cube_map_array"))
+      if (epoxy_has_gl_extension("GL_ARB_texture_cube_map_array"))
          caps->v1.bset.cube_map_array = 1;
-      if (glewIsSupported("GL_ARB_texture_query_lod"))
+      if (epoxy_has_gl_extension("GL_ARB_texture_query_lod"))
          caps->v1.bset.texture_query_lod = 1;
    }
 
    if (gl_ver >= 42) {
       caps->v1.bset.start_instance = 1;
    } else {
-      if (glewIsSupported("GL_ARB_base_instance"))      
+      if (epoxy_has_gl_extension("GL_ARB_base_instance"))
          caps->v1.bset.start_instance = 1;
    }         
-   if (glewIsSupported("GL_ARB_shader_stencil_export"))
+   if (epoxy_has_gl_extension("GL_ARB_shader_stencil_export"))
       caps->v1.bset.shader_stencil_export = 1;
 
    /* we only support up to GLSL 1.40 features now */
@@ -5552,21 +5550,21 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
          caps->v1.glsl_level = 330;
    }
 
-   if (glewIsSupported("GL_EXT_texture_mirror_clamp"))
+   if (epoxy_has_gl_extension("GL_EXT_texture_mirror_clamp"))
       caps->v1.bset.mirror_clamp = true;
 
-   if (glewIsSupported("GL_EXT_texture_array")) {
+   if (epoxy_has_gl_extension("GL_EXT_texture_array")) {
       glGetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS, &max);
       caps->v1.max_texture_array_layers = max;
    }
 
    /* we need tf3 so we can do gallium skip buffers */
-   if (glewIsSupported("GL_ARB_transform_feedback3")) {
+   if (epoxy_has_gl_extension("GL_ARB_transform_feedback3")) {
       glGetIntegerv(GL_MAX_TRANSFORM_FEEDBACK_BUFFERS, &max);
       caps->v1.max_streamout_buffers = max;
       caps->v1.bset.streamout_pause_resume = 1;
    }
-   if (glewIsSupported("GL_ARB_blend_func_extended")) {
+   if (epoxy_has_gl_extension("GL_ARB_blend_func_extended")) {
       glGetIntegerv(GL_MAX_DUAL_SOURCE_DRAW_BUFFERS, &max);
       caps->v1.max_dual_source_render_targets = max;
    } else
@@ -5578,17 +5576,17 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
    glGetIntegerv(GL_MAX_SAMPLES, &max);
    caps->v1.max_samples = max;
 
-   if (glewIsSupported("GL_ARB_texture_buffer_object")) {
+   if (epoxy_has_gl_extension("GL_ARB_texture_buffer_object")) {
       glGetIntegerv(GL_MAX_TEXTURE_BUFFER_SIZE, &max);
       caps->v1.max_tbo_size = max;
    }
 
-   if (glewIsSupported("GL_ARB_texture_gather")) {
+   if (epoxy_has_gl_extension("GL_ARB_texture_gather")) {
      glGetIntegerv(GL_MAX_PROGRAM_TEXTURE_GATHER_COMPONENTS_ARB, &max);
      caps->v1.max_texture_gather_components = max;
    }
 
-   if (glewIsSupported("GL_ARB_viewport_array")) {
+   if (epoxy_has_gl_extension("GL_ARB_viewport_array")) {
       glGetIntegerv(GL_MAX_VIEWPORTS, &max);
       caps->v1.max_viewports = max;
    } else
@@ -5605,7 +5603,7 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
          (1 << PIPE_PRIM_TRIANGLE_STRIP_ADJACENCY);
 
 
-   if (glewIsSupported("GL_ARB_vertex_type_10f_11f_11f_rev")) {
+   if (epoxy_has_gl_extension("GL_ARB_vertex_type_10f_11f_11f_rev")) {
       int i = VIRGL_FORMAT_R11G11B10_FLOAT;
       uint32_t offset = i / 32;
       uint32_t index = i % 32;
