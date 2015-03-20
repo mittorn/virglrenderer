@@ -97,7 +97,7 @@ struct virgl_renderer_resource_create_args {
 };
 
 /* new API */
-   
+
 VIRGL_EXPORT int virgl_renderer_resource_create(struct virgl_renderer_resource_create_args *args, struct iovec *iov, uint32_t num_iovs);
 VIRGL_EXPORT void virgl_renderer_resource_unref(uint32_t res_handle);
 
@@ -109,11 +109,11 @@ VIRGL_EXPORT int virgl_renderer_submit_cmd(void *buffer,
 					   int ndw);
 
 VIRGL_EXPORT int virgl_renderer_transfer_read_iov(uint32_t handle, uint32_t ctx_id,
-                                                   uint32_t level, uint32_t stride,
-                                                   uint32_t layer_stride,
-                                                   struct virgl_box *box,
-                                                   uint64_t offset, struct iovec *iov,
-                                                   int iovec_cnt);
+                                                  uint32_t level, uint32_t stride,
+                                                  uint32_t layer_stride,
+                                                  struct virgl_box *box,
+                                                  uint64_t offset, struct iovec *iov,
+                                                  int iovec_cnt);
 
 VIRGL_EXPORT int virgl_renderer_transfer_write_iov(uint32_t handle,
 						   uint32_t ctx_id,
@@ -132,7 +132,7 @@ VIRGL_EXPORT void virgl_renderer_fill_caps(uint32_t set, uint32_t version,
                                            void *caps);
 
 VIRGL_EXPORT int virgl_renderer_resource_attach_iov(int res_handle, struct iovec *iov,
-                                       int num_iovs);
+                                                    int num_iovs);
 VIRGL_EXPORT void virgl_renderer_resource_detach_iov(int res_handle, struct iovec **iov, int *num_iovs);
 
 VIRGL_EXPORT int virgl_renderer_create_fence(int client_fence_id, uint32_t ctx_id);

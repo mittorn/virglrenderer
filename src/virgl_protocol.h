@@ -65,7 +65,7 @@ enum virgl_context_cmd {
 
 };
 
-/* 
+/*
  8-bit cmd headers
  8-bit object type
  16-bit length

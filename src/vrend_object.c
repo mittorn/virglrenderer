@@ -34,7 +34,7 @@ struct vrend_object_types {
 
 static void (*resource_unref)(void *);
 
-void vrend_object_set_destroy_callback(int type, void (*cb)(void *)) 
+void vrend_object_set_destroy_callback(int type, void (*cb)(void *))
 {
    obj_types[type].unref = cb;
 }
@@ -102,7 +102,7 @@ void vrend_object_fini_ctx_table(struct util_hash_table *ctx_hash)
 {
    if (!ctx_hash)
       return;
-   
+
    util_hash_table_foreach(ctx_hash, free_cb, NULL);
    util_hash_table_destroy(ctx_hash);
 }
@@ -166,12 +166,12 @@ vrend_object_remove(struct util_hash_table *handle_hash,
       return;
    util_hash_table_remove(handle_hash, intptr_to_pointer(handle));
 
-   
+
    vrend_object_free(obj);
 }
 
 void *vrend_object_lookup(struct util_hash_table *handle_hash,
-                         uint32_t handle, enum virgl_object_type type)
+                          uint32_t handle, enum virgl_object_type type)
 {
    struct vrend_object *obj;
 

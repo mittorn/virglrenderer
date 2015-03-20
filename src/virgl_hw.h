@@ -163,7 +163,7 @@ enum virgl_formats {
    VIRGL_FORMAT_L32_SINT                = 223,
    VIRGL_FORMAT_L32A32_SINT             = 224,
 
-   VIRGL_FORMAT_B10G10R10A2_UINT        = 225, 
+   VIRGL_FORMAT_B10G10R10A2_UINT        = 225,
    VIRGL_FORMAT_R8G8B8X8_SNORM          = 229,
 
    VIRGL_FORMAT_R8G8B8X8_SRGB           = 230,

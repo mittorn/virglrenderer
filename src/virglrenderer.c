@@ -59,7 +59,7 @@ void virgl_renderer_resource_unref(uint32_t res_handle)
 void virgl_renderer_fill_caps(uint32_t set, uint32_t version,
                               void *caps)
 {
-  vrend_renderer_fill_caps(set, version, (union virgl_caps *)caps);
+   vrend_renderer_fill_caps(set, version, (union virgl_caps *)caps);
 }
 
 int virgl_renderer_context_create(uint32_t handle, uint32_t nlen, const char *name)
@@ -76,32 +76,32 @@ int virgl_renderer_submit_cmd(void *buffer,
 			      int ctx_id,
 			      int ndw)
 {
-  return vrend_decode_block(ctx_id, buffer, ndw);
+   return vrend_decode_block(ctx_id, buffer, ndw);
 }
 
 int virgl_renderer_transfer_write_iov(uint32_t handle,
-                                       uint32_t ctx_id,
-                                       int level,
-                                       uint32_t stride,
-                                       uint32_t layer_stride,
-                                       struct virgl_box *box,
-                                       uint64_t offset,
-                                       struct iovec *iovec,
-                                       unsigned int iovec_cnt)
+                                      uint32_t ctx_id,
+                                      int level,
+                                      uint32_t stride,
+                                      uint32_t layer_stride,
+                                      struct virgl_box *box,
+                                      uint64_t offset,
+                                      struct iovec *iovec,
+                                      unsigned int iovec_cnt)
 {
-  struct vrend_transfer_info transfer_info;
+   struct vrend_transfer_info transfer_info;
 
-  transfer_info.handle = handle;
-  transfer_info.ctx_id = ctx_id;
-  transfer_info.level = level;
-  transfer_info.stride = stride;
-  transfer_info.layer_stride = layer_stride;
-  transfer_info.box = (struct pipe_box *)box;
-  transfer_info.offset = offset;
-  transfer_info.iovec = iovec;
-  transfer_info.iovec_cnt = iovec_cnt;
+   transfer_info.handle = handle;
+   transfer_info.ctx_id = ctx_id;
+   transfer_info.level = level;
+   transfer_info.stride = stride;
+   transfer_info.layer_stride = layer_stride;
+   transfer_info.box = (struct pipe_box *)box;
+   transfer_info.offset = offset;
+   transfer_info.iovec = iovec;
+   transfer_info.iovec_cnt = iovec_cnt;
 
-  return vrend_renderer_transfer_iov(&transfer_info, VREND_TRANSFER_WRITE);
+   return vrend_renderer_transfer_iov(&transfer_info, VREND_TRANSFER_WRITE);
 }
 
 int virgl_renderer_transfer_read_iov(uint32_t handle, uint32_t ctx_id,
@@ -111,23 +111,23 @@ int virgl_renderer_transfer_read_iov(uint32_t handle, uint32_t ctx_id,
                                      uint64_t offset, struct iovec *iovec,
                                      int iovec_cnt)
 {
-  struct vrend_transfer_info transfer_info;
+   struct vrend_transfer_info transfer_info;
 
-  transfer_info.handle = handle;
-  transfer_info.ctx_id = ctx_id;
-  transfer_info.level = level;
-  transfer_info.stride = stride;
-  transfer_info.layer_stride = layer_stride;
-  transfer_info.box = (struct pipe_box *)box;
-  transfer_info.offset = offset;
-  transfer_info.iovec = iovec;
-  transfer_info.iovec_cnt = iovec_cnt;
+   transfer_info.handle = handle;
+   transfer_info.ctx_id = ctx_id;
+   transfer_info.level = level;
+   transfer_info.stride = stride;
+   transfer_info.layer_stride = layer_stride;
+   transfer_info.box = (struct pipe_box *)box;
+   transfer_info.offset = offset;
+   transfer_info.iovec = iovec;
+   transfer_info.iovec_cnt = iovec_cnt;
 
-  return vrend_renderer_transfer_iov(&transfer_info, VREND_TRANSFER_READ);
+   return vrend_renderer_transfer_iov(&transfer_info, VREND_TRANSFER_READ);
 }
 
 int virgl_renderer_resource_attach_iov(int res_handle, struct iovec *iov,
-                                      int num_iovs)
+                                       int num_iovs)
 {
    return vrend_renderer_resource_attach_iov(res_handle, iov, num_iovs);
 }
@@ -174,7 +174,7 @@ void virgl_renderer_get_cap_set(uint32_t cap_set, uint32_t *max_ver,
 }
 
 void virgl_renderer_get_rect(int resource_id, struct iovec *iov, unsigned int num_iovs,
-                                uint32_t offset, int x, int y, int width, int height)
+                             uint32_t offset, int x, int y, int width, int height)
 {
    vrend_renderer_get_rect(resource_id, iov, num_iovs, offset, x, y, width, height);
 }
@@ -188,19 +188,19 @@ static int use_egl_context;
 static struct vrend_if_cbs virgl_cbs;
 
 void vrend_transfer_write_return(void *data, uint32_t bytes, uint64_t offset,
-                                struct iovec *iov, int num_iovs)
+                                 struct iovec *iov, int num_iovs)
 {
    vrend_write_to_iovec(iov, num_iovs, offset, data, bytes);
 }
 
 void vrend_transfer_write_tex_return(struct pipe_resource *res,
-				    struct pipe_box *box,
-                                    uint32_t level,
-                                    uint32_t dst_stride,
-                                    uint64_t offset,
-                                    struct iovec *iov,
-                                    int num_iovs,
-				    void *myptr, int size, int invert)
+                                     struct pipe_box *box,
+                                     uint32_t level,
+                                     uint32_t dst_stride,
+                                     uint64_t offset,
+                                     struct iovec *iov,
+                                     int num_iovs,
+                                     void *myptr, int size, int invert)
 {
    int elsize = util_format_get_blocksize(res->format);
    int h;
@@ -227,33 +227,33 @@ void vrend_transfer_write_tex_return(struct pipe_resource *res,
 
 static void virgl_write_fence(uint32_t fence_id)
 {
-   rcbs->write_fence(dev_cookie, fence_id);   
+   rcbs->write_fence(dev_cookie, fence_id);
 }
 
 static virgl_renderer_gl_context create_gl_context(int scanout_idx, struct virgl_gl_ctx_param *param)
 {
-    struct virgl_renderer_gl_ctx_param vparam;
-    if (use_egl_context)
-        return virgl_egl_create_context(egl_info, param);
-    vparam.version = 1;
-    vparam.shared = param->shared;
-    vparam.major_ver = param->major_ver;
-    vparam.minor_ver = param->minor_ver;
-    return rcbs->create_gl_context(dev_cookie, scanout_idx, &vparam);
+   struct virgl_renderer_gl_ctx_param vparam;
+   if (use_egl_context)
+      return virgl_egl_create_context(egl_info, param);
+   vparam.version = 1;
+   vparam.shared = param->shared;
+   vparam.major_ver = param->major_ver;
+   vparam.minor_ver = param->minor_ver;
+   return rcbs->create_gl_context(dev_cookie, scanout_idx, &vparam);
 }
 
 static void destroy_gl_context(virgl_renderer_gl_context ctx)
 {
-    if (use_egl_context)
-        return virgl_egl_destroy_context(egl_info, ctx);
-    return rcbs->destroy_gl_context(dev_cookie, ctx);
+   if (use_egl_context)
+      return virgl_egl_destroy_context(egl_info, ctx);
+   return rcbs->destroy_gl_context(dev_cookie, ctx);
 }
 
 static int make_current(int scanout_idx, virgl_renderer_gl_context ctx)
 {
-    if (use_egl_context)
-        return virgl_egl_make_context_current(egl_info, ctx);
-    return rcbs->make_current(dev_cookie, scanout_idx, ctx);
+   if (use_egl_context)
+      return virgl_egl_make_context_current(egl_info, ctx);
+   return rcbs->make_current(dev_cookie, scanout_idx, ctx);
 }
 
 static struct vrend_if_cbs virgl_cbs = {
@@ -288,7 +288,7 @@ void virgl_renderer_cleanup(void *cookie)
 int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks *cbs)
 {
    if (!cookie || !cbs)
-     return -1;
+      return -1;
 
    if (cbs->version != 1)
       return -1;
@@ -297,10 +297,10 @@ int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks
    rcbs = cbs;
 
    if (flags & VIRGL_RENDERER_USE_EGL) {
-       egl_info = virgl_egl_init();
-       if (!egl_info)
-           return -1;
-       use_egl_context = 1;
+      egl_info = virgl_egl_init();
+      if (!egl_info)
+         return -1;
+      use_egl_context = 1;
    }
 
    vrend_renderer_init(&virgl_cbs);
@@ -309,7 +309,7 @@ int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks
 
 int virgl_renderer_get_fd_for_texture(uint32_t tex_id, int *fd)
 {
-    return virgl_egl_get_fd_for_texture(egl_info, tex_id, fd);
+   return virgl_egl_get_fd_for_texture(egl_info, tex_id, fd);
 }
 
 void virgl_renderer_reset(void)

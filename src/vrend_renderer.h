@@ -79,15 +79,15 @@ struct vrend_format_table {
 };
 
 struct vrend_transfer_info {
-  uint32_t handle;
-  uint32_t ctx_id;
-  int level;
-  uint32_t stride;
-  uint32_t layer_stride;
-  struct pipe_box *box;
-  uint64_t offset;
-  struct iovec *iovec;
-  unsigned int iovec_cnt;
+   uint32_t handle;
+   uint32_t ctx_id;
+   int level;
+   uint32_t stride;
+   uint32_t layer_stride;
+   struct pipe_box *box;
+   uint64_t offset;
+   struct iovec *iovec;
+   unsigned int iovec_cnt;
 };
 
 struct vrend_if_cbs {
@@ -128,7 +128,7 @@ void vrend_draw_vbo(struct vrend_context *ctx,
 
 void vrend_set_framebuffer_state(struct vrend_context *ctx,
                                  uint32_t nr_cbufs, uint32_t surf_handle[8],
-   uint32_t zsurf_handle);
+                                 uint32_t zsurf_handle);
 
 void vrend_flush(struct vrend_context *ctx);
 
@@ -165,7 +165,7 @@ struct vrend_renderer_resource_create_args {
    uint32_t nr_samples;
    uint32_t flags;
 };
-     
+
 int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *args, struct iovec *iov, uint32_t num_iovs);
 
 void vrend_renderer_resource_unref(uint32_t handle);
@@ -202,12 +202,12 @@ void vrend_bind_vertex_elements_state(struct vrend_context *ctx,
                                       uint32_t handle);
 
 void vrend_set_single_vbo(struct vrend_context *ctx,
-                         int index,
-                         uint32_t stride,
-                         uint32_t buffer_offset,
-                         uint32_t res_handle);
+                          int index,
+                          uint32_t stride,
+                          uint32_t buffer_offset,
+                          uint32_t res_handle);
 void vrend_set_num_vbo(struct vrend_context *ctx,
-                      int num_vbo);
+                       int num_vbo);
 
 int vrend_transfer_inline_write(struct vrend_context *ctx,
 				struct vrend_transfer_info *info,
@@ -228,7 +228,7 @@ void vrend_set_single_sampler_view(struct vrend_context *ctx,
 void vrend_object_bind_blend(struct vrend_context *ctx,
                              uint32_t handle);
 void vrend_object_bind_dsa(struct vrend_context *ctx,
-                             uint32_t handle);
+                           uint32_t handle);
 void vrend_object_bind_rasterizer(struct vrend_context *ctx,
                                   uint32_t handle);
 
@@ -248,14 +248,14 @@ void vrend_set_index_buffer(struct vrend_context *ctx,
 int vrend_renderer_transfer_iov(const struct vrend_transfer_info *info, int transfer_mode);
 
 void vrend_renderer_resource_copy_region(struct vrend_context *ctx,
-                                        uint32_t dst_handle, uint32_t dst_level,
-                                        uint32_t dstx, uint32_t dsty, uint32_t dstz,
-                                        uint32_t src_handle, uint32_t src_level,
-                                        const struct pipe_box *src_box);
+                                         uint32_t dst_handle, uint32_t dst_level,
+                                         uint32_t dstx, uint32_t dsty, uint32_t dstz,
+                                         uint32_t src_handle, uint32_t src_level,
+                                         const struct pipe_box *src_box);
 
 void vrend_renderer_blit(struct vrend_context *ctx,
-                        uint32_t dst_handle, uint32_t src_handle,
-                        const struct pipe_blit_info *info);
+                         uint32_t dst_handle, uint32_t src_handle,
+                         const struct pipe_blit_info *info);
 
 void vrend_set_stencil_ref(struct vrend_context *ctx, struct pipe_stencil_ref *ref);
 void vrend_set_blend_color(struct vrend_context *ctx, struct pipe_blend_color *color);
@@ -280,16 +280,16 @@ void vrend_set_uniform_buffer(struct vrend_context *ctx, uint32_t shader,
                               uint32_t res_handle);
 
 void vrend_transfer_write_return(void *data, uint32_t bytes, uint64_t offset,
-                                struct iovec *iov, int iovec_cnt);
+                                 struct iovec *iov, int iovec_cnt);
 
 void vrend_transfer_write_tex_return(struct pipe_resource *res,
-				    struct pipe_box *box,
-                                    uint32_t level,
-                                    uint32_t dst_stride,
-                                    uint64_t offset,
-                                    struct iovec *iov,
-                                    int num_iovs,
-				    void *myptr, int size, int invert);
+                                     struct pipe_box *box,
+                                     uint32_t level,
+                                     uint32_t dst_stride,
+                                     uint64_t offset,
+                                     struct iovec *iov,
+                                     int num_iovs,
+                                     void *myptr, int size, int invert);
 
 void vrend_renderer_fini(void);
 
@@ -303,7 +303,7 @@ void vrend_renderer_check_queries(void);
 
 bool vrend_hw_switch_context(struct vrend_context *ctx, bool now);
 uint32_t vrend_renderer_object_insert(struct vrend_context *ctx, void *data,
-                                 uint32_t size, uint32_t handle, enum virgl_object_type type);
+                                      uint32_t size, uint32_t handle, enum virgl_object_type type);
 void vrend_renderer_object_destroy(struct vrend_context *ctx, uint32_t handle);
 
 int vrend_create_query(struct vrend_context *ctx, uint32_t handle,
@@ -321,10 +321,10 @@ void vrend_render_condition(struct vrend_context *ctx,
 void *vrend_renderer_get_cursor_contents(uint32_t res_handle, uint32_t *width, uint32_t *height);
 void vrend_bind_va(GLuint vaoid);
 int vrend_renderer_flush_buffer_res(struct vrend_resource *res,
-                                   struct pipe_box *box);
+                                    struct pipe_box *box);
 
 void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
-                             union virgl_caps *caps);
+                              union virgl_caps *caps);
 
 GLint64 vrend_renderer_get_timestamp(void);
 /* formats */
@@ -350,7 +350,7 @@ vrend_resource_reference(struct vrend_resource **ptr, struct vrend_resource *tex
 void vrend_renderer_force_ctx_0(void);
 
 void vrend_renderer_get_rect(int resource_id, struct iovec *iov, unsigned int num_iovs,
-                            uint32_t offset, int x, int y, int width, int height);
+                             uint32_t offset, int x, int y, int width, int height);
 void vrend_renderer_attach_res_ctx(int ctx_id, int resource_id);
 void vrend_renderer_detach_res_ctx(int ctx_id, int resource_id);
 
@@ -372,7 +372,7 @@ int vrend_renderer_resource_get_info(int res_handle,
 #define VREND_CAP_SET 1
 
 void vrend_renderer_get_cap_set(uint32_t cap_set, uint32_t *max_ver,
-                               uint32_t *max_size);
+                                uint32_t *max_size);
 
 void vrend_renderer_create_sub_ctx(struct vrend_context *ctx, int sub_ctx_id);
 void vrend_renderer_destroy_sub_ctx(struct vrend_context *ctx, int sub_ctx_id);

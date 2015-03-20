@@ -63,7 +63,7 @@ struct vrend_shader_key {
    bool gs_present;
    bool flatshade;
 };
-  
+
 struct vrend_shader_cfg {
    int glsl_version;
    bool use_core_profile;
