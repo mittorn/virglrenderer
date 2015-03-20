@@ -94,6 +94,8 @@ struct global_error_state {
 };
 
 struct global_renderer_state {
+   bool inited;
+
    struct list_head fence_list;
    struct vrend_context *current_ctx;
    struct vrend_context *current_hw_ctx;
@@ -3379,8 +3381,6 @@ static GLenum tgsitargettogltarget(const enum pipe_texture_target target, int nr
    return PIPE_BUFFER;
 }
 
-static int inited;
-
 #define glewIsSupported epoxy_has_gl_extension
 
 void vrend_renderer_init(struct vrend_if_cbs *cbs)
@@ -3388,8 +3388,9 @@ void vrend_renderer_init(struct vrend_if_cbs *cbs)
    int gl_ver;
    virgl_gl_context gl_context;
    struct virgl_gl_ctx_param ctx_params;
-   if (!inited) {
-      inited = 1;
+
+   if (!vrend_state.inited) {
+      vrend_state.inited = true;
       vrend_object_init_resource_table();
       vrend_clicbs = cbs;
    }
@@ -3458,14 +3459,14 @@ void vrend_renderer_init(struct vrend_if_cbs *cbs)
 void
 vrend_renderer_fini(void)
 {
-   if (!inited)
+   if (!vrend_state.inited)
       return;
 
    vrend_decode_reset(false);
    vrend_object_fini_resource_table();
    vrend_decode_reset(true);
 
-   inited = 0;
+   vrend_state.inited = false;
 }
 
 static void vrend_destroy_sub_context(struct vrend_sub_context *sub)
@@ -5121,7 +5122,7 @@ void vrend_renderer_check_fences(void)
    uint32_t latest_id = 0;
    GLenum glret;
 
-   if (!inited)
+   if (!vrend_state.inited)
       return;
 
    LIST_FOR_EACH_ENTRY_SAFE(fence, stor, &vrend_state.fence_list, fences) {
@@ -5183,7 +5184,8 @@ static boolean vrend_check_query(struct vrend_query *query)
 void vrend_renderer_check_queries(void)
 {
    struct vrend_query *query, *stor;
-   if (!inited)
+
+   if (!vrend_state.inited)
       return;   
    
    LIST_FOR_EACH_ENTRY_SAFE(query, stor, &vrend_state.waiting_query_list, waiting_queries) {
