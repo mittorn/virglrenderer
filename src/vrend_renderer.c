@@ -2600,7 +2600,6 @@ void vrend_draw_vbo(struct vrend_context *ctx,
    } else
       glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-//   vrend_ctx_restart_queries(ctx);
    if (ctx->sub->current_so) {
       if (ctx->sub->current_so->xfb_state == XFB_STATE_STARTED_NEED_BEGIN) {
          if (ctx->sub->gs)
