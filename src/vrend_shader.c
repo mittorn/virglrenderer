@@ -42,8 +42,6 @@ extern int vrend_dump_shaders;
 
 #define INTERP_PREFIX "               "
 
-int vrend_shader_use_explicit = 0;
-
 struct vrend_shader_io {
    unsigned		name;
    unsigned		gpr;
@@ -1857,7 +1855,7 @@ static char *emit_header(struct dump_ctx *ctx, char *glsl_hdr)
       STRCAT_WITH_RET(glsl_hdr, "#version 140\n");
    else
       STRCAT_WITH_RET(glsl_hdr, "#version 130\n");
-   if (ctx->prog_type == TGSI_PROCESSOR_VERTEX && vrend_shader_use_explicit)
+   if (ctx->prog_type == TGSI_PROCESSOR_VERTEX && ctx->cfg->use_explicit_locations)
       STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_explicit_attrib_location : enable\n");
    if (ctx->prog_type == TGSI_PROCESSOR_FRAGMENT && fs_emit_layout(ctx))
       STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_fragment_coord_conventions : enable\n");
@@ -1954,7 +1952,7 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
    }
    for (i = 0; i < ctx->num_inputs; i++) {
       if (!ctx->inputs[i].glsl_predefined_no_emit) { 
-         if (ctx->prog_type == TGSI_PROCESSOR_VERTEX && vrend_shader_use_explicit) {
+         if (ctx->prog_type == TGSI_PROCESSOR_VERTEX && ctx->cfg->use_explicit_locations) {
             snprintf(buf, 255, "layout(location=%d) ", ctx->inputs[i].first);
             STRCAT_WITH_RET(glsl_hdr, buf);
          }

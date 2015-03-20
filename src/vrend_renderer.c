@@ -61,7 +61,6 @@ static void vrend_update_frontface_state(struct vrend_context *ctx);
 static void vrender_get_glsl_version(int *glsl_version);
 static void vrend_destroy_resource_object(void *obj_ptr);
 static void vrend_renderer_detach_res_ctx_p(struct vrend_context *ctx, int res_handle);
-extern int vrend_shader_use_explicit;
 
 int vrend_dump_shaders;
 
@@ -111,6 +110,8 @@ struct global_renderer_state {
    bool have_bit_encoding;
    bool have_vertex_attrib_binding;
 
+   /* these appeared broken on at least one driver */
+   bool use_explicit_locations;
    uint32_t max_uniform_blocks;
    struct list_head active_ctx_list;
 };
@@ -2292,7 +2293,7 @@ static void vrend_draw_bind_vertex_legacy(struct vrend_context *ctx,
            continue;
       }
 
-      if (vrend_shader_use_explicit || vrend_state.have_vertex_attrib_binding) {
+      if (vrend_state.use_explicit_locations || vrend_state.have_vertex_attrib_binding) {
          loc = i;
       } else {
 	if (ctx->sub->prog->attrib_locs) {
@@ -3570,7 +3571,7 @@ struct vrend_context *vrend_create_context(int id, uint32_t nlen, const char *de
    grctx->res_hash = vrend_object_init_ctx_table();
 
    grctx->shader_cfg.use_core_profile = vrend_state.use_core_profile;
-
+   grctx->shader_cfg.use_explicit_locations = vrend_state.use_explicit_locations;
    vrend_renderer_create_sub_ctx(grctx, 0);
    vrend_renderer_set_sub_ctx(grctx, 0);
 

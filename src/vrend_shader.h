@@ -67,6 +67,7 @@ struct vrend_shader_key {
 struct vrend_shader_cfg {
    int glsl_version;
    bool use_core_profile;
+   bool use_explicit_locations;
 };
 
 bool vrend_patch_vertex_shader_interpolants(char *program,
