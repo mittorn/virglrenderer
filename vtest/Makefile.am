@@ -12,12 +12,12 @@ AM_CFLAGS = \
 	$(VISIBILITY_CFLAGS) \
 	$(CODE_COVERAGE_CFLAGS)
 
-noinst_PROGRAMS = vtest_server
+bin_PROGRAMS = virgl_test_server
 
-vtest_server_SOURCES = \
+virgl_test_server_SOURCES = \
 	vtest_server.c \
 	vtest_renderer.c \
 	vtest_protocol.h \
 	vtest.h
 
-vtest_server_LDADD = $(top_builddir)/src/libvirglrenderer.la
+virgl_test_server_LDADD = $(top_builddir)/src/libvirglrenderer.la
