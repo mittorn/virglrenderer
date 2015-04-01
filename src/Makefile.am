@@ -45,7 +45,7 @@ libvirglrenderer_ladir = $(libdir)
 libvirglrenderer_la_LIBADD = libvrend.la gallium/auxiliary/libgallium.la
 libvirglrenderer_la_LDFLAGS = $(GM_LDFLAGS) $(EPOXY_LDFLAGS)
 
-libvirglrendererincludedir = ${includedir}
+libvirglrendererincludedir = ${includedir}/virgl
 libvirglrendererinclude_HEADERS = virglrenderer.h virgl_helper.h virgl_egl.h
 
 EXTRA_DIST = gallium/include

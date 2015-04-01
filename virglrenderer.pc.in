@@ -6,5 +6,5 @@ includedir=@includedir@
 Name: virglrenderer
 Description: virgl GL renderer
 Version: @PACKAGE_VERSION@
-Cflags: -I${includedir}
+Cflags: -I${includedir} -I${includedir}/virgl
 Libs: -L${libdir} -lvirglrenderer
