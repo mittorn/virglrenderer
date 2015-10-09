@@ -521,6 +521,8 @@ iter_declaration(struct tgsi_iterate_context *iter,
    case TGSI_FILE_SAMPLER:
       ctx->samplers_used |= (1 << decl->Range.Last);
       break;
+   case TGSI_FILE_SAMPLER_VIEW:
+      break;
    case TGSI_FILE_CONSTANT:
       if (decl->Declaration.Dimension) {
          if (ctx->num_ubo >= ARRAY_SIZE(ctx->ubo_idx)) {
