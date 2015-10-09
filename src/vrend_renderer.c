@@ -95,6 +95,7 @@ struct global_renderer_state {
    bool have_gl_prim_restart;
    bool have_bit_encoding;
    bool have_vertex_attrib_binding;
+   bool have_tf2;
 
    /* these appeared broken on at least one driver */
    bool use_explicit_locations;
@@ -1009,7 +1010,8 @@ static void vrend_destroy_streamout_object(struct vrend_streamout_object *obj)
    list_del(&obj->head);
    for (i = 0; i < obj->num_targets; i++)
       vrend_so_target_reference(&obj->so_targets[i], NULL);
-   glDeleteTransformFeedbacks(1, &obj->id);
+   if (vrend_state.have_tf2)
+      glDeleteTransformFeedbacks(1, &obj->id);
    FREE(obj);
 }
 
@@ -1082,9 +1084,10 @@ static void vrend_destroy_so_target_object(void *obj_ptr)
 	 if (obj == sub_ctx->current_so)
 	    sub_ctx->current_so = NULL;
 	 if (obj->xfb_state == XFB_STATE_PAUSED) {
-	    glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, obj->id);
-	    glEndTransformFeedback();
-	    if (sub_ctx->current_so)
+	       if (vrend_state.have_tf2)
+	          glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, obj->id);
+	       glEndTransformFeedback();
+	    if (sub_ctx->current_so && vrend_state.have_tf2)
 	       glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, sub_ctx->current_so->id);
 	 }
 	 vrend_destroy_streamout_object(obj);
@@ -2664,7 +2667,7 @@ void vrend_draw_vbo(struct vrend_context *ctx,
          glDisable(GL_PRIMITIVE_RESTART);
    }
 
-   if (ctx->sub->current_so) {
+   if (ctx->sub->current_so && vrend_state.have_tf2) {
       if (ctx->sub->current_so->xfb_state == XFB_STATE_STARTED) {
          glPauseTransformFeedback();
          ctx->sub->current_so->xfb_state = XFB_STATE_PAUSED;
@@ -3407,6 +3410,8 @@ void vrend_renderer_init(struct vrend_if_cbs *cbs)
       vrend_state.have_gl_prim_restart = true;
    else if (epoxy_has_gl_extension("GL_NV_primitive_restart"))
       vrend_state.have_nv_prim_restart = true;
+   if (gl_ver >= 40 || epoxy_has_gl_extension("GL_ARB_transform_feedback2"))
+      vrend_state.have_tf2 = true;
 
    if (epoxy_has_gl_extension("GL_EXT_framebuffer_multisample") && epoxy_has_gl_extension("GL_ARB_texture_multisample")) {
       vrend_state.have_multisample = true;
@@ -4682,8 +4687,10 @@ void vrend_set_streamout_targets(struct vrend_context *ctx,
       }
 
       obj = CALLOC_STRUCT(vrend_streamout_object);
-      glGenTransformFeedbacks(1, &obj->id);
-      glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, obj->id);
+      if (vrend_state.have_tf2) {
+         glGenTransformFeedbacks(1, &obj->id);
+         glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, obj->id);
+      }
       obj->num_targets = num_targets;
       for (i = 0; i < num_targets; i++) {
 	 obj->handles[i] = handles[i];
@@ -4699,7 +4706,8 @@ void vrend_set_streamout_targets(struct vrend_context *ctx,
       ctx->sub->current_so = obj;
       obj->xfb_state = XFB_STATE_STARTED_NEED_BEGIN;
    } else {
-      glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, 0);
+      if (vrend_state.have_tf2)
+         glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, 0);
       ctx->sub->current_so = NULL;
    }
 }
@@ -5531,11 +5539,15 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
    }
 
    /* we need tf3 so we can do gallium skip buffers */
+   if (epoxy_has_gl_extension("GL_ARB_transform_feedback2")) {
+      caps->v1.bset.streamout_pause_resume = 1;
+   }
+
    if (epoxy_has_gl_extension("GL_ARB_transform_feedback3")) {
       glGetIntegerv(GL_MAX_TRANSFORM_FEEDBACK_BUFFERS, &max);
       caps->v1.max_streamout_buffers = max;
-      caps->v1.bset.streamout_pause_resume = 1;
-   }
+   } else if (epoxy_has_gl_extension("GL_EXT_transform_feedback"))
+      caps->v1.max_streamout_buffers = 1;
    if (epoxy_has_gl_extension("GL_ARB_blend_func_extended")) {
       glGetIntegerv(GL_MAX_DUAL_SOURCE_DRAW_BUFFERS, &max);
       caps->v1.max_dual_source_render_targets = max;
