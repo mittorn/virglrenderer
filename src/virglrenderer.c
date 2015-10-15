@@ -188,44 +188,6 @@ static void *dev_cookie;
 
 static struct vrend_if_cbs virgl_cbs;
 
-void vrend_transfer_write_return(void *data, uint32_t bytes, uint64_t offset,
-                                 struct iovec *iov, int num_iovs)
-{
-   vrend_write_to_iovec(iov, num_iovs, offset, data, bytes);
-}
-
-void vrend_transfer_write_tex_return(struct pipe_resource *res,
-                                     struct pipe_box *box,
-                                     uint32_t level,
-                                     uint32_t dst_stride,
-                                     uint64_t offset,
-                                     struct iovec *iov,
-                                     int num_iovs,
-                                     void *myptr, int size, int invert)
-{
-   int elsize = util_format_get_blocksize(res->format);
-   int h;
-   uint32_t myoffset = offset;
-   uint32_t stride = dst_stride ? dst_stride : util_format_get_nblocksx(res->format, u_minify(res->width0, level)) * elsize;
-//   uint32_t stride = dst_stride ? dst_stride : util_format_get_nblocksx(res->format, box->width) * elsize;
-
-   if (!invert && (stride == util_format_get_nblocksx(res->format, box->width) * elsize))
-      vrend_write_to_iovec(iov, num_iovs, offset, myptr, size);
-   else if (invert) {
-      for (h = box->height - 1; h >= 0; h--) {
-         void *sptr = myptr + (h * elsize * box->width);
-         vrend_write_to_iovec(iov, num_iovs, myoffset, sptr, box->width * elsize);
-         myoffset += stride;
-      }
-   } else {
-      for (h = 0; h < box->height; h++) {
-         void *sptr = myptr + (h * elsize * box->width);
-         vrend_write_to_iovec(iov, num_iovs, myoffset, sptr, box->width * elsize);
-         myoffset += stride;
-      }
-   }
-}
-
 static void virgl_write_fence(uint32_t fence_id)
 {
    rcbs->write_fence(dev_cookie, fence_id);

@@ -3904,7 +3904,7 @@ static void vrend_scale_depth(void *ptr, int size, float scale_val)
    }
 }
 
-static void copy_transfer_data(struct pipe_resource *res,
+static void read_transfer_data(struct pipe_resource *res,
                                struct iovec *iov,
                                unsigned int num_iovs,
                                void *data,
@@ -3913,11 +3913,11 @@ static void copy_transfer_data(struct pipe_resource *res,
                                uint64_t offset, bool invert)
 {
    int blsize = util_format_get_blocksize(res->format);
-   GLuint size = vrend_get_iovec_size(iov, num_iovs);
-   GLuint send_size = util_format_get_nblocks(res->format, box->width,
+   uint32_t size = vrend_get_iovec_size(iov, num_iovs);
+   uint32_t send_size = util_format_get_nblocks(res->format, box->width,
                                               box->height) * blsize * box->depth;
-   GLuint bwx = util_format_get_nblocksx(res->format, box->width) * blsize;
-   GLuint bh = util_format_get_nblocksy(res->format, box->height);
+   uint32_t bwx = util_format_get_nblocksx(res->format, box->width) * blsize;
+   uint32_t bh = util_format_get_nblocksy(res->format, box->height);
    int h;
    uint32_t myoffset = offset;
 
@@ -3936,6 +3936,43 @@ static void copy_transfer_data(struct pipe_resource *res,
 	    vrend_read_from_iovec(iov, num_iovs, myoffset, ptr, bwx);
 	    myoffset += src_stride;
 	 }
+      }
+   }
+}
+
+static void write_transfer_data(struct pipe_resource *res,
+                                struct iovec *iov,
+                                unsigned num_iovs,
+                                void *data,
+                                uint32_t dst_stride,
+                                struct pipe_box *box,
+                                uint32_t level,
+                                uint64_t offset,
+                                bool invert)
+{
+   int blsize = util_format_get_blocksize(res->format);
+   uint32_t size = vrend_get_iovec_size(iov, num_iovs);
+   uint32_t send_size = util_format_get_nblocks(res->format, box->width,
+                                                box->height) * blsize * box->depth;
+   uint32_t bwx = util_format_get_nblocksx(res->format, box->width) * blsize;
+   uint32_t bh = util_format_get_nblocksy(res->format, box->height);
+   int h;
+   uint32_t myoffset = offset;
+   uint32_t stride = dst_stride ? dst_stride : util_format_get_nblocksx(res->format, u_minify(res->width0, level)) * blsize;
+
+   if ((send_size == size || bh == 1) && !invert) {
+      vrend_write_to_iovec(iov, num_iovs, offset, data, send_size);
+   } else if (invert) {
+      for (h = bh - 1; h >= 0; h--) {
+         void *ptr = data + (h * bwx);
+         vrend_write_to_iovec(iov, num_iovs, myoffset, ptr, bwx);
+         myoffset += stride;
+      }
+   } else {
+      for (h = 0; h < bh; h++) {
+         void *ptr = data + (h * bwx);
+         vrend_write_to_iovec(iov, num_iovs, myoffset, ptr, bwx);
+         myoffset += stride;
       }
    }
 }
@@ -4103,7 +4140,7 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
          data = malloc(send_size);
          if (!data)
             return ENOMEM;
-         copy_transfer_data(&res->base, iov, num_iovs, data, stride,
+         read_transfer_data(&res->base, iov, num_iovs, data, stride,
                             info->box, info->offset, invert);
       } else {
          data = iov[0].iov_base + info->offset;
@@ -4246,7 +4283,7 @@ static int vrend_transfer_send_getteximage(struct vrend_context *ctx,
 					   const struct vrend_transfer_info *info)
 {
    GLenum format, type;
-   uint32_t send_size, tex_size;
+   uint32_t tex_size;
    void *data;
    int elsize = util_format_get_blocksize(res->base.format);
    int compressed = util_format_is_compressed(res->base.format);
@@ -4265,8 +4302,6 @@ static int vrend_transfer_send_getteximage(struct vrend_context *ctx,
       depth = res->base.array_size;
 
    tex_size = util_format_get_nblocks(res->base.format, u_minify(res->base.width0, info->level), u_minify(res->base.height0, info->level)) * util_format_get_blocksize(res->base.format) * depth;
-
-   send_size = util_format_get_nblocks(res->base.format, info->box->width, info->box->height) * util_format_get_blocksize(res->base.format) * info->box->depth;
 
    if (info->box->z && res->target != GL_TEXTURE_CUBE_MAP) {
       send_offset = util_format_get_nblocks(res->base.format, u_minify(res->base.width0, info->level), u_minify(res->base.height0, info->level)) * util_format_get_blocksize(res->base.format) * info->box->z;
@@ -4312,9 +4347,9 @@ static int vrend_transfer_send_getteximage(struct vrend_context *ctx,
 
    glPixelStorei(GL_PACK_ALIGNMENT, 4);
 
-   vrend_transfer_write_tex_return(&res->base, info->box, info->level,
-				   info->stride, info->offset, iov, num_iovs,
-				   data + send_offset, send_size, FALSE);
+   write_transfer_data(&res->base, iov, num_iovs, data + send_offset,
+                       info->stride, info->box, info->level, info->offset,
+                       false);
    free(data);
    return 0;
 }
@@ -4351,7 +4386,7 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
       need_temp = 1;
 
    if (need_temp) {
-      send_size = info->box->width * info->box->height * info->box->depth * util_format_get_blocksize(res->base.format);
+      send_size = util_format_get_nblocks(res->base.format, info->box->width, info->box->height) * info->box->depth * util_format_get_blocksize(res->base.format);
       data = malloc(send_size);
       if (!data) {
          fprintf(stderr,"malloc failed %d\n", send_size);
@@ -4431,9 +4466,9 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
       glPixelStorei(GL_PACK_ROW_LENGTH, 0);
    glPixelStorei(GL_PACK_ALIGNMENT, 4);
    if (need_temp) {
-      vrend_transfer_write_tex_return(&res->base, info->box, info->level,
-				      info->stride, info->offset, iov, num_iovs,
-				      data, send_size, separate_invert);
+      write_transfer_data(&res->base, iov, num_iovs, data,
+                          info->stride, info->box, info->level, info->offset,
+                          separate_invert);
       free(data);
    }
    return 0;
@@ -4446,7 +4481,7 @@ static int vrend_renderer_transfer_send_iov(struct vrend_context *ctx,
 {
    if (res->target == 0 && res->ptr) {
       uint32_t send_size = info->box->width * util_format_get_blocksize(res->base.format);
-      vrend_transfer_write_return(res->ptr + info->box->x, send_size, info->offset, iov, num_iovs);
+      vrend_write_to_iovec(iov, num_iovs, info->offset, res->ptr + info->box->x, send_size);
       return 0;
    }
 
@@ -4463,7 +4498,7 @@ static int vrend_renderer_transfer_send_iov(struct vrend_context *ctx,
       if (!data)
          fprintf(stderr,"unable to open buffer for reading %d\n", res->target);
       else
-         vrend_transfer_write_return(data, send_size, info->offset, iov, num_iovs);
+         vrend_write_to_iovec(iov, num_iovs, info->offset, data, send_size);
       glUnmapBuffer(res->target);
    } else {
       bool can_readpixels = true;
