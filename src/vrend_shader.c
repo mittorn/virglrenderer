@@ -1923,9 +1923,13 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
    char buf[255];
    char postfix[8];
    const char *prefix = "";
-
+   bool fcolor_emitted[2], bcolor_emitted[2];
    ctx->num_interps = 0;
 
+   if (ctx->key->color_two_side) {
+      fcolor_emitted[0] = fcolor_emitted[1] = false;
+      bcolor_emitted[0] = bcolor_emitted[1] = false;
+   }
    if (ctx->prog_type == TGSI_PROCESSOR_FRAGMENT) {
       if (fs_emit_layout(ctx)) {
          bool upper_left = !(ctx->fs_coord_origin ^ ctx->key->invert_fs_origin);
@@ -1974,6 +1978,12 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
       }
    } else {
       for (i = 0; i < ctx->num_outputs; i++) {
+         if (ctx->prog_type == TGSI_PROCESSOR_VERTEX && ctx->key->color_two_side && ctx->outputs[i].sid < 2) {
+            if (ctx->outputs[i].name == TGSI_SEMANTIC_COLOR)
+               fcolor_emitted[ctx->outputs[i].sid] = true;
+            if (ctx->outputs[i].name == TGSI_SEMANTIC_BCOLOR)
+               bcolor_emitted[ctx->outputs[i].sid] = true;
+         }
          if (!ctx->outputs[i].glsl_predefined_no_emit) {
             if ((ctx->prog_type == TGSI_PROCESSOR_VERTEX || ctx->prog_type == TGSI_PROCESSOR_GEOMETRY) && (ctx->outputs[i].name == TGSI_SEMANTIC_GENERIC || ctx->outputs[i].name == TGSI_SEMANTIC_COLOR || ctx->outputs[i].name == TGSI_SEMANTIC_BCOLOR)) {
                ctx->num_interps++;
@@ -1982,6 +1992,19 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
                prefix = "";
             /* ugly leave spaces to patch interp in later */
             snprintf(buf, 255, "%sout vec4 %s;\n", prefix, ctx->outputs[i].glsl_name);
+            STRCAT_WITH_RET(glsl_hdr, buf);
+         }
+      }
+   }
+
+   if (ctx->prog_type == TGSI_PROCESSOR_VERTEX && ctx->key->color_two_side) {
+      for (i = 0; i < 2; i++) {
+         if (fcolor_emitted[i] && !bcolor_emitted[i]) {
+            snprintf(buf, 255, "%sout vec4 ex_bc%d;\n", INTERP_PREFIX, i);
+            STRCAT_WITH_RET(glsl_hdr, buf);
+         }
+         if (bcolor_emitted[i] && !fcolor_emitted[i]) {
+            snprintf(buf, 255, "%sout vec4 ex_c%d;\n", INTERP_PREFIX, i);
             STRCAT_WITH_RET(glsl_hdr, buf);
          }
       }
