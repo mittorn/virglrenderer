@@ -5585,7 +5585,7 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
       glGetIntegerv(GL_MAX_TRANSFORM_FEEDBACK_BUFFERS, &max);
       caps->v1.max_streamout_buffers = max;
    } else if (epoxy_has_gl_extension("GL_EXT_transform_feedback"))
-      caps->v1.max_streamout_buffers = 1;
+      caps->v1.max_streamout_buffers = 4;
    if (epoxy_has_gl_extension("GL_ARB_blend_func_extended")) {
       glGetIntegerv(GL_MAX_DUAL_SOURCE_DRAW_BUFFERS, &max);
       caps->v1.max_dual_source_render_targets = max;
