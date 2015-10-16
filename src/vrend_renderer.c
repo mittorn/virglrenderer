@@ -2546,7 +2546,10 @@ void vrend_draw_vbo(struct vrend_context *ctx,
          ctx->sub->prog = prog;
       }
    }
-
+   if (!ctx->sub->prog) {
+      fprintf(stderr,"dropping rendering due to missing shaders: %s\n", ctx->debug_name);
+      return;
+   }
    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, ctx->sub->fb_id);
 
    vrend_use_program(ctx, ctx->sub->prog->id);
