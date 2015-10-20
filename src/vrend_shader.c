@@ -107,7 +107,7 @@ struct dump_ctx {
    bool uses_txq_levels;
    bool uses_tg4;
    bool write_all_cbufs;
-
+   bool uses_stencil_export;
    uint32_t shadow_samp_mask;
 
    int fs_coord_origin, fs_pixel_center;
@@ -391,6 +391,16 @@ iter_declaration(struct tgsi_iterate_context *iter,
             ctx->outputs[i].glsl_predefined_no_emit = true;
             ctx->outputs[i].glsl_no_index = true;
             ctx->outputs[i].override_no_wm = true;
+         }
+         break;
+      case TGSI_SEMANTIC_STENCIL:
+         if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
+            name_prefix = "gl_FragStencilRefARB";
+            ctx->outputs[i].glsl_predefined_no_emit = true;
+            ctx->outputs[i].glsl_no_index = true;
+            ctx->outputs[i].override_no_wm = true;
+            ctx->outputs[i].is_int = true;
+            ctx->uses_stencil_export = true;
          }
          break;
       case TGSI_SEMANTIC_CLIPDIST:
@@ -1873,6 +1883,8 @@ static char *emit_header(struct dump_ctx *ctx, char *glsl_hdr)
       STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_texture_gather : require\n");
    if (ctx->has_viewport_idx)
       STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_viewport_array : require\n");
+   if (ctx->uses_stencil_export)
+      STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_shader_stencil_export : require\n");
    return glsl_hdr;
 }
 
