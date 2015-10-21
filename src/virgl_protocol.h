@@ -1,26 +1,25 @@
-/**************************************************************************
- *
- * Copyright (C) 2015 Red Hat Inc.
+/*
+ * Copyright 2014, 2015 Red Hat.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
  * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
+ * on the rights to use, copy, modify, merge, publish, distribute, sub
+ * license, and/or sell copies of the Software, and to permit persons to whom
+ * the Software is furnished to do so, subject to the following conditions:
  *
- * The above copyright notice and this permission notice shall be included
- * in all copies or substantial portions of the Software.
+ * The above copyright notice and this permission notice (including the next
+ * paragraph) shall be included in all copies or substantial portions of the
+ * Software.
  *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
- * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
- * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
- * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
- * OTHER DEALINGS IN THE SOFTWARE.
- *
- **************************************************************************/
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT. IN NO EVENT SHALL
+ * THE AUTHOR(S) AND/OR THEIR SUPPLIERS BE LIABLE FOR ANY CLAIM,
+ * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+ * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+ * USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
 #ifndef VIRGL_PROTOCOL_H
 #define VIRGL_PROTOCOL_H
 
@@ -39,15 +38,13 @@ enum virgl_object_type {
    VIRGL_OBJECT_BLEND,
    VIRGL_OBJECT_RASTERIZER,
    VIRGL_OBJECT_DSA,
-   VIRGL_OBJECT_VS,
-   VIRGL_OBJECT_FS,
+   VIRGL_OBJECT_SHADER,
    VIRGL_OBJECT_VERTEX_ELEMENTS,
    VIRGL_OBJECT_SAMPLER_VIEW,
    VIRGL_OBJECT_SAMPLER_STATE,
    VIRGL_OBJECT_SURFACE,
    VIRGL_OBJECT_QUERY,
    VIRGL_OBJECT_STREAMOUT_TARGET,
-   VIRGL_OBJECT_GS,
    VIRGL_MAX_OBJECTS,
 };
 
@@ -208,17 +205,25 @@ enum virgl_context_cmd {
 #define VIRGL_OBJ_CLEAR_STENCIL 8
 
 /* shader object */
-#define VIRGL_OBJ_SHADER_HDR_SIZE(nso) (3 + ((nso) ? (nso) + 4 : 0))
+#define VIRGL_OBJ_SHADER_HDR_SIZE(nso) (5 + ((nso) ? (2 * nso) + 4 : 0))
 #define VIRGL_OBJ_SHADER_HANDLE 1
-#define VIRGL_OBJ_SHADER_NUM_TOKENS 2
-#define VIRGL_OBJ_SHADER_SO_NUM_OUTPUTS 3
-#define VIRGL_OBJ_SHADER_SO_STRIDE(x) (4 + (x))
-#define VIRGL_OBJ_SHADER_SO_OUTPUT0(x) (8 + (x))
+#define VIRGL_OBJ_SHADER_TYPE 2
+#define VIRGL_OBJ_SHADER_OFFSET 3
+#define VIRGL_OBJ_SHADER_OFFSET_VAL(x) (((x) & 0x7fffffff) << 0)
+/* start contains full length in VAL - also implies continuations */
+/* continuation contains offset in VAL */
+#define VIRGL_OBJ_SHADER_OFFSET_CONT (0x1 << 31)
+#define VIRGL_OBJ_SHADER_NUM_TOKENS 4
+#define VIRGL_OBJ_SHADER_SO_NUM_OUTPUTS 5
+#define VIRGL_OBJ_SHADER_SO_STRIDE(x) (6 + (x))
+#define VIRGL_OBJ_SHADER_SO_OUTPUT0(x) (10 + (x * 2))
 #define VIRGL_OBJ_SHADER_SO_OUTPUT_REGISTER_INDEX(x) (((x) & 0xff) << 0)
 #define VIRGL_OBJ_SHADER_SO_OUTPUT_START_COMPONENT(x) (((x) & 0x3) << 8)
 #define VIRGL_OBJ_SHADER_SO_OUTPUT_NUM_COMPONENTS(x) (((x) & 0x7) << 10)
 #define VIRGL_OBJ_SHADER_SO_OUTPUT_BUFFER(x) (((x) & 0x7) << 13)
 #define VIRGL_OBJ_SHADER_SO_OUTPUT_DST_OFFSET(x) (((x) & 0xffff) << 16)
+#define VIRGL_OBJ_SHADER_SO_OUTPUT0_SO(x) (11 + (x * 2))
+#define VIRGL_OBJ_SHADER_SO_OUTPUT_STREAM(x) (((x) & 0x03) << 0)
 
 /* viewport state */
 #define VIRGL_SET_VIEWPORT_STATE_SIZE(num_viewports) ((6 * num_viewports) + 1)

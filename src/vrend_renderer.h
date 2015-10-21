@@ -104,17 +104,12 @@ void vrend_insert_format(struct vrend_format_table *entry, uint32_t bindings);
 void vrend_insert_format_swizzle(int override_format, struct vrend_format_table *entry, uint32_t bindings, uint8_t swizzle[4]);
 int vrend_create_shader(struct vrend_context *ctx,
                         uint32_t handle,
-                        const struct pipe_shader_state *vs,
-                        int type);
+                        const struct pipe_stream_output_info *stream_output,
+                        const char *shd_text, uint32_t offlen, uint32_t num_tokens,
+                        int type, uint32_t pkt_length);
 
-void vrend_bind_vs(struct vrend_context *ctx,
-                   uint32_t handle);
-
-void vrend_bind_gs(struct vrend_context *ctx,
-                   uint32_t handle);
-
-void vrend_bind_fs(struct vrend_context *ctx,
-                   uint32_t handle);
+void vrend_bind_shader(struct vrend_context *ctx,
+                       uint32_t handle);
 
 void vrend_bind_vs_so(struct vrend_context *ctx,
                       uint32_t handle);

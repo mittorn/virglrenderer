@@ -189,59 +189,111 @@ int virgl_encode_rasterizer_state(struct virgl_context *ctx,
    return 0;
 }
 
-int virgl_encode_shader_state(struct virgl_context *ctx,
-                             uint32_t handle,
-			     uint32_t type,
-			      const struct pipe_shader_state *shader,
-			      const char *shad_str)
+static void virgl_emit_shader_header(struct virgl_context *ctx,
+                                     uint32_t handle, uint32_t len,
+                                     uint32_t type, uint32_t offlen,
+                                     uint32_t num_tokens)
 {
-   char *str;
-   uint32_t shader_len, len;
+   virgl_encoder_write_cmd_dword(ctx, VIRGL_CMD0(VIRGL_CCMD_CREATE_OBJECT, VIRGL_OBJECT_SHADER, len));
+   virgl_encoder_write_dword(ctx->cbuf, handle);
+   virgl_encoder_write_dword(ctx->cbuf, type);
+   virgl_encoder_write_dword(ctx->cbuf, offlen);
+   virgl_encoder_write_dword(ctx->cbuf, num_tokens);
+}
+
+static void virgl_emit_shader_streamout(struct virgl_context *ctx,
+                                        const struct pipe_stream_output_info *so_info)
+{
+   int num_outputs = 0;
    int i;
-   int ret;
    uint32_t tmp;
+
+   if (so_info)
+      num_outputs = so_info->num_outputs;
+
+   virgl_encoder_write_dword(ctx->cbuf, num_outputs);
+   if (num_outputs) {
+      for (i = 0; i < 4; i++)
+         virgl_encoder_write_dword(ctx->cbuf, so_info->stride[i]);
+
+      for (i = 0; i < so_info->num_outputs; i++) {
+         tmp =
+            VIRGL_OBJ_SHADER_SO_OUTPUT_REGISTER_INDEX(so_info->output[i].register_index) |
+            VIRGL_OBJ_SHADER_SO_OUTPUT_START_COMPONENT(so_info->output[i].start_component) |
+            VIRGL_OBJ_SHADER_SO_OUTPUT_NUM_COMPONENTS(so_info->output[i].num_components) |
+            VIRGL_OBJ_SHADER_SO_OUTPUT_BUFFER(so_info->output[i].output_buffer) |
+            VIRGL_OBJ_SHADER_SO_OUTPUT_DST_OFFSET(so_info->output[i].dst_offset);
+         virgl_encoder_write_dword(ctx->cbuf, tmp);
+         virgl_encoder_write_dword(ctx->cbuf, 0);
+      }
+   }
+}
+
+int virgl_encode_shader_state(struct virgl_context *ctx,
+                              uint32_t handle,
+                              uint32_t type,
+                              const struct pipe_shader_state *shader,
+                              const char *shad_str)
+{
+   char *str, *sptr;
+   uint32_t shader_len, len;
+   int ret;
    int num_tokens;
    int str_total_size = 65536;
+   uint32_t left_bytes, base_hdr_size, strm_hdr_size, thispass;
+   bool first_pass;
 
    if (!shad_str) {
        num_tokens = tgsi_num_tokens(shader->tokens);
        str = CALLOC(1, str_total_size);
        if (!str)
-	   return -1;
+          return -1;
 
        ret = tgsi_dump_str(shader->tokens, TGSI_DUMP_FLOAT_AS_HEX, str, str_total_size);
        if (ret == -1) {
-	   fprintf(stderr, "Failed to translate shader in available space\n");
-	   FREE(str);
-	   return -1;
+          fprintf(stderr, "Failed to translate shader in available space\n");
+          FREE(str);
+          return -1;
        }
    } else {
-       num_tokens = 0;
+       num_tokens = 300;
        str = (char *)shad_str;
    }
 
    shader_len = strlen(str) + 1;
-   len = ((shader_len + 3) / 4) + VIRGL_OBJ_SHADER_HDR_SIZE(shader->stream_output.num_outputs);
 
-   virgl_encoder_write_cmd_dword(ctx, VIRGL_CMD0(VIRGL_CCMD_CREATE_OBJECT, type, len));
-   virgl_encoder_write_dword(ctx->cbuf, handle);
-   virgl_encoder_write_dword(ctx->cbuf, num_tokens);
-   virgl_encoder_write_dword(ctx->cbuf, shader->stream_output.num_outputs);
-   if (shader->stream_output.num_outputs) {
-      for (i = 0; i < 4; i++)
-         virgl_encoder_write_dword(ctx->cbuf, shader->stream_output.stride[i]);
+   left_bytes = shader_len;
 
-      for (i = 0; i < shader->stream_output.num_outputs; i++) {
-         tmp =
-	   VIRGL_OBJ_SHADER_SO_OUTPUT_REGISTER_INDEX(shader->stream_output.output[i].register_index) |
-	   VIRGL_OBJ_SHADER_SO_OUTPUT_START_COMPONENT(shader->stream_output.output[i].start_component) |
-	   VIRGL_OBJ_SHADER_SO_OUTPUT_NUM_COMPONENTS(shader->stream_output.output[i].num_components) |
-	   VIRGL_OBJ_SHADER_SO_OUTPUT_BUFFER(shader->stream_output.output[i].output_buffer) |
-	   VIRGL_OBJ_SHADER_SO_OUTPUT_DST_OFFSET(shader->stream_output.output[i].dst_offset);
-         virgl_encoder_write_dword(ctx->cbuf, tmp);
-      }
+   base_hdr_size = 5;
+   strm_hdr_size = shader->stream_output.num_outputs ? shader->stream_output.num_outputs * 2 + 4 : 0;
+   first_pass = true;
+   sptr = str;
+   while (left_bytes) {
+      uint32_t length, offlen;
+      int hdr_len = base_hdr_size + (first_pass ? strm_hdr_size : 0);
+      if (ctx->cbuf->cdw + hdr_len + 1 > VIRGL_MAX_CMDBUF_DWORDS)
+         ctx->flush(ctx);
+
+      thispass = (VIRGL_MAX_CMDBUF_DWORDS - ctx->cbuf->cdw - hdr_len - 1) * 4;
+
+      length = MIN2(thispass, left_bytes);
+      len = ((length + 3) / 4) + hdr_len;
+
+      if (first_pass)
+         offlen = VIRGL_OBJ_SHADER_OFFSET_VAL(shader_len);
+      else
+         offlen = VIRGL_OBJ_SHADER_OFFSET_VAL((uintptr_t)sptr - (uintptr_t)str) | VIRGL_OBJ_SHADER_OFFSET_CONT;
+
+      virgl_emit_shader_header(ctx, handle, len, type, offlen, num_tokens);
+
+      virgl_emit_shader_streamout(ctx, first_pass ? &shader->stream_output : NULL);
+
+      virgl_encoder_write_block(ctx->cbuf, (uint8_t *)sptr, length);
+
+      sptr += length;
+      first_pass = false;
+      left_bytes -= length;
    }
-   virgl_encoder_write_block(ctx->cbuf, (uint8_t *)str, shader_len);
 
    if (str != shad_str)
        FREE(str);

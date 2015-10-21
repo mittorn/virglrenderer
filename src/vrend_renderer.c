@@ -47,6 +47,7 @@
 
 #include "virgl_hw.h"
 
+#include "tgsi/tgsi_text.h"
 /* debugging aid to dump shaders */
 int vrend_dump_shaders;
 
@@ -153,6 +154,10 @@ struct vrend_shader_selector {
 
    struct vrend_shader *current;
    struct tgsi_token *tokens;
+
+   char *tmp_buf;
+   uint32_t buf_len;
+   uint32_t buf_offset;
 };
 
 struct vrend_texture {
@@ -281,10 +286,8 @@ struct vrend_sub_context {
    bool sampler_state_dirty;
    bool stencil_state_dirty;
 
-   struct vrend_shader_selector *vs;
-   struct vrend_shader_selector *gs;
-   struct vrend_shader_selector *fs;
-
+   uint32_t long_shader_in_progress_handle[PIPE_SHADER_TYPES];
+   struct vrend_shader_selector *shaders[PIPE_SHADER_TYPES];
    struct vrend_linked_shader_program *prog;
 
    struct vrend_shader_view views[PIPE_SHADER_TYPES];
@@ -530,6 +533,7 @@ static void vrend_destroy_shader_selector(struct vrend_shader_selector *sel)
    }
    for (i = 0; i < sel->sinfo.so_info.num_outputs; i++)
       free(sel->sinfo.so_names[i]);
+   free(sel->tmp_buf);
    free(sel->sinfo.so_names);
    free(sel->sinfo.interpinfo);
    free(sel->tokens);
@@ -1941,7 +1945,7 @@ static inline void vrend_fill_shader_key(struct vrend_context *ctx,
    key->invert_fs_origin = !ctx->sub->inverted_fbo_content;
    key->coord_replace = ctx->sub->rs_state.point_quad_rasterization ? ctx->sub->rs_state.sprite_coord_enable : 0;
 
-   if (ctx->sub->gs)
+   if (ctx->sub->shaders[PIPE_SHADER_GEOMETRY])
       key->gs_present = true;
 }
 
@@ -2030,96 +2034,148 @@ static int vrend_shader_select(struct vrend_context *ctx,
 }
 
 static void *vrend_create_shader_state(struct vrend_context *ctx,
-                                       const struct pipe_shader_state *state,
+                                       const struct pipe_stream_output_info *so_info,
                                        unsigned pipe_shader_type)
 {
    struct vrend_shader_selector *sel = CALLOC_STRUCT(vrend_shader_selector);
-   int r;
 
    if (!sel)
       return NULL;
 
    sel->type = pipe_shader_type;
-   sel->sinfo.so_info = state->stream_output;
-   sel->tokens = tgsi_dup_tokens(state->tokens);
+   sel->sinfo.so_info = *so_info;
    pipe_reference_init(&sel->reference, 1);
+
+   return sel;
+}
+
+static int vrend_finish_shader(struct vrend_context *ctx,
+                               struct vrend_shader_selector *sel,
+                               const struct tgsi_token *tokens)
+{
+   int r;
+
+   sel->tokens = tgsi_dup_tokens(tokens);
 
    r = vrend_shader_select(ctx, sel, NULL);
    if (r) {
       vrend_destroy_shader_selector(sel);
-      return NULL;
-   }
-   return sel;
-}
-
-static inline int shader_type_to_pipe_type(int type)
-{
-   switch (type) {
-   case VIRGL_OBJECT_GS:
-      return PIPE_SHADER_GEOMETRY;
-   case VIRGL_OBJECT_VS:
-      return PIPE_SHADER_VERTEX;
-   case VIRGL_OBJECT_FS:
-      return PIPE_SHADER_FRAGMENT;
+      return EINVAL;
    }
    return 0;
 }
 
 int vrend_create_shader(struct vrend_context *ctx,
-                        uint32_t handle, const struct pipe_shader_state *ss,
-                        int type)
+                        uint32_t handle,
+                        const struct pipe_stream_output_info *so_info,
+                        const char *shd_text, uint32_t offlen, uint32_t num_tokens,
+                        int type, uint32_t pkt_length)
 {
    struct vrend_shader_selector *sel;
    int ret_handle;
+   bool new_shader = true, long_shader = false;
+   bool finished = false;
 
-   sel = vrend_create_shader_state(ctx, ss, shader_type_to_pipe_type(type));
-   if (sel == NULL)
-      return ENOMEM;
+   if (type > PIPE_SHADER_GEOMETRY)
+      return EINVAL;
 
-   ret_handle = vrend_renderer_object_insert(ctx, sel, sizeof(*sel), handle, type);
-   if (ret_handle == 0) {
-      vrend_destroy_shader_selector(sel);
-      return ENOMEM;
+   if (offlen & VIRGL_OBJ_SHADER_OFFSET_CONT)
+      new_shader = false;
+   else if (((offlen + 3) / 4) > pkt_length)
+      long_shader = true;
+
+   /* if we have an in progress one - don't allow a new shader
+      of that type or a different handle. */
+   if (ctx->sub->long_shader_in_progress_handle[type]) {
+      if (new_shader == true)
+         return EINVAL;
+      if (handle != ctx->sub->long_shader_in_progress_handle[type])
+         return EINVAL;
+   }
+
+   if (new_shader) {
+     sel = vrend_create_shader_state(ctx, so_info, type);
+     if (sel == NULL)
+       return ENOMEM;
+
+     if (long_shader) {
+        sel->tmp_buf = malloc(offlen);
+        if (!sel->tmp_buf) {
+           free(sel);
+           return ENOMEM;
+        }
+        sel->buf_len = offlen;
+        memcpy(sel->tmp_buf, shd_text, pkt_length * 4);
+        sel->buf_offset = pkt_length * 4;
+        ctx->sub->long_shader_in_progress_handle[type] = handle;
+     } else
+        finished = true;
+   } else {
+      sel = vrend_object_lookup(ctx->sub->object_hash, handle, VIRGL_OBJECT_SHADER);
+      if (!sel) {
+         fprintf(stderr, "got continuation without original shader %d\n", handle);
+         return EINVAL;
+      }
+
+      offlen &= ~VIRGL_OBJ_SHADER_OFFSET_CONT;
+      if (offlen != sel->buf_offset) {
+         fprintf(stderr, "Got mismatched shader continuation %d vs %d\n",
+                 offlen, sel->buf_offset);
+         vrend_renderer_object_destroy(ctx, handle);
+         return EINVAL;
+      }
+      memcpy(sel->tmp_buf + sel->buf_offset, shd_text, pkt_length * 4);
+
+      sel->buf_offset += pkt_length * 4;
+      if (sel->buf_offset >= sel->buf_len) {
+         finished = true;
+         shd_text = sel->tmp_buf;
+      }
+   }
+
+   if (finished) {
+      struct tgsi_token *tokens;
+
+      tokens = calloc(num_tokens + 10, sizeof(struct tgsi_token));
+      if (!tokens) {
+         return ENOMEM;
+      }
+
+      if (vrend_dump_shaders)
+         fprintf(stderr,"shader\n%s\n", shd_text);
+      if (!tgsi_text_translate((const char *)shd_text, tokens, num_tokens + 10))
+         return EINVAL;
+
+      vrend_finish_shader(ctx, sel, tokens);
+      free(sel->tmp_buf);
+      sel->tmp_buf = NULL;
+      free(tokens);
+      ctx->sub->long_shader_in_progress_handle[type] = 0;
+   }
+
+   if (new_shader) {
+      ret_handle = vrend_renderer_object_insert(ctx, sel, sizeof(*sel), handle, VIRGL_OBJECT_SHADER);
+      if (ret_handle == 0) {
+         vrend_destroy_shader_selector(sel);
+         return ENOMEM;
+      }
    }
 
    return 0;
 
 }
 
-void vrend_bind_vs(struct vrend_context *ctx,
-                   uint32_t handle)
+void vrend_bind_shader(struct vrend_context *ctx,
+                       uint32_t handle)
 {
    struct vrend_shader_selector *sel;
 
-   sel = vrend_object_lookup(ctx->sub->object_hash, handle, VIRGL_OBJECT_VS);
-
-   if (ctx->sub->vs != sel)
+   sel = vrend_object_lookup(ctx->sub->object_hash, handle, VIRGL_OBJECT_SHADER);
+   if (!sel)
+      return;
+   if (ctx->sub->shaders[sel->type] != sel)
       ctx->sub->shader_dirty = true;
-   vrend_shader_state_reference(&ctx->sub->vs, sel);
-}
-
-void vrend_bind_gs(struct vrend_context *ctx,
-                   uint32_t handle)
-{
-   struct vrend_shader_selector *sel;
-
-   sel = vrend_object_lookup(ctx->sub->object_hash, handle, VIRGL_OBJECT_GS);
-
-   if (ctx->sub->gs != sel)
-      ctx->sub->shader_dirty = true;
-   vrend_shader_state_reference(&ctx->sub->gs, sel);
-}
-
-void vrend_bind_fs(struct vrend_context *ctx,
-                   uint32_t handle)
-{
-   struct vrend_shader_selector *sel;
-
-   sel = vrend_object_lookup(ctx->sub->object_hash, handle, VIRGL_OBJECT_FS);
-
-   if (ctx->sub->fs != sel)
-      ctx->sub->shader_dirty = true;
-   vrend_shader_state_reference(&ctx->sub->fs, sel);
+   vrend_shader_state_reference(&ctx->sub->shaders[sel->type], sel);
 }
 
 void vrend_clear(struct vrend_context *ctx,
@@ -2395,7 +2451,7 @@ static void vrend_draw_bind_samplers(struct vrend_context *ctx)
    int shader_type;
 
    sampler_id = 0;
-   for (shader_type = PIPE_SHADER_VERTEX; shader_type <= (ctx->sub->gs ? PIPE_SHADER_GEOMETRY : PIPE_SHADER_FRAGMENT); shader_type++) {
+   for (shader_type = PIPE_SHADER_VERTEX; shader_type <= (ctx->sub->shaders[PIPE_SHADER_GEOMETRY] ? PIPE_SHADER_GEOMETRY : PIPE_SHADER_FRAGMENT); shader_type++) {
       int index = 0;
       for (i = 0; i < ctx->sub->views[shader_type].num_views; i++) {
          struct vrend_resource *texture = NULL;
@@ -2467,7 +2523,7 @@ static void vrend_draw_bind_ubo(struct vrend_context *ctx)
    int shader_type;
 
    ubo_id = 0;
-   for (shader_type = PIPE_SHADER_VERTEX; shader_type <= (ctx->sub->gs ? PIPE_SHADER_GEOMETRY : PIPE_SHADER_FRAGMENT); shader_type++) {
+   for (shader_type = PIPE_SHADER_VERTEX; shader_type <= (ctx->sub->shaders[PIPE_SHADER_GEOMETRY] ? PIPE_SHADER_GEOMETRY : PIPE_SHADER_FRAGMENT); shader_type++) {
       uint32_t mask;
       int shader_ubo_idx = 0;
       struct pipe_constant_buffer *cb;
@@ -2522,23 +2578,25 @@ void vrend_draw_vbo(struct vrend_context *ctx,
       struct vrend_linked_shader_program *prog;
       bool fs_dirty, vs_dirty, gs_dirty;
       bool dual_src = util_blend_state_is_dual(&ctx->sub->blend_state, 0);
-      if (!ctx->sub->vs || !ctx->sub->fs) {
+      if (!ctx->sub->shaders[PIPE_SHADER_VERTEX] || !ctx->sub->shaders[PIPE_SHADER_FRAGMENT]) {
          fprintf(stderr,"dropping rendering due to missing shaders: %s\n", ctx->debug_name);
          return;
       }
 
-      vrend_shader_select(ctx, ctx->sub->fs, &fs_dirty);
-      vrend_shader_select(ctx, ctx->sub->vs, &vs_dirty);
-      if (ctx->sub->gs)
-         vrend_shader_select(ctx, ctx->sub->gs, &gs_dirty);
+      vrend_shader_select(ctx, ctx->sub->shaders[PIPE_SHADER_FRAGMENT], &fs_dirty);
+      vrend_shader_select(ctx, ctx->sub->shaders[PIPE_SHADER_VERTEX], &vs_dirty);
+      if (ctx->sub->shaders[PIPE_SHADER_GEOMETRY])
+         vrend_shader_select(ctx, ctx->sub->shaders[PIPE_SHADER_GEOMETRY], &gs_dirty);
 
-      if (!ctx->sub->vs->current || !ctx->sub->fs->current || (ctx->sub->gs && !ctx->sub->gs->current)) {
+      if (!ctx->sub->shaders[PIPE_SHADER_VERTEX]->current || !ctx->sub->shaders[PIPE_SHADER_FRAGMENT]->current || (ctx->sub->shaders[PIPE_SHADER_GEOMETRY] && !ctx->sub->shaders[PIPE_SHADER_GEOMETRY]->current)) {
          fprintf(stderr, "failure to compile shader variants: %s\n", ctx->debug_name);
          return;
       }
-      prog = lookup_shader_program(ctx, ctx->sub->vs->current->id, ctx->sub->fs->current->id, ctx->sub->gs ? ctx->sub->gs->current->id : 0, dual_src);
+      prog = lookup_shader_program(ctx, ctx->sub->shaders[PIPE_SHADER_VERTEX]->current->id, ctx->sub->shaders[PIPE_SHADER_FRAGMENT]->current->id, ctx->sub->shaders[PIPE_SHADER_GEOMETRY] ? ctx->sub->shaders[PIPE_SHADER_GEOMETRY]->current->id : 0, dual_src);
       if (!prog) {
-         prog = add_shader_program(ctx, ctx->sub->vs->current, ctx->sub->fs->current, ctx->sub->gs ? ctx->sub->gs->current : NULL);
+         prog = add_shader_program(ctx,
+                                   ctx->sub->shaders[PIPE_SHADER_VERTEX]->current,
+                                   ctx->sub->shaders[PIPE_SHADER_FRAGMENT]->current, ctx->sub->shaders[PIPE_SHADER_GEOMETRY] ? ctx->sub->shaders[PIPE_SHADER_GEOMETRY]->current : NULL);
          if (!prog)
             return;
       }
@@ -2555,16 +2613,10 @@ void vrend_draw_vbo(struct vrend_context *ctx,
 
    vrend_use_program(ctx, ctx->sub->prog->id);
 
-   for (shader_type = PIPE_SHADER_VERTEX; shader_type <= (ctx->sub->gs ? PIPE_SHADER_GEOMETRY : PIPE_SHADER_FRAGMENT); shader_type++) {
+   for (shader_type = PIPE_SHADER_VERTEX; shader_type <= (ctx->sub->shaders[PIPE_SHADER_GEOMETRY] ? PIPE_SHADER_GEOMETRY : PIPE_SHADER_FRAGMENT); shader_type++) {
       if (ctx->sub->prog->const_locs[shader_type] && (ctx->sub->const_dirty[shader_type] || new_program)) {
 	 int nc;
-         if (shader_type == PIPE_SHADER_VERTEX) {
-	    nc = ctx->sub->vs->sinfo.num_consts;
-         } else if (shader_type == PIPE_SHADER_GEOMETRY) {
-	    nc = ctx->sub->gs->sinfo.num_consts;
-         } else if (shader_type == PIPE_SHADER_FRAGMENT) {
-	    nc = ctx->sub->fs->sinfo.num_consts;
-         }
+         nc = ctx->sub->shaders[shader_type]->sinfo.num_consts;
          for (i = 0; i < nc; i++) {
             if (ctx->sub->prog->const_locs[shader_type][i] != -1 && ctx->sub->consts[shader_type].consts)
                glUniform4uiv(ctx->sub->prog->const_locs[shader_type][i], 1, &ctx->sub->consts[shader_type].consts[i * 4]);
@@ -2602,8 +2654,8 @@ void vrend_draw_vbo(struct vrend_context *ctx,
 
    if (ctx->sub->current_so) {
       if (ctx->sub->current_so->xfb_state == XFB_STATE_STARTED_NEED_BEGIN) {
-         if (ctx->sub->gs)
-            glBeginTransformFeedback(get_gs_xfb_mode(ctx->sub->gs->sinfo.gs_out_prim));
+         if (ctx->sub->shaders[PIPE_SHADER_GEOMETRY])
+            glBeginTransformFeedback(get_gs_xfb_mode(ctx->sub->shaders[PIPE_SHADER_GEOMETRY]->sinfo.gs_out_prim));
          else
             glBeginTransformFeedback(get_xfb_mode(info->mode));
          ctx->sub->current_so->xfb_state = XFB_STATE_STARTED;
@@ -3427,9 +3479,7 @@ void vrend_renderer_init(struct vrend_if_cbs *cbs)
    vrend_resource_set_destroy_callback(vrend_destroy_resource_object);
    vrend_object_set_destroy_callback(VIRGL_OBJECT_QUERY, vrend_destroy_query_object);
    vrend_object_set_destroy_callback(VIRGL_OBJECT_SURFACE, vrend_destroy_surface_object);
-   vrend_object_set_destroy_callback(VIRGL_OBJECT_VS, vrend_destroy_shader_object);
-   vrend_object_set_destroy_callback(VIRGL_OBJECT_FS, vrend_destroy_shader_object);
-   vrend_object_set_destroy_callback(VIRGL_OBJECT_GS, vrend_destroy_shader_object);
+   vrend_object_set_destroy_callback(VIRGL_OBJECT_SHADER, vrend_destroy_shader_object);
    vrend_object_set_destroy_callback(VIRGL_OBJECT_SAMPLER_VIEW, vrend_destroy_sampler_view_object);
    vrend_object_set_destroy_callback(VIRGL_OBJECT_STREAMOUT_TARGET, vrend_destroy_so_target_object);
    vrend_object_set_destroy_callback(VIRGL_OBJECT_SAMPLER_STATE, vrend_destroy_sampler_state_object);
@@ -3488,9 +3538,10 @@ static void vrend_destroy_sub_context(struct vrend_sub_context *sub)
    LIST_FOR_EACH_ENTRY_SAFE(obj, tmp, &sub->streamout_list, head) {
       vrend_destroy_streamout_object(obj);
    }
-   vrend_shader_state_reference(&sub->vs, NULL);
-   vrend_shader_state_reference(&sub->fs, NULL);
-   vrend_shader_state_reference(&sub->gs, NULL);
+
+   vrend_shader_state_reference(&sub->shaders[PIPE_SHADER_VERTEX], NULL);
+   vrend_shader_state_reference(&sub->shaders[PIPE_SHADER_FRAGMENT], NULL);
+   vrend_shader_state_reference(&sub->shaders[PIPE_SHADER_GEOMETRY], NULL);
 
    vrend_free_programs(sub);
 

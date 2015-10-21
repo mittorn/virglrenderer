@@ -61,68 +61,48 @@ static inline void *get_buf_ptr(struct vrend_decode_ctx *ctx,
    return &ctx->ds->buf[ctx->ds->buf_offset + offset];
 }
 
-static int vrend_decode_create_shader(struct vrend_decode_ctx *ctx, uint32_t type,
+static int vrend_decode_create_shader(struct vrend_decode_ctx *ctx,
                                       uint32_t handle,
                                       uint16_t length)
 {
-   struct pipe_shader_state *state;
-   struct tgsi_token *tokens;
+   struct pipe_stream_output_info so_info;
    int i, ret;
    uint32_t shader_offset;
-   unsigned num_tokens;
+   unsigned num_tokens, num_so_outputs, offlen;
    uint8_t *shd_text;
+   uint32_t type;
 
-   if (length < 3)
+   if (length < 5)
       return EINVAL;
 
-   state = CALLOC_STRUCT(pipe_shader_state);
-   if (!state)
-      return ENOMEM;
-
+   type = get_buf_entry(ctx, VIRGL_OBJ_SHADER_TYPE);
    num_tokens = get_buf_entry(ctx, VIRGL_OBJ_SHADER_NUM_TOKENS);
+   offlen = get_buf_entry(ctx, VIRGL_OBJ_SHADER_OFFSET);
+   num_so_outputs = get_buf_entry(ctx, VIRGL_OBJ_SHADER_SO_NUM_OUTPUTS);
 
-   if (num_tokens == 0)
-      num_tokens = 300;
+   shader_offset = 6;
+   if (num_so_outputs) {
+      so_info.num_outputs = num_so_outputs;
+      if (so_info.num_outputs) {
+         for (i = 0; i < 4; i++)
+            so_info.stride[i] = get_buf_entry(ctx, VIRGL_OBJ_SHADER_SO_STRIDE(i));
+         for (i = 0; i < so_info.num_outputs; i++) {
+            uint32_t tmp = get_buf_entry(ctx, VIRGL_OBJ_SHADER_SO_OUTPUT0(i));
 
-   tokens = calloc(num_tokens + 10, sizeof(struct tgsi_token));
-   if (!tokens) {
-      free(state);
-      return ENOMEM;
-   }
-
-   state->stream_output.num_outputs = get_buf_entry(ctx, VIRGL_OBJ_SHADER_SO_NUM_OUTPUTS);
-   if (state->stream_output.num_outputs) {
-      for (i = 0; i < 4; i++)
-         state->stream_output.stride[i] = get_buf_entry(ctx, VIRGL_OBJ_SHADER_SO_STRIDE(i));
-      for (i = 0; i < state->stream_output.num_outputs; i++) {
-         uint32_t tmp = get_buf_entry(ctx, VIRGL_OBJ_SHADER_SO_OUTPUT0(i));
-
-         state->stream_output.output[i].register_index = tmp & 0xff;
-         state->stream_output.output[i].start_component = (tmp >> 8) & 0x3;
-         state->stream_output.output[i].num_components = (tmp >> 10) & 0x7;
-         state->stream_output.output[i].output_buffer = (tmp >> 13) & 0x7;
-         state->stream_output.output[i].dst_offset = (tmp >> 16) & 0xffff;
+            so_info.output[i].register_index = tmp & 0xff;
+            so_info.output[i].start_component = (tmp >> 8) & 0x3;
+            so_info.output[i].num_components = (tmp >> 10) & 0x7;
+            so_info.output[i].output_buffer = (tmp >> 13) & 0x7;
+            so_info.output[i].dst_offset = (tmp >> 16) & 0xffff;
+         }
       }
-      shader_offset = 8 + state->stream_output.num_outputs;
+      shader_offset += 4 + (2 * num_so_outputs);
    } else
-      shader_offset = 4;
+     memset(&so_info, 0, sizeof(so_info));
 
    shd_text = get_buf_ptr(ctx, shader_offset);
-   if (vrend_dump_shaders)
-      fprintf(stderr,"shader\n%s\n", shd_text);
-   if (!tgsi_text_translate((const char *)shd_text, tokens, num_tokens + 10)) {
-      fprintf(stderr,"failed to translate\n %s\n", shd_text);
-      free(tokens);
-      free(state);
-      return EINVAL;
-   }
+   ret = vrend_create_shader(ctx->grctx, handle, &so_info, (const char *)shd_text, offlen, num_tokens, type, length - shader_offset + 1);
 
-   state->tokens = tokens;
-
-   ret = vrend_create_shader(ctx->grctx, handle, state, type);
-
-   free(tokens);
-   free(state);
    return ret;
 }
 
@@ -655,10 +635,8 @@ static int vrend_decode_create_object(struct vrend_decode_ctx *ctx, int length)
    case VIRGL_OBJECT_RASTERIZER:
       ret = vrend_decode_create_rasterizer(ctx, handle, length);
       break;
-   case VIRGL_OBJECT_VS:
-   case VIRGL_OBJECT_GS:
-   case VIRGL_OBJECT_FS:
-      ret = vrend_decode_create_shader(ctx, obj_type, handle, length);
+   case VIRGL_OBJECT_SHADER:
+      ret = vrend_decode_create_shader(ctx, handle, length);
       break;
    case VIRGL_OBJECT_VERTEX_ELEMENTS:
       ret = vrend_decode_create_ve(ctx, handle, length);
@@ -704,14 +682,8 @@ static int vrend_decode_bind_object(struct vrend_decode_ctx *ctx, uint16_t lengt
    case VIRGL_OBJECT_RASTERIZER:
       vrend_object_bind_rasterizer(ctx->grctx, handle);
       break;
-   case VIRGL_OBJECT_VS:
-      vrend_bind_vs(ctx->grctx, handle);
-      break;
-   case VIRGL_OBJECT_GS:
-      vrend_bind_gs(ctx->grctx, handle);
-      break;
-   case VIRGL_OBJECT_FS:
-      vrend_bind_fs(ctx->grctx, handle);
+   case VIRGL_OBJECT_SHADER:
+      vrend_bind_shader(ctx->grctx, handle);
       break;
    case VIRGL_OBJECT_VERTEX_ELEMENTS:
       vrend_bind_vertex_elements_state(ctx->grctx, handle);

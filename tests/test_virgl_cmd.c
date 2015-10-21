@@ -33,6 +33,7 @@
 #include "virgl_protocol.h"
 #include "util/u_memory.h"
 
+#include "large_shader.h"
 /* test creating objects with same ID causes context err */
 START_TEST(virgl_test_overlap_obj_id)
 {
@@ -343,9 +344,9 @@ START_TEST(virgl_test_render_simple)
 	   "  2: END\n";
 	 memset(&vs, 0, sizeof(vs));
 	 vs_handle = ctx_handle++;
-	 virgl_encode_shader_state(&ctx, vs_handle, VIRGL_OBJECT_VS,
+	 virgl_encode_shader_state(&ctx, vs_handle, PIPE_SHADER_VERTEX,
 				   &vs, text);
-	 virgl_encode_bind_object(&ctx, vs_handle, VIRGL_OBJECT_VS);
+	 virgl_encode_bind_object(&ctx, vs_handle, VIRGL_OBJECT_SHADER);
     }
 
     /* create fragment shader */
@@ -359,10 +360,10 @@ START_TEST(virgl_test_render_simple)
 	    "  1: END\n";
 	memset(&fs, 0, sizeof(fs));
 	fs_handle = ctx_handle++;
-	virgl_encode_shader_state(&ctx, fs_handle, VIRGL_OBJECT_FS,
+	virgl_encode_shader_state(&ctx, fs_handle, PIPE_SHADER_FRAGMENT,
 				   &fs, text);
 
-	virgl_encode_bind_object(&ctx, fs_handle, VIRGL_OBJECT_FS);
+	virgl_encode_bind_object(&ctx, fs_handle, VIRGL_OBJECT_SHADER);
     }
 
     /* set blend state */
@@ -568,9 +569,9 @@ START_TEST(virgl_test_render_geom_simple)
 	   "  2: END\n";
 	 memset(&vs, 0, sizeof(vs));
 	 vs_handle = ctx_handle++;
-	 virgl_encode_shader_state(&ctx, vs_handle, VIRGL_OBJECT_VS,
+	 virgl_encode_shader_state(&ctx, vs_handle, PIPE_SHADER_VERTEX,
 				   &vs, text);
-	 virgl_encode_bind_object(&ctx, vs_handle, VIRGL_OBJECT_VS);
+	 virgl_encode_bind_object(&ctx, vs_handle, VIRGL_OBJECT_SHADER);
     }
 
     /* create geometry shader */
@@ -599,9 +600,9 @@ START_TEST(virgl_test_render_geom_simple)
 	   "9:END\n";
 	 memset(&gs, 0, sizeof(gs));
 	 gs_handle = ctx_handle++;
-	 virgl_encode_shader_state(&ctx, gs_handle, VIRGL_OBJECT_GS,
+	 virgl_encode_shader_state(&ctx, gs_handle, PIPE_SHADER_GEOMETRY,
 				   &gs, text);
-	 virgl_encode_bind_object(&ctx, gs_handle, VIRGL_OBJECT_GS);
+	 virgl_encode_bind_object(&ctx, gs_handle, VIRGL_OBJECT_SHADER);
     }
 
     /* create fragment shader */
@@ -615,10 +616,10 @@ START_TEST(virgl_test_render_geom_simple)
 	    "  1: END\n";
 	memset(&fs, 0, sizeof(fs));
 	fs_handle = ctx_handle++;
-	virgl_encode_shader_state(&ctx, fs_handle, VIRGL_OBJECT_FS,
+	virgl_encode_shader_state(&ctx, fs_handle, PIPE_SHADER_FRAGMENT,
 				   &fs, text);
 
-	virgl_encode_bind_object(&ctx, fs_handle, VIRGL_OBJECT_FS);
+	virgl_encode_bind_object(&ctx, fs_handle, VIRGL_OBJECT_SHADER);
     }
 
     /* set blend state */
@@ -844,9 +845,9 @@ START_TEST(virgl_test_render_xfb)
 	 vs.stream_output.num_outputs = 1;
 	 vs.stream_output.stride[0] = 4;
 	 vs.stream_output.output[0].num_components = 4;
-	 virgl_encode_shader_state(&ctx, vs_handle, VIRGL_OBJECT_VS,
+	 virgl_encode_shader_state(&ctx, vs_handle, PIPE_SHADER_VERTEX,
 				   &vs, text);
-	 virgl_encode_bind_object(&ctx, vs_handle, VIRGL_OBJECT_VS);
+	 virgl_encode_bind_object(&ctx, vs_handle, VIRGL_OBJECT_SHADER);
     }
 
     /* create fragment shader */
@@ -860,10 +861,10 @@ START_TEST(virgl_test_render_xfb)
 	    "  1: END\n";
 	memset(&fs, 0, sizeof(fs));
 	fs_handle = ctx_handle++;
-	virgl_encode_shader_state(&ctx, fs_handle, VIRGL_OBJECT_FS,
+	virgl_encode_shader_state(&ctx, fs_handle, PIPE_SHADER_FRAGMENT,
 				   &fs, text);
 
-	virgl_encode_bind_object(&ctx, fs_handle, VIRGL_OBJECT_FS);
+	virgl_encode_bind_object(&ctx, fs_handle, VIRGL_OBJECT_SHADER);
     }
 
     /* set blend state */
@@ -977,6 +978,33 @@ START_TEST(virgl_test_render_xfb)
 }
 END_TEST
 
+/* send a large shader across */
+START_TEST(virgl_test_large_shader)
+{
+   int ret;
+   struct virgl_context ctx;
+   int ctx_handle = 1;
+   int fs_handle;
+   ret = testvirgl_init_ctx_cmdbuf(&ctx);
+   ck_assert_int_eq(ret, 0);
+
+   /* create large fragment shader */
+   {
+      struct pipe_shader_state fs;
+      const char *text = large_frag;
+
+      memset(&fs, 0, sizeof(fs));
+      fs_handle = ctx_handle++;
+      virgl_encode_shader_state(&ctx, fs_handle, PIPE_SHADER_FRAGMENT,
+                                &fs, text);
+
+      virgl_encode_bind_object(&ctx, fs_handle, VIRGL_OBJECT_SHADER);
+   }
+
+   testvirgl_fini_ctx_cmdbuf(&ctx);
+}
+END_TEST
+
 Suite *virgl_init_suite(void)
 {
   Suite *s;
@@ -987,6 +1015,7 @@ Suite *virgl_init_suite(void)
   tcase_add_test(tc_core, virgl_test_clear);
   tcase_add_test(tc_core, virgl_test_blit_simple);
   tcase_add_test(tc_core, virgl_test_overlap_obj_id);
+  tcase_add_test(tc_core, virgl_test_large_shader);
   tcase_add_test(tc_core, virgl_test_render_simple);
   tcase_add_test(tc_core, virgl_test_render_geom_simple);
   tcase_add_test(tc_core, virgl_test_render_xfb);
