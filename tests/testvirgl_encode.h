@@ -102,8 +102,10 @@ int virgl_encode_delete_object(struct virgl_context *ctx,
 
 int virgl_encoder_set_framebuffer_state(struct virgl_context *ctx,
 				       const struct pipe_framebuffer_state *state);
-int virgl_encoder_set_viewport_state(struct virgl_context *ctx,
-				    const struct pipe_viewport_state *state);
+int virgl_encoder_set_viewport_states(struct virgl_context *ctx,
+                                      int start_slot,
+                                      int num_viewports,
+                                      const struct pipe_viewport_state *states);
 
 int virgl_encoder_draw_vbo(struct virgl_context *ctx,
 			  const struct pipe_draw_info *info);
@@ -181,7 +183,7 @@ int virgl_encoder_set_blend_color(struct virgl_context *ctx,
                                  const struct pipe_blend_color *color);
 
 int virgl_encoder_set_scissor_state(struct virgl_context *ctx,
-				    int start_slot,
+				    unsigned start_slot,
 				    int num_scissors,
 				    const struct pipe_scissor_state *ss);
 

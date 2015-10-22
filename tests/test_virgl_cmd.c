@@ -414,7 +414,7 @@ START_TEST(virgl_test_render_simple)
 	vp.translate[0] = half_w + 0;
 	vp.translate[1] = half_h + 0;
 	vp.translate[2] = half_d + znear;
-	virgl_encoder_set_viewport_state(&ctx, &vp);
+	virgl_encoder_set_viewport_states(&ctx, 0, 1, &vp);
     }
 
     /* draw */
@@ -670,7 +670,7 @@ START_TEST(virgl_test_render_geom_simple)
 	vp.translate[0] = half_w + 0;
 	vp.translate[1] = half_h + 0;
 	vp.translate[2] = half_d + znear;
-	virgl_encoder_set_viewport_state(&ctx, &vp);
+	virgl_encoder_set_viewport_states(&ctx, 0, 1, &vp);
     }
 
     /* draw */
@@ -915,7 +915,7 @@ START_TEST(virgl_test_render_xfb)
 	vp.translate[0] = half_w + 0;
 	vp.translate[1] = half_h + 0;
 	vp.translate[2] = half_d + znear;
-	virgl_encoder_set_viewport_state(&ctx, &vp);
+	virgl_encoder_set_viewport_states(&ctx, 0, 1, &vp);
     }
 
     /* draw */
