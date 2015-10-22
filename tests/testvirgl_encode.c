@@ -36,10 +36,10 @@
 static int virgl_encoder_write_cmd_dword(struct virgl_context *ctx,
                                         uint32_t dword)
 {
-  int len = (dword >> 16);
+   int len = (dword >> 16);
 
-  if ((ctx->cbuf->cdw + len + 1) > VIRGL_MAX_CMDBUF_DWORDS)
-    ctx->flush(ctx);
+   if ((ctx->cbuf->cdw + len + 1) > VIRGL_MAX_CMDBUF_DWORDS)
+      ctx->flush(ctx);
 
    virgl_encoder_write_dword(ctx->cbuf, dword);
    return 0;
@@ -52,15 +52,6 @@ static void virgl_encoder_write_res(struct virgl_context *ctx,
 	virgl_encoder_write_dword(ctx->cbuf, res->handle);
     else
 	virgl_encoder_write_dword(ctx->cbuf, 0);
-}
-
-static void virgl_encoder_attach_res(struct virgl_context *ctx,
-                                    struct virgl_resource *res)
-{
-  // struct virgl_winsys *vws = virgl_screen(ctx->base.screen)->vws;
-
-  // if (res && res->hw_res)
-  //    vws->emit_res(vws, ctx->cbuf, res->hw_res, FALSE);
 }
 
 int virgl_encode_bind_object(struct virgl_context *ctx,
@@ -286,12 +277,7 @@ int virgl_encoder_set_framebuffer_state(struct virgl_context *ctx,
    for (i = 0; i < state->nr_cbufs; i++) {
       struct virgl_surface *surf = (struct virgl_surface *)state->cbufs[i];
       virgl_encoder_write_dword(ctx->cbuf, surf ? surf->handle : 0);
-      if (surf)
-         virgl_encoder_attach_res(ctx, (struct virgl_resource *)surf->base.texture);
    }
-
-   if (zsurf)
-      virgl_encoder_attach_res(ctx, (struct virgl_resource *)zsurf->base.texture);
 
    return 0;
 }
@@ -377,7 +363,10 @@ int virgl_encoder_draw_vbo(struct virgl_context *ctx,
    virgl_encoder_write_dword(ctx->cbuf, info->restart_index);
    virgl_encoder_write_dword(ctx->cbuf, info->min_index);
    virgl_encoder_write_dword(ctx->cbuf, info->max_index);
-   virgl_encoder_write_dword(ctx->cbuf, 0);
+   if (info->count_from_stream_output)
+      virgl_encoder_write_dword(ctx->cbuf, info->count_from_stream_output->buffer_size);
+   else
+      virgl_encoder_write_dword(ctx->cbuf, 0);
    return 0;
 }
 
@@ -596,9 +585,6 @@ int virgl_encode_set_sampler_views(struct virgl_context *ctx,
    for (i = 0; i < num_views; i++) {
       uint32_t handle = views[i] ? views[i]->handle : 0;
       virgl_encoder_write_dword(ctx->cbuf, handle);
-
-      //      if (views[i])
-	//         virgl_encoder_attach_res(ctx, (struct virgl_resource *)views[i]->base.texture);
    }
    return 0;
 }
@@ -653,7 +639,7 @@ int virgl_encoder_set_stencil_ref(struct virgl_context *ctx,
                                  const struct pipe_stencil_ref *ref)
 {
    virgl_encoder_write_cmd_dword(ctx, VIRGL_CMD0(VIRGL_CCMD_SET_STENCIL_REF, 0, VIRGL_SET_STENCIL_REF_SIZE));
-   virgl_encoder_write_dword(ctx->cbuf, VIRGL_STENCIL_REF_VAL(ref->ref_value[0] , (ref->ref_value[1] << 8)));
+   virgl_encoder_write_dword(ctx->cbuf, VIRGL_STENCIL_REF_VAL(ref->ref_value[0] , (ref->ref_value[1])));
    return 0;
 }
 
