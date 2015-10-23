@@ -56,7 +56,7 @@ static inline uint32_t get_buf_entry(struct vrend_decode_ctx *ctx, uint32_t offs
 }
 
 static inline void *get_buf_ptr(struct vrend_decode_ctx *ctx,
-				uint32_t offset)
+                                uint32_t offset)
 {
    return &ctx->ds->buf[ctx->ds->buf_offset + offset];
 }
@@ -183,9 +183,9 @@ static int vrend_decode_set_viewport_state(struct vrend_decode_ctx *ctx, int len
    start_slot = get_buf_entry(ctx, VIRGL_SET_VIEWPORT_START_SLOT);
    for (v = 0; v < num_viewports; v++) {
       for (i = 0; i < 3; i++)
-	 vps[v].scale[i] = uif(get_buf_entry(ctx, VIRGL_SET_VIEWPORT_STATE_SCALE_0(v) + i));
+         vps[v].scale[i] = uif(get_buf_entry(ctx, VIRGL_SET_VIEWPORT_STATE_SCALE_0(v) + i));
       for (i = 0; i < 3; i++)
-	 vps[v].translate[i] = uif(get_buf_entry(ctx, VIRGL_SET_VIEWPORT_STATE_TRANSLATE_0(v) + i));
+         vps[v].translate[i] = uif(get_buf_entry(ctx, VIRGL_SET_VIEWPORT_STATE_TRANSLATE_0(v) + i));
    }
 
    vrend_set_viewport_states(ctx->grctx, start_slot, num_viewports, vps);
@@ -891,7 +891,7 @@ static int vrend_decode_bind_sampler_states(struct vrend_decode_ctx *ctx, int le
       return EINVAL;
 
    vrend_bind_sampler_states(ctx->grctx, shader_type, start_slot, num_states,
-			     get_buf_ptr(ctx, VIRGL_BIND_SAMPLER_STATES_S0_HANDLE));
+                             get_buf_ptr(ctx, VIRGL_BIND_SAMPLER_STATES_S0_HANDLE));
    return 0;
 }
 
@@ -1162,8 +1162,8 @@ int vrend_decode_block(uint32_t ctx_id, uint32_t *block, int ndw)
          ret = vrend_decode_set_streamout_targets(gdctx, len);
          break;
       case VIRGL_CCMD_SET_RENDER_CONDITION:
-	 ret = vrend_decode_set_render_condition(gdctx, len);
-	 break;
+         ret = vrend_decode_set_render_condition(gdctx, len);
+         break;
       case VIRGL_CCMD_SET_UNIFORM_BUFFER:
          ret = vrend_decode_set_uniform_buffer(gdctx, len);
          break;

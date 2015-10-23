@@ -30,9 +30,9 @@ typedef void (*iov_cb)(void *cookie, unsigned int doff, void *src, int len);
 
 size_t vrend_get_iovec_size(const struct iovec *iov, int iovlen);
 size_t vrend_read_from_iovec(const struct iovec *iov, int iov_cnt,
-			     size_t offset, char *buf, size_t bytes);
+                             size_t offset, char *buf, size_t bytes);
 size_t vrend_write_to_iovec(const struct iovec *iov, int iov_cnt,
-			    size_t offset, const char *buf, size_t bytes);
+                            size_t offset, const char *buf, size_t bytes);
 
 size_t vrend_read_from_iovec_cb(const struct iovec *iov, int iov_cnt,
                           size_t offset, size_t bytes, iov_cb iocb, void *cookie);

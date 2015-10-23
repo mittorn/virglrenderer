@@ -265,21 +265,21 @@ static void vrend_add_formats(struct vrend_format_table *table, int num_entries)
 
       switch (table[i].format) {
       case PIPE_FORMAT_A8_UNORM:
-	entry = &rg_base_formats[0];
-	swizzle[0] = swizzle[1] = swizzle[2] = PIPE_SWIZZLE_ZERO;
-	swizzle[3] = PIPE_SWIZZLE_RED;
-	break;
+        entry = &rg_base_formats[0];
+        swizzle[0] = swizzle[1] = swizzle[2] = PIPE_SWIZZLE_ZERO;
+        swizzle[3] = PIPE_SWIZZLE_RED;
+        break;
       case PIPE_FORMAT_A16_UNORM:
-	entry = &rg_base_formats[2];
-	swizzle[0] = swizzle[1] = swizzle[2] = PIPE_SWIZZLE_ZERO;
-	swizzle[3] = PIPE_SWIZZLE_RED;
-	break;
+        entry = &rg_base_formats[2];
+        swizzle[0] = swizzle[1] = swizzle[2] = PIPE_SWIZZLE_ZERO;
+        swizzle[3] = PIPE_SWIZZLE_RED;
+        break;
       default:
-	break;
+        break;
       }
 
       if (entry) {
-	vrend_insert_format_swizzle(table[i].format, entry, binding, swizzle);
+        vrend_insert_format_swizzle(table[i].format, entry, binding, swizzle);
       }
       glDeleteTextures(1, &tex_id);
       glDeleteFramebuffers(1, &fb_id);
@@ -290,9 +290,9 @@ static void vrend_add_formats(struct vrend_format_table *table, int num_entries)
       GLenum attachment;
 
       if (table[i].format == VIRGL_FORMAT_Z24X8_UNORM || table[i].format == VIRGL_FORMAT_Z32_UNORM || table[i].format == VIRGL_FORMAT_Z16_UNORM || table[i].format == VIRGL_FORMAT_Z32_FLOAT)
-	attachment = GL_DEPTH_ATTACHMENT;
+        attachment = GL_DEPTH_ATTACHMENT;
       else
-	attachment = GL_DEPTH_STENCIL_ATTACHMENT;
+        attachment = GL_DEPTH_STENCIL_ATTACHMENT;
       glFramebufferTexture2D(GL_FRAMEBUFFER_EXT, attachment, GL_TEXTURE_2D, tex_id, 0);
 
       is_depth = true;

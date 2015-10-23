@@ -75,8 +75,8 @@ void virgl_renderer_context_destroy(uint32_t handle)
 }
 
 int virgl_renderer_submit_cmd(void *buffer,
-			      int ctx_id,
-			      int ndw)
+                              int ctx_id,
+                              int ndw)
 {
    return vrend_decode_block(ctx_id, buffer, ndw);
 }

@@ -202,12 +202,12 @@ void vrend_set_num_vbo(struct vrend_context *ctx,
                        int num_vbo);
 
 int vrend_transfer_inline_write(struct vrend_context *ctx,
-				struct vrend_transfer_info *info,
-				unsigned usage);
+                                struct vrend_transfer_info *info,
+                                unsigned usage);
 
 void vrend_set_viewport_states(struct vrend_context *ctx,
-			       int start_slot, int num_viewports,
-			       const struct pipe_viewport_state *state);
+                               int start_slot, int num_viewports,
+                               const struct pipe_viewport_state *state);
 void vrend_set_num_sampler_views(struct vrend_context *ctx,
                                  uint32_t shader_type,
                                  uint32_t start_slot,
@@ -251,9 +251,9 @@ void vrend_renderer_blit(struct vrend_context *ctx,
 void vrend_set_stencil_ref(struct vrend_context *ctx, struct pipe_stencil_ref *ref);
 void vrend_set_blend_color(struct vrend_context *ctx, struct pipe_blend_color *color);
 void vrend_set_scissor_state(struct vrend_context *ctx,
-			     int start_slot,
-			     int num_scissor,
-			     struct pipe_scissor_state *ss);
+                             int start_slot,
+                             int num_scissor,
+                             struct pipe_scissor_state *ss);
 
 void vrend_set_polygon_stipple(struct vrend_context *ctx, struct pipe_poly_stipple *ps);
 
@@ -312,8 +312,8 @@ void vrend_build_format_list(void);
 int vrend_renderer_resource_attach_iov(int res_handle, struct iovec *iov,
                                        int num_iovs);
 void vrend_renderer_resource_detach_iov(int res_handle,
-					struct iovec **iov_p,
-					int *num_iovs_p);
+                                        struct iovec **iov_p,
+                                        int *num_iovs_p);
 void vrend_renderer_resource_destroy(struct vrend_resource *res, bool remove);
 
 static inline void

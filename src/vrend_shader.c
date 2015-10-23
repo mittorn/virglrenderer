@@ -37,11 +37,11 @@ extern int vrend_dump_shaders;
 #define INTERP_PREFIX "               "
 
 struct vrend_shader_io {
-   unsigned		name;
-   unsigned		gpr;
-   unsigned		done;
-   int			sid;
-   unsigned		interpolate;
+   unsigned                name;
+   unsigned                gpr;
+   unsigned                done;
+   int                        sid;
+   unsigned                interpolate;
    unsigned first;
    bool                 centroid;
    bool glsl_predefined_no_emit;
@@ -864,19 +864,19 @@ static int emit_buf(struct dump_ctx *ctx, char *buf)
    return sret ? 0 : ENOMEM;
 }
 
-#define EMIT_BUF_WITH_RET(ctx, buf) do {	\
-      int ret = emit_buf((ctx), (buf));		\
-      if (ret) return FALSE;			\
+#define EMIT_BUF_WITH_RET(ctx, buf) do {        \
+      int ret = emit_buf((ctx), (buf));                \
+      if (ret) return FALSE;                        \
    } while(0)
 
 static int translate_tex(struct dump_ctx *ctx,
-			 struct tgsi_full_instruction *inst,
-			 int sreg_index,
-			 char srcs[4][255],
-			 char  dsts[3][255],
-			 const char *writemask,
-			 const char *dstconv,
-			 const char *dtypeprefix)
+                         struct tgsi_full_instruction *inst,
+                         int sreg_index,
+                         char srcs[4][255],
+                         char  dsts[3][255],
+                         const char *writemask,
+                         const char *dstconv,
+                         const char *dtypeprefix)
 {
    char *twm, *gwm = NULL, *txfi;
    bool is_shad = false;
@@ -1846,7 +1846,7 @@ prolog(struct tgsi_iterate_context *iter)
 }
 
 #define STRCAT_WITH_RET(mainstr, buf) do {              \
-      (mainstr) = strcat_realloc((mainstr), (buf));	\
+      (mainstr) = strcat_realloc((mainstr), (buf));        \
       if ((mainstr) == NULL) return NULL;               \
    } while(0)
 
@@ -2295,8 +2295,8 @@ static void replace_interp(char *program,
 }
 
 bool vrend_patch_vertex_shader_interpolants(char *program,
-					    struct vrend_shader_info *vs_info,
-					    struct vrend_shader_info *fs_info, bool is_gs, bool flatshade)
+                                            struct vrend_shader_info *vs_info,
+                                            struct vrend_shader_info *fs_info, bool is_gs, bool flatshade)
 {
    int i;
    const char *pstring;

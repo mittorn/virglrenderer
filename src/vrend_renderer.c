@@ -735,7 +735,7 @@ static void set_stream_out_varyings(int prog_id, struct vrend_shader_info *sinfo
          }
          for (j = last_buffer; j < so->output[i].output_buffer; j++)
             varyings[n_outputs++] = strdup("gl_NextBuffer");
-	 last_buffer = so->output[i].output_buffer;
+         last_buffer = so->output[i].output_buffer;
          buf_offset = 0;
       }
 
@@ -749,7 +749,7 @@ static void set_stream_out_varyings(int prog_id, struct vrend_shader_info *sinfo
 
       buf_offset += so->output[i].num_components;
       if (sinfo->so_names[i])
-	 varyings[n_outputs++] = strdup(sinfo->so_names[i]);
+         varyings[n_outputs++] = strdup(sinfo->so_names[i]);
    }
 
    skip = so->stride[last_buffer] - buf_offset;
@@ -1080,22 +1080,22 @@ static void vrend_destroy_so_target_object(void *obj_ptr)
    LIST_FOR_EACH_ENTRY_SAFE(obj, tmp, &sub_ctx->streamout_list, head) {
       found = false;
       for (i = 0; i < obj->num_targets; i++) {
-	 if (obj->so_targets[i] == target) {
-	    found = true;
-	    break;
-	 }
+         if (obj->so_targets[i] == target) {
+            found = true;
+            break;
+         }
       }
       if (found) {
-	 if (obj == sub_ctx->current_so)
-	    sub_ctx->current_so = NULL;
-	 if (obj->xfb_state == XFB_STATE_PAUSED) {
-	       if (vrend_state.have_tf2)
-	          glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, obj->id);
-	       glEndTransformFeedback();
-	    if (sub_ctx->current_so && vrend_state.have_tf2)
-	       glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, sub_ctx->current_so->id);
-	 }
-	 vrend_destroy_streamout_object(obj);
+         if (obj == sub_ctx->current_so)
+            sub_ctx->current_so = NULL;
+         if (obj->xfb_state == XFB_STATE_PAUSED) {
+               if (vrend_state.have_tf2)
+                  glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, obj->id);
+               glEndTransformFeedback();
+            if (sub_ctx->current_so && vrend_state.have_tf2)
+               glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, sub_ctx->current_so->id);
+         }
+         vrend_destroy_streamout_object(obj);
       }
    }
 
@@ -1358,7 +1358,7 @@ static void vrend_hw_set_zsurf_texture(struct vrend_context *ctx)
    last_layer = (ctx->sub->zsurf->val1 >> 16) & 0xffff;
 
    vrend_fb_bind_texture(tex, 0, ctx->sub->zsurf->val0,
-			 first_layer != last_layer ? 0xffffffff : first_layer);
+                         first_layer != last_layer ? 0xffffffff : first_layer);
 }
 
 static void vrend_hw_set_color_surface(struct vrend_context *ctx, int index)
@@ -1404,14 +1404,14 @@ static void vrend_hw_emit_framebuffer_state(struct vrend_context *ctx)
       struct vrend_surface *surf = NULL;
       int i;
       for (i = 0; i < ctx->sub->nr_cbufs; i++) {
-	 if (ctx->sub->surf[i]) {
-	    surf = ctx->sub->surf[i];
-	 }
+         if (ctx->sub->surf[i]) {
+            surf = ctx->sub->surf[i];
+         }
       }
       if (util_format_is_srgb(surf->format)) {
-	 glEnable(GL_FRAMEBUFFER_SRGB_EXT);
+         glEnable(GL_FRAMEBUFFER_SRGB_EXT);
       } else {
-	 glDisable(GL_FRAMEBUFFER_SRGB_EXT);
+         glDisable(GL_FRAMEBUFFER_SRGB_EXT);
       }
    }
    glDrawBuffers(ctx->sub->nr_cbufs, buffers);
@@ -1515,9 +1515,9 @@ void vrend_set_framebuffer_state(struct vrend_context *ctx,
  * an FBO already so don't need to invert rendering?
  */
 void vrend_set_viewport_states(struct vrend_context *ctx,
-			       int start_slot,
-			       int num_viewports,
-			       const struct pipe_viewport_state *state)
+                               int start_slot,
+                               int num_viewports,
+                               const struct pipe_viewport_state *state)
 {
    /* convert back to glViewport */
    GLint x, y;
@@ -1540,32 +1540,32 @@ void vrend_set_viewport_states(struct vrend_context *ctx,
       far_val = near_val + (state[i].scale[2] * 2.0);
 
       if (ctx->sub->vps[idx].cur_x != x ||
-	  ctx->sub->vps[idx].cur_y != y ||
-	  ctx->sub->vps[idx].width != width ||
-	  ctx->sub->vps[idx].height != height) {
-	 ctx->sub->viewport_state_dirty |= (1 << idx);
-	 ctx->sub->vps[idx].cur_x = x;
-	 ctx->sub->vps[idx].cur_y = y;
-	 ctx->sub->vps[idx].width = width;
-	 ctx->sub->vps[idx].height = height;
+          ctx->sub->vps[idx].cur_y != y ||
+          ctx->sub->vps[idx].width != width ||
+          ctx->sub->vps[idx].height != height) {
+         ctx->sub->viewport_state_dirty |= (1 << idx);
+         ctx->sub->vps[idx].cur_x = x;
+         ctx->sub->vps[idx].cur_y = y;
+         ctx->sub->vps[idx].width = width;
+         ctx->sub->vps[idx].height = height;
       }
 
       if (idx == 0) {
-	 if (ctx->sub->viewport_is_negative != viewport_is_negative)
-	    ctx->sub->viewport_is_negative = viewport_is_negative;
+         if (ctx->sub->viewport_is_negative != viewport_is_negative)
+            ctx->sub->viewport_is_negative = viewport_is_negative;
 
-	 ctx->sub->depth_scale = fabsf(far_val - near_val);
-	 ctx->sub->depth_transform = near_val;
+         ctx->sub->depth_scale = fabsf(far_val - near_val);
+         ctx->sub->depth_transform = near_val;
       }
 
       if (ctx->sub->vps[idx].near_val != near_val ||
-	  ctx->sub->vps[idx].far_val != far_val) {
-	 ctx->sub->vps[idx].near_val = near_val;
-	 ctx->sub->vps[idx].far_val = far_val;
-	 if (idx)
-	    glDepthRangeIndexed(idx, ctx->sub->vps[idx].near_val, ctx->sub->vps[idx].far_val);
-	 else
-	    glDepthRange(ctx->sub->vps[idx].near_val, ctx->sub->vps[idx].far_val);
+          ctx->sub->vps[idx].far_val != far_val) {
+         ctx->sub->vps[idx].near_val = near_val;
+         ctx->sub->vps[idx].far_val = far_val;
+         if (idx)
+            glDepthRangeIndexed(idx, ctx->sub->vps[idx].near_val, ctx->sub->vps[idx].far_val);
+         else
+            glDepthRange(ctx->sub->vps[idx].near_val, ctx->sub->vps[idx].far_val);
       }
    }
 }
@@ -1592,10 +1592,10 @@ int vrend_create_vertex_elements_state(struct vrend_context *ctx,
 
       type = GL_FALSE;
       if (desc->channel[0].type == UTIL_FORMAT_TYPE_FLOAT) {
-	 if (desc->channel[0].size == 32)
-	    type = GL_FLOAT;
-	 else if (desc->channel[0].size == 64)
-	    type = GL_DOUBLE;
+         if (desc->channel[0].size == 32)
+            type = GL_FLOAT;
+         else if (desc->channel[0].size == 64)
+            type = GL_DOUBLE;
          else if (desc->channel[0].size == 16)
             type = GL_HALF_FLOAT;
       } else if (desc->channel[0].type == UTIL_FORMAT_TYPE_UNSIGNED &&
@@ -1625,7 +1625,7 @@ int vrend_create_vertex_elements_state(struct vrend_context *ctx,
                elements[i].src_format == PIPE_FORMAT_B10G10R10A2_UNORM)
          type = GL_UNSIGNED_INT_2_10_10_10_REV;
       else if (elements[i].src_format == PIPE_FORMAT_R11G11B10_FLOAT)
-	 type = GL_UNSIGNED_INT_10F_11F_11F_REV;
+         type = GL_UNSIGNED_INT_10F_11F_11F_REV;
 
       if (type == GL_FALSE) {
          report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_VERTEX_FORMAT, elements[i].src_format);
@@ -1639,7 +1639,7 @@ int vrend_create_vertex_elements_state(struct vrend_context *ctx,
       if (desc->nr_channels == 4 && desc->swizzle[0] == UTIL_FORMAT_SWIZZLE_Z)
          v->elements[i].nr_chan = GL_BGRA;
       else if (elements[i].src_format == PIPE_FORMAT_R11G11B10_FLOAT)
-	 v->elements[i].nr_chan = 3;
+         v->elements[i].nr_chan = 3;
       else
          v->elements[i].nr_chan = desc->nr_channels;
    }
@@ -1654,9 +1654,9 @@ int vrend_create_vertex_elements_state(struct vrend_context *ctx,
             glVertexAttribIFormat(i, ve->nr_chan, ve->type, ve->base.src_offset);
          else
             glVertexAttribFormat(i, ve->nr_chan, ve->type, ve->norm, ve->base.src_offset);
-	 glVertexAttribBinding(i, ve->base.vertex_buffer_index);
-	 glVertexBindingDivisor(i, ve->base.instance_divisor);
-	 glEnableVertexAttribArray(i);
+         glVertexAttribBinding(i, ve->base.vertex_buffer_index);
+         glVertexBindingDivisor(i, ve->base.instance_divisor);
+         glEnableVertexAttribArray(i);
       }
    }
    ret_handle = vrend_renderer_object_insert(ctx, v, sizeof(struct vrend_vertex_element), handle,
@@ -1874,13 +1874,13 @@ void vrend_set_single_sampler_view(struct vrend_context *ctx,
             tex->cur_swizzle_a = view->gl_swizzle_a;
          }
          if (tex->srgb_decode != view->srgb_decode && util_format_is_srgb(tex->base.base.format)) {
-	    if (vrend_state.have_samplers)
-	       ctx->sub->sampler_state_dirty = true;
-	    else {
-	       glTexParameteri(view->texture->target, GL_TEXTURE_SRGB_DECODE_EXT,
-			       view->srgb_decode);
-	       tex->srgb_decode = view->srgb_decode;
-	    }
+            if (vrend_state.have_samplers)
+               ctx->sub->sampler_state_dirty = true;
+            else {
+               glTexParameteri(view->texture->target, GL_TEXTURE_SRGB_DECODE_EXT,
+                               view->srgb_decode);
+               tex->srgb_decode = view->srgb_decode;
+            }
          }
       } else {
          GLenum internalformat;
@@ -2245,14 +2245,14 @@ static void vrend_update_scissor_state(struct vrend_context *ctx)
       idx = u_bit_scan(&mask);
       ss = &ctx->sub->ss[idx];
       if (ctx->sub->viewport_is_negative)
-	 y = ss->miny;
+         y = ss->miny;
       else
-	 y = ss->miny;
+         y = ss->miny;
 
       if (idx > 0)
-	 glScissorIndexed(idx, ss->minx, y, ss->maxx - ss->minx, ss->maxy - ss->miny);
+         glScissorIndexed(idx, ss->minx, y, ss->maxx - ss->minx, ss->maxy - ss->miny);
       else
-	 glScissor(ss->minx, y, ss->maxx - ss->minx, ss->maxy - ss->miny);
+         glScissor(ss->minx, y, ss->maxx - ss->minx, ss->maxy - ss->miny);
    }
    ctx->sub->scissor_state_dirty = 0;
 }
@@ -2266,13 +2266,13 @@ static void vrend_update_viewport_state(struct vrend_context *ctx)
       idx = u_bit_scan(&mask);
 
       if (ctx->sub->viewport_is_negative)
-	 cy = ctx->sub->vps[idx].cur_y - ctx->sub->vps[idx].height;
+         cy = ctx->sub->vps[idx].cur_y - ctx->sub->vps[idx].height;
       else
-	 cy = ctx->sub->vps[idx].cur_y;
+         cy = ctx->sub->vps[idx].cur_y;
       if (idx > 0)
-	 glViewportIndexedf(idx, ctx->sub->vps[idx].cur_x, cy, ctx->sub->vps[idx].width, ctx->sub->vps[idx].height);
+         glViewportIndexedf(idx, ctx->sub->vps[idx].cur_x, cy, ctx->sub->vps[idx].width, ctx->sub->vps[idx].height);
       else
-	 glViewport(ctx->sub->vps[idx].cur_x, cy, ctx->sub->vps[idx].width, ctx->sub->vps[idx].height);
+         glViewport(ctx->sub->vps[idx].cur_x, cy, ctx->sub->vps[idx].width, ctx->sub->vps[idx].height);
    }
 
    ctx->sub->viewport_state_dirty = 0;
@@ -2420,7 +2420,7 @@ static void vrend_draw_bind_vertex_legacy(struct vrend_context *ctx,
 }
 
 static void vrend_draw_bind_vertex_binding(struct vrend_context *ctx,
-					   struct vrend_vertex_element_array *va)
+                                           struct vrend_vertex_element_array *va)
 {
    int i;
 
@@ -2428,17 +2428,17 @@ static void vrend_draw_bind_vertex_binding(struct vrend_context *ctx,
 
    if (ctx->sub->vbo_dirty) {
       for (i = 0; i < ctx->sub->num_vbos; i++) {
-	 struct vrend_resource *res = (struct vrend_resource *)ctx->sub->vbo[i].buffer;
-	 if (!res)
-	    glBindVertexBuffer(i, 0, 0, 0);
-	 else
-	    glBindVertexBuffer(i,
-			       res->id,
-			       ctx->sub->vbo[i].buffer_offset,
-			       ctx->sub->vbo[i].stride);
+         struct vrend_resource *res = (struct vrend_resource *)ctx->sub->vbo[i].buffer;
+         if (!res)
+            glBindVertexBuffer(i, 0, 0, 0);
+         else
+            glBindVertexBuffer(i,
+                               res->id,
+                               ctx->sub->vbo[i].buffer_offset,
+                               ctx->sub->vbo[i].stride);
       }
       for (i = ctx->sub->num_vbos; i < ctx->sub->old_num_vbos; i++) {
-	 glBindVertexBuffer(i, 0, 0, 0);
+         glBindVertexBuffer(i, 0, 0, 0);
       }
       ctx->sub->vbo_dirty = false;
    }
@@ -2615,7 +2615,7 @@ void vrend_draw_vbo(struct vrend_context *ctx,
 
    for (shader_type = PIPE_SHADER_VERTEX; shader_type <= (ctx->sub->shaders[PIPE_SHADER_GEOMETRY] ? PIPE_SHADER_GEOMETRY : PIPE_SHADER_FRAGMENT); shader_type++) {
       if (ctx->sub->prog->const_locs[shader_type] && (ctx->sub->const_dirty[shader_type] || new_program)) {
-	 int nc;
+         int nc;
          nc = ctx->sub->shaders[shader_type]->sinfo.num_consts;
          for (i = 0; i < nc; i++) {
             if (ctx->sub->prog->const_locs[shader_type][i] != -1 && ctx->sub->consts[shader_type].consts)
@@ -2702,16 +2702,16 @@ void vrend_draw_vbo(struct vrend_context *ctx,
       }
 
       if (info->index_bias) {
-	 if (info->instance_count > 1)
+         if (info->instance_count > 1)
             glDrawElementsInstancedBaseVertex(mode, info->count, elsz, (void *)(unsigned long)ctx->sub->ib.offset, info->instance_count, info->index_bias);
-	 else if (info->min_index != 0 || info->max_index != -1)
+         else if (info->min_index != 0 || info->max_index != -1)
             glDrawRangeElementsBaseVertex(mode, info->min_index, info->max_index, info->count, elsz, (void *)(unsigned long)ctx->sub->ib.offset, info->index_bias);
          else
             glDrawElementsBaseVertex(mode, info->count, elsz, (void *)(unsigned long)ctx->sub->ib.offset, info->index_bias);
       } else if (info->instance_count > 1) {
          glDrawElementsInstancedARB(mode, info->count, elsz, (void *)(unsigned long)ctx->sub->ib.offset, info->instance_count);
       } else if (info->min_index != 0 || info->max_index != -1)
-	 glDrawRangeElements(mode, info->min_index, info->max_index, info->count, elsz, (void *)(unsigned long)ctx->sub->ib.offset);
+         glDrawRangeElements(mode, info->min_index, info->max_index, info->count, elsz, (void *)(unsigned long)ctx->sub->ib.offset);
       else
          glDrawElements(mode, info->count, elsz, (void *)(unsigned long)ctx->sub->ib.offset);
    }
@@ -2947,7 +2947,7 @@ static void vrend_hw_emit_blend(struct vrend_context *ctx)
          vrend_blend_enable(ctx, true);
       }
       else
-	 vrend_blend_enable(ctx, false);
+         vrend_blend_enable(ctx, false);
 
       if (state->rt[0].colormask != ctx->sub->hw_blend_state.rt[0].colormask) {
          int i;
@@ -3523,9 +3523,9 @@ static void vrend_destroy_sub_context(struct vrend_sub_context *sub)
 
    if (!vrend_state.have_vertex_attrib_binding) {
       while (sub->enabled_attribs_bitmask) {
-	 i = u_bit_scan(&sub->enabled_attribs_bitmask);
+         i = u_bit_scan(&sub->enabled_attribs_bitmask);
 
-	 glDisableVertexAttribArray(i);
+         glDisableVertexAttribArray(i);
       }
       glDeleteVertexArrays(1, &sub->vaoid);
    }
@@ -3980,17 +3980,17 @@ static void read_transfer_data(struct pipe_resource *res,
       vrend_read_from_iovec(iov, num_iovs, offset, data, send_size);
    else {
       if (invert) {
-	 for (h = bh - 1; h >= 0; h--) {
-	    void *ptr = data + (h * bwx);
-	    vrend_read_from_iovec(iov, num_iovs, myoffset, ptr, bwx);
-	    myoffset += src_stride;
-	 }
+         for (h = bh - 1; h >= 0; h--) {
+            void *ptr = data + (h * bwx);
+            vrend_read_from_iovec(iov, num_iovs, myoffset, ptr, bwx);
+            myoffset += src_stride;
+         }
       } else {
-	 for (h = 0; h < bh; h++) {
-	    void *ptr = data + (h * bwx);
-	    vrend_read_from_iovec(iov, num_iovs, myoffset, ptr, bwx);
-	    myoffset += src_stride;
-	 }
+         for (h = 0; h < bh; h++) {
+            void *ptr = data + (h * bwx);
+            vrend_read_from_iovec(iov, num_iovs, myoffset, ptr, bwx);
+            myoffset += src_stride;
+         }
       }
    }
 }
@@ -4033,7 +4033,7 @@ static void write_transfer_data(struct pipe_resource *res,
 }
 
 static bool check_transfer_bounds(struct vrend_resource *res,
-				  const struct vrend_transfer_info *info)
+                                  const struct vrend_transfer_info *info)
 {
    int lwidth, lheight;
 
@@ -4061,26 +4061,26 @@ static bool check_transfer_bounds(struct vrend_resource *res,
    if (res->base.target == PIPE_TEXTURE_3D) {
       int ldepth = u_minify(res->base.depth0, info->level);
       if (info->box->depth > ldepth)
-	 return false;
+         return false;
       if (info->box->z > ldepth)
-	 return false;
+         return false;
       if (info->box->z + info->box->depth > ldepth)
-	 return false;
+         return false;
    } else {
       if (info->box->depth > res->base.array_size)
-	 return false;
+         return false;
       if (info->box->z > res->base.array_size)
-	 return false;
+         return false;
       if (info->box->z + info->box->depth > res->base.array_size)
-	 return false;
+         return false;
    }
 
    return true;
 }
 
 static bool check_iov_bounds(struct vrend_resource *res,
-			     const struct vrend_transfer_info *info,
-			     struct iovec *iov, int num_iovs)
+                             const struct vrend_transfer_info *info,
+                             struct iovec *iov, int num_iovs)
 {
    GLuint send_size;
    GLuint iovsize = vrend_get_iovec_size(iov, num_iovs);
@@ -4184,7 +4184,7 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
       }
 
       if (vrend_state.use_core_profile == true && (res->y_0_top || (res->base.format == (enum pipe_format)VIRGL_FORMAT_Z24X8_UNORM))) {
-	 need_temp = true;
+         need_temp = true;
          if (res->y_0_top)
             invert = true;
       }
@@ -4333,9 +4333,9 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
 }
 
 static int vrend_transfer_send_getteximage(struct vrend_context *ctx,
-					   struct vrend_resource *res,
-					   struct iovec *iov, int num_iovs,
-					   const struct vrend_transfer_info *info)
+                                           struct vrend_resource *res,
+                                           struct iovec *iov, int num_iovs,
+                                           const struct vrend_transfer_info *info)
 {
    GLenum format, type;
    uint32_t tex_size;
@@ -4410,9 +4410,9 @@ static int vrend_transfer_send_getteximage(struct vrend_context *ctx,
 }
 
 static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
-					  struct vrend_resource *res,
-					  struct iovec *iov, int num_iovs,
-					  const struct vrend_transfer_info *info)
+                                          struct vrend_resource *res,
+                                          struct iovec *iov, int num_iovs,
+                                          const struct vrend_transfer_info *info)
 {
    void *myptr = iov[0].iov_base + info->offset;
    int need_temp = 0;
@@ -4530,9 +4530,9 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
 }
 
 static int vrend_renderer_transfer_send_iov(struct vrend_context *ctx,
-					    struct vrend_resource *res,
-					    struct iovec *iov, int num_iovs,
-					    const struct vrend_transfer_info *info)
+                                            struct vrend_resource *res,
+                                            struct iovec *iov, int num_iovs,
+                                            const struct vrend_transfer_info *info)
 {
    if (res->target == 0 && res->ptr) {
       uint32_t send_size = info->box->width * util_format_get_blocksize(res->base.format);
@@ -4562,18 +4562,18 @@ static int vrend_renderer_transfer_send_iov(struct vrend_context *ctx,
 
       if (can_readpixels) {
          return vrend_transfer_send_readpixels(ctx, res,
-					       iov, num_iovs, info);
+                                               iov, num_iovs, info);
       }
 
       return vrend_transfer_send_getteximage(ctx, res,
-					     iov, num_iovs, info);
+                                             iov, num_iovs, info);
 
    }
    return 0;
 }
 
 int vrend_renderer_transfer_iov(const struct vrend_transfer_info *info,
-				int transfer_mode)
+                                int transfer_mode)
 {
    struct vrend_resource *res;
    struct vrend_context *ctx;
@@ -4594,7 +4594,7 @@ int vrend_renderer_transfer_iov(const struct vrend_transfer_info *info,
 
    if (!res) {
       if (info->ctx_id)
-	 report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, info->handle);
+         report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, info->handle);
       return EINVAL;
    }
 
@@ -4608,7 +4608,7 @@ int vrend_renderer_transfer_iov(const struct vrend_transfer_info *info,
 
    if (!iov) {
       if (info->ctx_id)
-	 report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, info->handle);
+         report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, info->handle);
       return EINVAL;
    }
 
@@ -4622,15 +4622,15 @@ int vrend_renderer_transfer_iov(const struct vrend_transfer_info *info,
 
    if (transfer_mode == VREND_TRANSFER_WRITE)
       return vrend_renderer_transfer_write_iov(ctx, res, iov, num_iovs,
-					       info);
+                                               info);
    else
       return vrend_renderer_transfer_send_iov(ctx, res, iov, num_iovs,
-					      info);
+                                              info);
 }
 
 int vrend_transfer_inline_write(struct vrend_context *ctx,
-				struct vrend_transfer_info *info,
-				unsigned usage)
+                                struct vrend_transfer_info *info,
+                                unsigned usage)
 {
    struct vrend_resource *res;
 
@@ -4673,8 +4673,8 @@ void vrend_set_blend_color(struct vrend_context *ctx,
 }
 
 void vrend_set_scissor_state(struct vrend_context *ctx,
-			     int start_slot,
-			     int num_scissor,
+                             int start_slot,
+                             int num_scissor,
                              struct pipe_scissor_state *ss)
 {
    int i, idx;
@@ -4763,17 +4763,17 @@ void vrend_set_streamout_targets(struct vrend_context *ctx,
       bool found = false;
       struct vrend_streamout_object *obj;
       LIST_FOR_EACH_ENTRY(obj, &ctx->sub->streamout_list, head) {
-	 if (obj->num_targets == num_targets) {
-	    if (!memcmp(handles, obj->handles, num_targets * 4)) {
-	       found = true;
-	       break;
-	    }
-	 }
+         if (obj->num_targets == num_targets) {
+            if (!memcmp(handles, obj->handles, num_targets * 4)) {
+               found = true;
+               break;
+            }
+         }
       }
       if (found) {
          ctx->sub->current_so = obj;
-	 glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, obj->id);
-	 return;
+         glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, obj->id);
+         return;
       }
 
       obj = CALLOC_STRUCT(vrend_streamout_object);
@@ -4783,13 +4783,13 @@ void vrend_set_streamout_targets(struct vrend_context *ctx,
       }
       obj->num_targets = num_targets;
       for (i = 0; i < num_targets; i++) {
-	 obj->handles[i] = handles[i];
-	 target = vrend_object_lookup(ctx->sub->object_hash, handles[i], VIRGL_OBJECT_STREAMOUT_TARGET);
-	 if (!target) {
-	    report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_HANDLE, handles[i]);
-	    return;
-	 }
-	 vrend_so_target_reference(&obj->so_targets[i], target);
+         obj->handles[i] = handles[i];
+         target = vrend_object_lookup(ctx->sub->object_hash, handles[i], VIRGL_OBJECT_STREAMOUT_TARGET);
+         if (!target) {
+            report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_HANDLE, handles[i]);
+            return;
+         }
+         vrend_so_target_reference(&obj->so_targets[i], target);
       }
       vrend_hw_emit_streamout_targets(ctx, obj);
       list_addtail(&obj->head, &ctx->sub->streamout_list);
@@ -5877,7 +5877,7 @@ void vrend_renderer_create_sub_ctx(struct vrend_context *ctx, int sub_ctx_id)
 
    LIST_FOR_EACH_ENTRY(sub, &ctx->sub_ctxs, head) {
       if (sub->sub_ctx_id == sub_ctx_id) {
-	 return;
+         return;
       }
    }
 
@@ -5922,14 +5922,14 @@ void vrend_renderer_destroy_sub_ctx(struct vrend_context *ctx, int sub_ctx_id)
 
    LIST_FOR_EACH_ENTRY(sub, &ctx->sub_ctxs, head) {
       if (sub->sub_ctx_id == sub_ctx_id) {
-	 tofree = sub;
+         tofree = sub;
       }
    }
 
    if (tofree) {
       if (ctx->sub == tofree) {
          ctx->sub = ctx->sub0;
-	 vrend_clicbs->make_current(0, ctx->sub->gl_context);
+         vrend_clicbs->make_current(0, ctx->sub->gl_context);
       }
       vrend_destroy_sub_context(tofree);
    }
@@ -5945,9 +5945,9 @@ void vrend_renderer_set_sub_ctx(struct vrend_context *ctx, int sub_ctx_id)
 
    LIST_FOR_EACH_ENTRY(sub, &ctx->sub_ctxs, head) {
       if (sub->sub_ctx_id == sub_ctx_id) {
-	 ctx->sub = sub;
-	 vrend_clicbs->make_current(0, sub->gl_context);
-	 break;
+         ctx->sub = sub;
+         vrend_clicbs->make_current(0, sub->gl_context);
+         break;
       }
    }
 }
