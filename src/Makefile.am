@@ -32,7 +32,6 @@ libvrend_la_SOURCES = \
         vrend_blitter.c \
         vrend_blitter.h \
         iov.c \
-        vrend_renderer_helper.c \
 	virgl_egl_context.c
 
 lib_LTLIBRARIES = libvirglrenderer.la
@@ -46,7 +45,7 @@ libvirglrenderer_la_LIBADD = libvrend.la gallium/auxiliary/libgallium.la
 libvirglrenderer_la_LDFLAGS = $(GM_LDFLAGS) $(EPOXY_LDFLAGS)
 
 libvirglrendererincludedir = ${includedir}/virgl
-libvirglrendererinclude_HEADERS = virglrenderer.h virgl_helper.h virgl_egl.h
+libvirglrendererinclude_HEADERS = virglrenderer.h virgl_egl.h
 
 EXTRA_DIST = gallium/include
 
