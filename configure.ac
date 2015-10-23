@@ -2,7 +2,7 @@ dnl Process this file with autoconf to create configure.
 
 AC_PREREQ([2.60])
 
-AC_INIT([virglrenderer], [0.0.1],
+AC_INIT([virglrenderer], [0.2.0],
     [])
 AC_CONFIG_SRCDIR([Makefile.am])
 AC_CONFIG_HEADERS([config.h])
