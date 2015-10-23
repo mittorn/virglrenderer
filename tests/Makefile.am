@@ -27,7 +27,7 @@ test_virgl_transfer_SOURCES = test_virgl_transfer.c
 test_virgl_transfer_LDADD = $(TEST_LIBS)
 test_virgl_transfer_LDFLAGS = -no-install
 
-test_virgl_cmd_SOURCES = test_virgl_cmd.c
+test_virgl_cmd_SOURCES = test_virgl_cmd.c large_shader.h
 test_virgl_cmd_LDADD = $(TEST_LIBS)
 test_virgl_cmd_LDFLAGS = -no-install
 

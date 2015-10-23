@@ -68,3 +68,8 @@ util/u_format_table.c: $(srcdir)/util/u_format_table.py $(srcdir)/util/u_format_
 	$(AM_V_GEN) $(PYTHON2) $(srcdir)/util/u_format_table.py $(srcdir)/util/u_format.csv > $@
 
 -include $(top_srcdir)/git.mk
+
+EXTRA_DIST = util/u_format_table.py \
+             util/u_format_pack.py \
+             util/u_format_parse.py \
+             util/u_format.csv
