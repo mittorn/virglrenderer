@@ -64,6 +64,7 @@ struct vrend_query {
 
    GLuint id;
    GLuint type;
+   GLuint index;
    GLuint gltype;
    int ctx_id;
    struct vrend_resource *res;
@@ -5260,8 +5261,8 @@ uint32_t vrend_renderer_object_insert(struct vrend_context *ctx, void *data,
 }
 
 int vrend_create_query(struct vrend_context *ctx, uint32_t handle,
-                       uint32_t query_type, uint32_t res_handle,
-                       uint32_t offset)
+                       uint32_t query_type, uint32_t query_index,
+                       uint32_t res_handle, uint32_t offset)
 {
    struct vrend_query *q;
    struct vrend_resource *res;
@@ -5278,6 +5279,7 @@ int vrend_create_query(struct vrend_context *ctx, uint32_t handle,
 
    list_inithead(&q->waiting_queries);
    q->type = query_type;
+   q->index = query_index;
    q->ctx_id = ctx->ctx_id;
 
    vrend_resource_reference(&q->res, res);

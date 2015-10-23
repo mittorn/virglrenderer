@@ -407,7 +407,9 @@ enum virgl_context_cmd {
 /* query object */
 #define VIRGL_OBJ_QUERY_SIZE 4
 #define VIRGL_OBJ_QUERY_HANDLE 1
-#define VIRGL_OBJ_QUERY_TYPE 2
+#define VIRGL_OBJ_QUERY_TYPE_INDEX 2
+#define VIRGL_OBJ_QUERY_TYPE(x) (x & 0xffff)
+#define VIRGL_OBJ_QUERY_INDEX(x) ((x & 0xffff) << 16)
 #define VIRGL_OBJ_QUERY_OFFSET 3
 #define VIRGL_OBJ_QUERY_RES_HANDLE 4
 

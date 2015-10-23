@@ -291,8 +291,8 @@ uint32_t vrend_renderer_object_insert(struct vrend_context *ctx, void *data,
 void vrend_renderer_object_destroy(struct vrend_context *ctx, uint32_t handle);
 
 int vrend_create_query(struct vrend_context *ctx, uint32_t handle,
-                       uint32_t query_type, uint32_t res_handle,
-                       uint32_t offset);
+                       uint32_t query_type, uint32_t query_index,
+                       uint32_t res_handle, uint32_t offset);
 
 void vrend_begin_query(struct vrend_context *ctx, uint32_t handle);
 void vrend_end_query(struct vrend_context *ctx, uint32_t handle);
