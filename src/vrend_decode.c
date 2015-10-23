@@ -682,9 +682,6 @@ static int vrend_decode_bind_object(struct vrend_decode_ctx *ctx, uint16_t lengt
    case VIRGL_OBJECT_RASTERIZER:
       vrend_object_bind_rasterizer(ctx->grctx, handle);
       break;
-   case VIRGL_OBJECT_SHADER:
-      vrend_bind_shader(ctx->grctx, handle);
-      break;
    case VIRGL_OBJECT_VERTEX_ELEMENTS:
       vrend_bind_vertex_elements_state(ctx->grctx, handle);
       break;
@@ -970,6 +967,19 @@ static int vrend_decode_destroy_sub_ctx(struct vrend_decode_ctx *ctx, int length
    return 0;
 }
 
+static int vrend_decode_bind_shader(struct vrend_decode_ctx *ctx, int length)
+{
+   uint32_t handle, type;
+   if (length != VIRGL_BIND_SHADER_SIZE)
+      return EINVAL;
+
+   handle = get_buf_entry(ctx, VIRGL_BIND_SHADER_HANDLE);
+   type = get_buf_entry(ctx, VIRGL_BIND_SHADER_TYPE);
+
+   vrend_bind_shader(ctx->grctx, handle, type);
+   return 0;
+}
+
 static int vrend_decode_set_streamout_targets(struct vrend_decode_ctx *ctx,
                                               uint16_t length)
 {
@@ -1175,6 +1185,9 @@ int vrend_decode_block(uint32_t ctx_id, uint32_t *block, int ndw)
          break;
       case VIRGL_CCMD_DESTROY_SUB_CTX:
          ret = vrend_decode_destroy_sub_ctx(gdctx, len);
+         break;
+      case VIRGL_CCMD_BIND_SHADER:
+         ret = vrend_decode_bind_shader(gdctx, len);
          break;
       }
 

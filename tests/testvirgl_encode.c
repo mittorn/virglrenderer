@@ -897,3 +897,12 @@ int virgl_encoder_destroy_sub_ctx(struct virgl_context *ctx, uint32_t sub_ctx_id
    virgl_encoder_write_dword(ctx->cbuf, sub_ctx_id);
    return 0;
 }
+
+int virgl_encode_bind_shader(struct virgl_context *ctx,
+                             uint32_t handle, uint32_t type)
+{
+   virgl_encoder_write_cmd_dword(ctx, VIRGL_CMD0(VIRGL_CCMD_BIND_SHADER, 0, 2));
+   virgl_encoder_write_dword(ctx->cbuf, handle);
+   virgl_encoder_write_dword(ctx->cbuf, type);
+   return 0;
+}

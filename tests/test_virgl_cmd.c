@@ -346,7 +346,7 @@ START_TEST(virgl_test_render_simple)
 	 vs_handle = ctx_handle++;
 	 virgl_encode_shader_state(&ctx, vs_handle, PIPE_SHADER_VERTEX,
 				   &vs, text);
-	 virgl_encode_bind_object(&ctx, vs_handle, VIRGL_OBJECT_SHADER);
+	 virgl_encode_bind_shader(&ctx, vs_handle, PIPE_SHADER_VERTEX);
     }
 
     /* create fragment shader */
@@ -363,7 +363,7 @@ START_TEST(virgl_test_render_simple)
 	virgl_encode_shader_state(&ctx, fs_handle, PIPE_SHADER_FRAGMENT,
 				   &fs, text);
 
-	virgl_encode_bind_object(&ctx, fs_handle, VIRGL_OBJECT_SHADER);
+        virgl_encode_bind_shader(&ctx, fs_handle, PIPE_SHADER_FRAGMENT);
     }
 
     /* set blend state */
@@ -571,7 +571,7 @@ START_TEST(virgl_test_render_geom_simple)
 	 vs_handle = ctx_handle++;
 	 virgl_encode_shader_state(&ctx, vs_handle, PIPE_SHADER_VERTEX,
 				   &vs, text);
-	 virgl_encode_bind_object(&ctx, vs_handle, VIRGL_OBJECT_SHADER);
+         virgl_encode_bind_shader(&ctx, vs_handle, PIPE_SHADER_VERTEX);
     }
 
     /* create geometry shader */
@@ -602,7 +602,7 @@ START_TEST(virgl_test_render_geom_simple)
 	 gs_handle = ctx_handle++;
 	 virgl_encode_shader_state(&ctx, gs_handle, PIPE_SHADER_GEOMETRY,
 				   &gs, text);
-	 virgl_encode_bind_object(&ctx, gs_handle, VIRGL_OBJECT_SHADER);
+         virgl_encode_bind_shader(&ctx, gs_handle, PIPE_SHADER_GEOMETRY);
     }
 
     /* create fragment shader */
@@ -619,7 +619,7 @@ START_TEST(virgl_test_render_geom_simple)
 	virgl_encode_shader_state(&ctx, fs_handle, PIPE_SHADER_FRAGMENT,
 				   &fs, text);
 
-	virgl_encode_bind_object(&ctx, fs_handle, VIRGL_OBJECT_SHADER);
+        virgl_encode_bind_shader(&ctx, fs_handle, PIPE_SHADER_FRAGMENT);
     }
 
     /* set blend state */
@@ -847,7 +847,7 @@ START_TEST(virgl_test_render_xfb)
 	 vs.stream_output.output[0].num_components = 4;
 	 virgl_encode_shader_state(&ctx, vs_handle, PIPE_SHADER_VERTEX,
 				   &vs, text);
-	 virgl_encode_bind_object(&ctx, vs_handle, VIRGL_OBJECT_SHADER);
+         virgl_encode_bind_shader(&ctx, vs_handle, PIPE_SHADER_VERTEX);
     }
 
     /* create fragment shader */
@@ -863,8 +863,7 @@ START_TEST(virgl_test_render_xfb)
 	fs_handle = ctx_handle++;
 	virgl_encode_shader_state(&ctx, fs_handle, PIPE_SHADER_FRAGMENT,
 				   &fs, text);
-
-	virgl_encode_bind_object(&ctx, fs_handle, VIRGL_OBJECT_SHADER);
+        virgl_encode_bind_shader(&ctx, fs_handle, PIPE_SHADER_FRAGMENT);
     }
 
     /* set blend state */
@@ -998,7 +997,7 @@ START_TEST(virgl_test_large_shader)
       virgl_encode_shader_state(&ctx, fs_handle, PIPE_SHADER_FRAGMENT,
                                 &fs, text);
 
-      virgl_encode_bind_object(&ctx, fs_handle, VIRGL_OBJECT_SHADER);
+      virgl_encode_bind_shader(&ctx, fs_handle, PIPE_SHADER_FRAGMENT);
    }
 
    testvirgl_fini_ctx_cmdbuf(&ctx);

@@ -82,7 +82,7 @@ enum virgl_context_cmd {
    VIRGL_CCMD_SET_SUB_CTX,
    VIRGL_CCMD_CREATE_SUB_CTX,
    VIRGL_CCMD_DESTROY_SUB_CTX,
-
+   VIRGL_CCMD_BIND_SHADER,
 };
 
 /*
@@ -460,4 +460,9 @@ enum virgl_context_cmd {
 /* polygon stipple */
 #define VIRGL_POLYGON_STIPPLE_SIZE 32
 #define VIRGL_POLYGON_STIPPLE_P0 1
+
+#define VIRGL_BIND_SHADER_SIZE 2
+#define VIRGL_BIND_SHADER_HANDLE 1
+#define VIRGL_BIND_SHADER_TYPE 2
+
 #endif

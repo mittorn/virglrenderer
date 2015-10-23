@@ -109,6 +109,7 @@ int vrend_create_shader(struct vrend_context *ctx,
                         int type, uint32_t pkt_length);
 
 void vrend_bind_shader(struct vrend_context *ctx,
+                       uint32_t type,
                        uint32_t handle);
 
 void vrend_bind_vs_so(struct vrend_context *ctx,
