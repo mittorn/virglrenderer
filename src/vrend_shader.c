@@ -1740,15 +1740,15 @@ iter_instruction(struct tgsi_iterate_context *iter,
             if (ret)
                return FALSE;
          }
+         ret = emit_clip_dist_movs(ctx);
+         if (ret)
+            return FALSE;
          if (!ctx->key->gs_present) {
             ret = emit_prescale(ctx);
             if (ret)
                return FALSE;
          }
 
-         ret = emit_clip_dist_movs(ctx);
-         if (ret)
-            return FALSE;
       } else if (iter->processor.Processor == TGSI_PROCESSOR_GEOMETRY) {
 
       } else if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
@@ -1805,10 +1805,10 @@ iter_instruction(struct tgsi_iterate_context *iter,
       if (ctx->so && ctx->key->gs_present) {
          emit_so_movs(ctx);
       }
-      ret = emit_prescale(ctx);
+      ret = emit_clip_dist_movs(ctx);
       if (ret)
          return FALSE;
-      ret = emit_clip_dist_movs(ctx);
+      ret = emit_prescale(ctx);
       if (ret)
          return FALSE;
       snprintf(buf, 255, "EmitVertex();\n");
