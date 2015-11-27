@@ -328,7 +328,9 @@ START_TEST(virgl_test_get_resource_info)
 
   ret = virgl_renderer_resource_get_info(res.handle, &info);
   ck_assert_int_eq(ret, 0);
-  ck_assert_int_eq(info.drm_fourcc, GBM_FORMAT_XRGB8888);
+
+  ck_assert_int(info.drm_fourcc == GBM_FORMAT_ABGR8888 ||
+                info.drm_fourcc == GBM_FORMAT_ARGB8888);
   ck_assert_int_eq(info.virgl_format, res.format);
   ck_assert_int_eq(res.width, info.width);
   ck_assert_int_eq(res.height, info.height);
