@@ -3830,6 +3830,7 @@ int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *a
       gltype = tex_conv_table[args->format].gltype;
       if (internalformat == 0) {
          fprintf(stderr,"unknown format is %d\n", args->format);
+         FREE(gr);
          return EINVAL;
       }
 
