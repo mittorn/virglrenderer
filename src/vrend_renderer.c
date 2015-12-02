@@ -3808,16 +3808,22 @@ int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *a
    } else if (args->target == PIPE_BUFFER && (args->bind & VREND_RES_BIND_SAMPLER_VIEW)) {
       GLenum internalformat;
       /* need to check GL version here */
-      gr->target = GL_TEXTURE_BUFFER;
-      glGenBuffersARB(1, &gr->id);
-      glBindBufferARB(gr->target, gr->id);
-      glGenTextures(1, &gr->tbo_tex_id);
-      glBufferData(gr->target, args->width, NULL, GL_STREAM_DRAW);
+      if (epoxy_has_gl_extension("GL_ARB_texture_buffer_object")) {
+         gr->target = GL_TEXTURE_BUFFER;
+         glGenBuffersARB(1, &gr->id);
+         glBindBufferARB(gr->target, gr->id);
+         glGenTextures(1, &gr->tbo_tex_id);
+         glBufferData(gr->target, args->width, NULL, GL_STREAM_DRAW);
 
-      glBindTexture(gr->target, gr->tbo_tex_id);
-      internalformat = tex_conv_table[args->format].internalformat;
-      glTexBuffer(gr->target, internalformat, gr->id);
-
+         glBindTexture(gr->target, gr->tbo_tex_id);
+         internalformat = tex_conv_table[args->format].internalformat;
+         glTexBuffer(gr->target, internalformat, gr->id);
+      } else {
+         gr->target = GL_PIXEL_PACK_BUFFER_ARB;
+         glGenBuffersARB(1, &gr->id);
+         glBindBufferARB(gr->target, gr->id);
+         glBufferData(gr->target, args->width, NULL, GL_STREAM_DRAW);
+      }
    } else {
       struct vrend_texture *gt = (struct vrend_texture *)gr;
       GLenum internalformat, glformat, gltype;
