@@ -252,8 +252,8 @@ iter_declaration(struct tgsi_iterate_context *iter,
                   }
                   add_two_side = true;
                }
+               name_prefix = "ex";
             }
-            name_prefix = "ex";
             break;
          }
          /* fallthrough */
