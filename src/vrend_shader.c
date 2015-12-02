@@ -681,6 +681,17 @@ static const char *atests[PIPE_FUNC_ALWAYS + 1] = {
    "true",
 };
 
+static int emit_a8_swizzle(struct dump_ctx *ctx)
+{
+   char buf[255];
+   char *sret;
+   snprintf(buf, 255, "fsout_c0.x = fsout_c0.w;\n");
+   sret = add_str_to_glsl_main(ctx, buf);
+   if (!sret)
+      return ENOMEM;
+   return 0;
+}
+
 static int emit_alpha_test(struct dump_ctx *ctx)
 {
    char buf[255];
@@ -1754,6 +1765,11 @@ iter_instruction(struct tgsi_iterate_context *iter,
       } else if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
          if (ctx->key->pstipple_tex) {
             ret = emit_pstipple_pass(ctx);
+            if (ret)
+               return FALSE;
+         }
+         if (ctx->key->cbufs_are_a8_bitmask) {
+            ret = emit_a8_swizzle(ctx);
             if (ret)
                return FALSE;
          }

@@ -63,6 +63,7 @@ struct vrend_shader_key {
    bool gs_present;
    bool flatshade;
    float alpha_ref_val;
+   uint32_t cbufs_are_a8_bitmask;
 };
 
 struct vrend_shader_cfg {

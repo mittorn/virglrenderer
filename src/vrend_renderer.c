@@ -412,6 +412,14 @@ bool vrend_is_ds_format(enum virgl_formats format)
    return vrend_format_is_ds(format);
 }
 
+static inline bool vrend_format_is_emulated_alpha(enum virgl_formats format)
+{
+   if (!vrend_state.use_core_profile)
+      return false;
+   return (format == VIRGL_FORMAT_A8_UNORM ||
+           format == VIRGL_FORMAT_A16_UNORM);
+}
+
 static inline const char *pipe_shader_to_prefix(int shader_type)
 {
    switch (shader_type) {
@@ -1508,6 +1516,7 @@ void vrend_set_framebuffer_state(struct vrend_context *ctx,
       if (status != GL_FRAMEBUFFER_COMPLETE)
          fprintf(stderr,"failed to complete framebuffer 0x%x %s\n", status, ctx->debug_name);
    }
+   ctx->sub->shader_dirty = true;
 }
 
 /*
@@ -1921,9 +1930,12 @@ static inline void vrend_fill_shader_key(struct vrend_context *ctx,
    if (vrend_state.use_core_profile == true) {
       int i;
       bool add_alpha_test = true;
+      key->cbufs_are_a8_bitmask = 0;
       for (i = 0; i < ctx->sub->nr_cbufs; i++) {
          if (!ctx->sub->surf[i])
             continue;
+         if (vrend_format_is_emulated_alpha(ctx->sub->surf[i]->format))
+            key->cbufs_are_a8_bitmask |= (1 << i);
          if (util_format_is_pure_integer(ctx->sub->surf[i]->format))
             add_alpha_test = false;
       }
@@ -2216,8 +2228,13 @@ void vrend_clear(struct vrend_context *ctx,
 
    vrend_use_program(ctx, 0);
 
-   if (buffers & PIPE_CLEAR_COLOR)
-      glClearColor(color->f[0], color->f[1], color->f[2], color->f[3]);
+   if (buffers & PIPE_CLEAR_COLOR) {
+      if (ctx->sub->nr_cbufs && ctx->sub->surf[0] && vrend_format_is_emulated_alpha(ctx->sub->surf[0]->format)) {
+         glClearColor(color->f[3], 0.0, 0.0, 0.0);
+      } else {
+         glClearColor(color->f[0], color->f[1], color->f[2], color->f[3]);
+      }
+   }
 
    if (buffers & PIPE_CLEAR_DEPTH) {
       /* gallium clears don't respect depth mask */
@@ -2849,6 +2866,15 @@ static inline bool is_dst_blend(int blend_factor)
            blend_factor == PIPE_BLENDFACTOR_INV_DST_ALPHA);
 }
 
+static inline int conv_a8_blend(int blend_factor)
+{
+   if (blend_factor == PIPE_BLENDFACTOR_DST_ALPHA)
+      return PIPE_BLENDFACTOR_DST_COLOR;
+   if (blend_factor == PIPE_BLENDFACTOR_INV_DST_ALPHA)
+      return PIPE_BLENDFACTOR_INV_DST_COLOR;
+   return blend_factor;
+}
+
 static inline int conv_dst_blend(int blend_factor)
 {
    if (blend_factor == PIPE_BLENDFACTOR_DST_ALPHA)
@@ -2863,12 +2889,17 @@ static void vrend_patch_blend_func(struct vrend_context *ctx)
    struct pipe_blend_state *state = &ctx->sub->blend_state;
    int i;
    int rsf, rdf, asf, adf;
+   bool a8_conv = false;
    if (ctx->sub->nr_cbufs == 0)
       return;
 
    for (i = 0; i < ctx->sub->nr_cbufs; i++) {
       if (!ctx->sub->surf[i])
          continue;
+      if (vrend_format_is_emulated_alpha(ctx->sub->surf[i]->format)) {
+         a8_conv = true;
+         break;
+      }
       if (!util_format_has_alpha(ctx->sub->surf[i]->format))
          break;
    }
@@ -2880,32 +2911,47 @@ static void vrend_patch_blend_func(struct vrend_context *ctx)
       /* ARB_draw_buffers_blend is required for this */
       for (i = 0; i < PIPE_MAX_COLOR_BUFS; i++) {
          if (state->rt[i].blend_enable) {
-            if (!(is_dst_blend(state->rt[i].rgb_src_factor) ||
-                  is_dst_blend(state->rt[i].rgb_dst_factor) ||
-                  is_dst_blend(state->rt[i].alpha_src_factor) ||
-                  is_dst_blend(state->rt[i].alpha_dst_factor)))
-               continue;
 
-            rsf = translate_blend_factor(conv_dst_blend(state->rt[i].rgb_src_factor));
-            rdf = translate_blend_factor(conv_dst_blend(state->rt[i].rgb_dst_factor));
-            asf = translate_blend_factor(conv_dst_blend(state->rt[i].alpha_src_factor));
-            adf = translate_blend_factor(conv_dst_blend(state->rt[i].alpha_dst_factor));
+            if (a8_conv) {
+               rsf = translate_blend_factor(conv_a8_blend(state->rt[i].alpha_src_factor));
+               rdf = translate_blend_factor(conv_a8_blend(state->rt[i].alpha_dst_factor));
+               asf = translate_blend_factor(PIPE_BLENDFACTOR_ZERO);
+               adf = translate_blend_factor(PIPE_BLENDFACTOR_ZERO);
+            } else {
+               if (!(is_dst_blend(state->rt[i].rgb_src_factor) ||
+                     is_dst_blend(state->rt[i].rgb_dst_factor) ||
+                     is_dst_blend(state->rt[i].alpha_src_factor) ||
+                     is_dst_blend(state->rt[i].alpha_dst_factor)))
+                  continue;
+               
+               rsf = translate_blend_factor(conv_dst_blend(state->rt[i].rgb_src_factor));
+               rdf = translate_blend_factor(conv_dst_blend(state->rt[i].rgb_dst_factor));
+               asf = translate_blend_factor(conv_dst_blend(state->rt[i].alpha_src_factor));
+               adf = translate_blend_factor(conv_dst_blend(state->rt[i].alpha_dst_factor));
+            }
 
             glBlendFuncSeparateiARB(i, rsf, rdf, asf, adf);
          }
       }
    } else {
       if (state->rt[0].blend_enable) {
-         if (!(is_dst_blend(state->rt[0].rgb_src_factor) ||
-               is_dst_blend(state->rt[0].rgb_dst_factor) ||
-               is_dst_blend(state->rt[0].alpha_src_factor) ||
-               is_dst_blend(state->rt[0].alpha_dst_factor)))
-            return;
+         if (a8_conv) {
+            rsf = translate_blend_factor(conv_a8_blend(state->rt[i].alpha_src_factor));
+            rdf = translate_blend_factor(conv_a8_blend(state->rt[i].alpha_dst_factor));
+            asf = translate_blend_factor(PIPE_BLENDFACTOR_ZERO);
+            adf = translate_blend_factor(PIPE_BLENDFACTOR_ZERO);
+         } else {
+            if (!(is_dst_blend(state->rt[0].rgb_src_factor) ||
+                  is_dst_blend(state->rt[0].rgb_dst_factor) ||
+                  is_dst_blend(state->rt[0].alpha_src_factor) ||
+                  is_dst_blend(state->rt[0].alpha_dst_factor)))
+               return;
 
-         rsf = translate_blend_factor(conv_dst_blend(state->rt[i].rgb_src_factor));
-         rdf = translate_blend_factor(conv_dst_blend(state->rt[i].rgb_dst_factor));
-         asf = translate_blend_factor(conv_dst_blend(state->rt[i].alpha_src_factor));
-         adf = translate_blend_factor(conv_dst_blend(state->rt[i].alpha_dst_factor));
+            rsf = translate_blend_factor(conv_dst_blend(state->rt[i].rgb_src_factor));
+            rdf = translate_blend_factor(conv_dst_blend(state->rt[i].rgb_dst_factor));
+            asf = translate_blend_factor(conv_dst_blend(state->rt[i].alpha_src_factor));
+            adf = translate_blend_factor(conv_dst_blend(state->rt[i].alpha_dst_factor));
+         }
 
          glBlendFuncSeparate(rsf, rdf, asf, adf);
       }

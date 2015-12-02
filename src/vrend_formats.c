@@ -261,7 +261,7 @@ static void vrend_add_formats(struct vrend_format_table *table, int num_entries)
     if (status == GL_INVALID_VALUE) {
       struct vrend_format_table *entry = NULL;
       uint8_t swizzle[4];
-      binding = VREND_BIND_SAMPLER | VREND_BIND_NEED_SWIZZLE;
+      binding = VREND_BIND_SAMPLER | VREND_BIND_RENDER | VREND_BIND_NEED_SWIZZLE;
 
       switch (table[i].format) {
       case PIPE_FORMAT_A8_UNORM:
