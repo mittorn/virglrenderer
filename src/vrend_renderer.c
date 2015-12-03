@@ -344,6 +344,8 @@ struct vrend_sub_context {
 
    struct list_head streamout_list;
    struct vrend_streamout_object *current_so;
+
+   struct pipe_blend_color blend_color;
 };
 
 struct vrend_context {
@@ -378,7 +380,7 @@ static void vrend_update_viewport_state(struct vrend_context *ctx);
 static void vrend_update_scissor_state(struct vrend_context *ctx);
 static void vrend_destroy_query_object(void *obj_ptr);
 static void vrend_finish_context_switch(struct vrend_context *ctx);
-static void vrend_patch_blend_func(struct vrend_context *ctx);
+static void vrend_patch_blend_state(struct vrend_context *ctx);
 static void vrend_update_frontface_state(struct vrend_context *ctx);
 static void vrender_get_glsl_version(int *glsl_version);
 static void vrend_destroy_resource_object(void *obj_ptr);
@@ -2602,7 +2604,7 @@ void vrend_draw_vbo(struct vrend_context *ctx,
    if (ctx->sub->viewport_state_dirty)
       vrend_update_viewport_state(ctx);
 
-   vrend_patch_blend_func(ctx);
+   vrend_patch_blend_state(ctx);
 
    if (ctx->sub->shader_dirty) {
       struct vrend_linked_shader_program *prog;
@@ -2884,84 +2886,8 @@ static inline int conv_dst_blend(int blend_factor)
    return blend_factor;
 }
 
-static void vrend_patch_blend_func(struct vrend_context *ctx)
+static void vrend_hw_emit_blend(struct vrend_context *ctx, struct pipe_blend_state *state)
 {
-   struct pipe_blend_state *state = &ctx->sub->blend_state;
-   int i;
-   int rsf, rdf, asf, adf;
-   bool a8_conv = false;
-   if (ctx->sub->nr_cbufs == 0)
-      return;
-
-   for (i = 0; i < ctx->sub->nr_cbufs; i++) {
-      if (!ctx->sub->surf[i])
-         continue;
-      if (vrend_format_is_emulated_alpha(ctx->sub->surf[i]->format)) {
-         a8_conv = true;
-         break;
-      }
-      if (!util_format_has_alpha(ctx->sub->surf[i]->format))
-         break;
-   }
-
-   if (i == ctx->sub->nr_cbufs)
-      return;
-
-   if (state->independent_blend_enable) {
-      /* ARB_draw_buffers_blend is required for this */
-      for (i = 0; i < PIPE_MAX_COLOR_BUFS; i++) {
-         if (state->rt[i].blend_enable) {
-
-            if (a8_conv) {
-               rsf = translate_blend_factor(conv_a8_blend(state->rt[i].alpha_src_factor));
-               rdf = translate_blend_factor(conv_a8_blend(state->rt[i].alpha_dst_factor));
-               asf = translate_blend_factor(PIPE_BLENDFACTOR_ZERO);
-               adf = translate_blend_factor(PIPE_BLENDFACTOR_ZERO);
-            } else {
-               if (!(is_dst_blend(state->rt[i].rgb_src_factor) ||
-                     is_dst_blend(state->rt[i].rgb_dst_factor) ||
-                     is_dst_blend(state->rt[i].alpha_src_factor) ||
-                     is_dst_blend(state->rt[i].alpha_dst_factor)))
-                  continue;
-               
-               rsf = translate_blend_factor(conv_dst_blend(state->rt[i].rgb_src_factor));
-               rdf = translate_blend_factor(conv_dst_blend(state->rt[i].rgb_dst_factor));
-               asf = translate_blend_factor(conv_dst_blend(state->rt[i].alpha_src_factor));
-               adf = translate_blend_factor(conv_dst_blend(state->rt[i].alpha_dst_factor));
-            }
-
-            glBlendFuncSeparateiARB(i, rsf, rdf, asf, adf);
-         }
-      }
-   } else {
-      if (state->rt[0].blend_enable) {
-         if (a8_conv) {
-            rsf = translate_blend_factor(conv_a8_blend(state->rt[i].alpha_src_factor));
-            rdf = translate_blend_factor(conv_a8_blend(state->rt[i].alpha_dst_factor));
-            asf = translate_blend_factor(PIPE_BLENDFACTOR_ZERO);
-            adf = translate_blend_factor(PIPE_BLENDFACTOR_ZERO);
-         } else {
-            if (!(is_dst_blend(state->rt[0].rgb_src_factor) ||
-                  is_dst_blend(state->rt[0].rgb_dst_factor) ||
-                  is_dst_blend(state->rt[0].alpha_src_factor) ||
-                  is_dst_blend(state->rt[0].alpha_dst_factor)))
-               return;
-
-            rsf = translate_blend_factor(conv_dst_blend(state->rt[i].rgb_src_factor));
-            rdf = translate_blend_factor(conv_dst_blend(state->rt[i].rgb_dst_factor));
-            asf = translate_blend_factor(conv_dst_blend(state->rt[i].alpha_src_factor));
-            adf = translate_blend_factor(conv_dst_blend(state->rt[i].alpha_dst_factor));
-         }
-
-         glBlendFuncSeparate(rsf, rdf, asf, adf);
-      }
-   }
-}
-
-static void vrend_hw_emit_blend(struct vrend_context *ctx)
-{
-   struct pipe_blend_state *state = &ctx->sub->blend_state;
-
    if (state->logicop_enable != ctx->sub->hw_blend_state.logicop_enable) {
       ctx->sub->hw_blend_state.logicop_enable = state->logicop_enable;
       if (state->logicop_enable) {
@@ -3032,6 +2958,72 @@ static void vrend_hw_emit_blend(struct vrend_context *ctx)
    }
 }
 
+/* there are a few reasons we might need to patch the blend state.
+   a) patching blend factors for dst with no alpha
+   b) patching colormask/blendcolor/blendfactors for A8/A16 format
+   emulation using GL_R8/GL_R16.
+*/
+static void vrend_patch_blend_state(struct vrend_context *ctx)
+{
+   struct pipe_blend_state new_state = ctx->sub->blend_state;
+   struct pipe_blend_state *state = &ctx->sub->blend_state;
+   bool dest_alpha_only = false, dest_has_no_alpha = false;
+   struct pipe_blend_color blend_color = ctx->sub->blend_color;
+   int i;
+
+   if (ctx->sub->nr_cbufs == 0)
+      return;
+
+   for (i = 0; i < ctx->sub->nr_cbufs; i++) {
+      if (!ctx->sub->surf[i])
+         continue;
+
+      if (vrend_format_is_emulated_alpha(ctx->sub->surf[i]->format)) {
+         dest_alpha_only = true;
+      }
+
+      if (!util_format_has_alpha(ctx->sub->surf[i]->format)) {
+         dest_has_no_alpha = true;
+      }
+   }
+
+   if (dest_alpha_only) {
+      for (i = 0; i < (state->independent_blend_enable ? PIPE_MAX_COLOR_BUFS : 1); i++) {
+         if (state->rt[i].blend_enable) {
+            new_state.rt[i].rgb_src_factor = conv_a8_blend(state->rt[i].alpha_src_factor);
+            new_state.rt[i].rgb_dst_factor = conv_a8_blend(state->rt[i].alpha_dst_factor);
+            new_state.rt[i].alpha_src_factor = PIPE_BLENDFACTOR_ZERO;
+            new_state.rt[i].alpha_dst_factor = PIPE_BLENDFACTOR_ZERO;
+         }
+         new_state.rt[i].colormask = 0;
+         if (state->rt[i].colormask & PIPE_MASK_A)
+            new_state.rt[i].colormask |= PIPE_MASK_R;
+      }
+      blend_color.color[0] = blend_color.color[3];
+      blend_color.color[1] = 0.0f;
+      blend_color.color[2] = 0.0f;
+      blend_color.color[3] = 0.0f;
+   } else if (dest_has_no_alpha) {
+      for (i = 0; i < (state->independent_blend_enable ? PIPE_MAX_COLOR_BUFS : 1); i++) {
+         if (!(is_dst_blend(state->rt[i].rgb_src_factor) ||
+               is_dst_blend(state->rt[i].rgb_dst_factor) ||
+               is_dst_blend(state->rt[i].alpha_src_factor) ||
+               is_dst_blend(state->rt[i].alpha_dst_factor)))
+            continue;
+         new_state.rt[i].rgb_src_factor = conv_dst_blend(state->rt[i].rgb_src_factor);
+         new_state.rt[i].rgb_dst_factor = conv_dst_blend(state->rt[i].rgb_dst_factor);
+         new_state.rt[i].alpha_src_factor = conv_dst_blend(state->rt[i].alpha_src_factor);
+         new_state.rt[i].alpha_dst_factor = conv_dst_blend(state->rt[i].alpha_dst_factor);
+      }
+   }
+
+   vrend_hw_emit_blend(ctx, &new_state);
+   glBlendColor(blend_color.color[0],
+                blend_color.color[1],
+                blend_color.color[2],
+                blend_color.color[3]);
+}
+
 void vrend_object_bind_blend(struct vrend_context *ctx,
                              uint32_t handle)
 {
@@ -3050,7 +3042,7 @@ void vrend_object_bind_blend(struct vrend_context *ctx,
 
    ctx->sub->blend_state = *state;
 
-   vrend_hw_emit_blend(ctx);
+   vrend_hw_emit_blend(ctx, &ctx->sub->blend_state);
 }
 
 static void vrend_hw_emit_dsa(struct vrend_context *ctx)
@@ -4734,6 +4726,7 @@ void vrend_set_stencil_ref(struct vrend_context *ctx,
 void vrend_set_blend_color(struct vrend_context *ctx,
                            struct pipe_blend_color *color)
 {
+   ctx->sub->blend_color = *color;
    glBlendColor(color->color[0], color->color[1], color->color[2],
                 color->color[3]);
 }
