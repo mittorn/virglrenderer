@@ -1266,13 +1266,22 @@ int vrend_create_sampler_view(struct vrend_context *ctx,
           !util_format_is_srgb(view->format))
          view->srgb_decode = GL_SKIP_DECODE_EXT;
    }
-   if (util_format_has_alpha(format) || util_format_is_depth_or_stencil(format))
-      view->gl_swizzle_a = to_gl_swizzle(view->swizzle_a);
-   else
-      view->gl_swizzle_a = GL_ONE;
+
+   view->gl_swizzle_a = to_gl_swizzle(view->swizzle_a);
    view->gl_swizzle_r = to_gl_swizzle(view->swizzle_r);
    view->gl_swizzle_g = to_gl_swizzle(view->swizzle_g);
    view->gl_swizzle_b = to_gl_swizzle(view->swizzle_b);
+
+   if (!(util_format_has_alpha(format) || util_format_is_depth_or_stencil(format))) {
+       if (view->gl_swizzle_a == GL_ALPHA)
+           view->gl_swizzle_a = GL_ONE;
+       if (view->gl_swizzle_r == GL_ALPHA)
+           view->gl_swizzle_r = GL_ONE;
+       if (view->gl_swizzle_g == GL_ALPHA)
+           view->gl_swizzle_g = GL_ONE;
+       if (view->gl_swizzle_b == GL_ALPHA)
+           view->gl_swizzle_b = GL_ONE;
+   }
 
    if (tex_conv_table[format].flags & VREND_BIND_NEED_SWIZZLE) {
       view->gl_swizzle_r = to_gl_swizzle(tex_conv_table[format].swizzle[0]);
