@@ -58,7 +58,6 @@ libgallium_la_SOURCES = \
 	os/os_memory.h \
 	os/os_memory_stdc.h \
 	os/os_memory_aligned.h \
-	os/os_misc.h \
 	os/os_time.h \
 	os/os_thread.h
 
