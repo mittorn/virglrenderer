@@ -266,8 +266,7 @@ int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks
       use_egl_context = 1;
    }
 
-   vrend_renderer_init(&virgl_cbs);
-   return 0;
+   return vrend_renderer_init(&virgl_cbs);
 }
 
 int virgl_renderer_get_fd_for_texture(uint32_t tex_id, int *fd)

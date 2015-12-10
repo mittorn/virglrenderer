@@ -98,7 +98,7 @@ struct vrend_if_cbs {
    void (*destroy_gl_context)(virgl_gl_context ctx);
    int (*make_current)(int scanout, virgl_gl_context ctx);
 };
-void vrend_renderer_init(struct vrend_if_cbs *cbs);
+int vrend_renderer_init(struct vrend_if_cbs *cbs);
 
 void vrend_insert_format(struct vrend_format_table *entry, uint32_t bindings);
 void vrend_insert_format_swizzle(int override_format, struct vrend_format_table *entry, uint32_t bindings, uint8_t swizzle[4]);

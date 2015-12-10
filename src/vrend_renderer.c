@@ -3483,7 +3483,7 @@ static GLenum tgsitargettogltarget(const enum pipe_texture_target target, int nr
    return PIPE_BUFFER;
 }
 
-void vrend_renderer_init(struct vrend_if_cbs *cbs)
+int vrend_renderer_init(struct vrend_if_cbs *cbs)
 {
    int gl_ver;
    virgl_gl_context gl_context;
@@ -3556,6 +3556,8 @@ void vrend_renderer_init(struct vrend_if_cbs *cbs)
    list_inithead(&vrend_state.active_ctx_list);
    /* create 0 context */
    vrend_renderer_context_create_internal(0, 0, NULL);
+
+   return 0;
 }
 
 void
