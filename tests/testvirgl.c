@@ -104,6 +104,11 @@ uint32_t testvirgl_get_last_fence(void)
     return testvirgl_last_fence;
 }
 
+void testvirgl_reset_fence(void)
+{
+   testvirgl_last_fence = 0;
+}
+
 int testvirgl_init_single_ctx(void)
 {
     int ret;

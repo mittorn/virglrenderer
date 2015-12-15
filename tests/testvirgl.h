@@ -65,6 +65,7 @@ void testvirgl_init_single_ctx_nr(void);
 void testvirgl_fini_single_ctx(void);
 
 uint32_t testvirgl_get_last_fence(void);
+void testvirgl_reset_fence(void);
 
 int testvirgl_init_ctx_cmdbuf(struct virgl_context *ctx);
 void testvirgl_fini_ctx_cmdbuf(struct virgl_context *ctx);

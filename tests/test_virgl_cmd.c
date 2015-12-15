@@ -430,6 +430,7 @@ START_TEST(virgl_test_render_simple)
     virgl_renderer_submit_cmd(ctx.cbuf->buf, ctx.ctx_id, ctx.cbuf->cdw);
 
     /* create a fence */
+    testvirgl_reset_fence();
     ret = virgl_renderer_create_fence(1, ctx.ctx_id);
     ck_assert_int_eq(ret, 0);
 
@@ -686,6 +687,7 @@ START_TEST(virgl_test_render_geom_simple)
     virgl_renderer_submit_cmd(ctx.cbuf->buf, ctx.ctx_id, ctx.cbuf->cdw);
 
     /* create a fence */
+    testvirgl_reset_fence();
     ret = virgl_renderer_create_fence(1, ctx.ctx_id);
     ck_assert_int_eq(ret, 0);
 
@@ -930,6 +932,7 @@ START_TEST(virgl_test_render_xfb)
     virgl_renderer_submit_cmd(ctx.cbuf->buf, ctx.ctx_id, ctx.cbuf->cdw);
 
     /* create a fence */
+    testvirgl_reset_fence();
     ret = virgl_renderer_create_fence(1, ctx.ctx_id);
     ck_assert_int_eq(ret, 0);
 
