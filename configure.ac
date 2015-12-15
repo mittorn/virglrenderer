@@ -84,11 +84,8 @@ if test "x$GCC" = xyes; then
 	CFLAGS="$CFLAGS -Wall -std=c99"
 fi
 
-PKG_CHECK_MODULES([LIBDRM], [libdrm >= $LIBDRM_REQUIRED],
-                  [have_libdrm=yes], [have_libdrm=no])
-
-PKG_CHECK_MODULES([EPOXY], [epoxy],
-                  [have_epoxy=yes], [have_epoxy=no])
+PKG_CHECK_MODULES([LIBDRM], [libdrm >= $LIBDRM_REQUIRED])
+PKG_CHECK_MODULES([EPOXY], [epoxy])
 
 AC_SUBST([DEFINES])
 AC_CONFIG_FILES([
