@@ -56,12 +56,14 @@ tgsi_scan_shader(const struct tgsi_token *tokens,
 {
    uint procType, i;
    struct tgsi_parse_context parse;
+   unsigned current_depth = 0;
 
    memset(info, 0, sizeof(*info));
    for (i = 0; i < TGSI_FILE_COUNT; i++)
       info->file_max[i] = -1;
-   for (i = 0; i < ARRAY_SIZE(info->const_file_max); i++)
+   for (i = 0; i < Elements(info->const_file_max); i++)
       info->const_file_max[i] = -1;
+   info->properties[TGSI_PROPERTY_GS_INVOCATIONS] = 1;
 
    /**
     ** Setup to begin parsing input shader
@@ -74,6 +76,8 @@ tgsi_scan_shader(const struct tgsi_token *tokens,
    assert(procType == TGSI_PROCESSOR_FRAGMENT ||
           procType == TGSI_PROCESSOR_VERTEX ||
           procType == TGSI_PROCESSOR_GEOMETRY ||
+          procType == TGSI_PROCESSOR_TESS_CTRL ||
+          procType == TGSI_PROCESSOR_TESS_EVAL ||
           procType == TGSI_PROCESSOR_COMPUTE);
    info->processor = procType;
 
@@ -96,6 +100,72 @@ tgsi_scan_shader(const struct tgsi_token *tokens,
 
             assert(fullinst->Instruction.Opcode < TGSI_OPCODE_LAST);
             info->opcode_count[fullinst->Instruction.Opcode]++;
+
+            switch (fullinst->Instruction.Opcode) {
+            case TGSI_OPCODE_IF:
+            case TGSI_OPCODE_UIF:
+            case TGSI_OPCODE_BGNLOOP:
+               current_depth++;
+               info->max_depth = MAX2(info->max_depth, current_depth);
+               break;
+            case TGSI_OPCODE_ENDIF:
+            case TGSI_OPCODE_ENDLOOP:
+               current_depth--;
+               break;
+            default:
+               break;
+            }
+
+            if (fullinst->Instruction.Opcode == TGSI_OPCODE_INTERP_CENTROID ||
+                fullinst->Instruction.Opcode == TGSI_OPCODE_INTERP_OFFSET ||
+                fullinst->Instruction.Opcode == TGSI_OPCODE_INTERP_SAMPLE) {
+               const struct tgsi_full_src_register *src0 = &fullinst->Src[0];
+               unsigned input;
+
+               if (src0->Register.Indirect && src0->Indirect.ArrayID)
+                  input = info->input_array_first[src0->Indirect.ArrayID];
+               else
+                  input = src0->Register.Index;
+
+               /* For the INTERP opcodes, the interpolation is always
+                * PERSPECTIVE unless LINEAR is specified.
+                */
+               switch (info->input_interpolate[input]) {
+               case TGSI_INTERPOLATE_COLOR:
+               case TGSI_INTERPOLATE_CONSTANT:
+               case TGSI_INTERPOLATE_PERSPECTIVE:
+                  switch (fullinst->Instruction.Opcode) {
+                  case TGSI_OPCODE_INTERP_CENTROID:
+                     info->uses_persp_opcode_interp_centroid = true;
+                     break;
+                  case TGSI_OPCODE_INTERP_OFFSET:
+                     info->uses_persp_opcode_interp_offset = true;
+                     break;
+                  case TGSI_OPCODE_INTERP_SAMPLE:
+                     info->uses_persp_opcode_interp_sample = true;
+                     break;
+                  }
+                  break;
+
+               case TGSI_INTERPOLATE_LINEAR:
+                  switch (fullinst->Instruction.Opcode) {
+                  case TGSI_OPCODE_INTERP_CENTROID:
+                     info->uses_linear_opcode_interp_centroid = true;
+                     break;
+                  case TGSI_OPCODE_INTERP_OFFSET:
+                     info->uses_linear_opcode_interp_offset = true;
+                     break;
+                  case TGSI_OPCODE_INTERP_SAMPLE:
+                     info->uses_linear_opcode_interp_sample = true;
+                     break;
+                  }
+                  break;
+               }
+            }
+
+            if (fullinst->Instruction.Opcode >= TGSI_OPCODE_F2D &&
+                fullinst->Instruction.Opcode <= TGSI_OPCODE_DSSG)
+               info->uses_doubles = true;
 
             for (i = 0; i < fullinst->Instruction.NumSrcRegs; i++) {
                const struct tgsi_full_src_register *src =
@@ -136,7 +206,7 @@ tgsi_scan_shader(const struct tgsi_token *tokens,
                /* MSAA samplers */
                if (src->Register.File == TGSI_FILE_SAMPLER) {
                   assert(fullinst->Instruction.Texture);
-                  assert(src->Register.Index < ARRAY_SIZE(info->is_msaa_sampler));
+                  assert(src->Register.Index < Elements(info->is_msaa_sampler));
 
                   if (fullinst->Instruction.Texture &&
                       (fullinst->Texture.Texture == TGSI_TEXTURE_2D_MSAA ||
@@ -165,13 +235,31 @@ tgsi_scan_shader(const struct tgsi_token *tokens,
                = &parse.FullToken.FullDeclaration;
             const uint file = fulldecl->Declaration.File;
             uint reg;
-            if (fulldecl->Declaration.Array)
-               info->array_max[file] = MAX2(info->array_max[file], fulldecl->Array.ArrayID);
+
+            if (fulldecl->Declaration.Array) {
+               unsigned array_id = fulldecl->Array.ArrayID;
+
+               switch (file) {
+               case TGSI_FILE_INPUT:
+                  assert(array_id < ARRAY_SIZE(info->input_array_first));
+                  info->input_array_first[array_id] = fulldecl->Range.First;
+                  info->input_array_last[array_id] = fulldecl->Range.Last;
+                  break;
+               case TGSI_FILE_OUTPUT:
+                  assert(array_id < ARRAY_SIZE(info->output_array_first));
+                  info->output_array_first[array_id] = fulldecl->Range.First;
+                  info->output_array_last[array_id] = fulldecl->Range.Last;
+                  break;
+               }
+               info->array_max[file] = MAX2(info->array_max[file], array_id);
+            }
+
             for (reg = fulldecl->Range.First;
                  reg <= fulldecl->Range.Last;
                  reg++) {
                unsigned semName = fulldecl->Semantic.Name;
-               unsigned semIndex = fulldecl->Semantic.Index;
+               unsigned semIndex =
+                  fulldecl->Semantic.Index + (reg - fulldecl->Range.First);
 
                /* only first 32 regs will appear in this bitfield */
                info->file_mask[file] |= (1 << reg);
@@ -195,8 +283,48 @@ tgsi_scan_shader(const struct tgsi_token *tokens,
                   info->input_cylindrical_wrap[reg] = (ubyte)fulldecl->Interp.CylindricalWrap;
                   info->num_inputs++;
 
-                  if (fulldecl->Interp.Location == TGSI_INTERPOLATE_LOC_CENTROID)
-                     info->uses_centroid = TRUE;
+                  /* Only interpolated varyings. Don't include POSITION.
+                   * Don't include integer varyings, because they are not
+                   * interpolated.
+                   */
+                  if (semName == TGSI_SEMANTIC_GENERIC ||
+                      semName == TGSI_SEMANTIC_TEXCOORD ||
+                      semName == TGSI_SEMANTIC_COLOR ||
+                      semName == TGSI_SEMANTIC_BCOLOR ||
+                      semName == TGSI_SEMANTIC_FOG ||
+                      semName == TGSI_SEMANTIC_CLIPDIST ||
+                      semName == TGSI_SEMANTIC_CULLDIST) {
+                     switch (fulldecl->Interp.Interpolate) {
+                     case TGSI_INTERPOLATE_COLOR:
+                     case TGSI_INTERPOLATE_PERSPECTIVE:
+                        switch (fulldecl->Interp.Location) {
+                        case TGSI_INTERPOLATE_LOC_CENTER:
+                           info->uses_persp_center = true;
+                           break;
+                        case TGSI_INTERPOLATE_LOC_CENTROID:
+                           info->uses_persp_centroid = true;
+                           break;
+                        case TGSI_INTERPOLATE_LOC_SAMPLE:
+                           info->uses_persp_sample = true;
+                           break;
+                        }
+                        break;
+                     case TGSI_INTERPOLATE_LINEAR:
+                        switch (fulldecl->Interp.Location) {
+                        case TGSI_INTERPOLATE_LOC_CENTER:
+                           info->uses_linear_center = true;
+                           break;
+                        case TGSI_INTERPOLATE_LOC_CENTROID:
+                           info->uses_linear_centroid = true;
+                           break;
+                        case TGSI_INTERPOLATE_LOC_SAMPLE:
+                           info->uses_linear_sample = true;
+                           break;
+                        }
+                        break;
+                     /* TGSI_INTERPOLATE_CONSTANT doesn't do any interpolation. */
+                     }
+                  }
 
                   if (semName == TGSI_SEMANTIC_PRIMID)
                      info->uses_primid = TRUE;
@@ -228,6 +356,8 @@ tgsi_scan_shader(const struct tgsi_token *tokens,
                   }
                   else if (semName == TGSI_SEMANTIC_PRIMID) {
                      info->uses_primid = TRUE;
+                  } else if (semName == TGSI_SEMANTIC_INVOCATIONID) {
+                     info->uses_invocationid = TRUE;
                   }
                }
                else if (file == TGSI_FILE_OUTPUT) {
@@ -235,21 +365,14 @@ tgsi_scan_shader(const struct tgsi_token *tokens,
                   info->output_semantic_index[reg] = (ubyte) semIndex;
                   info->num_outputs++;
 
+                  if (semName == TGSI_SEMANTIC_COLOR)
+                     info->colors_written |= 1 << semIndex;
+
                   if (procType == TGSI_PROCESSOR_VERTEX ||
-                      procType == TGSI_PROCESSOR_GEOMETRY) {
-                     if (semName == TGSI_SEMANTIC_CLIPDIST) {
-                        info->num_written_clipdistance +=
-                           util_bitcount(fulldecl->Declaration.UsageMask);
-                        info->clipdist_writemask |=
-                           fulldecl->Declaration.UsageMask << (semIndex*4);
-                     }
-                     else if (semName == TGSI_SEMANTIC_CULLDIST) {
-                        info->num_written_culldistance +=
-                           util_bitcount(fulldecl->Declaration.UsageMask);
-                        info->culldist_writemask |=
-                           fulldecl->Declaration.UsageMask << (semIndex*4);
-                     }
-                     else if (semName == TGSI_SEMANTIC_VIEWPORT_INDEX) {
+                      procType == TGSI_PROCESSOR_GEOMETRY ||
+                      procType == TGSI_PROCESSOR_TESS_CTRL ||
+                      procType == TGSI_PROCESSOR_TESS_EVAL) {
+                     if (semName == TGSI_SEMANTIC_VIEWPORT_INDEX) {
                         info->writes_viewport_index = TRUE;
                      }
                      else if (semName == TGSI_SEMANTIC_LAYER) {
@@ -277,6 +400,8 @@ tgsi_scan_shader(const struct tgsi_token *tokens,
                         info->writes_edgeflag = TRUE;
                      }
                   }
+               } else if (file == TGSI_FILE_SAMPLER) {
+                  info->samplers_declared |= 1 << reg;
                }
             }
          }
@@ -298,9 +423,21 @@ tgsi_scan_shader(const struct tgsi_token *tokens,
             const struct tgsi_full_property *fullprop
                = &parse.FullToken.FullProperty;
             unsigned name = fullprop->Property.PropertyName;
+            unsigned value = fullprop->u[0].Data;
 
-            assert(name < ARRAY_SIZE(info->properties));
-            info->properties[name] = fullprop->u[0].Data;
+            assert(name < Elements(info->properties));
+            info->properties[name] = value;
+
+            switch (name) {
+            case TGSI_PROPERTY_NUM_CLIPDIST_ENABLED:
+               info->num_written_clipdistance = value;
+               info->clipdist_writemask |= (1 << value) - 1;
+               break;
+            case TGSI_PROPERTY_NUM_CULLDIST_ENABLED:
+               info->num_written_culldistance = value;
+               info->culldist_writemask |= (1 << value) - 1;
+               break;
+            }
          }
          break;
 

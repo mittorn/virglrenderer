@@ -1839,7 +1839,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
       break;
    }
 
-   if (inst->Instruction.Saturate == TGSI_SAT_ZERO_ONE) {
+   if (inst->Instruction.Saturate) {
       snprintf(buf, 255, "%s = clamp(%s, 0.0, 1.0);\n", dsts[0], dsts[0]);
       EMIT_BUF_WITH_RET(ctx, buf);
    }

@@ -51,6 +51,7 @@ struct dump_ctx
    int indent;
    
    uint indentation;
+   FILE *file;
 
    void (*dump_printf)(struct dump_ctx *ctx, const char *format, ...);
 };
@@ -61,7 +62,10 @@ dump_ctx_printf(struct dump_ctx *ctx, const char *format, ...)
    va_list ap;
    (void)ctx;
    va_start(ap, format);
-   _debug_vprintf(format, ap);
+   if (ctx->file)
+      vfprintf(ctx->file, format, ap);
+   else
+      _debug_vprintf(format, ap);
    va_end(ap);
 }
 
@@ -86,6 +90,7 @@ dump_enum(
 #define INSTID(I)       ctx->dump_printf( ctx, "% 3u", I )
 #define SID(I)          ctx->dump_printf( ctx, "%d", I )
 #define FLT(F)          ctx->dump_printf( ctx, "%10.4f", F )
+#define DBL(D)          ctx->dump_printf( ctx, "%10.8f", D )
 #define HFLT(F)         ctx->dump_printf( ctx, "0x%08x", fui((F)) )
 #define ENM(E,ENUMS)    dump_enum( ctx, E, ENUMS, sizeof( ENUMS ) / sizeof( *ENUMS ) )
 
@@ -242,6 +247,13 @@ dump_imm_data(struct tgsi_iterate_context *iter,
    assert( num_tokens <= 4 );
    for (i = 0; i < num_tokens; i++) {
       switch (data_type) {
+      case TGSI_IMM_FLOAT64: {
+         union di d;
+         d.ui = data[i].Uint | (uint64_t)data[i+1].Uint << 32;
+         DBL( d.d );
+         i++;
+         break;
+      }
       case TGSI_IMM_FLOAT32:
          if (ctx->dump_float_as_hex)
             HFLT( data[i].Float );
@@ -270,14 +282,30 @@ iter_declaration(
    struct tgsi_full_declaration *decl )
 {
    struct dump_ctx *ctx = (struct dump_ctx *)iter;
+   boolean patch = decl->Semantic.Name == TGSI_SEMANTIC_PATCH ||
+      decl->Semantic.Name == TGSI_SEMANTIC_TESSINNER ||
+      decl->Semantic.Name == TGSI_SEMANTIC_TESSOUTER ||
+      decl->Semantic.Name == TGSI_SEMANTIC_PRIMID;
 
    TXT( "DCL " );
 
    TXT(tgsi_file_name(decl->Declaration.File));
 
-   /* all geometry shader inputs are two dimensional */
+   /* all geometry shader inputs and non-patch tessellation shader inputs are
+    * two dimensional
+    */
    if (decl->Declaration.File == TGSI_FILE_INPUT &&
-       iter->processor.Processor == TGSI_PROCESSOR_GEOMETRY) {
+       (iter->processor.Processor == TGSI_PROCESSOR_GEOMETRY ||
+        (!patch &&
+         (iter->processor.Processor == TGSI_PROCESSOR_TESS_CTRL ||
+          iter->processor.Processor == TGSI_PROCESSOR_TESS_EVAL)))) {
+      TXT("[]");
+   }
+
+   /* all non-patch tess ctrl shader outputs are two dimensional */
+   if (decl->Declaration.File == TGSI_FILE_OUTPUT &&
+       !patch &&
+       iter->processor.Processor == TGSI_PROCESSOR_TESS_CTRL) {
       TXT("[]");
    }
 
@@ -522,17 +550,8 @@ iter_instruction(
 
    TXT( info->mnemonic );
 
-   switch (inst->Instruction.Saturate) {
-   case TGSI_SAT_NONE:
-      break;
-   case TGSI_SAT_ZERO_ONE:
+   if (inst->Instruction.Saturate) {
       TXT( "_SAT" );
-      break;
-   case TGSI_SAT_MINUS_PLUS_ONE:
-      TXT( "_SATNV" );
-      break;
-   default:
-      assert( 0 );
    }
 
    for (i = 0; i < inst->Instruction.NumDstRegs; i++) {
@@ -605,6 +624,7 @@ iter_instruction(
    case TGSI_OPCODE_BGNLOOP:
    case TGSI_OPCODE_ENDLOOP:
    case TGSI_OPCODE_CAL:
+   case TGSI_OPCODE_BGNSUB:
       TXT( " :" );
       UID( inst->Label.Label );
       break;
@@ -635,6 +655,7 @@ tgsi_dump_instruction(
    ctx.indent = 0;
    ctx.dump_printf = dump_ctx_printf;
    ctx.indentation = 0;
+   ctx.file = NULL;
 
    iter_instruction( &ctx.iter, (struct tgsi_full_instruction *)inst );
 }
@@ -650,9 +671,7 @@ prolog(
 }
 
 void
-tgsi_dump(
-   const struct tgsi_token *tokens,
-   uint flags )
+tgsi_dump_to_file(const struct tgsi_token *tokens, uint flags, FILE *file)
 {
    struct dump_ctx ctx;
 
@@ -668,6 +687,7 @@ tgsi_dump(
    ctx.indent = 0;
    ctx.dump_printf = dump_ctx_printf;
    ctx.indentation = 0;
+   ctx.file = file;
 
    if (flags & TGSI_DUMP_FLOAT_AS_HEX)
       ctx.dump_float_as_hex = TRUE;
@@ -675,6 +695,12 @@ tgsi_dump(
       ctx.dump_float_as_hex = FALSE;
 
    tgsi_iterate_shader( tokens, &ctx.iter );
+}
+
+void
+tgsi_dump(const struct tgsi_token *tokens, uint flags)
+{
+   tgsi_dump_to_file(tokens, flags, NULL);
 }
 
 struct str_dump_ctx
@@ -710,7 +736,7 @@ str_dump_ctx_printf(struct dump_ctx *ctx, const char *format, ...)
       sctx->nospace = true;
 }
 
-int
+bool
 tgsi_dump_str(
    const struct tgsi_token *tokens,
    uint flags,
@@ -731,6 +757,7 @@ tgsi_dump_str(
    ctx.base.indent = 0;
    ctx.base.dump_printf = &str_dump_ctx_printf;
    ctx.base.indentation = 0;
+   ctx.base.file = NULL;
 
    ctx.str = str;
    ctx.str[0] = 0;
@@ -745,7 +772,7 @@ tgsi_dump_str(
 
    tgsi_iterate_shader( tokens, &ctx.base.iter );
 
-   return (ctx.nospace == true) ? -1 : 0;
+   return !ctx.nospace;
 }
 
 void
@@ -762,6 +789,7 @@ tgsi_dump_instruction_str(
    ctx.base.indent = 0;
    ctx.base.dump_printf = &str_dump_ctx_printf;
    ctx.base.indentation = 0;
+   ctx.base.file = NULL;
 
    ctx.str = str;
    ctx.str[0] = 0;

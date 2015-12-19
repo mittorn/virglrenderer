@@ -241,6 +241,24 @@ out:
    return TRUE;
 }
 
+static boolean parse_double( const char **pcur, uint32_t *val0, uint32_t *val1)
+{
+   const char *cur = *pcur;
+   union {
+      double dval;
+      uint32_t uval[2];
+   } v;
+
+   v.dval = strtod(cur, (char**)pcur);
+   if (*pcur == cur)
+      return FALSE;
+
+   *val0 = v.uval[0];
+   *val1 = v.uval[1];
+
+   return TRUE;
+}
+
 struct translate_ctx
 {
    const char *text;
@@ -250,7 +268,7 @@ struct translate_ctx
    struct tgsi_token *tokens_end;
    struct tgsi_header *header;
    unsigned processor : 4;
-   int implied_array_size : 5;
+   unsigned implied_array_size : 6;
    unsigned num_immediates;
 };
 
@@ -288,6 +306,10 @@ static boolean parse_header( struct translate_ctx *ctx )
       processor = TGSI_PROCESSOR_VERTEX;
    else if (str_match_nocase_whole( &ctx->cur, "GEOM" ))
       processor = TGSI_PROCESSOR_GEOMETRY;
+   else if (str_match_nocase_whole( &ctx->cur, "TESS_CTRL" ))
+      processor = TGSI_PROCESSOR_TESS_CTRL;
+   else if (str_match_nocase_whole( &ctx->cur, "TESS_EVAL" ))
+      processor = TGSI_PROCESSOR_TESS_EVAL;
    else if (str_match_nocase_whole( &ctx->cur, "COMP" ))
       processor = TGSI_PROCESSOR_COMPUTE;
    else {
@@ -662,6 +684,9 @@ parse_register_dcl(
    eat_opt_white( &cur );
 
    if (cur[0] == '[') {
+      bool is_in = *file == TGSI_FILE_INPUT;
+      bool is_out = *file == TGSI_FILE_OUTPUT;
+
       ++cur;
       ctx->cur = cur;
       if (!parse_register_dcl_bracket( ctx, &brackets[1] ))
@@ -671,7 +696,11 @@ parse_register_dcl(
        * input primitive. so we want to declare just
        * the index relevant to the semantics which is in
        * the second bracket */
-      if (ctx->processor == TGSI_PROCESSOR_GEOMETRY && *file == TGSI_FILE_INPUT) {
+
+      /* tessellation has similar constraints to geometry shader */
+      if ((ctx->processor == TGSI_PROCESSOR_GEOMETRY && is_in) ||
+          (ctx->processor == TGSI_PROCESSOR_TESS_EVAL && is_in) ||
+          (ctx->processor == TGSI_PROCESSOR_TESS_CTRL && (is_in || is_out))) {
          brackets[0] = brackets[1];
          *num_brackets = 1;
       } else {
@@ -727,6 +756,14 @@ parse_dst_operand(
       dst->Dimension.Indirect = 0;
       dst->Dimension.Dimension = 0;
       dst->Dimension.Index = bracket[0].index;
+
+      if (bracket[0].ind_file != TGSI_FILE_NULL) {
+         dst->Dimension.Indirect = 1;
+         dst->DimIndirect.File = bracket[0].ind_file;
+         dst->DimIndirect.Index = bracket[0].ind_index;
+         dst->DimIndirect.Swizzle = bracket[0].ind_comp;
+         dst->DimIndirect.ArrayID = bracket[0].ind_array;
+      }
       bracket[0] = bracket[1];
    }
    dst->Register.Index = bracket[0].index;
@@ -894,7 +931,7 @@ match_inst(const char **pcur,
    /* simple case: the whole string matches the instruction name */
    if (str_match_nocase_whole(&cur, info->mnemonic)) {
       *pcur = cur;
-      *saturate = TGSI_SAT_NONE;
+      *saturate = 0;
       return TRUE;
    }
 
@@ -902,13 +939,7 @@ match_inst(const char **pcur,
       /* the instruction has a suffix, figure it out */
       if (str_match_nocase_whole(&cur, "_SAT")) {
          *pcur = cur;
-         *saturate = TGSI_SAT_ZERO_ONE;
-         return TRUE;
-      }
-
-      if (str_match_nocase_whole(&cur, "_SATNV")) {
-         *pcur = cur;
-         *saturate = TGSI_SAT_MINUS_PLUS_ONE;
+         *saturate = 1;
          return TRUE;
       }
    }
@@ -922,7 +953,7 @@ parse_instruction(
    boolean has_label )
 {
    uint i;
-   uint saturate = TGSI_SAT_NONE;
+   uint saturate = 0;
    const struct tgsi_opcode_info *info;
    struct tgsi_full_instruction inst;
    const char *cur;
@@ -1113,6 +1144,10 @@ static boolean parse_immediate_data(struct translate_ctx *ctx, unsigned type,
       }
 
       switch (type) {
+      case TGSI_IMM_FLOAT64:
+         ret = parse_double(&ctx->cur, &values[i].Uint, &values[i+1].Uint);
+         i++;
+         break;
       case TGSI_IMM_FLOAT32:
          ret = parse_float(&ctx->cur, &values[i].Float);
          break;
@@ -1448,11 +1483,11 @@ static boolean parse_immediate( struct translate_ctx *ctx )
       report_error( ctx, "Syntax error" );
       return FALSE;
    }
-   for (type = 0; type < ARRAY_SIZE(tgsi_immediate_type_names); ++type) {
+   for (type = 0; type < Elements(tgsi_immediate_type_names); ++type) {
       if (str_match_nocase_whole(&ctx->cur, tgsi_immediate_type_names[type]))
          break;
    }
-   if (type == ARRAY_SIZE(tgsi_immediate_type_names)) {
+   if (type == Elements(tgsi_immediate_type_names)) {
       report_error( ctx, "Expected immediate type" );
       return FALSE;
    }
@@ -1498,7 +1533,7 @@ parse_fs_coord_origin( const char **pcur, uint *fs_coord_origin )
 {
    uint i;
 
-   for (i = 0; i < ARRAY_SIZE(tgsi_fs_coord_origin_names); i++) {
+   for (i = 0; i < Elements(tgsi_fs_coord_origin_names); i++) {
       const char *cur = *pcur;
 
       if (str_match_nocase_whole( &cur, tgsi_fs_coord_origin_names[i])) {
@@ -1515,7 +1550,7 @@ parse_fs_coord_pixel_center( const char **pcur, uint *fs_coord_pixel_center )
 {
    uint i;
 
-   for (i = 0; i < ARRAY_SIZE(tgsi_fs_coord_pixel_center_names); i++) {
+   for (i = 0; i < Elements(tgsi_fs_coord_pixel_center_names); i++) {
       const char *cur = *pcur;
 
       if (str_match_nocase_whole( &cur, tgsi_fs_coord_pixel_center_names[i])) {
@@ -1611,6 +1646,10 @@ static boolean translate( struct translate_ctx *ctx )
    eat_opt_white( &ctx->cur );
    if (!parse_header( ctx ))
       return FALSE;
+
+   if (ctx->processor == TGSI_PROCESSOR_TESS_CTRL ||
+       ctx->processor == TGSI_PROCESSOR_TESS_EVAL)
+       ctx->implied_array_size = 32;
 
    while (*ctx->cur != '\0') {
       uint label_val = 0;

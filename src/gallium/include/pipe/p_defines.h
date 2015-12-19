@@ -398,29 +398,39 @@ enum pipe_flush_flags {
 #define PIPE_SHADER_VERTEX   0
 #define PIPE_SHADER_FRAGMENT 1
 #define PIPE_SHADER_GEOMETRY 2
-#define PIPE_SHADER_COMPUTE  3
-#define PIPE_SHADER_TYPES    4
+#define PIPE_SHADER_TESS_CTRL 3
+#define PIPE_SHADER_TESS_EVAL 4
+#define PIPE_SHADER_COMPUTE  5
+#define PIPE_SHADER_TYPES    6
 
 
 /**
  * Primitive types:
  */
-#define PIPE_PRIM_POINTS               0
-#define PIPE_PRIM_LINES                1
-#define PIPE_PRIM_LINE_LOOP            2
-#define PIPE_PRIM_LINE_STRIP           3
-#define PIPE_PRIM_TRIANGLES            4
-#define PIPE_PRIM_TRIANGLE_STRIP       5
-#define PIPE_PRIM_TRIANGLE_FAN         6
-#define PIPE_PRIM_QUADS                7
-#define PIPE_PRIM_QUAD_STRIP           8
-#define PIPE_PRIM_POLYGON              9
+#define PIPE_PRIM_POINTS                    0
+#define PIPE_PRIM_LINES                     1
+#define PIPE_PRIM_LINE_LOOP                 2
+#define PIPE_PRIM_LINE_STRIP                3
+#define PIPE_PRIM_TRIANGLES                 4
+#define PIPE_PRIM_TRIANGLE_STRIP            5
+#define PIPE_PRIM_TRIANGLE_FAN              6
+#define PIPE_PRIM_QUADS                     7
+#define PIPE_PRIM_QUAD_STRIP                8
+#define PIPE_PRIM_POLYGON                   9
 #define PIPE_PRIM_LINES_ADJACENCY          10
-#define PIPE_PRIM_LINE_STRIP_ADJACENCY    11
+#define PIPE_PRIM_LINE_STRIP_ADJACENCY     11
 #define PIPE_PRIM_TRIANGLES_ADJACENCY      12
 #define PIPE_PRIM_TRIANGLE_STRIP_ADJACENCY 13
-#define PIPE_PRIM_MAX                      14
+#define PIPE_PRIM_PATCHES                  14
+#define PIPE_PRIM_MAX                      15
 
+
+/**
+ * Tessellator spacing types
+ */
+#define PIPE_TESS_SPACING_FRACTIONAL_ODD    0
+#define PIPE_TESS_SPACING_FRACTIONAL_EVEN   1
+#define PIPE_TESS_SPACING_EQUAL             2
 
 /**
  * Query object types
