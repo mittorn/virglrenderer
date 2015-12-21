@@ -2169,9 +2169,12 @@ int vrend_create_shader(struct vrend_context *ctx,
       if (!tgsi_text_translate((const char *)shd_text, tokens, num_tokens + 10))
          return EINVAL;
 
-      vrend_finish_shader(ctx, sel, tokens);
-      free(sel->tmp_buf);
-      sel->tmp_buf = NULL;
+      if (vrend_finish_shader(ctx, sel, tokens))
+         new_shader = false;
+      else {
+         free(sel->tmp_buf);
+         sel->tmp_buf = NULL;
+      }
       free(tokens);
       ctx->sub->long_shader_in_progress_handle[type] = 0;
    }
