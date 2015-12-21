@@ -203,6 +203,9 @@ tgsi_scan_shader(const struct tgsi_token *tokens,
                   info->indirect_files_read |= (1 << src->Register.File);
                }
 
+               if (src->Register.Dimension && src->Dimension.Indirect) {
+                  info->dimension_indirect_files |= (1 << src->Register.File);
+               }
                /* MSAA samplers */
                if (src->Register.File == TGSI_FILE_SAMPLER) {
                   assert(fullinst->Instruction.Texture);
@@ -223,6 +226,8 @@ tgsi_scan_shader(const struct tgsi_token *tokens,
                   info->indirect_files |= (1 << dst->Register.File);
                   info->indirect_files_written |= (1 << dst->Register.File);
                }
+               if (dst->Register.Dimension && dst->Dimension.Indirect)
+                  info->dimension_indirect_files |= (1 << dst->Register.File);
             }
 
             info->num_instructions++;

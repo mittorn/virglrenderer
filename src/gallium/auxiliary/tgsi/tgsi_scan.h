@@ -125,6 +125,8 @@ struct tgsi_shader_info
    unsigned indirect_files_read;
    unsigned indirect_files_written;
 
+   unsigned dimension_indirect_files;
+
    unsigned properties[TGSI_PROPERTY_COUNT]; /* index with TGSI_PROPERTY_ */
 
    /**
