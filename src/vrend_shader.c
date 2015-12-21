@@ -24,6 +24,7 @@
 
 #include "tgsi/tgsi_info.h"
 #include "tgsi/tgsi_iterate.h"
+#include "tgsi/tgsi_scan.h"
 #include "util/u_memory.h"
 #include "util/u_math.h"
 #include <string.h>
@@ -80,6 +81,7 @@ struct vrend_temp_range {
 struct dump_ctx {
    struct tgsi_iterate_context iter;
    struct vrend_shader_cfg *cfg;
+   struct tgsi_shader_info info;
    int prog_type;
    int size;
    char *glsl_main;
@@ -2784,6 +2786,7 @@ char *vrend_convert_shader(struct vrend_shader_cfg *cfg,
    ctx.cfg = cfg;
    ctx.prog_type = -1;
 
+   tgsi_scan_shader(tokens, &ctx.info);
    /* if we are in core profile mode we should use GLSL 1.40 */
    if (cfg->use_core_profile && cfg->glsl_version >= 140)
       ctx.glsl_ver_required = 140;
