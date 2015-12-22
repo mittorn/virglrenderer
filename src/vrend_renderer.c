@@ -6972,6 +6972,7 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
       caps->v1.bset.texture_query_lod = 1;
       caps->v1.bset.has_indirect_draw = 1;
       caps->v1.bset.has_sample_shading = 1;
+      caps->v1.bset.has_fp64 = 1;
    } else {
       if (epoxy_has_gl_extension("GL_ARB_draw_buffers_blend"))
          caps->v1.bset.indep_blend_func = 1;
@@ -6983,6 +6984,10 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
          caps->v1.bset.has_indirect_draw = 1;
       if (epoxy_has_gl_extension("GL_ARB_sample_shading"))
          caps->v1.bset.has_sample_shading = 1;
+      /* need gpu shader 5 for bitfield insert */
+      if (epoxy_has_gl_extension("GL_ARB_gpu_shader_fp64") &&
+          epoxy_has_gl_extension("GL_ARB_gpu_shader5"))
+         caps->v1.bset.has_fp64 = 1;
    }
 
    if (gl_ver >= 42) {
