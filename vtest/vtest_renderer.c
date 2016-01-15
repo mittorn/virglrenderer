@@ -30,6 +30,7 @@
 #include <sys/uio.h>
 #include "vtest.h"
 #include "vtest_protocol.h"
+#include "util.h"
 
 static int ctx_id = 1;
 static int fence_id = 1;
@@ -307,7 +308,7 @@ int vtest_transfer_put(uint32_t length_dw)
 int vtest_resource_busy_wait(void)
 {
   uint32_t bw_buf[VCMD_BUSY_WAIT_SIZE];
-  int ret;
+  int ret, fd;
   int flags;
   uint32_t hdr_buf[VTEST_HDR_SIZE];
   uint32_t reply_buf[1];
@@ -321,10 +322,13 @@ int vtest_resource_busy_wait(void)
 
   if (flags == VCMD_BUSY_WAIT_FLAG_WAIT) {
     do {
-      if (last_fence != (fence_id - 1))
-	virgl_renderer_poll();
-      else
-	break;
+       if (last_fence == (fence_id - 1))
+          break;
+
+       fd = virgl_renderer_get_poll_fd();
+       if (fd != -1)
+          vtest_wait_for_fd_read(fd);
+       virgl_renderer_poll();
     } while (1);
     busy = false;
   } else {

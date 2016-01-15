@@ -31,6 +31,7 @@
 #include <netinet/in.h>
 #include <sys/un.h>
 
+#include "util.h"
 #include "vtest.h"
 #include "vtest_protocol.h"
 
@@ -84,24 +85,6 @@ int wait_for_socket_accept(int sock)
     return -1;
 }
 
-int wait_for_socket_read(int sock)
-{
-    fd_set read_fds;
-
-    int ret;
-    FD_ZERO(&read_fds);
-    FD_SET(sock, &read_fds);
-
-    ret = select(sock + 1, &read_fds, NULL, NULL, NULL);
-    if (ret < 0)
-	return ret;
-
-    if (FD_ISSET(sock, &read_fds)) {
-      return 0;
-    }
-    return -1;
-}
-
 int run_renderer(int new_fd)
 {
     int ret;
@@ -109,7 +92,7 @@ int run_renderer(int new_fd)
     bool do_fence;
     bool inited = false;
 again:
-    ret = wait_for_socket_read(new_fd);
+    ret = vtest_wait_for_fd_read(new_fd);
     if (ret < 0)
       goto fail;
 
