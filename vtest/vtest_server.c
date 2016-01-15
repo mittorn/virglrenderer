@@ -89,7 +89,6 @@ int run_renderer(int new_fd)
 {
     int ret;
     uint32_t header[VTEST_HDR_SIZE];
-    bool do_fence;
     bool inited = false;
 again:
     ret = vtest_wait_for_fd_read(new_fd);
@@ -106,7 +105,6 @@ again:
 	inited = true;
       }
       vtest_poll();
-      do_fence = false;
       switch (header[1]) {
       case VCMD_GET_CAPS:
 	ret = vtest_send_caps();
@@ -119,16 +117,15 @@ again:
 	break;
       case VCMD_SUBMIT_CMD:
 	ret = vtest_submit_cmd(header[0]);
-	do_fence = true;
 	break;
       case VCMD_TRANSFER_GET:
 	ret = vtest_transfer_get(header[0]);
 	break;
       case VCMD_TRANSFER_PUT:
 	ret = vtest_transfer_put(header[0]);
-	do_fence = true;
 	break;
       case VCMD_RESOURCE_BUSY_WAIT:
+        vtest_renderer_create_fence();
 	ret = vtest_resource_busy_wait();
 	break;
       default:
@@ -139,8 +136,6 @@ again:
 	goto fail;
       }
 
-      if (do_fence)
-	vtest_renderer_create_fence();
       goto again;
     }
     if (ret <= 0) {
