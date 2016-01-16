@@ -25,7 +25,7 @@
 #define VTEST_H
 
 #include <errno.h>
-int vtest_create_renderer(int fd, uint32_t length);
+int vtest_create_renderer(int in_fd, int out_fd, uint32_t length);
 
 int vtest_send_caps(void);
 

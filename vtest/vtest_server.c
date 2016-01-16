@@ -30,6 +30,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <sys/un.h>
+#include <fcntl.h>
 
 #include "util.h"
 #include "vtest.h"
@@ -85,23 +86,23 @@ int wait_for_socket_accept(int sock)
     return -1;
 }
 
-int run_renderer(int new_fd)
+int run_renderer(int in_fd, int out_fd)
 {
     int ret;
     uint32_t header[VTEST_HDR_SIZE];
     bool inited = false;
 again:
-    ret = vtest_wait_for_fd_read(new_fd);
+    ret = vtest_wait_for_fd_read(in_fd);
     if (ret < 0)
       goto fail;
 
-    ret = vtest_block_read(new_fd, &header, sizeof(header));
+    ret = vtest_block_read(in_fd, &header, sizeof(header));
 
     if (ret == 8) {
       if (!inited) {
 	if (header[1] != VCMD_CREATE_RENDERER)
 	  goto fail;
-	ret = vtest_create_renderer(new_fd, header[0]);
+	ret = vtest_create_renderer(in_fd, out_fd, header[0]);
 	inited = true;
       }
       vtest_poll();
@@ -144,23 +145,40 @@ again:
 fail:
     fprintf(stderr, "socket failed - closing renderer\n");
     vtest_destroy_renderer();
-    close(new_fd);
+    close(in_fd);
     return 0;
 }
 
 int main(int argc, char **argv)
 {
-    int sock, new_fd;
+    int ret, sock = -1, in_fd, out_fd;
     pid_t pid;
-    bool do_fork = true;
+    bool do_fork = true, loop = true;
     struct sigaction sa;
 
-    if (argc > 1) {
+#ifdef __AFL_LOOP
+while (__AFL_LOOP(1000)) {
+#endif
+
+   if (argc > 1) {
       if (!strcmp(argv[1], "--no-fork"))
 	do_fork = false;
       else {
-	fprintf(stderr, "illegal command line parameter\n");
-	exit(-1);
+         ret = open(argv[1], O_RDONLY);
+         if (ret == -1) {
+            perror(0);
+            exit(1);
+         }
+         in_fd = ret;
+         ret = open("/dev/null", O_WRONLY);
+         if (ret == -1) {
+            perror(0);
+            exit(1);
+         }
+         out_fd = ret;
+         loop = false;
+         do_fork = false;
+         goto start;
       }
     }
 
@@ -176,23 +194,35 @@ int main(int argc, char **argv)
 
     sock = vtest_open_socket("/tmp/.virgl_test");
 restart:
-    new_fd = wait_for_socket_accept(sock);
+    in_fd = wait_for_socket_accept(sock);
+    out_fd = in_fd;
 
+start:
     if (do_fork) {
       /* fork a renderer process */
       switch ((pid = fork())) {
       case 0:
-	run_renderer(new_fd);
+        run_renderer(in_fd, out_fd);
 	exit(0);
 	break;
       case -1:
       default:
-	close(new_fd);
-	goto restart;
+	close(in_fd);
+        if (loop)
+           goto restart;
       }
     } else {
-      run_renderer(new_fd);
-      goto restart;
+      run_renderer(in_fd, out_fd);
+      if (loop)
+         goto restart;
     }
-    close(sock);
+
+    if (sock != -1)
+       close(sock);
+    if (in_fd != out_fd)
+       close(out_fd);
+
+#ifdef __AFL_LOOP
+}
+#endif
 }

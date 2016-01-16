@@ -25,6 +25,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
+
 #include "virglrenderer.h"
 
 #include <sys/uio.h>
@@ -47,7 +49,8 @@ struct virgl_renderer_callbacks vtest_cbs = {
 };
 
 struct vtest_renderer {
-  int remote_fd;
+  int in_fd;
+  int out_fd;
 };
 
 struct vtest_renderer renderer;
@@ -78,6 +81,8 @@ int vtest_block_read(int fd, void *buf, int size)
    void *ptr = buf;
    int left;
    int ret;
+   static int savefd = -1;
+
    left = size;
    do {
       ret = read(fd, ptr, left);
@@ -86,15 +91,30 @@ int vtest_block_read(int fd, void *buf, int size)
       left -= ret;
       ptr += ret;
    } while (left);
+   if (getenv("VTEST_SAVE")) {
+      if (savefd == -1) {
+         savefd = open(getenv("VTEST_SAVE"),
+                       O_CLOEXEC|O_CREAT|O_WRONLY|O_TRUNC|O_DSYNC, S_IRUSR|S_IWUSR);
+         if (savefd == -1) {
+            perror("error opening save file");
+            exit(1);
+         }
+      }
+      if (write(savefd, buf, size) != size) {
+         perror("failed to save");
+         exit(1);
+      }
+   }
    return size;
 }
 
-int vtest_create_renderer(int fd, uint32_t length)
+int vtest_create_renderer(int in_fd, int out_fd, uint32_t length)
 {
     char *vtestname;
     int ret;
 
-    renderer.remote_fd = fd;
+    renderer.in_fd = in_fd;
+    renderer.out_fd = out_fd;
 
     ret = virgl_renderer_init(&renderer,
                               VIRGL_RENDERER_USE_EGL |
@@ -108,7 +128,7 @@ int vtest_create_renderer(int fd, uint32_t length)
     if (!vtestname)
       return -1;
 
-    ret = vtest_block_read(renderer.remote_fd, vtestname, length);
+    ret = vtest_block_read(renderer.in_fd, vtestname, length);
     if (ret != length) {
        ret = -1;
        goto end;
@@ -125,7 +145,8 @@ void vtest_destroy_renderer(void)
 {
   virgl_renderer_context_destroy(ctx_id);
   virgl_renderer_cleanup(&renderer);
-  renderer.remote_fd = 0;
+  renderer.in_fd = -1;
+  renderer.out_fd = -1;
 }
 
 int vtest_send_caps(void)
@@ -145,10 +166,10 @@ int vtest_send_caps(void)
 
     hdr_buf[0] = max_size + 1;
     hdr_buf[1] = 1;
-    ret = vtest_block_write(renderer.remote_fd, hdr_buf, 8);
+    ret = vtest_block_write(renderer.out_fd, hdr_buf, 8);
     if (ret < 0)
       return ret;
-    vtest_block_write(renderer.remote_fd, caps_buf, max_size);
+    vtest_block_write(renderer.out_fd, caps_buf, max_size);
     if (ret < 0)
       return ret;
 
@@ -161,7 +182,7 @@ int vtest_create_resource(void)
     struct virgl_renderer_resource_create_args args;
     int ret;
 
-    ret = vtest_block_read(renderer.remote_fd, &res_create_buf, sizeof(res_create_buf));
+    ret = vtest_block_read(renderer.in_fd, &res_create_buf, sizeof(res_create_buf));
     if (ret != sizeof(res_create_buf))
 	return -1;
 	
@@ -190,7 +211,7 @@ int vtest_resource_unref(void)
     int ret;
     uint32_t handle;
 
-    ret = vtest_block_read(renderer.remote_fd, &res_unref_buf, sizeof(res_unref_buf));
+    ret = vtest_block_read(renderer.in_fd, &res_unref_buf, sizeof(res_unref_buf));
     if (ret != sizeof(res_unref_buf))
       return -1;
 
@@ -209,7 +230,7 @@ int vtest_submit_cmd(uint32_t length_dw)
     if (!cbuf)
 	return -1;
 
-    ret = vtest_block_read(renderer.remote_fd, cbuf, length_dw * 4);
+    ret = vtest_block_read(renderer.in_fd, cbuf, length_dw * 4);
     if (ret != length_dw * 4)
 	return -1;
 
@@ -246,7 +267,7 @@ int vtest_transfer_get(uint32_t length_dw)
     void *ptr;
     struct iovec iovec;
 
-    ret = vtest_block_read(renderer.remote_fd, thdr_buf, VCMD_TRANSFER_HDR_SIZE * 4);
+    ret = vtest_block_read(renderer.in_fd, thdr_buf, VCMD_TRANSFER_HDR_SIZE * 4);
     if (ret != VCMD_TRANSFER_HDR_SIZE * 4)
       return ret;
 
@@ -268,7 +289,7 @@ int vtest_transfer_get(uint32_t length_dw)
 				     &iovec, 1);
     if (ret)
       fprintf(stderr," transfer read failed %d\n", ret);
-    ret = vtest_block_write(renderer.remote_fd, ptr, data_size);
+    ret = vtest_block_write(renderer.out_fd, ptr, data_size);
     if (ret < 0)
       return ret;
 
@@ -287,7 +308,7 @@ int vtest_transfer_put(uint32_t length_dw)
     void *ptr;
     struct iovec iovec;
 
-    ret = vtest_block_read(renderer.remote_fd, thdr_buf, VCMD_TRANSFER_HDR_SIZE * 4);
+    ret = vtest_block_read(renderer.in_fd, thdr_buf, VCMD_TRANSFER_HDR_SIZE * 4);
     if (ret != VCMD_TRANSFER_HDR_SIZE * 4)
       return ret;
 
@@ -297,7 +318,7 @@ int vtest_transfer_put(uint32_t length_dw)
     if (!ptr)
       return -ENOMEM;
 
-    ret = vtest_block_read(renderer.remote_fd, ptr, data_size);
+    ret = vtest_block_read(renderer.in_fd, ptr, data_size);
     if (ret < 0)
       return ret;
 
@@ -325,7 +346,7 @@ int vtest_resource_busy_wait(void)
   uint32_t hdr_buf[VTEST_HDR_SIZE];
   uint32_t reply_buf[1];
   bool busy = false;
-  ret = vtest_block_read(renderer.remote_fd, &bw_buf, sizeof(bw_buf));
+  ret = vtest_block_read(renderer.in_fd, &bw_buf, sizeof(bw_buf));
   if (ret != sizeof(bw_buf))
     return -1;
 
@@ -351,11 +372,11 @@ int vtest_resource_busy_wait(void)
   hdr_buf[VTEST_CMD_ID] = VCMD_RESOURCE_BUSY_WAIT;
   reply_buf[0] = busy ? 1 : 0;
 
-  ret = vtest_block_write(renderer.remote_fd, hdr_buf, sizeof(hdr_buf));
+  ret = vtest_block_write(renderer.out_fd, hdr_buf, sizeof(hdr_buf));
   if (ret < 0)
     return ret;
 
-  ret = vtest_block_write(renderer.remote_fd, reply_buf, sizeof(reply_buf));
+  ret = vtest_block_write(renderer.out_fd, reply_buf, sizeof(reply_buf));
   if (ret < 0)
     return ret;
 
