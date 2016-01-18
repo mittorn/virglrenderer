@@ -249,6 +249,7 @@ void virgl_renderer_cleanup(void *cookie)
 
 int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks *cbs)
 {
+   uint32_t renderer_flags = 0;
    if (!cookie || !cbs)
       return -1;
 
@@ -265,7 +266,10 @@ int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks
       use_egl_context = 1;
    }
 
-   return vrend_renderer_init(&virgl_cbs);
+   if (flags & VIRGL_RENDERER_THREAD_SYNC)
+      renderer_flags |= VREND_USE_THREAD_SYNC;
+
+   return vrend_renderer_init(&virgl_cbs, renderer_flags);
 }
 
 int virgl_renderer_get_fd_for_texture(uint32_t tex_id, int *fd)
@@ -276,4 +280,9 @@ int virgl_renderer_get_fd_for_texture(uint32_t tex_id, int *fd)
 void virgl_renderer_reset(void)
 {
    vrend_renderer_reset();
+}
+
+int virgl_renderer_get_poll_fd(void)
+{
+   return vrend_renderer_get_poll_fd();
 }

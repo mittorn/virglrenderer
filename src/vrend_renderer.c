@@ -21,6 +21,9 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  *
  **************************************************************************/
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #include <epoxy/gl.h>
 
@@ -36,6 +39,7 @@
 #include "util/u_memory.h"
 #include "util/u_dual_blend.h"
 
+#include "os/os_thread.h"
 #include "util/u_double_list.h"
 #include "util/u_format.h"
 #include "tgsi/tgsi_parse.h"
@@ -48,6 +52,11 @@
 #include "virgl_hw.h"
 
 #include "tgsi/tgsi_text.h"
+
+#ifdef HAVE_EVENTFD
+#include <sys/eventfd.h>
+#endif
+
 /* debugging aid to dump shaders */
 int vrend_dump_shaders;
 
@@ -80,7 +89,6 @@ struct global_renderer_state {
    int gl_major_ver;
    int gl_minor_ver;
 
-   struct list_head fence_list;
    struct vrend_context *current_ctx;
    struct vrend_context *current_hw_ctx;
    struct list_head waiting_query_list;
@@ -103,6 +111,18 @@ struct global_renderer_state {
    bool use_explicit_locations;
    uint32_t max_uniform_blocks;
    struct list_head active_ctx_list;
+
+   /* threaded sync */
+   bool stop_sync_thread;
+   int eventfd;
+
+   pipe_mutex fence_mutex;
+   struct list_head fence_list;
+   struct list_head fence_wait_list;
+   pipe_condvar fence_cond;
+
+   pipe_thread sync_thread;
+   virgl_gl_context sync_context;
 };
 
 static struct global_renderer_state vrend_state;
@@ -390,7 +410,6 @@ static void vrend_apply_sampler_state(struct vrend_context *ctx,
                                       struct vrend_resource *res,
                                       uint32_t shader_type,
                                       int id, int sampler_id, uint32_t srgb_decode);
-
 void vrend_update_stencil_state(struct vrend_context *ctx);
 
 static struct vrend_format_table tex_conv_table[VIRGL_FORMAT_MAX];
@@ -3483,7 +3502,146 @@ static GLenum tgsitargettogltarget(const enum pipe_texture_target target, int nr
    return PIPE_BUFFER;
 }
 
-int vrend_renderer_init(struct vrend_if_cbs *cbs)
+static void vrend_free_sync_thread(void)
+{
+   if (!vrend_state.sync_thread)
+      return;
+
+   pipe_mutex_lock(vrend_state.fence_mutex);
+   vrend_state.stop_sync_thread = true;
+   pipe_mutex_unlock(vrend_state.fence_mutex);
+
+   pipe_condvar_signal(vrend_state.fence_cond);
+   pipe_thread_wait(vrend_state.sync_thread);
+   vrend_state.sync_thread = 0;
+}
+
+static ssize_t
+write_full(int fd, const void *buf, size_t count)
+{
+    ssize_t ret = 0;
+    ssize_t total = 0;
+
+    while (count) {
+        ret = write(fd, buf, count);
+        if (ret < 0) {
+            if (errno == EINTR)
+                continue;
+            break;
+        }
+        count -= ret;
+        buf += ret;
+        total += ret;
+    }
+    return total;
+}
+
+static void wait_sync(struct vrend_fence *fence)
+{
+   GLenum glret;
+   ssize_t n;
+   uint64_t value = 1;
+
+   do {
+      glret = glClientWaitSync(fence->syncobj, 0, 1000000000);
+
+      switch (glret) {
+      case GL_WAIT_FAILED:
+         fprintf(stderr, "wait sync failed: illegal fence object %p\n", fence->syncobj);
+         break;
+      case GL_ALREADY_SIGNALED:
+      case GL_CONDITION_SATISFIED:
+         break;
+      default:
+         break;
+      }
+   } while (glret == GL_TIMEOUT_EXPIRED);
+
+   pipe_mutex_lock(vrend_state.fence_mutex);
+   list_addtail(&fence->fences, &vrend_state.fence_list);
+   pipe_mutex_unlock(vrend_state.fence_mutex);
+
+   n = write_full(vrend_state.eventfd, &value, sizeof(value));
+   if (n != sizeof(value)) {
+      perror("failed to write to eventfd\n");
+   }
+}
+
+static int thread_sync(void *arg)
+{
+   virgl_gl_context gl_context = vrend_state.sync_context;
+   struct vrend_fence *fence, *stor;
+
+   pipe_mutex_lock(vrend_state.fence_mutex);
+   vrend_clicbs->make_current(0, gl_context);
+
+   while (!vrend_state.stop_sync_thread) {
+      if (LIST_IS_EMPTY(&vrend_state.fence_wait_list) &&
+          pipe_condvar_wait(vrend_state.fence_cond, vrend_state.fence_mutex) != 0) {
+         fprintf(stderr, "error while waiting on condition\n");
+         break;
+      }
+
+      LIST_FOR_EACH_ENTRY_SAFE(fence, stor, &vrend_state.fence_wait_list, fences) {
+         if (vrend_state.stop_sync_thread)
+            break;
+         list_del(&fence->fences);
+         pipe_mutex_unlock(vrend_state.fence_mutex);
+         wait_sync(fence);
+         pipe_mutex_lock(vrend_state.fence_mutex);
+      }
+   }
+
+   vrend_clicbs->make_current(0, 0);
+   vrend_clicbs->destroy_gl_context(vrend_state.sync_context);
+   pipe_mutex_unlock(vrend_state.fence_mutex);
+   return 0;
+}
+
+#ifdef HAVE_EVENTFD
+static void vrend_renderer_use_threaded_sync(void)
+{
+   struct virgl_gl_ctx_param ctx_params;
+
+   if (getenv("VIRGL_DISABLE_MT"))
+      return;
+
+   ctx_params.shared = true;
+   ctx_params.major_ver = vrend_state.gl_major_ver;
+   ctx_params.minor_ver = vrend_state.gl_minor_ver;
+
+   vrend_state.stop_sync_thread = false;
+
+   vrend_state.sync_context = vrend_clicbs->create_gl_context(0, &ctx_params);
+   if (vrend_state.sync_context == NULL) {
+      fprintf(stderr, "failed to create sync opengl context\n");
+      return;
+   }
+
+   vrend_state.eventfd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
+   if (vrend_state.eventfd == -1) {
+      fprintf(stderr, "Failed to create eventfd\n");
+      vrend_clicbs->destroy_gl_context(vrend_state.sync_context);
+      return;
+   }
+
+   pipe_condvar_init(vrend_state.fence_cond);
+   pipe_mutex_init(vrend_state.fence_mutex);
+
+   vrend_state.sync_thread = pipe_thread_create(thread_sync, NULL);
+   if (!vrend_state.sync_thread) {
+      close(vrend_state.eventfd);
+      vrend_state.eventfd = -1;
+      vrend_clicbs->destroy_gl_context(vrend_state.sync_context);
+   }
+}
+#else
+static void vrend_renderer_use_threaded_sync(void)
+{
+}
+#endif
+
+int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
 {
    int gl_ver;
    virgl_gl_context gl_context;
@@ -3552,10 +3710,16 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs)
 
    vrend_clicbs->destroy_gl_context(gl_context);
    list_inithead(&vrend_state.fence_list);
+   list_inithead(&vrend_state.fence_wait_list);
    list_inithead(&vrend_state.waiting_query_list);
    list_inithead(&vrend_state.active_ctx_list);
    /* create 0 context */
    vrend_renderer_context_create_internal(0, 0, NULL);
+
+   vrend_state.eventfd = -1;
+   if (flags & VREND_USE_THREAD_SYNC) {
+      vrend_renderer_use_threaded_sync();
+   }
 
    return 0;
 }
@@ -3565,6 +3729,10 @@ vrend_renderer_fini(void)
 {
    if (!vrend_state.inited)
       return;
+
+   vrend_free_sync_thread();
+   close(vrend_state.eventfd);
+   vrend_state.eventfd = -1;
 
    vrend_decode_reset(false);
    vrend_object_fini_resource_table();
@@ -5258,8 +5426,39 @@ int vrend_renderer_create_fence(int client_fence_id, uint32_t ctx_id)
    fence->ctx_id = ctx_id;
    fence->fence_id = client_fence_id;
    fence->syncobj = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
-   list_addtail(&fence->fences, &vrend_state.fence_list);
+
+   if (fence->syncobj == NULL)
+      goto fail;
+
+   if (vrend_state.sync_thread) {
+      pipe_mutex_lock(vrend_state.fence_mutex);
+      list_addtail(&fence->fences, &vrend_state.fence_wait_list);
+      pipe_mutex_unlock(vrend_state.fence_mutex);
+      pipe_condvar_signal(vrend_state.fence_cond);
+   } else
+      list_addtail(&fence->fences, &vrend_state.fence_list);
    return 0;
+
+ fail:
+   fprintf(stderr, "failed to create fence sync object\n");
+   free(fence);
+   return ENOMEM;
+}
+
+static void free_fence_locked(struct vrend_fence *fence)
+{
+   list_del(&fence->fences);
+   glDeleteSync(fence->syncobj);
+   free(fence);
+}
+
+static void flush_eventfd(int fd)
+{
+    ssize_t len;
+    uint64_t value;
+    do {
+       len = read(fd, &value, sizeof(value));
+    } while ((len == -1 && errno == EINTR) || len == sizeof(value));
 }
 
 void vrend_renderer_check_fences(void)
@@ -5271,18 +5470,28 @@ void vrend_renderer_check_fences(void)
    if (!vrend_state.inited)
       return;
 
-   vrend_renderer_force_ctx_0();
-   LIST_FOR_EACH_ENTRY_SAFE(fence, stor, &vrend_state.fence_list, fences) {
-      glret = glClientWaitSync(fence->syncobj, 0, 0);
-      if (glret == GL_ALREADY_SIGNALED){
-         latest_id = fence->fence_id;
-         list_del(&fence->fences);
-         glDeleteSync(fence->syncobj);
-         free(fence);
+   if (vrend_state.sync_thread) {
+      flush_eventfd(vrend_state.eventfd);
+      pipe_mutex_lock(vrend_state.fence_mutex);
+      LIST_FOR_EACH_ENTRY_SAFE(fence, stor, &vrend_state.fence_list, fences) {
+         if (fence->fence_id > latest_id)
+            latest_id = fence->fence_id;
+         free_fence_locked(fence);
       }
-      /* don't bother checking any subsequent ones */
-      else if (glret == GL_TIMEOUT_EXPIRED) {
-         break;
+      pipe_mutex_unlock(vrend_state.fence_mutex);
+   } else {
+      vrend_renderer_force_ctx_0();
+
+      LIST_FOR_EACH_ENTRY_SAFE(fence, stor, &vrend_state.fence_list, fences) {
+         glret = glClientWaitSync(fence->syncobj, 0, 0);
+         if (glret == GL_ALREADY_SIGNALED){
+            latest_id = fence->fence_id;
+            free_fence_locked(fence);
+         }
+         /* don't bother checking any subsequent ones */
+         else if (glret == GL_TIMEOUT_EXPIRED) {
+            break;
+         }
       }
    }
 
@@ -6030,19 +6239,35 @@ static void vrend_reset_fences(void)
 {
    struct vrend_fence *fence, *stor;
 
+   if (vrend_state.sync_thread)
+      pipe_mutex_lock(vrend_state.fence_mutex);
+
    LIST_FOR_EACH_ENTRY_SAFE(fence, stor, &vrend_state.fence_list, fences) {
-      list_del(&fence->fences);
-      glDeleteSync(fence->syncobj);
-      free(fence);
+      free_fence_locked(fence);
    }
+
+   if (vrend_state.sync_thread)
+      pipe_mutex_unlock(vrend_state.fence_mutex);
 }
 
 void vrend_renderer_reset(void)
 {
+   if (vrend_state.sync_thread) {
+      vrend_free_sync_thread();
+      vrend_state.stop_sync_thread = false;
+   }
    vrend_reset_fences();
    vrend_decode_reset(false);
    vrend_object_fini_resource_table();
    vrend_decode_reset(true);
    vrend_object_init_resource_table();
    vrend_renderer_context_create_internal(0, 0, NULL);
+}
+
+int vrend_renderer_get_poll_fd(void)
+{
+   if (!vrend_state.inited)
+      return -1;
+
+   return vrend_state.eventfd;
 }

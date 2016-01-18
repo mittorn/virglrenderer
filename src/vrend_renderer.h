@@ -98,7 +98,10 @@ struct vrend_if_cbs {
    void (*destroy_gl_context)(virgl_gl_context ctx);
    int (*make_current)(int scanout, virgl_gl_context ctx);
 };
-int vrend_renderer_init(struct vrend_if_cbs *cbs);
+
+#define VREND_USE_THREAD_SYNC 1
+
+int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags);
 
 void vrend_insert_format(struct vrend_format_table *entry, uint32_t bindings);
 void vrend_insert_format_swizzle(int override_format, struct vrend_format_table *entry, uint32_t bindings, uint8_t swizzle[4]);
@@ -370,6 +373,7 @@ void vrend_renderer_blit_gl(struct vrend_context *ctx,
                             const struct pipe_blit_info *info);
 
 void vrend_renderer_reset(void);
+int vrend_renderer_get_poll_fd(void);
 void vrend_decode_reset(bool ctx_0_only);
 #define VREND_GL_VER_MAJOR 3
 #define VREND_GL_VER_MINOR 1

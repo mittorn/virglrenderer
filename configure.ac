@@ -74,6 +74,8 @@ if test "x$build_tests" = "xyes"; then
 	AC_PATH_PROG(VALGRIND, [valgrind])
 fi
 
+AC_CHECK_FUNCS_ONCE([eventfd])
+
 AM_CONDITIONAL(HAVE_VALGRIND, [test "x$VALGRIND" != "x"])
 AM_CONDITIONAL(BUILD_TESTS, [test "x$build_tests" = "xyes"])
 

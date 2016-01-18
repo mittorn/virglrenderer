@@ -56,6 +56,11 @@ struct virgl_renderer_callbacks {
 
 /* virtio-gpu compatible interface */
 #define VIRGL_RENDERER_USE_EGL 1
+/*
+ * Wait for sync objects in thread rather than polling
+ * need to use virgl_renderer_get_poll_fd to know if this feature is in effect.
+ */
+#define VIRGL_RENDERER_THREAD_SYNC 2
 
 VIRGL_EXPORT int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks *cb);
 VIRGL_EXPORT void virgl_renderer_poll(void); /* force fences */
@@ -163,4 +168,6 @@ VIRGL_EXPORT void virgl_renderer_cleanup(void *cookie);
 
 /* reset the rendererer - destroy all contexts and resource */
 VIRGL_EXPORT void virgl_renderer_reset(void);
+
+VIRGL_EXPORT int virgl_renderer_get_poll_fd(void);
 #endif
