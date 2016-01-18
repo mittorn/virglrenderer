@@ -168,11 +168,13 @@ int vtest_send_caps(void)
     hdr_buf[1] = 1;
     ret = vtest_block_write(renderer.out_fd, hdr_buf, 8);
     if (ret < 0)
-      return ret;
+       goto end;
     vtest_block_write(renderer.out_fd, caps_buf, max_size);
     if (ret < 0)
-      return ret;
+       goto end;
 
+end:
+    free(caps_buf);
     return 0;
 }
 
