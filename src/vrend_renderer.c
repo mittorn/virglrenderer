@@ -2115,7 +2115,7 @@ int vrend_create_shader(struct vrend_context *ctx,
                         uint32_t handle,
                         const struct pipe_stream_output_info *so_info,
                         const char *shd_text, uint32_t offlen, uint32_t num_tokens,
-                        int type, uint32_t pkt_length)
+                        uint32_t type, uint32_t pkt_length)
 {
    struct vrend_shader_selector *sel;
    int ret_handle;
