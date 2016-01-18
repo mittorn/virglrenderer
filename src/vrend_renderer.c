@@ -3890,6 +3890,10 @@ void vrend_renderer_resource_detach_iov(int res_handle,
 
 static int check_resource_valid(struct vrend_renderer_resource_create_args *args)
 {
+   /* do not accept handle 0 */
+   if (args->handle == 0)
+      return -1;
+
    /* limit the target */
    if (args->target >= PIPE_MAX_TEXTURE_TYPES)
       return -1;
