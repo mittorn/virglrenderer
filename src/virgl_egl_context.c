@@ -26,6 +26,10 @@
 
 /* if we are using EGL and rendernodes then we talk via file descriptors to the remote
    node */
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #define EGL_EGLEXT_PROTOTYPES
 #include <dirent.h>
 #include <fcntl.h>

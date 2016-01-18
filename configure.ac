@@ -11,6 +11,9 @@ AC_CONFIG_MACRO_DIR([build-aux])
 
 AM_INIT_AUTOMAKE([foreign dist-bzip2])
 
+AC_USE_SYSTEM_EXTENSIONS
+AC_PROG_CC_C99
+
 # Support silent build rules, requires at least automake-1.11. Disable
 # by either passing --disable-silent-rules to configure or passing V=1
 # to make
@@ -24,8 +27,6 @@ LT_INIT([disable-static])
 AC_SYS_LARGEFILE
 AC_CHECK_PROGS([PYTHON2], [python2 python])
 AX_CODE_COVERAGE
-
-DEFINES="-D_GNU_SOURCE"
 
 AC_ARG_ENABLE([debug],
     [AS_HELP_STRING([--enable-debug],
@@ -78,11 +79,6 @@ XORG_MACROS_VERSION(1.8)
 XORG_DEFAULT_OPTIONS
 
 LIBDRM_REQUIRED=2.4.50
-
-dnl Add flags for gcc
-if test "x$GCC" = xyes; then
-	CFLAGS="$CFLAGS -Wall -std=c99"
-fi
 
 PKG_CHECK_MODULES([LIBDRM], [libdrm >= $LIBDRM_REQUIRED])
 PKG_CHECK_MODULES([EPOXY], [epoxy])
