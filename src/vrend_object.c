@@ -187,10 +187,15 @@ void *vrend_object_lookup(struct util_hash_table *handle_hash,
 
 int vrend_resource_insert(void *data, uint32_t handle)
 {
-   struct vrend_object *obj = CALLOC_STRUCT(vrend_object);
+   struct vrend_object *obj;
 
+   if (!handle)
+      return 0;
+
+   obj = CALLOC_STRUCT(vrend_object);
    if (!obj)
       return 0;
+
    obj->handle = handle;
    obj->data = data;
    util_hash_table_set(res_hash, intptr_to_pointer(obj->handle), obj);
