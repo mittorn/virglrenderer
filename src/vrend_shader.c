@@ -66,6 +66,12 @@ struct immed {
    } val[4];
 };
 
+struct vrend_temp_range {
+   int first;
+   int last;
+   int array_id;
+};
+
 struct dump_ctx {
    struct tgsi_iterate_context iter;
    struct vrend_shader_cfg *cfg;
@@ -82,7 +88,9 @@ struct dump_ctx {
    int num_system_values;
    struct vrend_shader_io system_values[32];
 
-   int num_temps;
+   int num_temp_ranges;
+   struct vrend_temp_range *temp_ranges;
+
    struct vrend_shader_sampler samplers[32];
    uint32_t samplers_used;
    int num_consts;
@@ -191,6 +199,33 @@ static char *add_str_to_glsl_main(struct dump_ctx *ctx, char *buf)
 {
    ctx->glsl_main = strcat_realloc(ctx->glsl_main, buf);
    return ctx->glsl_main;
+}
+
+static int allocate_temp_range(struct dump_ctx *ctx, int first, int last,
+                               int array_id)
+{
+   int idx = ctx->num_temp_ranges;
+
+   ctx->temp_ranges = realloc(ctx->temp_ranges, sizeof(struct vrend_temp_range) * (idx + 1));
+   if (!ctx->temp_ranges)
+      return ENOMEM;
+
+   ctx->temp_ranges[idx].first = first;
+   ctx->temp_ranges[idx].last = last;
+   ctx->temp_ranges[idx].array_id = array_id;
+   ctx->num_temp_ranges++;
+   return 0;
+}
+
+static struct vrend_temp_range *find_temp_range(struct dump_ctx *ctx, int index)
+{
+   int i;
+   for (i = 0; i < ctx->num_temp_ranges; i++) {
+      if (index >= ctx->temp_ranges[i].first &&
+          index <= ctx->temp_ranges[i].last)
+         return &ctx->temp_ranges[i];
+   }
+   return NULL;
 }
 
 static boolean
@@ -521,12 +556,9 @@ iter_declaration(struct tgsi_iterate_context *iter,
       }
       break;
    case TGSI_FILE_TEMPORARY:
-      if (decl->Range.Last) {
-         if (decl->Range.Last + 1 > ctx->num_temps)
-            ctx->num_temps = decl->Range.Last + 1;
-      } else
-         ctx->num_temps++;
-
+      if (allocate_temp_range(ctx, decl->Range.First, decl->Range.Last,
+                              decl->Array.ArrayID))
+         return FALSE;
       break;
    case TGSI_FILE_SAMPLER:
       ctx->samplers_used |= (1 << decl->Range.Last);
@@ -1259,10 +1291,13 @@ iter_instruction(struct tgsi_iterate_context *iter,
          }
       }
       else if (dst->Register.File == TGSI_FILE_TEMPORARY) {
+         struct vrend_temp_range *range = find_temp_range(ctx, dst->Register.Index);
+         if (!range)
+            return FALSE;
          if (dst->Register.Indirect) {
-            snprintf(dsts[i], 255, "temps[addr0 + %d]%s", dst->Register.Index, writemask);
+            snprintf(dsts[i], 255, "temp%d[addr0 + %d]%s", range->first, dst->Register.Index - range->first, writemask);
          } else
-            snprintf(dsts[i], 255, "temps[%d]%s", dst->Register.Index, writemask);
+            snprintf(dsts[i], 255, "temp%d[%d]%s", range->first, dst->Register.Index - range->first, writemask);
       }
    }
 
@@ -1328,10 +1363,13 @@ iter_instruction(struct tgsi_iterate_context *iter,
             }
       }
       else if (src->Register.File == TGSI_FILE_TEMPORARY) {
+         struct vrend_temp_range *range = find_temp_range(ctx, src->Register.Index);
+         if (!range)
+            return FALSE;
          if (src->Register.Indirect) {
-            snprintf(srcs[i], 255, "%s%c%stemps[addr0 + %d]%s%c", stypeprefix, stprefix ? '(' : ' ', prefix, src->Register.Index, swizzle, stprefix ? ')' : ' ');
+            snprintf(srcs[i], 255, "%s%c%stemp%d[addr0 + %d]%s%c", stypeprefix, stprefix ? '(' : ' ', prefix, range->first, src->Register.Index - range->first, swizzle, stprefix ? ')' : ' ');
          } else
-            snprintf(srcs[i], 255, "%s%c%stemps[%d]%s%c", stypeprefix, stprefix ? '(' : ' ', prefix, src->Register.Index, swizzle, stprefix ? ')' : ' ');
+            snprintf(srcs[i], 255, "%s%c%stemp%d[%d]%s%c", stypeprefix, stprefix ? '(' : ' ', prefix, range->first, src->Register.Index - range->first, swizzle, stprefix ? ')' : ' ');
       } else if (src->Register.File == TGSI_FILE_CONSTANT) {
          const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
          int dim = 0;
@@ -2092,8 +2130,8 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
          STRCAT_WITH_RET(glsl_hdr, buf);
       }
    }
-   if (ctx->num_temps) {
-      snprintf(buf, 255, "vec4 temps[%d];\n", ctx->num_temps);
+   for (i = 0; i < ctx->num_temp_ranges; i++) {
+      snprintf(buf, 255, "vec4 temp%d[%d];\n", ctx->temp_ranges[i].first, ctx->temp_ranges[i].last - ctx->temp_ranges[i].first + 1);
       STRCAT_WITH_RET(glsl_hdr, buf);
    }
 
@@ -2271,6 +2309,7 @@ char *vrend_convert_shader(struct vrend_shader_cfg *cfg,
    strcat(glsl_final, ctx.glsl_main);
    if (vrend_dump_shaders)
       fprintf(stderr,"GLSL: %s\n", glsl_final);
+   free(ctx.temp_ranges);
    free(ctx.glsl_main);
    free(glsl_hdr);
    sinfo->num_ucp = ctx.key->clip_plane_enable ? 8 : 0;
@@ -2290,6 +2329,7 @@ char *vrend_convert_shader(struct vrend_shader_cfg *cfg,
    free(glsl_final);
    free(glsl_hdr);
    free(ctx.so_names);
+   free(ctx.temp_ranges);
    return NULL;
 }
 
