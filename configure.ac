@@ -28,6 +28,8 @@ AC_SYS_LARGEFILE
 AC_CHECK_PROGS([PYTHON2], [python2 python])
 AX_CODE_COVERAGE
 
+AX_PTHREAD
+
 AC_ARG_ENABLE([debug],
     [AS_HELP_STRING([--enable-debug],
         [use debug compiler flags and macros @<:@default=disabled@:>@])],
