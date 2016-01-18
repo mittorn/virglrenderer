@@ -80,6 +80,9 @@ static int vrend_decode_create_shader(struct vrend_decode_ctx *ctx,
    offlen = get_buf_entry(ctx, VIRGL_OBJ_SHADER_OFFSET);
    num_so_outputs = get_buf_entry(ctx, VIRGL_OBJ_SHADER_SO_NUM_OUTPUTS);
 
+   if (num_so_outputs > PIPE_MAX_SO_OUTPUTS)
+      return EINVAL;
+
    shader_offset = 6;
    if (num_so_outputs) {
       so_info.num_outputs = num_so_outputs;
