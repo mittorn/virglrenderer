@@ -4115,7 +4115,7 @@ int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *a
       gt->cur_swizzle_r = gt->cur_swizzle_g = gt->cur_swizzle_b = gt->cur_swizzle_a = -1;
    }
 
-   ret = vrend_resource_insert(gr, sizeof(*gr), args->handle);
+   ret = vrend_resource_insert(gr, args->handle);
    if (ret == 0) {
       vrend_renderer_resource_destroy(gr, true);
       return ENOMEM;

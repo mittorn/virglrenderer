@@ -42,7 +42,7 @@ uint32_t vrend_object_insert_nofree(struct util_hash_table *handle_hash,
                                     enum virgl_object_type type,
                                     bool free_data);
 /* resources are global */
-int vrend_resource_insert(void *data, uint32_t length, uint32_t handle);
+int vrend_resource_insert(void *data, uint32_t handle);
 
 void vrend_resource_remove(uint32_t handle);
 void *vrend_resource_lookup(uint32_t handle, uint32_t ctx_id);

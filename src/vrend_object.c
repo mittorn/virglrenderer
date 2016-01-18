@@ -185,7 +185,7 @@ void *vrend_object_lookup(struct util_hash_table *handle_hash,
    return obj->data;
 }
 
-int vrend_resource_insert(void *data, uint32_t length, uint32_t handle)
+int vrend_resource_insert(void *data, uint32_t handle)
 {
    struct vrend_object *obj = CALLOC_STRUCT(vrend_object);
 
