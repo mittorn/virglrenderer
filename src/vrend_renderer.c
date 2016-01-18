@@ -1058,6 +1058,10 @@ int vrend_create_surface(struct vrend_context *ctx,
    struct vrend_resource *res;
    uint32_t ret_handle;
 
+   if (format >= PIPE_FORMAT_COUNT) {
+      return EINVAL;
+   }
+
    res = vrend_renderer_ctx_res_lookup(ctx, res_handle);
    if (!res) {
       report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, res_handle);
