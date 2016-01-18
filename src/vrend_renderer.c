@@ -5271,6 +5271,7 @@ void vrend_renderer_check_fences(void)
    if (!vrend_state.inited)
       return;
 
+   vrend_renderer_force_ctx_0();
    LIST_FOR_EACH_ENTRY_SAFE(fence, stor, &vrend_state.fence_list, fences) {
       glret = glClientWaitSync(fence->syncobj, 0, 0);
       if (glret == GL_ALREADY_SIGNALED){

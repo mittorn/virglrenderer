@@ -233,7 +233,6 @@ void *virgl_renderer_get_cursor_data(uint32_t resource_id, uint32_t *width, uint
 
 void virgl_renderer_poll(void)
 {
-   virgl_renderer_force_ctx_0();
    vrend_renderer_check_queries();
    vrend_renderer_check_fences();
 }
