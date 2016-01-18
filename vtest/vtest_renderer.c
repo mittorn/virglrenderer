@@ -109,9 +109,15 @@ int vtest_create_renderer(int fd, uint32_t length)
       return -1;
 
     ret = vtest_block_read(renderer.remote_fd, vtestname, length);
-    if (ret != length)
-	return -1;
+    if (ret != length) {
+       ret = -1;
+       goto end;
+    }
+
     ret = virgl_renderer_context_create(ctx_id, strlen(vtestname), vtestname);
+
+end:
+    free(vtestname);
     return ret;
 }
 
