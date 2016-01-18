@@ -560,8 +560,9 @@ static void vrend_destroy_shader_selector(struct vrend_shader_selector *sel)
       vrend_shader_destroy(p);
       p = c;
    }
-   for (i = 0; i < sel->sinfo.so_info.num_outputs; i++)
-      free(sel->sinfo.so_names[i]);
+   if (sel->sinfo.so_names)
+      for (i = 0; i < sel->sinfo.so_info.num_outputs; i++)
+         free(sel->sinfo.so_names[i]);
    free(sel->tmp_buf);
    free(sel->sinfo.so_names);
    free(sel->sinfo.interpinfo);
