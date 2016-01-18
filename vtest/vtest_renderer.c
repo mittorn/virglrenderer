@@ -96,7 +96,9 @@ int vtest_create_renderer(int fd, uint32_t length)
 
     renderer.remote_fd = fd;
 
-    virgl_renderer_init(&renderer, VIRGL_RENDERER_USE_EGL, &vtest_cbs);
+    virgl_renderer_init(&renderer,
+                        VIRGL_RENDERER_USE_EGL |
+                        VIRGL_RENDERER_THREAD_SYNC, &vtest_cbs);
 
     vtestname = malloc(length);
     if (!vtestname)
