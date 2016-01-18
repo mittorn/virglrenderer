@@ -3788,6 +3788,10 @@ static void vrend_destroy_sub_context(struct vrend_sub_context *sub)
    vrend_shader_state_reference(&sub->shaders[PIPE_SHADER_GEOMETRY], NULL);
 
    vrend_free_programs(sub);
+   for (i = 0; i < PIPE_SHADER_TYPES; i++) {
+      free(sub->consts[i].consts);
+      sub->consts[i].consts = NULL;
+   }
 
    vrend_object_fini_ctx_table(sub->object_hash);
    vrend_clicbs->destroy_gl_context(sub->gl_context);
