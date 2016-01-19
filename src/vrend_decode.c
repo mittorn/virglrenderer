@@ -180,10 +180,12 @@ static int vrend_decode_set_viewport_state(struct vrend_decode_ctx *ctx, int len
       return EINVAL;
 
    num_viewports = (length - 1) / 6;
-   if (num_viewports > PIPE_MAX_VIEWPORTS)
+   start_slot = get_buf_entry(ctx, VIRGL_SET_VIEWPORT_START_SLOT);
+
+   if (num_viewports > PIPE_MAX_VIEWPORTS ||
+       start_slot > (PIPE_MAX_VIEWPORTS - num_viewports))
       return EINVAL;
 
-   start_slot = get_buf_entry(ctx, VIRGL_SET_VIEWPORT_START_SLOT);
    for (v = 0; v < num_viewports; v++) {
       for (i = 0; i < 3; i++)
          vps[v].scale[i] = uif(get_buf_entry(ctx, VIRGL_SET_VIEWPORT_STATE_SCALE_0(v) + i));
