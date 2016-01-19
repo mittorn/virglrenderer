@@ -1562,8 +1562,8 @@ void vrend_set_framebuffer_state(struct vrend_context *ctx,
  * an FBO already so don't need to invert rendering?
  */
 void vrend_set_viewport_states(struct vrend_context *ctx,
-                               int start_slot,
-                               int num_viewports,
+                               uint32_t start_slot,
+                               uint32_t num_viewports,
                                const struct pipe_viewport_state *state)
 {
    /* convert back to glViewport */
@@ -1573,6 +1573,12 @@ void vrend_set_viewport_states(struct vrend_context *ctx,
    bool viewport_is_negative = (state[0].scale[1] < 0) ? true : false;
    GLfloat abs_s1 = fabsf(state->scale[1]);
    int i, idx;
+
+   if (num_viewports > PIPE_MAX_VIEWPORTS ||
+       start_slot > (PIPE_MAX_VIEWPORTS - num_viewports)) {
+      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_CMD_BUFFER, num_viewports);
+      return;
+   }
 
    for (i = 0; i < num_viewports; i++) {
       idx = start_slot + i;

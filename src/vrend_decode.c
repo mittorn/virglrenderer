@@ -172,7 +172,7 @@ static int vrend_decode_set_viewport_state(struct vrend_decode_ctx *ctx, int len
 {
    struct pipe_viewport_state vps[PIPE_MAX_VIEWPORTS];
    int i, v;
-   int num_viewports, start_slot;
+   uint32_t num_viewports, start_slot;
    if (length < 1)
       return EINVAL;
 

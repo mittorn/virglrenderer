@@ -210,7 +210,7 @@ int vrend_transfer_inline_write(struct vrend_context *ctx,
                                 unsigned usage);
 
 void vrend_set_viewport_states(struct vrend_context *ctx,
-                               int start_slot, int num_viewports,
+                               uint32_t start_slot, uint32_t num_viewports,
                                const struct pipe_viewport_state *state);
 void vrend_set_num_sampler_views(struct vrend_context *ctx,
                                  uint32_t shader_type,
