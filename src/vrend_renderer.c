@@ -1530,7 +1530,10 @@ void vrend_set_framebuffer_state(struct vrend_context *ctx,
             break;
          }
       }
-      assert(surf);
+      if (surf == NULL) {
+         report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SURFACE, i);
+         return;
+      }
       new_height = u_minify(surf->texture->base.height0, surf->val0);
       new_ibf = surf->texture->y_0_top ? true : false;
    }
