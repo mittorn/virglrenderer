@@ -3412,6 +3412,12 @@ void vrend_bind_sampler_states(struct vrend_context *ctx,
       return;
    }
 
+   if (num_states > PIPE_MAX_SAMPLERS ||
+       start_slot > (PIPE_MAX_SAMPLERS - num_states)) {
+      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_CMD_BUFFER, num_states);
+      return;
+   }
+
    ctx->sub->num_sampler_states[shader_type] = num_states;
 
    for (i = 0; i < num_states; i++) {
