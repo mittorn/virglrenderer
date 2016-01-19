@@ -1642,6 +1642,10 @@ int vrend_create_vertex_elements_state(struct vrend_context *ctx,
       memcpy(&v->elements[i].base, &elements[i], sizeof(struct pipe_vertex_element));
 
       desc = util_format_description(elements[i].src_format);
+      if (!desc) {
+         FREE(v);
+         return EINVAL;
+      }
 
       type = GL_FALSE;
       if (desc->channel[0].type == UTIL_FORMAT_TYPE_FLOAT) {
