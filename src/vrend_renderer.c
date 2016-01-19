@@ -3407,6 +3407,11 @@ void vrend_bind_sampler_states(struct vrend_context *ctx,
    int i;
    struct vrend_sampler_state *state;
 
+   if (shader_type >= PIPE_SHADER_TYPES) {
+      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_CMD_BUFFER, shader_type);
+      return;
+   }
+
    ctx->sub->num_sampler_states[shader_type] = num_states;
 
    for (i = 0; i < num_states; i++) {

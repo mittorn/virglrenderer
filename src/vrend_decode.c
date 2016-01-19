@@ -898,6 +898,9 @@ static int vrend_decode_bind_sampler_states(struct vrend_decode_ctx *ctx, int le
    if (length < 2)
       return EINVAL;
 
+   if (shader_type >= PIPE_SHADER_TYPES)
+      return EINVAL;
+
    vrend_bind_sampler_states(ctx->grctx, shader_type, start_slot, num_states,
                              get_buf_ptr(ctx, VIRGL_BIND_SAMPLER_STATES_S0_HANDLE));
    return 0;
