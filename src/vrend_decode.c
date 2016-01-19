@@ -624,6 +624,8 @@ static int vrend_decode_create_object(struct vrend_decode_ctx *ctx, int length)
 
    if (length < 1)
       return EINVAL;
+   if (handle == 0)
+      return EINVAL;
 
    switch (obj_type){
    case VIRGL_OBJECT_BLEND:
