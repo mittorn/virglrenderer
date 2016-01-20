@@ -1571,7 +1571,6 @@ void vrend_set_viewport_states(struct vrend_context *ctx,
    GLsizei width, height;
    GLclampd near_val, far_val;
    bool viewport_is_negative = (state[0].scale[1] < 0) ? true : false;
-   GLfloat abs_s1 = fabsf(state->scale[1]);
    int i, idx;
 
    if (num_viewports > PIPE_MAX_VIEWPORTS ||
@@ -1581,9 +1580,9 @@ void vrend_set_viewport_states(struct vrend_context *ctx,
    }
 
    for (i = 0; i < num_viewports; i++) {
-      idx = start_slot + i;
+      GLfloat abs_s1 = fabsf(state[i].scale[1]);
 
-      abs_s1 = fabsf(state[i].scale[1]);
+      idx = start_slot + i;
       width = state[i].scale[0] * 2.0f;
       height = abs_s1 * 2.0f;
       x = state[i].translate[0] - state[i].scale[0];
