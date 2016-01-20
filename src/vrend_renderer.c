@@ -6031,8 +6031,11 @@ void *vrend_renderer_get_cursor_contents(uint32_t res_handle, uint32_t *width, u
    data = malloc(size);
    data2 = malloc(size);
 
-   if (!data || !data2)
+   if (!data || !data2) {
+      free(data);
+      free(data2);
       return NULL;
+   }
 
    glBindTexture(res->target, res->id);
    glGetnTexImageARB(res->target, 0, format, type, size, data);
