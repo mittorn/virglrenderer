@@ -237,6 +237,13 @@ static int vrend_decode_set_uniform_buffer(struct vrend_decode_ctx *ctx, int len
 
    if (length != VIRGL_SET_UNIFORM_BUFFER_SIZE)
       return EINVAL;
+
+   if (shader >= PIPE_SHADER_TYPES)
+      return EINVAL;
+
+   if (index >= PIPE_MAX_CONSTANT_BUFFERS)
+      return EINVAL;
+
    vrend_set_uniform_buffer(ctx->grctx, shader, index, offset, blength, handle);
    return 0;
 }
