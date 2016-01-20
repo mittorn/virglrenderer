@@ -318,6 +318,8 @@ int virgl_egl_get_fd_for_texture(struct virgl_egl *ve, uint32_t tex_id, int *fd)
                                    fd,
                                    &stride,
                                    &offset);
+      if (!b)
+         goto out_destroy;
 #else
       goto out_destroy;
 #endif
