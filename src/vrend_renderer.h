@@ -255,8 +255,8 @@ void vrend_renderer_blit(struct vrend_context *ctx,
 void vrend_set_stencil_ref(struct vrend_context *ctx, struct pipe_stencil_ref *ref);
 void vrend_set_blend_color(struct vrend_context *ctx, struct pipe_blend_color *color);
 void vrend_set_scissor_state(struct vrend_context *ctx,
-                             int start_slot,
-                             int num_scissor,
+                             uint32_t start_slot,
+                             uint32_t num_scissor,
                              struct pipe_scissor_state *ss);
 
 void vrend_set_polygon_stipple(struct vrend_context *ctx, struct pipe_poly_stipple *ps);

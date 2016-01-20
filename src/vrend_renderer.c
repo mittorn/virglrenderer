@@ -4972,8 +4972,8 @@ void vrend_set_blend_color(struct vrend_context *ctx,
 }
 
 void vrend_set_scissor_state(struct vrend_context *ctx,
-                             int start_slot,
-                             int num_scissor,
+                             uint32_t start_slot,
+                             uint32_t num_scissor,
                              struct pipe_scissor_state *ss)
 {
    int i, idx;

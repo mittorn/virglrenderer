@@ -762,7 +762,7 @@ static int vrend_decode_set_scissor_state(struct vrend_decode_ctx *ctx, int leng
 {
    struct pipe_scissor_state ss[PIPE_MAX_VIEWPORTS];
    uint32_t temp;
-   int num_scissor, start_slot;
+   uint32_t num_scissor, start_slot;
    int s;
    if (length < 1)
       return EINVAL;
