@@ -4337,7 +4337,8 @@ static bool check_transfer_bounds(struct vrend_resource *res,
    /* check mipmap level is in bounds */
    if (info->level > res->base.last_level)
       return false;
-
+   if (info->box->x < 0 || info->box->y < 0)
+      return false;
    /* these will catch bad y/z/w/d with 1D textures etc */
    lwidth = u_minify(res->base.width0, info->level);
    if (info->box->width > lwidth)
