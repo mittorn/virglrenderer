@@ -188,11 +188,13 @@ static inline bool fs_emit_layout(struct dump_ctx *ctx)
 
 static char *strcat_realloc(char *str, const char *catstr)
 {
-   str = realloc(str, strlen(str) + strlen(catstr) + 1);
-   if (!str)
+   char *new = realloc(str, strlen(str) + strlen(catstr) + 1);
+   if (!new) {
+      free(str);
       return NULL;
-   strcat(str, catstr);
-   return str;
+   }
+   strcat(new, catstr);
+   return new;
 }
 
 static char *add_str_to_glsl_main(struct dump_ctx *ctx, char *buf)
