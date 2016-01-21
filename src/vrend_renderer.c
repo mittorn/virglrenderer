@@ -2180,6 +2180,13 @@ int vrend_create_shader(struct vrend_context *ctx,
          vrend_renderer_object_destroy(ctx, handle);
          return EINVAL;
       }
+      if ((pkt_length * 4 + sel->buf_offset) > sel->buf_len) {
+         fprintf(stderr, "Got too large shader continuation %d vs %d\n",
+                 pkt_length * 4 + sel->buf_offset, sel->buf_len);
+         vrend_renderer_object_destroy(ctx, handle);
+         return EINVAL;
+      }
+
       memcpy(sel->tmp_buf + sel->buf_offset, shd_text, pkt_length * 4);
 
       sel->buf_offset += pkt_length * 4;
