@@ -2023,6 +2023,11 @@ static int vrend_shader_create(struct vrend_context *ctx,
                                struct vrend_shader_key key)
 {
 
+   if (!shader->sel->tokens) {
+      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SHADER, 0);
+      return -1;
+   }
+
    shader->id = glCreateShader(conv_shader_type(shader->sel->type));
    shader->compiled_fs_id = 0;
    shader->glsl_prog = vrend_convert_shader(&ctx->shader_cfg, shader->sel->tokens, &key, &shader->sel->sinfo);
