@@ -3789,7 +3789,7 @@ vrend_renderer_fini(void)
 
 static void vrend_destroy_sub_context(struct vrend_sub_context *sub)
 {
-   int i;
+   int i, j;
    struct vrend_streamout_object *obj, *tmp;
 
    if (sub->fb_id)
@@ -3826,6 +3826,10 @@ static void vrend_destroy_sub_context(struct vrend_sub_context *sub)
    for (i = 0; i < PIPE_SHADER_TYPES; i++) {
       free(sub->consts[i].consts);
       sub->consts[i].consts = NULL;
+
+      for (j = 0; j < PIPE_MAX_SHADER_SAMPLER_VIEWS; j++) {
+         vrend_sampler_view_reference(&sub->views[i].views[j], NULL);
+      }
    }
 
    if (sub->zsurf)
