@@ -2,7 +2,6 @@ C_SOURCES := \
 	cso_cache/cso_cache.c \
 	cso_cache/cso_hash.c \
 	os/os_misc.c \
-	os/os_process.c \
 	os/os_time.c \
 	tgsi/tgsi_build.c \
 	tgsi/tgsi_dump.c \
