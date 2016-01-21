@@ -124,7 +124,7 @@ int vtest_create_renderer(int in_fd, int out_fd, uint32_t length)
       return -1;
     }
 
-    vtestname = malloc(length);
+    vtestname = calloc(1, length + 1);
     if (!vtestname)
       return -1;
 
