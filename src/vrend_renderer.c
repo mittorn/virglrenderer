@@ -2155,12 +2155,12 @@ int vrend_create_shader(struct vrend_context *ctx,
        return ENOMEM;
 
      if (long_shader) {
-        sel->tmp_buf = malloc(offlen);
+        sel->buf_len = ((offlen + 3) / 4) * 4; /* round up buffer size */
+        sel->tmp_buf = malloc(sel->buf_len);
         if (!sel->tmp_buf) {
            free(sel);
            return ENOMEM;
         }
-        sel->buf_len = offlen;
         memcpy(sel->tmp_buf, shd_text, pkt_length * 4);
         sel->buf_offset = pkt_length * 4;
         ctx->sub->long_shader_in_progress_handle[type] = handle;
