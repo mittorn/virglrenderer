@@ -57,7 +57,8 @@ struct util_hash_table
    /** Compare two keys */
    int (*compare)(void *key1, void *key2);
    
-   /* TODO: key, value destructors? */
+   /** free value */
+   void (*destroy)(void *value);
 };
 
 
@@ -77,7 +78,8 @@ util_hash_table_item(struct cso_hash_iter iter)
 
 struct util_hash_table *
 util_hash_table_create(unsigned (*hash)(void *key),
-                       int (*compare)(void *key1, void *key2))
+                       int (*compare)(void *key1, void *key2),
+                       void (*destroy)(void *value))
 {
    struct util_hash_table *ht;
    
@@ -93,6 +95,7 @@ util_hash_table_create(unsigned (*hash)(void *key),
    
    ht->hash = hash;
    ht->compare = compare;
+   ht->destroy = destroy;
    
    return ht;
 }
@@ -155,7 +158,7 @@ util_hash_table_set(struct util_hash_table *ht,
 
    item = util_hash_table_find_item(ht, key, key_hash);
    if(item) {
-      /* TODO: key/value destruction? */
+      ht->destroy(item->value);
       item->value = value;
       return PIPE_OK;
    }
@@ -218,6 +221,7 @@ util_hash_table_remove(struct util_hash_table *ht,
    
    item = util_hash_table_item(iter);
    assert(item);
+   ht->destroy(item->value);
    FREE(item);
    
    cso_hash_erase(ht->cso, iter);
@@ -237,6 +241,7 @@ util_hash_table_clear(struct util_hash_table *ht)
    iter = cso_hash_first_node(ht->cso);
    while (!cso_hash_iter_is_null(iter)) {
       item = (struct util_hash_table_item *)cso_hash_take(ht->cso, cso_hash_iter_key(iter));
+      ht->destroy(item->value);
       FREE(item);
       iter = cso_hash_first_node(ht->cso);
    }
@@ -283,6 +288,7 @@ util_hash_table_destroy(struct util_hash_table *ht)
    iter = cso_hash_first_node(ht->cso);
    while (!cso_hash_iter_is_null(iter)) {
       item = (struct util_hash_table_item *)cso_hash_iter_data(iter);
+      ht->destroy(item->value);
       FREE(item);
       iter = cso_hash_iter_next(iter);
    }

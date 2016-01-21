@@ -71,15 +71,10 @@ struct vrend_object {
    bool free_data;
 };
 
-struct util_hash_table *vrend_object_init_ctx_table(void)
+static void free_object(void *value)
 {
-   struct util_hash_table *ctx_hash;
-   ctx_hash = util_hash_table_create(hash_func, compare);
-   return ctx_hash;
-}
+   struct vrend_object *obj = value;
 
-static void vrend_object_free(struct vrend_object *obj)
-{
    if (obj->free_data) {
       if (obj_types[obj->type].unref)
          obj_types[obj->type].unref(obj->data);
@@ -91,11 +86,11 @@ static void vrend_object_free(struct vrend_object *obj)
    free(obj);
 }
 
-static enum pipe_error free_cb(void *key, void *value, void *data)
+struct util_hash_table *vrend_object_init_ctx_table(void)
 {
-   struct vrend_object *obj = value;
-   vrend_object_free(obj);
-   return PIPE_OK;
+   struct util_hash_table *ctx_hash;
+   ctx_hash = util_hash_table_create(hash_func, compare, free_object);
+   return ctx_hash;
 }
 
 void vrend_object_fini_ctx_table(struct util_hash_table *ctx_hash)
@@ -103,29 +98,26 @@ void vrend_object_fini_ctx_table(struct util_hash_table *ctx_hash)
    if (!ctx_hash)
       return;
 
-   util_hash_table_foreach(ctx_hash, free_cb, NULL);
    util_hash_table_destroy(ctx_hash);
+}
+
+static void free_res(void *value)
+{
+   struct vrend_object *obj = value;
+   (*resource_unref)(obj->data);
+   free(obj);
 }
 
 void
 vrend_object_init_resource_table(void)
 {
    if (!res_hash)
-      res_hash = util_hash_table_create(hash_func, compare);
-}
-
-static enum pipe_error free_res_cb(void *key, void *value, void *data)
-{
-   struct vrend_object *obj = value;
-   (*resource_unref)(obj->data);
-   free(obj);
-   return PIPE_OK;
+      res_hash = util_hash_table_create(hash_func, compare, free_res);
 }
 
 void vrend_object_fini_resource_table(void)
 {
    if (res_hash) {
-      util_hash_table_foreach(res_hash, free_res_cb, NULL);
       util_hash_table_destroy(res_hash);
    }
    res_hash = NULL;
@@ -159,15 +151,8 @@ void
 vrend_object_remove(struct util_hash_table *handle_hash,
                     uint32_t handle, enum virgl_object_type type)
 {
-   struct vrend_object *obj;
-
-   obj = util_hash_table_get(handle_hash, intptr_to_pointer(handle));
-   if (!obj)
-      return;
    util_hash_table_remove(handle_hash, intptr_to_pointer(handle));
 
-
-   vrend_object_free(obj);
 }
 
 void *vrend_object_lookup(struct util_hash_table *handle_hash,
@@ -204,13 +189,7 @@ int vrend_resource_insert(void *data, uint32_t handle)
 
 void vrend_resource_remove(uint32_t handle)
 {
-   struct vrend_object *obj;
-
-   obj = util_hash_table_get(res_hash, intptr_to_pointer(handle));
-   if (!obj)
-      return;
    util_hash_table_remove(res_hash, intptr_to_pointer(handle));
-   free(obj);
 }
 
 void *vrend_resource_lookup(uint32_t handle, uint32_t ctx_id)

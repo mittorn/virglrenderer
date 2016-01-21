@@ -57,7 +57,8 @@ struct util_hash_table;
  */
 struct util_hash_table *
 util_hash_table_create(unsigned (*hash)(void *key),
-                       int (*compare)(void *key1, void *key2));
+                       int (*compare)(void *key1, void *key2),
+                       void (*destroy)(void *value));
 
 
 enum pipe_error

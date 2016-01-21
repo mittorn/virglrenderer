@@ -4258,9 +4258,6 @@ void vrend_renderer_resource_unref(uint32_t res_handle)
    }
 
    vrend_resource_remove(res->handle);
-   res->handle = 0;
-
-   vrend_resource_reference(&res, NULL);
 }
 
 static int use_sub_data = 0;
