@@ -2135,10 +2135,11 @@ int vrend_create_shader(struct vrend_context *ctx,
                         const char *shd_text, uint32_t offlen, uint32_t num_tokens,
                         uint32_t type, uint32_t pkt_length)
 {
-   struct vrend_shader_selector *sel;
+   struct vrend_shader_selector *sel = NULL;
    int ret_handle;
    bool new_shader = true, long_shader = false;
    bool finished = false;
+   int ret;
 
    if (type > PIPE_SHADER_GEOMETRY)
       return EINVAL;
@@ -2166,8 +2167,8 @@ int vrend_create_shader(struct vrend_context *ctx,
         sel->buf_len = ((offlen + 3) / 4) * 4; /* round up buffer size */
         sel->tmp_buf = malloc(sel->buf_len);
         if (!sel->tmp_buf) {
-           free(sel);
-           return ENOMEM;
+           ret = ENOMEM;
+           goto error;
         }
         memcpy(sel->tmp_buf, shd_text, pkt_length * 4);
         sel->buf_offset = pkt_length * 4;
@@ -2178,21 +2179,22 @@ int vrend_create_shader(struct vrend_context *ctx,
       sel = vrend_object_lookup(ctx->sub->object_hash, handle, VIRGL_OBJECT_SHADER);
       if (!sel) {
          fprintf(stderr, "got continuation without original shader %d\n", handle);
-         return EINVAL;
+         ret = EINVAL;
+         goto error;
       }
 
       offlen &= ~VIRGL_OBJ_SHADER_OFFSET_CONT;
       if (offlen != sel->buf_offset) {
          fprintf(stderr, "Got mismatched shader continuation %d vs %d\n",
                  offlen, sel->buf_offset);
-         vrend_renderer_object_destroy(ctx, handle);
-         return EINVAL;
+         ret = EINVAL;
+         goto error;
       }
       if ((pkt_length * 4 + sel->buf_offset) > sel->buf_len) {
          fprintf(stderr, "Got too large shader continuation %d vs %d\n",
                  pkt_length * 4 + sel->buf_offset, sel->buf_len);
-         vrend_renderer_object_destroy(ctx, handle);
-         return EINVAL;
+         ret = EINVAL;
+         goto error;
       }
 
       memcpy(sel->tmp_buf + sel->buf_offset, shd_text, pkt_length * 4);
@@ -2209,13 +2211,17 @@ int vrend_create_shader(struct vrend_context *ctx,
 
       tokens = calloc(num_tokens + 10, sizeof(struct tgsi_token));
       if (!tokens) {
-         return ENOMEM;
+         ret = ENOMEM;
+         goto error;
       }
 
       if (vrend_dump_shaders)
          fprintf(stderr,"shader\n%s\n", shd_text);
-      if (!tgsi_text_translate((const char *)shd_text, tokens, num_tokens + 10))
-         return EINVAL;
+      if (!tgsi_text_translate((const char *)shd_text, tokens, num_tokens + 10)) {
+         free(tokens);
+         ret = EINVAL;
+         goto error;
+      }
 
       if (vrend_finish_shader(ctx, sel, tokens))
          new_shader = false;
@@ -2230,13 +2236,20 @@ int vrend_create_shader(struct vrend_context *ctx,
    if (new_shader) {
       ret_handle = vrend_renderer_object_insert(ctx, sel, sizeof(*sel), handle, VIRGL_OBJECT_SHADER);
       if (ret_handle == 0) {
-         vrend_destroy_shader_selector(sel);
-         return ENOMEM;
+         ret = ENOMEM;
+         goto error;
       }
    }
 
    return 0;
 
+error:
+   if (new_shader)
+      vrend_destroy_shader_selector(sel);
+   else
+      vrend_renderer_object_destroy(ctx, handle);
+
+   return ret;
 }
 
 void vrend_bind_shader(struct vrend_context *ctx,
