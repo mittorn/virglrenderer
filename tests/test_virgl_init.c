@@ -470,7 +470,7 @@ Suite *virgl_init_suite(void)
   suite_add_tcase(s, tc_core);
 
   tc_core = tcase_create("init_std");
-  tcase_add_unchecked_fixture(tc_core, testvirgl_init_single_ctx_nr, testvirgl_fini_single_ctx);
+  tcase_add_checked_fixture(tc_core, testvirgl_init_single_ctx_nr, testvirgl_fini_single_ctx);
   tcase_add_test(tc_core, virgl_init_egl_create_ctx_create_bind_res);
   tcase_add_test(tc_core, virgl_init_egl_create_ctx_create_bind_res_illegal_ctx);
   tcase_add_test(tc_core, virgl_init_egl_create_ctx_create_bind_res_illegal_res);

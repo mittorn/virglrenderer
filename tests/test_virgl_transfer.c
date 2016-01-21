@@ -734,7 +734,7 @@ Suite *virgl_init_suite(void)
   s = suite_create("virgl_transfer");
   tc_core = tcase_create("transfer_direct");
 
-  tcase_add_unchecked_fixture(tc_core, testvirgl_init_single_ctx_nr, testvirgl_fini_single_ctx);
+  tcase_add_checked_fixture(tc_core, testvirgl_init_single_ctx_nr, testvirgl_fini_single_ctx);
   tcase_add_test(tc_core, virgl_test_transfer_read_illegal_ctx);
   tcase_add_test(tc_core, virgl_test_transfer_write_illegal_ctx);
   tcase_add_test(tc_core, virgl_test_transfer_read_unbound_res);
