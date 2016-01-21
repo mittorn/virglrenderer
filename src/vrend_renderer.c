@@ -3828,6 +3828,15 @@ static void vrend_destroy_sub_context(struct vrend_sub_context *sub)
       sub->consts[i].consts = NULL;
    }
 
+   if (sub->zsurf)
+      vrend_surface_reference(&sub->zsurf, NULL);
+
+   for (i = 0; i < sub->nr_cbufs; i++) {
+      if (!sub->surf[i])
+         continue;
+      vrend_surface_reference(&sub->surf[i], NULL);
+   }
+
    vrend_object_fini_ctx_table(sub->object_hash);
    vrend_clicbs->destroy_gl_context(sub->gl_context);
 
