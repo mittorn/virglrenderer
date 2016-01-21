@@ -233,8 +233,10 @@ int vtest_submit_cmd(uint32_t length_dw)
 	return -1;
 
     ret = vtest_block_read(renderer.in_fd, cbuf, length_dw * 4);
-    if (ret != length_dw * 4)
-	return -1;
+    if (ret != length_dw * 4) {
+       free(cbuf);
+       return -1;
+    }
 
     virgl_renderer_submit_cmd(cbuf, ctx_id, length_dw);
 
