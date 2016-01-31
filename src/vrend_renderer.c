@@ -3736,7 +3736,7 @@ vrend_renderer_fini(void)
       return;
 
    vrend_free_sync_thread();
-   if (vrend_state.eventfd == -1) {
+   if (vrend_state.eventfd != -1) {
       close(vrend_state.eventfd);
       vrend_state.eventfd = -1;
    }
