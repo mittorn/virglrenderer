@@ -3859,6 +3859,8 @@ static void vrend_destroy_sub_context(struct vrend_sub_context *sub)
       vrend_surface_reference(&sub->surf[i], NULL);
    }
 
+   vrend_resource_reference((struct vrend_resource **)&sub->ib.buffer, NULL);
+
    vrend_object_fini_ctx_table(sub->object_hash);
    vrend_clicbs->destroy_gl_context(sub->gl_context);
 
