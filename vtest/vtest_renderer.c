@@ -26,6 +26,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <limits.h>
 
 #include "virglrenderer.h"
 
@@ -227,6 +228,9 @@ int vtest_submit_cmd(uint32_t length_dw)
 {
     uint32_t *cbuf;
     int ret;
+
+    if (length_dw > UINT_MAX / 4)
+       return -1;
 
     cbuf = malloc(length_dw * 4);
     if (!cbuf)
