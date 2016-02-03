@@ -3870,6 +3870,7 @@ static void vrend_destroy_sub_context(struct vrend_sub_context *sub)
 bool vrend_destroy_context(struct vrend_context *ctx)
 {
    bool switch_0 = (ctx == vrend_state.current_ctx);
+   struct vrend_context *cur = vrend_state.current_ctx;
    struct vrend_sub_context *sub, *tmp;
    if (switch_0) {
       vrend_state.current_ctx = NULL;
@@ -3893,6 +3894,7 @@ bool vrend_destroy_context(struct vrend_context *ctx)
 
    vrend_set_index_buffer(ctx, 0, 0, 0);
 
+   vrend_renderer_force_ctx_0();
    LIST_FOR_EACH_ENTRY_SAFE(sub, tmp, &ctx->sub_ctxs, head)
       vrend_destroy_sub_context(sub);
 
@@ -3901,6 +3903,9 @@ bool vrend_destroy_context(struct vrend_context *ctx)
    list_del(&ctx->ctx_entry);
 
    FREE(ctx);
+
+   if (!switch_0 && cur)
+      vrend_hw_switch_context(cur, true);
 
    return switch_0;
 }
