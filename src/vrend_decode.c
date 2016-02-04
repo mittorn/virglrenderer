@@ -1025,6 +1025,9 @@ static int vrend_decode_set_streamout_targets(struct vrend_decode_ctx *ctx,
 
    if (length < 1)
       return EINVAL;
+   if (num_handles > ARRAY_SIZE(handles))
+      return EINVAL;
+
    append_bitmask = get_buf_entry(ctx, VIRGL_SET_STREAMOUT_TARGETS_APPEND_BITMASK);
    for (i = 0; i < num_handles; i++)
       handles[i] = get_buf_entry(ctx, VIRGL_SET_STREAMOUT_TARGETS_H0 + i);
