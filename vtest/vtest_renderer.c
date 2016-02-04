@@ -298,11 +298,9 @@ int vtest_transfer_get(uint32_t length_dw)
     if (ret)
       fprintf(stderr," transfer read failed %d\n", ret);
     ret = vtest_block_write(renderer.out_fd, ptr, data_size);
-    if (ret < 0)
-      return ret;
 
     free(ptr);
-    return 0;
+    return ret < 0 ? ret : 0;
 }
 
 int vtest_transfer_put(uint32_t length_dw)
