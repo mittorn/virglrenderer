@@ -126,13 +126,13 @@ static int vrend_decode_create_stream_output_target(struct vrend_decode_ctx *ctx
 
 static int vrend_decode_set_framebuffer_state(struct vrend_decode_ctx *ctx, int length)
 {
+   if (length < 2)
+      return EINVAL;
+
    uint32_t nr_cbufs = get_buf_entry(ctx, VIRGL_SET_FRAMEBUFFER_STATE_NR_CBUFS);
    uint32_t zsurf_handle = get_buf_entry(ctx, VIRGL_SET_FRAMEBUFFER_STATE_NR_ZSURF_HANDLE);
    uint32_t surf_handle[8];
    int i;
-
-   if (length < 2)
-      return EINVAL;
 
    if (length != (2 + nr_cbufs))
       return EINVAL;
@@ -229,14 +229,14 @@ static int vrend_decode_set_constant_buffer(struct vrend_decode_ctx *ctx, uint16
 
 static int vrend_decode_set_uniform_buffer(struct vrend_decode_ctx *ctx, int length)
 {
+   if (length != VIRGL_SET_UNIFORM_BUFFER_SIZE)
+      return EINVAL;
+
    uint32_t shader = get_buf_entry(ctx, VIRGL_SET_UNIFORM_BUFFER_SHADER_TYPE);
    uint32_t index = get_buf_entry(ctx, VIRGL_SET_UNIFORM_BUFFER_INDEX);
    uint32_t offset = get_buf_entry(ctx, VIRGL_SET_UNIFORM_BUFFER_OFFSET);
    uint32_t blength = get_buf_entry(ctx, VIRGL_SET_UNIFORM_BUFFER_LENGTH);
    uint32_t handle = get_buf_entry(ctx, VIRGL_SET_UNIFORM_BUFFER_RES_HANDLE);
-
-   if (length != VIRGL_SET_UNIFORM_BUFFER_SIZE)
-      return EINVAL;
 
    if (shader >= PIPE_SHADER_TYPES)
       return EINVAL;
@@ -641,13 +641,14 @@ static int vrend_decode_create_query(struct vrend_decode_ctx *ctx, uint32_t hand
 
 static int vrend_decode_create_object(struct vrend_decode_ctx *ctx, int length)
 {
+   if (length < 1)
+      return EINVAL;
+
    uint32_t header = get_buf_entry(ctx, VIRGL_OBJ_CREATE_HEADER);
    uint32_t handle = get_buf_entry(ctx, VIRGL_OBJ_CREATE_HANDLE);
    uint8_t obj_type = (header >> 8) & 0xff;
    int ret = 0;
 
-   if (length < 1)
-      return EINVAL;
    if (handle == 0)
       return EINVAL;
 
@@ -691,12 +692,12 @@ static int vrend_decode_create_object(struct vrend_decode_ctx *ctx, int length)
 
 static int vrend_decode_bind_object(struct vrend_decode_ctx *ctx, uint16_t length)
 {
+   if (length != 1)
+      return EINVAL;
+
    uint32_t header = get_buf_entry(ctx, VIRGL_OBJ_BIND_HEADER);
    uint32_t handle = get_buf_entry(ctx, VIRGL_OBJ_BIND_HANDLE);
    uint8_t obj_type = (header >> 8) & 0xff;
-
-   if (length != 1)
-      return EINVAL;
 
    switch (obj_type) {
    case VIRGL_OBJECT_BLEND:
@@ -720,10 +721,10 @@ static int vrend_decode_bind_object(struct vrend_decode_ctx *ctx, uint16_t lengt
 
 static int vrend_decode_destroy_object(struct vrend_decode_ctx *ctx, int length)
 {
-   uint32_t handle = get_buf_entry(ctx, VIRGL_OBJ_DESTROY_HANDLE);
-
    if (length != 1)
       return EINVAL;
+
+   uint32_t handle = get_buf_entry(ctx, VIRGL_OBJ_DESTROY_HANDLE);
 
    vrend_renderer_object_destroy(ctx->grctx, handle);
    return 0;
@@ -731,11 +732,11 @@ static int vrend_decode_destroy_object(struct vrend_decode_ctx *ctx, int length)
 
 static int vrend_decode_set_stencil_ref(struct vrend_decode_ctx *ctx, int length)
 {
-   struct pipe_stencil_ref ref;
-   uint32_t val = get_buf_entry(ctx, VIRGL_SET_STENCIL_REF);
-
    if (length != VIRGL_SET_STENCIL_REF_SIZE)
       return EINVAL;
+
+   struct pipe_stencil_ref ref;
+   uint32_t val = get_buf_entry(ctx, VIRGL_SET_STENCIL_REF);
 
    ref.ref_value[0] = val & 0xff;
    ref.ref_value[1] = (val >> 8) & 0xff;
@@ -906,12 +907,12 @@ static int vrend_decode_blit(struct vrend_decode_ctx *ctx, int length)
 
 static int vrend_decode_bind_sampler_states(struct vrend_decode_ctx *ctx, int length)
 {
+   if (length < 2)
+      return EINVAL;
+
    uint32_t shader_type = get_buf_entry(ctx, VIRGL_BIND_SAMPLER_STATES_SHADER_TYPE);
    uint32_t start_slot = get_buf_entry(ctx, VIRGL_BIND_SAMPLER_STATES_START_SLOT);
    uint32_t num_states = length - 2;
-
-   if (length < 2)
-      return EINVAL;
 
    if (shader_type >= PIPE_SHADER_TYPES)
       return EINVAL;
@@ -923,10 +924,10 @@ static int vrend_decode_bind_sampler_states(struct vrend_decode_ctx *ctx, int le
 
 static int vrend_decode_begin_query(struct vrend_decode_ctx *ctx, int length)
 {
-   uint32_t handle = get_buf_entry(ctx, VIRGL_QUERY_BEGIN_HANDLE);
-
    if (length != 1)
       return EINVAL;
+
+   uint32_t handle = get_buf_entry(ctx, VIRGL_QUERY_BEGIN_HANDLE);
 
    vrend_begin_query(ctx->grctx, handle);
    return 0;
@@ -934,10 +935,10 @@ static int vrend_decode_begin_query(struct vrend_decode_ctx *ctx, int length)
 
 static int vrend_decode_end_query(struct vrend_decode_ctx *ctx, int length)
 {
-   uint32_t handle = get_buf_entry(ctx, VIRGL_QUERY_END_HANDLE);
-
    if (length != 1)
       return EINVAL;
+
+   uint32_t handle = get_buf_entry(ctx, VIRGL_QUERY_END_HANDLE);
 
    vrend_end_query(ctx->grctx, handle);
    return 0;
@@ -945,53 +946,58 @@ static int vrend_decode_end_query(struct vrend_decode_ctx *ctx, int length)
 
 static int vrend_decode_get_query_result(struct vrend_decode_ctx *ctx, int length)
 {
+   if (length != 2)
+      return EINVAL;
+
    uint32_t handle = get_buf_entry(ctx, VIRGL_QUERY_RESULT_HANDLE);
    uint32_t wait = get_buf_entry(ctx, VIRGL_QUERY_RESULT_WAIT);
 
-   if (length != 2)
-      return EINVAL;
    vrend_get_query_result(ctx->grctx, handle, wait);
    return 0;
 }
 
 static int vrend_decode_set_render_condition(struct vrend_decode_ctx *ctx, int length)
 {
+   if (length != VIRGL_RENDER_CONDITION_SIZE)
+      return EINVAL;
+
    uint32_t handle = get_buf_entry(ctx, VIRGL_RENDER_CONDITION_HANDLE);
    bool condition = get_buf_entry(ctx, VIRGL_RENDER_CONDITION_CONDITION) & 1;
    uint mode = get_buf_entry(ctx, VIRGL_RENDER_CONDITION_MODE);
 
-   if (length != VIRGL_RENDER_CONDITION_SIZE)
-      return EINVAL;
    vrend_render_condition(ctx->grctx, handle, condition, mode);
    return 0;
 }
 
 static int vrend_decode_set_sub_ctx(struct vrend_decode_ctx *ctx, int length)
 {
-   uint32_t ctx_sub_id = get_buf_entry(ctx, 1);
-
    if (length != 1)
       return EINVAL;
+
+   uint32_t ctx_sub_id = get_buf_entry(ctx, 1);
+
    vrend_renderer_set_sub_ctx(ctx->grctx, ctx_sub_id);
    return 0;
 }
 
 static int vrend_decode_create_sub_ctx(struct vrend_decode_ctx *ctx, int length)
 {
-   uint32_t ctx_sub_id = get_buf_entry(ctx, 1);
-
    if (length != 1)
       return EINVAL;
+
+   uint32_t ctx_sub_id = get_buf_entry(ctx, 1);
+
    vrend_renderer_create_sub_ctx(ctx->grctx, ctx_sub_id);
    return 0;
 }
 
 static int vrend_decode_destroy_sub_ctx(struct vrend_decode_ctx *ctx, int length)
 {
-   uint32_t ctx_sub_id = get_buf_entry(ctx, 1);
-
    if (length != 1)
       return EINVAL;
+
+   uint32_t ctx_sub_id = get_buf_entry(ctx, 1);
+
    vrend_renderer_destroy_sub_ctx(ctx->grctx, ctx_sub_id);
    return 0;
 }
