@@ -280,7 +280,7 @@ START_TEST(cubemaparray_res_tests)
 }
 END_TEST
 
-Suite *virgl_init_suite(void)
+static Suite *virgl_init_suite(void)
 {
   Suite *s;
   TCase *tc_core;

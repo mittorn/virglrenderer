@@ -536,9 +536,9 @@ END_TEST
 #define LARGE_FLAG_WIDTH (1 << 0)
 #define LARGE_FLAG_HEIGHT (1 << 1)
 #define LARGE_FLAG_DEPTH (1 << 2)
-void get_resource_args(enum pipe_texture_target target, bool invalid,
-		       struct virgl_renderer_resource_create_args *args,
-		       struct pipe_box *box, int nsamples, int large_flags)
+static void get_resource_args(enum pipe_texture_target target, bool invalid,
+                              struct virgl_renderer_resource_create_args *args,
+                              struct pipe_box *box, int nsamples, int large_flags)
 {
   memset(args, 0, sizeof(*args));
   memset(box, 0, sizeof(*box));
@@ -726,7 +726,7 @@ START_TEST(virgl_test_transfer_inline_valid_large)
 }
 END_TEST
 
-Suite *virgl_init_suite(void)
+static Suite *virgl_init_suite(void)
 {
   Suite *s;
   TCase *tc_core;

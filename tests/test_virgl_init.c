@@ -444,7 +444,7 @@ START_TEST(virgl_init_egl_create_ctx_create_attach_res_illegal_res)
 }
 END_TEST
 
-Suite *virgl_init_suite(void)
+static Suite *virgl_init_suite(void)
 {
   Suite *s;
   TCase *tc_core;

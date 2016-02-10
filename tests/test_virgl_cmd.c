@@ -1007,7 +1007,7 @@ START_TEST(virgl_test_large_shader)
 }
 END_TEST
 
-Suite *virgl_init_suite(void)
+static Suite *virgl_init_suite(void)
 {
   Suite *s;
   TCase *tc_core;
