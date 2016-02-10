@@ -910,8 +910,8 @@ static int emit_buf(struct dump_ctx *ctx, const char *buf)
 }
 
 #define EMIT_BUF_WITH_RET(ctx, buf) do {        \
-      int ret = emit_buf((ctx), (buf));                \
-      if (ret) return FALSE;                        \
+      int _ret = emit_buf((ctx), (buf));                \
+      if (_ret) return FALSE;                        \
    } while(0)
 
 static int translate_tex(struct dump_ctx *ctx,

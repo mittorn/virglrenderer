@@ -6064,9 +6064,9 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
 
 
    if (epoxy_has_gl_extension("GL_ARB_vertex_type_10f_11f_11f_rev")) {
-      int i = VIRGL_FORMAT_R11G11B10_FLOAT;
-      uint32_t offset = i / 32;
-      uint32_t index = i % 32;
+      int val = VIRGL_FORMAT_R11G11B10_FLOAT;
+      uint32_t offset = val / 32;
+      uint32_t index = val % 32;
 
       caps->v1.vertexbuffer.bitmask[offset] |= (1 << index);
    }
