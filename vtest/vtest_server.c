@@ -67,7 +67,7 @@ static int vtest_open_socket(const char *path)
     return -1;
 }
 
-int wait_for_socket_accept(int sock)
+static int wait_for_socket_accept(int sock)
 {
     fd_set read_fds;
     int new_fd;
@@ -86,7 +86,7 @@ int wait_for_socket_accept(int sock)
     return -1;
 }
 
-int run_renderer(int in_fd, int out_fd)
+static int run_renderer(int in_fd, int out_fd)
 {
     int ret;
     uint32_t header[VTEST_HDR_SIZE];
