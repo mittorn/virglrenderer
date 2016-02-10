@@ -197,7 +197,7 @@ static char *strcat_realloc(char *str, const char *catstr)
    return new;
 }
 
-static char *add_str_to_glsl_main(struct dump_ctx *ctx, char *buf)
+static char *add_str_to_glsl_main(struct dump_ctx *ctx, const char *buf)
 {
    ctx->glsl_main = strcat_realloc(ctx->glsl_main, buf);
    return ctx->glsl_main;
@@ -237,7 +237,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
    struct dump_ctx *ctx = (struct dump_ctx *)iter;
    int i;
    int color_offset = 0;
-   char *name_prefix = "";
+   const char *name_prefix = "";
    bool add_two_side = false;
 
    switch (decl->Declaration.File) {
@@ -895,7 +895,7 @@ static int emit_clip_dist_movs(struct dump_ctx *ctx)
 
 #define emit_ucompare(op) snprintf(buf, 255, "%s = %s(uintBitsToFloat(%s(%s(%s(%s), %s(%s))%s) * %s(0xffffffff)));\n", dsts[0], dstconv, udstconv, op, svec4, srcs[0], svec4, srcs[1], writemask, udstconv)
 
-static int emit_buf(struct dump_ctx *ctx, char *buf)
+static int emit_buf(struct dump_ctx *ctx, const char *buf)
 {
    int i;
    char *sret;
@@ -923,13 +923,13 @@ static int translate_tex(struct dump_ctx *ctx,
                          const char *dstconv,
                          const char *dtypeprefix)
 {
-   char *twm, *gwm = NULL, *txfi;
+   const char *twm, *gwm = NULL, *txfi;
    bool is_shad = false;
    char buf[512];
    char offbuf[128] = {0};
    char bias[128] = {0};
    int sampler_index;
-   char *tex_ext;
+   const char *tex_ext;
 
    ctx->samplers[sreg_index].tgsi_sampler_type = inst->Texture.Texture;
 
@@ -1194,7 +1194,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
    char writemask[6] = {0};
    enum tgsi_opcode_type dtype = tgsi_opcode_infer_dst_type(inst->Instruction.Opcode);
    enum tgsi_opcode_type stype = tgsi_opcode_infer_src_type(inst->Instruction.Opcode);
-   char *dtypeprefix="", *stypeprefix = "", *svec4 = "vec4";
+   const char *dtypeprefix="", *stypeprefix = "", *svec4 = "vec4";
    bool stprefix = false;
    bool override_no_wm[4];
    char *sret;

@@ -107,7 +107,7 @@ static GLuint blit_build_frag_tex_col(struct vrend_blitter_ctx *blit_ctx, int tg
    char shader_buf[4096];
    int is_shad;
    const char *twm;
-   char *ext_str = "";
+   const char *ext_str = "";
    switch (tgsi_tex_target) {
    case TGSI_TEXTURE_1D:
    case TGSI_TEXTURE_BUFFER:
