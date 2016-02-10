@@ -39,9 +39,9 @@ static int ctx_id = 1;
 static int fence_id = 1;
 
 static int last_fence;
-static void vtest_write_fence(void *cookie, uint32_t fence_id)
+static void vtest_write_fence(void *cookie, uint32_t fence_id_in)
 {
-  last_fence = fence_id;
+  last_fence = fence_id_in;
 }
 
 struct virgl_renderer_callbacks vtest_cbs = {
