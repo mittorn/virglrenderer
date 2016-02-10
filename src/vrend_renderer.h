@@ -365,7 +365,7 @@ void vrend_fb_bind_texture(struct vrend_resource *res,
                            int idx,
                            uint32_t level, uint32_t layer);
 bool vrend_is_ds_format(enum virgl_formats format);
-const char *vrend_shader_samplertypeconv(int sampler_type, int *is_shad);
+
 /* blitter interface */
 void vrend_renderer_blit_gl(struct vrend_context *ctx,
                             struct vrend_resource *src_res,
