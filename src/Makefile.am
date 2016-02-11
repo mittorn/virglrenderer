@@ -1,5 +1,5 @@
 SUBDIRS := gallium/auxiliary
-AM_LDFLAGS = -lgbm -lm -ldl -I./gallium/include \
+AM_LDFLAGS = -lgbm -lm -ldl \
 	$(EPOXY_LIBS) \
 	$(CODE_COVERAGE_LDFLAGS)
 
