@@ -9,9 +9,13 @@ AM_CFLAGS = \
 	-I$(top_srcdir)/src/gallium/auxiliary/util \
 	-I$(top_srcdir)/src/gallium/auxiliary/ \
 	$(GALLIUM_CFLAGS) \
+	$(PTHREAD_CFLAGS) \
 	$(VISIBILITY_CFLAGS)
 
 AM_CXXFLAGS = $(VISIBILITY_CXXFLAGS)
+
+AM_LIBADD = \
+	$(PTHREAD_LIBS)
 
 libgallium_la_SOURCES = \
 	$(C_SOURCES) \
