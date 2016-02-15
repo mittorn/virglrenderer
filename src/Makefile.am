@@ -4,11 +4,8 @@ AM_LDFLAGS = -lgbm -lm -ldl \
 	$(CODE_COVERAGE_LDFLAGS)
 
 AM_CFLAGS = \
-        -I$(top_srcdir)/src/gallium/drivers/virgl \
 	-I$(top_srcdir)/src/gallium/include \
 	-I$(top_srcdir)/src/gallium/auxiliary \
-	-I$(top_srcdir)/src/gallium/drivers \
-	-I$(top_srcdir)/include \
 	$(DEFINES) \
 	$(PIC_FLAGS) \
 	$(LIBDRM_CFLAGS) \
@@ -50,4 +47,3 @@ libvirglrendererinclude_HEADERS = virglrenderer.h
 EXTRA_DIST = gallium/include
 
 -include $(top_srcdir)/git.mk
-
