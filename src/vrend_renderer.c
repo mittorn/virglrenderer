@@ -447,8 +447,9 @@ static inline const char *pipe_shader_to_prefix(int shader_type)
    case PIPE_SHADER_VERTEX: return "vs";
    case PIPE_SHADER_FRAGMENT: return "fs";
    case PIPE_SHADER_GEOMETRY: return "gs";
+   default:
+      return NULL;
    };
-   return NULL;
 }
 
 static const char *vrend_ctx_error_strings[] = { "None", "Unknown", "Illegal shader", "Illegal handle", "Illegal resource", "Illegal surface", "Illegal vertex format", "Illegal command buffer" };
@@ -1247,9 +1248,10 @@ static inline GLenum to_gl_swizzle(int swizzle)
    case PIPE_SWIZZLE_ALPHA: return GL_ALPHA;
    case PIPE_SWIZZLE_ZERO: return GL_ZERO;
    case PIPE_SWIZZLE_ONE: return GL_ONE;
+   default:
+      assert(0);
+      return 0;
    }
-   assert(0);
-   return 0;
 }
 
 int vrend_create_sampler_view(struct vrend_context *ctx,
@@ -2014,8 +2016,9 @@ static inline int conv_shader_type(int type)
    case PIPE_SHADER_VERTEX: return GL_VERTEX_SHADER;
    case PIPE_SHADER_FRAGMENT: return GL_FRAGMENT_SHADER;
    case PIPE_SHADER_GEOMETRY: return GL_GEOMETRY_SHADER;
+   default:
+      return 0;
    };
-   return 0;
 }
 
 static int vrend_shader_create(struct vrend_context *ctx,
@@ -2418,9 +2421,10 @@ static GLenum get_xfb_mode(GLenum mode)
    case GL_LINE_LOOP:
    case GL_LINE_STRIP:
       return GL_LINES;
+   default:
+      fprintf(stderr, "failed to translate TFB %d\n", mode);
+      return GL_POINTS;
    }
-   fprintf(stderr, "failed to translate TFB %d\n", mode);
-   return GL_POINTS;
 }
 
 static void vrend_draw_bind_vertex_legacy(struct vrend_context *ctx,
@@ -3236,9 +3240,10 @@ static inline GLenum translate_fill(uint32_t mode)
       return GL_LINE;
    case PIPE_POLYGON_MODE_FILL:
       return GL_FILL;
+   default:
+      assert(0);
+      return 0;
    }
-   assert(0);
-   return 0;
 }
 
 static void vrend_hw_emit_rs(struct vrend_context *ctx)
@@ -3342,6 +3347,8 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
       case PIPE_FACE_FRONT_AND_BACK:
          glCullFace(GL_FRONT_AND_BACK);
          break;
+      default:
+         fprintf(stderr, "unhandled cull-face: %x\n", state->cull_face);
       }
       glEnable(GL_CULL_FACE);
    } else
@@ -5847,6 +5854,8 @@ void vrend_render_condition(struct vrend_context *ctx,
    case PIPE_RENDER_COND_BY_REGION_NO_WAIT:
       glmode = GL_QUERY_BY_REGION_NO_WAIT;
       break;
+   default:
+      fprintf(stderr, "unhandled condition %x\n", mode);
    }
 
    glBeginConditionalRender(q->id, glmode);

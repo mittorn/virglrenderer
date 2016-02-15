@@ -1227,6 +1227,8 @@ int vrend_decode_block(uint32_t ctx_id, uint32_t *block, int ndw)
       case VIRGL_CCMD_BIND_SHADER:
          ret = vrend_decode_bind_shader(gdctx, len);
          break;
+      default:
+         ret = EINVAL;
       }
 
       if (ret == EINVAL) {

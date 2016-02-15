@@ -143,8 +143,9 @@ static inline const char *tgsi_proc_to_prefix(int shader_type)
    case TGSI_PROCESSOR_VERTEX: return "vs";
    case TGSI_PROCESSOR_FRAGMENT: return "fs";
    case TGSI_PROCESSOR_GEOMETRY: return "gs";
+   default:
+      return NULL;
    };
-   return NULL;
 }
 
 static inline const char *prim_to_name(int prim)
@@ -685,8 +686,8 @@ static char get_swiz_char(int swiz)
    case TGSI_SWIZZLE_Y: return 'y';
    case TGSI_SWIZZLE_Z: return 'z';
    case TGSI_SWIZZLE_W: return 'w';
+   default: return 0;
    }
-   return 0;
 }
 
 static int emit_cbuf_writes(struct dump_ctx *ctx)
@@ -879,6 +880,8 @@ static int emit_clip_dist_movs(struct dump_ctx *ctx)
       case 1: wm = 'y'; break;
       case 2: wm = 'z'; break;
       case 3: wm = 'w'; break;
+      default:
+         return EINVAL;
       }
       snprintf(buf, 255, "gl_ClipDistance[%d] = clip_dist_temp[%d].%c;\n",
                i, clipidx, wm);
@@ -958,6 +961,9 @@ static int translate_tex(struct dump_ctx *ctx,
    case TGSI_TEXTURE_SHADOW2D_ARRAY:
       is_shad = true;
       break;
+   default:
+      fprintf(stderr, "unhandled texture: %x\n", inst->Texture.Texture);
+      return false;
    }
 
    if (ctx->cfg->glsl_version >= 140)
@@ -1152,6 +1158,9 @@ static int translate_tex(struct dump_ctx *ctx,
          snprintf(offbuf, 25, ", ivec3(%d, %d, %d)", imd->val[inst->TexOffsets[0].SwizzleX].i, imd->val[inst->TexOffsets[0].SwizzleY].i,
                   imd->val[inst->TexOffsets[0].SwizzleZ].i);
          break;
+      default:
+         fprintf(stderr, "unhandled texture: %x\n", inst->Texture.Texture);
+         return false;
       }
 
       if (inst->Instruction.Opcode == TGSI_OPCODE_TXL || inst->Instruction.Opcode == TGSI_OPCODE_TXL2 || inst->Instruction.Opcode == TGSI_OPCODE_TXD) {
@@ -1451,6 +1460,9 @@ iter_instruction(struct tgsi_iterate_context *iter,
             case TGSI_IMM_INT32:
                snprintf(temp, 25, "%d", imd->val[idx].i);
                break;
+            default:
+               fprintf(stderr, "unhandled imm type: %x\n", imd->type);
+               return false;
             }
             strncat(srcs[i], temp, 255);
             if (j < 3)
@@ -1981,8 +1993,9 @@ static const char *get_interp_string(int interpolate, bool flatshade)
    case TGSI_INTERPOLATE_COLOR:
       if (flatshade)
          return "flat ";
+   default:
+      return NULL;
    }
-   return NULL;
 }
 
 static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
@@ -2392,6 +2405,9 @@ bool vrend_patch_vertex_shader_interpolants(char *program,
          snprintf(glsl_name, 64, "%s_g%d", is_gs ? "out" : "ex", fs_info->interpinfo[i].semantic_index);
          replace_interp(program, glsl_name, pstring);
          break;
+      default:
+         fprintf(stderr,"unhandled semantic: %x\n", fs_info->interpinfo[i].semantic_name);
+         return false;
       }
    }
 
