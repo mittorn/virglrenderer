@@ -705,17 +705,6 @@ static int emit_cbuf_writes(struct dump_ctx *ctx)
    return 0;
 }
 
-static const char *atests[PIPE_FUNC_ALWAYS + 1] = {
-   "false",
-   "%s < %f",
-   "%s == %f",
-   "%s <= %f",
-   "%s > %f",
-   "%s != %f",
-   "%s >= %f",
-   "true",
-};
-
 static int emit_a8_swizzle(struct dump_ctx *ctx)
 {
    char buf[255];
@@ -727,12 +716,39 @@ static int emit_a8_swizzle(struct dump_ctx *ctx)
    return 0;
 }
 
+static const char *atests[PIPE_FUNC_ALWAYS + 1] = {
+   "false",
+   "<",
+   "==",
+   "<=",
+   ">",
+   "!=",
+   ">=",
+   "true"
+};
+
 static int emit_alpha_test(struct dump_ctx *ctx)
 {
    char buf[255];
    char comp_buf[128];
    char *sret;
-   snprintf(comp_buf, 128, atests[ctx->key->alpha_test], "fsout_c0.w", ctx->key->alpha_ref_val);
+
+   switch (ctx->key->alpha_test) {
+   case PIPE_FUNC_NEVER:
+   case PIPE_FUNC_ALWAYS:
+      snprintf(comp_buf, 128, "%s", atests[ctx->key->alpha_test]);
+      break;
+   case PIPE_FUNC_LESS:
+   case PIPE_FUNC_EQUAL:
+   case PIPE_FUNC_LEQUAL:
+   case PIPE_FUNC_GREATER:
+   case PIPE_FUNC_NOTEQUAL:
+   case PIPE_FUNC_GEQUAL:
+      snprintf(comp_buf, 128, "%s %s %f", "fsout_c0.w", atests[ctx->key->alpha_test], ctx->key->alpha_ref_val);
+   default:
+      fprintf(stderr, "invalid alpha-test: %x\n", ctx->key->alpha_test);
+      return EINVAL;
+   }
 
    snprintf(buf, 255, "if (!(%s)) {\n\tdiscard;\n}\n", comp_buf);
    sret = add_str_to_glsl_main(ctx, buf);

@@ -93,7 +93,7 @@ static bool blit_build_vs_passthrough(struct vrend_blitter_ctx *blit_ctx)
 {
    blit_ctx->vs = glCreateShader(GL_VERTEX_SHADER);
 
-   if (!build_and_check(blit_ctx->vs, vs_passthrough)) {
+   if (!build_and_check(blit_ctx->vs, VS_PASSTHROUGH)) {
       glDeleteShader(blit_ctx->vs);
       blit_ctx->vs = 0;
       return false;
@@ -142,7 +142,7 @@ static GLuint blit_build_frag_tex_col(struct vrend_blitter_ctx *blit_ctx, int tg
        tgsi_tex_target == TGSI_TEXTURE_SHADOWCUBE_ARRAY)
       ext_str = "#extension GL_ARB_texture_cube_map_array : require\n";
 
-   snprintf(shader_buf, 4096, fs_texfetch_col, ext_str, vrend_shader_samplertypeconv(tgsi_tex_target, &is_shad), twm, "");
+   snprintf(shader_buf, 4096, FS_TEXFETCH_COL, ext_str, vrend_shader_samplertypeconv(tgsi_tex_target, &is_shad), twm, "");
 
    fs_id = glCreateShader(GL_FRAGMENT_SHADER);
 
@@ -191,7 +191,7 @@ static GLuint blit_build_frag_tex_writedepth(struct vrend_blitter_ctx *blit_ctx,
       break;
    }
 
-   snprintf(shader_buf, 4096, fs_texfetch_ds, vrend_shader_samplertypeconv(tgsi_tex_target, &is_shad), twm);
+   snprintf(shader_buf, 4096, FS_TEXFETCH_DS, vrend_shader_samplertypeconv(tgsi_tex_target, &is_shad), twm);
 
    fs_id = glCreateShader(GL_FRAGMENT_SHADER);
 
@@ -224,7 +224,7 @@ static GLuint blit_build_frag_blit_msaa_depth(struct vrend_blitter_ctx *blit_ctx
       return 0;
    }
 
-   snprintf(shader_buf, 4096, fs_texfetch_ds_msaa, vrend_shader_samplertypeconv(tgsi_tex_target, &is_shad), ivec, twm);
+   snprintf(shader_buf, 4096, FS_TEXFETCH_DS_MSAA, vrend_shader_samplertypeconv(tgsi_tex_target, &is_shad), ivec, twm);
 
    fs_id = glCreateShader(GL_FRAGMENT_SHADER);
 
