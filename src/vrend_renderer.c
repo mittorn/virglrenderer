@@ -3584,23 +3584,24 @@ static void vrend_free_sync_thread(void)
 }
 
 static ssize_t
-write_full(int fd, const void *buf, size_t count)
+write_full(int fd, const void *ptr, size_t count)
 {
-    ssize_t ret = 0;
-    ssize_t total = 0;
+   const char *buf = ptr;
+   ssize_t ret = 0;
+   ssize_t total = 0;
 
-    while (count) {
-        ret = write(fd, buf, count);
-        if (ret < 0) {
-            if (errno == EINTR)
-                continue;
-            break;
-        }
-        count -= ret;
-        buf += ret;
-        total += ret;
-    }
-    return total;
+   while (count) {
+      ret = write(fd, buf, count);
+      if (ret < 0) {
+         if (errno == EINTR)
+            continue;
+         break;
+      }
+      count -= ret;
+      buf += ret;
+      total += ret;
+   }
+   return total;
 }
 
 static void wait_sync(struct vrend_fence *fence)
@@ -4095,7 +4096,7 @@ int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *a
    pipe_reference_init(&gr->base.reference, 1);
 
    if (args->bind == VREND_RES_BIND_CUSTOM) {
-      /* custom shuold only be for buffers */
+      /* custom should only be for buffers */
       gr->ptr = malloc(args->width);
       if (!gr->ptr) {
          FREE(gr);
@@ -4302,7 +4303,7 @@ static void vrend_scale_depth(void *ptr, int size, float scale_val)
 static void read_transfer_data(struct pipe_resource *res,
                                struct iovec *iov,
                                unsigned int num_iovs,
-                               void *data,
+                               char *data,
                                uint32_t src_stride,
                                struct pipe_box *box,
                                uint64_t offset, bool invert)
@@ -4338,7 +4339,7 @@ static void read_transfer_data(struct pipe_resource *res,
 static void write_transfer_data(struct pipe_resource *res,
                                 struct iovec *iov,
                                 unsigned num_iovs,
-                                void *data,
+                                char *data,
                                 uint32_t dst_stride,
                                 struct pipe_box *box,
                                 uint32_t level,
@@ -4539,7 +4540,7 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
          read_transfer_data(&res->base, iov, num_iovs, data, stride,
                             info->box, info->offset, invert);
       } else {
-         data = iov[0].iov_base + info->offset;
+         data = (char*)iov[0].iov_base + info->offset;
       }
 
       if (stride && !need_temp) {
@@ -4680,7 +4681,7 @@ static int vrend_transfer_send_getteximage(struct vrend_context *ctx,
 {
    GLenum format, type;
    uint32_t tex_size;
-   void *data;
+   char *data;
    int elsize = util_format_get_blocksize(res->base.format);
    int compressed = util_format_is_compressed(res->base.format);
    GLenum target;
@@ -4755,10 +4756,10 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
                                           struct iovec *iov, int num_iovs,
                                           const struct vrend_transfer_info *info)
 {
-   void *myptr = iov[0].iov_base + info->offset;
+   char *myptr = (char*)iov[0].iov_base + info->offset;
    int need_temp = 0;
    GLuint fb_id;
-   void *data;
+   char *data;
    bool actually_invert, separate_invert = false;
    GLenum format, type;
    GLint y1;
@@ -5175,7 +5176,7 @@ static void vrend_resource_copy_fallback(struct vrend_context *ctx,
                                          uint32_t dstz, uint32_t src_level,
                                          const struct pipe_box *src_box)
 {
-   void *tptr;
+   char *tptr;
    uint32_t transfer_size;
    GLenum glformat, gltype;
    int elsize = util_format_get_blocksize(dst_res->base.format);
@@ -5640,7 +5641,7 @@ static bool vrend_check_query(struct vrend_query *query)
    if (ret == false)
       return false;
 
-   state = query->res->ptr;
+   state = (struct virgl_host_query_state *)query->res->ptr;
    state->result = result;
    state->query_state = VIRGL_QUERY_STATE_DONE;
    return true;
@@ -6106,7 +6107,7 @@ void *vrend_renderer_get_cursor_contents(uint32_t res_handle, uint32_t *width, u
    GLenum format, type;
    struct vrend_resource *res;
    int blsize;
-   void *data, *data2;
+   char *data, *data2;
    int size;
    int h;
 

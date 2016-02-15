@@ -66,7 +66,7 @@ size_t vrend_read_from_iovec(const struct iovec *iov, int iovlen,
       
       if (count < iov->iov_len - offset) len = count;
 
-      memcpy(buf, iov->iov_base + offset, len);
+      memcpy(buf, (char*)iov->iov_base + offset, len);
       read += len;
 
       buf += len;
@@ -95,7 +95,7 @@ size_t vrend_write_to_iovec(const struct iovec *iov, int iovlen,
 
       if (count < iov->iov_len - offset) len = count;
 
-      memcpy(iov->iov_base + offset, buf, len);
+      memcpy((char*)iov->iov_base + offset, buf, len);
       written += len;
 
       offset = 0;
@@ -124,7 +124,7 @@ size_t vrend_read_from_iovec_cb(const struct iovec *iov, int iovlen,
       
       if (count < iov->iov_len - offset) len = count;
 
-      (*iocb)(cookie, count, iov->iov_base + offset, len);
+      (*iocb)(cookie, count, (char*)iov->iov_base + offset, len);
       read += len;
 
       count -= len;

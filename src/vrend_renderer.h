@@ -57,7 +57,7 @@ struct vrend_resource {
 
    GLuint handle;
 
-   void *ptr;
+   char *ptr;
    struct iovec *iov;
    uint32_t num_iovs;
 };
