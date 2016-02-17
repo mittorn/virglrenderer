@@ -1040,7 +1040,7 @@ void vrend_renderer_context_create_internal(uint32_t handle, uint32_t nlen,
 {
    struct vrend_decode_ctx *dctx;
 
-   if (handle > VREND_MAX_CTX)
+   if (handle >= VREND_MAX_CTX)
       return;
 
    dctx = malloc(sizeof(struct vrend_decode_ctx));
@@ -1060,8 +1060,9 @@ void vrend_renderer_context_create_internal(uint32_t handle, uint32_t nlen,
 
 int vrend_renderer_context_create(uint32_t handle, uint32_t nlen, const char *debug_name)
 {
-   if (handle > VREND_MAX_CTX)
+   if (handle >= VREND_MAX_CTX)
       return EINVAL;
+
    /* context 0 is always available with no guarantees */
    if (handle == 0)
       return EINVAL;
@@ -1075,7 +1076,7 @@ void vrend_renderer_context_destroy(uint32_t handle)
    struct vrend_decode_ctx *ctx;
    bool ret;
 
-   if (handle > VREND_MAX_CTX)
+   if (handle >= VREND_MAX_CTX)
       return;
 
    ctx = dec_ctx[handle];
@@ -1091,7 +1092,7 @@ void vrend_renderer_context_destroy(uint32_t handle)
 
 struct vrend_context *vrend_lookup_renderer_ctx(uint32_t ctx_id)
 {
-   if (ctx_id > VREND_MAX_CTX)
+   if (ctx_id >= VREND_MAX_CTX)
       return NULL;
 
    if (dec_ctx[ctx_id] == NULL)
@@ -1105,7 +1106,7 @@ int vrend_decode_block(uint32_t ctx_id, uint32_t *block, int ndw)
    struct vrend_decode_ctx *gdctx;
    bool bret;
    int ret;
-   if (ctx_id > VREND_MAX_CTX)
+   if (ctx_id >= VREND_MAX_CTX)
       return EINVAL;
 
    if (dec_ctx[ctx_id] == NULL)
