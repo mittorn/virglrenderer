@@ -953,6 +953,13 @@ static int translate_tex(struct dump_ctx *ctx,
    ctx->samplers[sreg_index].tgsi_sampler_type = inst->Texture.Texture;
 
    switch (inst->Texture.Texture) {
+   case TGSI_TEXTURE_1D:
+   case TGSI_TEXTURE_2D:
+   case TGSI_TEXTURE_3D:
+   case TGSI_TEXTURE_CUBE:
+   case TGSI_TEXTURE_1D_ARRAY:
+   case TGSI_TEXTURE_2D_ARRAY:
+      break;
    case TGSI_TEXTURE_SHADOWCUBE_ARRAY:
       is_shad = true;
    case TGSI_TEXTURE_CUBE_ARRAY:
