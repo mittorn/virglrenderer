@@ -745,6 +745,7 @@ static int emit_alpha_test(struct dump_ctx *ctx)
    case PIPE_FUNC_NOTEQUAL:
    case PIPE_FUNC_GEQUAL:
       snprintf(comp_buf, 128, "%s %s %f", "fsout_c0.w", atests[ctx->key->alpha_test], ctx->key->alpha_ref_val);
+      break;
    default:
       fprintf(stderr, "invalid alpha-test: %x\n", ctx->key->alpha_test);
       return EINVAL;
