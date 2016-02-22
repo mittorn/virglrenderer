@@ -116,6 +116,7 @@ struct dump_ctx {
    bool uses_lodq;
    bool uses_txq_levels;
    bool uses_tg4;
+   bool uses_layer;
    bool write_all_cbufs;
    bool uses_stencil_export;
    uint32_t shadow_samp_mask;
@@ -313,6 +314,16 @@ iter_declaration(struct tgsi_iterate_context *iter,
             ctx->inputs[i].glsl_predefined_no_emit = true;
             ctx->inputs[i].glsl_no_index = true;
             ctx->glsl_ver_required = 150;
+            break;
+         }
+      case TGSI_SEMANTIC_LAYER:
+         if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
+            name_prefix = "gl_Layer";
+            ctx->inputs[i].glsl_predefined_no_emit = true;
+            ctx->inputs[i].glsl_no_index = true;
+            ctx->inputs[i].is_int = true;
+            ctx->inputs[i].override_no_wm = true;
+            ctx->uses_layer = true;
             break;
          }
       case TGSI_SEMANTIC_PSIZE:
@@ -1436,7 +1447,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
                   idx += src->Register.SwizzleX;
                   snprintf(srcs[i], 255, "%s(vec4(%s%s%s[%d]))", stypeprefix, prefix, arrayname, ctx->inputs[j].glsl_name, idx);
                } else
-                  snprintf(srcs[i], 255, "%s(%s%s%s%s)", stypeprefix, prefix, ctx->inputs[j].glsl_name, arrayname, swizzle);
+                  snprintf(srcs[i], 255, "%s(%s%s%s%s)", stypeprefix, prefix, ctx->inputs[j].glsl_name, arrayname, ctx->inputs[j].is_int ? "" : swizzle);
                override_no_wm[i] = ctx->inputs[j].override_no_wm;
                break;
             }
@@ -2021,6 +2032,8 @@ static char *emit_header(struct dump_ctx *ctx, char *glsl_hdr)
       STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_viewport_array : require\n");
    if (ctx->uses_stencil_export)
       STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_shader_stencil_export : require\n");
+   if (ctx->uses_layer)
+      STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_fragment_layer_viewport : require\n");
    return glsl_hdr;
 }
 
