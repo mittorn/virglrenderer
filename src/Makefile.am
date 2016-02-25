@@ -1,5 +1,6 @@
 SUBDIRS := gallium/auxiliary
-AM_LDFLAGS = -lgbm -lm -ldl \
+AM_LDFLAGS = -lm \
+	$(GBM_LIBS) \
 	$(EPOXY_LIBS) \
 	$(CODE_COVERAGE_LDFLAGS)
 
@@ -9,6 +10,7 @@ AM_CFLAGS = \
 	$(DEFINES) \
 	$(PIC_FLAGS) \
 	$(LIBDRM_CFLAGS) \
+	$(GBM_CFLAGS) \
 	$(EPOXY_CFLAGS) \
 	$(VISIBILITY_CFLAGS) \
 	$(CODE_COVERAGE_CFLAGS)
