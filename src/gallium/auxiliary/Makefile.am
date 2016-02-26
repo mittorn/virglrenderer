@@ -14,7 +14,7 @@ AM_CFLAGS = \
 
 AM_CXXFLAGS = $(VISIBILITY_CXXFLAGS)
 
-AM_LIBADD = \
+libgallium_la_LIBADD = \
 	$(PTHREAD_LIBS)
 
 libgallium_la_SOURCES = \
