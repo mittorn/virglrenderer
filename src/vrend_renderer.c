@@ -3010,8 +3010,8 @@ static void vrend_hw_emit_blend(struct vrend_context *ctx, struct pipe_blend_sta
                                     translate_blend_factor(state->rt[i].rgb_dst_factor),
                                     translate_blend_factor(state->rt[i].alpha_src_factor),
                                     translate_blend_factor(state->rt[i].alpha_dst_factor));
-            glBlendEquationSeparateiARB(i, translate_blend_func(state->rt[0].rgb_func),
-                                        translate_blend_func(state->rt[0].alpha_func));
+            glBlendEquationSeparateiARB(i, translate_blend_func(state->rt[i].rgb_func),
+                                        translate_blend_func(state->rt[i].alpha_func));
             glEnableIndexedEXT(GL_BLEND, i);
          } else
             glDisableIndexedEXT(GL_BLEND, i);
