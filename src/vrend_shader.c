@@ -451,8 +451,6 @@ iter_declaration(struct tgsi_iterate_context *iter,
             ctx->outputs[i].glsl_predefined_no_emit = true;
             ctx->outputs[i].glsl_no_index = true;
          } else if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
-            if (ctx->outputs[i].first > 0)
-               fprintf(stderr,"Illegal position input\n");
             name_prefix = "gl_FragDepth";
             ctx->outputs[i].glsl_predefined_no_emit = true;
             ctx->outputs[i].glsl_no_index = true;
@@ -969,7 +967,8 @@ static int translate_tex(struct dump_ctx *ctx,
                          char  dsts[3][255],
                          const char *writemask,
                          const char *dstconv,
-                         const char *dtypeprefix)
+                         const char *dtypeprefix,
+                         bool dst0_override_no_wm)
 {
    const char *twm = "", *gwm = NULL, *txfi;
    bool is_shad = false;
@@ -1263,7 +1262,7 @@ static int translate_tex(struct dump_ctx *ctx,
       }
    }
    if (inst->Instruction.Opcode == TGSI_OPCODE_TXF) {
-      snprintf(buf, 255, "%s = %s(texelFetch%s(%s, %s(%s%s)%s%s)%s);\n", dsts[0], dstconv, tex_ext, srcs[sampler_index], txfi, srcs[0], twm, bias, offbuf, ctx->outputs[0].override_no_wm ? "" : writemask);
+      snprintf(buf, 255, "%s = %s(texelFetch%s(%s, %s(%s%s)%s%s)%s);\n", dsts[0], dstconv, tex_ext, srcs[sampler_index], txfi, srcs[0], twm, bias, offbuf, dst0_override_no_wm ? "" : writemask);
    } else if (ctx->cfg->glsl_version < 140 && ctx->uses_sampler_rect) {
       /* rect is special in GLSL 1.30 */
       if (inst->Texture.Texture == TGSI_TEXTURE_RECT)
@@ -1275,7 +1274,7 @@ static int translate_tex(struct dump_ctx *ctx,
       const struct tgsi_full_src_register *src = &inst->Src[sampler_index];
       snprintf(buf, 255, "%s = %s(vec4(vec4(texture%s(%s, %s%s%s%s)) * %sshadmask%d + %sshadadd%d)%s);\n", dsts[0], dstconv, tex_ext, srcs[sampler_index], srcs[0], twm, offbuf, bias, cname, src->Register.Index, cname, src->Register.Index, writemask);
    } else
-      snprintf(buf, 255, "%s = %s(texture%s(%s, %s%s%s%s)%s);\n", dsts[0], dstconv, tex_ext, srcs[sampler_index], srcs[0], twm, offbuf, bias, ctx->outputs[0].override_no_wm ? "" : writemask);
+      snprintf(buf, 255, "%s = %s(texture%s(%s, %s%s%s%s)%s);\n", dsts[0], dstconv, tex_ext, srcs[sampler_index], srcs[0], twm, offbuf, bias, dst0_override_no_wm ? "" : writemask);
    return emit_buf(ctx, buf);
 }
 
@@ -1297,6 +1296,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
    const char *dtypeprefix="", *stypeprefix = "", *svec4 = "vec4";
    bool stprefix = false;
    bool override_no_wm[4];
+   bool dst_override_no_wm[2];
    char *sret;
    int ret;
 
@@ -1348,6 +1348,8 @@ iter_instruction(struct tgsi_iterate_context *iter,
    }
    for (i = 0; i < inst->Instruction.NumDstRegs; i++) {
       const struct tgsi_full_dst_register *dst = &inst->Dst[i];
+
+      dst_override_no_wm[i] = false;
       if (dst->Register.WriteMask != TGSI_WRITEMASK_XYZW) {
          int wm_idx = 0;
          writemask[wm_idx++] = '.';
@@ -1379,6 +1381,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
                   snprintf(dsts[i], 255, "clip_dist_temp[%d]", ctx->outputs[j].sid);
                } else {
                   snprintf(dsts[i], 255, "%s%s", ctx->outputs[j].glsl_name, ctx->outputs[j].override_no_wm ? "" : writemask);
+                  dst_override_no_wm[i] = ctx->outputs[j].override_no_wm;
                   if (ctx->outputs[j].is_int) {
                      if (!strcmp(dtypeprefix, ""))
                         dtypeprefix = "floatBitsToInt";
@@ -1809,7 +1812,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
    case TGSI_OPCODE_TXP:
    case TGSI_OPCODE_TXQ:
    case TGSI_OPCODE_LODQ:
-      ret = translate_tex(ctx, inst, sreg_index, srcs, dsts, writemask, dstconv, dtypeprefix);
+      ret = translate_tex(ctx, inst, sreg_index, srcs, dsts, writemask, dstconv, dtypeprefix, dst_override_no_wm[0]);
       if (ret)
          return FALSE;
       break;
