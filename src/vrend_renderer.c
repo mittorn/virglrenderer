@@ -1382,9 +1382,19 @@ void vrend_fb_bind_texture(struct vrend_resource *res,
       break;
    }
 
-   if (attachment == GL_DEPTH_ATTACHMENT)
-      glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_STENCIL_ATTACHMENT,
-                                0, 0, 0);
+   if (attachment == GL_DEPTH_ATTACHMENT) {
+      switch (res->target) {
+      case GL_TEXTURE_1D:
+         glFramebufferTexture1DEXT(GL_FRAMEBUFFER_EXT, GL_STENCIL_ATTACHMENT,
+                                   GL_TEXTURE_1D, 0, 0);
+         break;
+      case GL_TEXTURE_2D:
+      default:
+         glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_STENCIL_ATTACHMENT,
+                                   GL_TEXTURE_2D, 0, 0);
+         break;
+      }
+   }
 }
 
 static void vrend_hw_set_zsurf_texture(struct vrend_context *ctx)
