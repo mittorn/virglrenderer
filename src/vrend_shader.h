@@ -45,7 +45,7 @@ struct vrend_shader_info {
    int glsl_ver;
    uint32_t shadow_samp_mask;
    int gs_out_prim;
-
+   uint32_t attrib_input_mask;
    struct pipe_stream_output_info so_info;
 
    struct vrend_interp_info *interpinfo;

@@ -83,6 +83,7 @@ struct dump_ctx {
 
    int num_interps;
    int num_inputs;
+   uint32_t attrib_input_mask;
    struct vrend_shader_io inputs[32];
    int num_outputs;
    struct vrend_shader_io outputs[32];
@@ -245,6 +246,9 @@ iter_declaration(struct tgsi_iterate_context *iter,
    switch (decl->Declaration.File) {
    case TGSI_FILE_INPUT:
       i = ctx->num_inputs++;
+      if (iter->processor.Processor == TGSI_PROCESSOR_VERTEX) {
+         ctx->attrib_input_mask |= (1 << decl->Range.First);
+      }
       ctx->inputs[i].name = decl->Semantic.Name;
       ctx->inputs[i].sid = decl->Semantic.Index;
       ctx->inputs[i].interpolate = decl->Interp.Interpolate;
@@ -2403,6 +2407,7 @@ char *vrend_convert_shader(struct vrend_shader_cfg *cfg,
    sinfo->glsl_ver = ctx.glsl_ver_required;
    sinfo->gs_out_prim = ctx.gs_out_prim;
    sinfo->so_names = ctx.so_names;
+   sinfo->attrib_input_mask = ctx.attrib_input_mask;
    return glsl_final;
  fail:
    free(ctx.glsl_main);

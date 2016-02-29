@@ -863,7 +863,9 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
       sprog->dual_src_linked = false;
 
    if (vrend_state.have_vertex_attrib_binding) {
-      for (i = 0; i < vs->sel->sinfo.num_inputs; i++) {
+      uint32_t mask = vs->sel->sinfo.attrib_input_mask;
+      while (mask) {
+         i = u_bit_scan(&mask);
          snprintf(name, 10, "in_%d", i);
          glBindAttribLocation(prog_id, i, name);
       }
