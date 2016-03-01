@@ -2335,13 +2335,38 @@ void vrend_clear(struct vrend_context *ctx,
    if (buffers & PIPE_CLEAR_STENCIL)
       glClearStencil(stencil);
 
-   if (buffers & PIPE_CLEAR_COLOR)
-      bits |= GL_COLOR_BUFFER_BIT;
+   if (buffers & PIPE_CLEAR_COLOR) {
+      uint32_t mask = 0;
+      int i;
+      for (i = 0; i < ctx->sub->nr_cbufs; i++) {
+         if (ctx->sub->surf[i])
+            mask |= (1 << i);
+      }
+      if (mask != (buffers >> 2)) {
+         mask = buffers >> 2;
+         while (mask) {
+            i = u_bit_scan(&mask);
+            if (util_format_is_pure_uint(ctx->sub->surf[i]->format))
+               glClearBufferuiv(GL_COLOR,
+                                i, (GLuint *)color);
+            else if (util_format_is_pure_sint(ctx->sub->surf[i]->format))
+               glClearBufferiv(GL_COLOR,
+                                i, (GLint *)color);
+            else
+               glClearBufferfv(GL_COLOR,
+                                i, (GLfloat *)color);
+         }
+      }
+      else
+         bits |= GL_COLOR_BUFFER_BIT;
+   }
    if (buffers & PIPE_CLEAR_DEPTH)
       bits |= GL_DEPTH_BUFFER_BIT;
    if (buffers & PIPE_CLEAR_STENCIL)
       bits |= GL_STENCIL_BUFFER_BIT;
-   glClear(bits);
+
+   if (bits)
+      glClear(bits);
 
    if (buffers & PIPE_CLEAR_DEPTH)
       if (!ctx->sub->dsa_state.depth.writemask)
