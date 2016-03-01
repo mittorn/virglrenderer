@@ -875,6 +875,8 @@ static int vrend_decode_blit(struct vrend_decode_ctx *ctx, int length)
    info.mask = temp & 0xff;
    info.filter = (temp >> 8) & 0x3;
    info.scissor_enable = (temp >> 10) & 0x1;
+   info.render_condition_enable = (temp >> 11) & 0x1;
+   info.alpha_blend = (temp >> 12) & 0x1;
    temp = get_buf_entry(ctx, VIRGL_CMD_BLIT_SCISSOR_MINX_MINY);
    info.scissor.minx = temp & 0xffff;
    info.scissor.miny = (temp >> 16) & 0xffff;

@@ -367,6 +367,9 @@ struct vrend_sub_context {
    struct vrend_streamout_object *current_so;
 
    struct pipe_blend_color blend_color;
+
+   uint32_t cond_render_q_id;
+   GLenum cond_render_gl_mode;
 };
 
 struct vrend_context {
@@ -397,6 +400,7 @@ struct vrend_context {
 };
 
 static struct vrend_resource *vrend_renderer_ctx_res_lookup(struct vrend_context *ctx, int res_handle);
+static void vrend_pause_render_condition(struct vrend_context *ctx, bool pause);
 static void vrend_update_viewport_state(struct vrend_context *ctx);
 static void vrend_update_scissor_state(struct vrend_context *ctx);
 static void vrend_destroy_query_object(void *obj_ptr);
@@ -5571,7 +5575,13 @@ void vrend_renderer_blit(struct vrend_context *ctx,
    if (ctx->in_error)
       return;
 
+   if (info->render_condition_enable == false)
+      vrend_pause_render_condition(ctx, true);
+
    vrend_renderer_blit_int(ctx, src_res, dst_res, info);
+
+   if (info->render_condition_enable == false)
+      vrend_pause_render_condition(ctx, false);
 }
 
 int vrend_renderer_create_fence(int client_fence_id, uint32_t ctx_id)
@@ -5874,6 +5884,18 @@ void vrend_get_query_result(struct vrend_context *ctx, uint32_t handle,
       list_addtail(&q->waiting_queries, &vrend_state.waiting_query_list);
 }
 
+static void vrend_pause_render_condition(struct vrend_context *ctx, bool pause)
+{
+   if (pause) {
+      if (ctx->sub->cond_render_q_id)
+         glEndConditionalRenderNV();
+   } else {
+      if (ctx->sub->cond_render_q_id)
+         glBeginConditionalRender(ctx->sub->cond_render_q_id,
+                                  ctx->sub->cond_render_gl_mode);
+   }
+}
+
 void vrend_render_condition(struct vrend_context *ctx,
                             uint32_t handle,
                             bool condition,
@@ -5884,6 +5906,8 @@ void vrend_render_condition(struct vrend_context *ctx,
 
    if (handle == 0) {
       glEndConditionalRenderNV();
+      ctx->sub->cond_render_q_id = 0;
+      ctx->sub->cond_render_gl_mode = 0;
       return;
    }
 
@@ -5908,6 +5932,8 @@ void vrend_render_condition(struct vrend_context *ctx,
       fprintf(stderr, "unhandled condition %x\n", mode);
    }
 
+   ctx->sub->cond_render_q_id = q->id;
+   ctx->sub->cond_render_gl_mode = glmode;
    glBeginConditionalRender(q->id, glmode);
 
 }

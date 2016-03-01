@@ -591,6 +591,10 @@ struct pipe_blit_info
 
    boolean scissor_enable;
    struct pipe_scissor_state scissor;
+
+   boolean render_condition_enable; /**< whether the blit should honor the
+                                       current render condition */
+   boolean alpha_blend; /* dst.rgb = src.rgb * src.a + dst.rgb * (1 - src.a) */
 };
 
 
