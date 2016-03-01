@@ -55,6 +55,7 @@ struct vrend_shader_io {
 
 struct vrend_shader_sampler {
    int tgsi_sampler_type;
+   enum tgsi_return_type tgsi_sampler_return;
 };
 
 #define MAX_IMMEDIATE 1024
@@ -593,6 +594,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
       ctx->samplers_used |= (1 << decl->Range.Last);
       break;
    case TGSI_FILE_SAMPLER_VIEW:
+      ctx->samplers[decl->Range.First].tgsi_sampler_return = decl->SamplerView.ReturnTypeX;
       break;
    case TGSI_FILE_CONSTANT:
       if (decl->Declaration.Dimension) {
@@ -967,10 +969,10 @@ static int translate_tex(struct dump_ctx *ctx,
                          char  dsts[3][255],
                          const char *writemask,
                          const char *dstconv,
-                         const char *dtypeprefix,
                          bool dst0_override_no_wm)
 {
    const char *twm = "", *gwm = NULL, *txfi;
+   const char *dtypeprefix = "";
    bool is_shad = false;
    char buf[512];
    char offbuf[128] = {0};
@@ -979,6 +981,21 @@ static int translate_tex(struct dump_ctx *ctx,
    const char *tex_ext;
 
    ctx->samplers[sreg_index].tgsi_sampler_type = inst->Texture.Texture;
+
+   if (inst->Instruction.Opcode == TGSI_OPCODE_TXQ) {
+      dtypeprefix = "intBitsToFloat";
+   } else {
+      switch (ctx->samplers[sreg_index].tgsi_sampler_return) {
+      case TGSI_RETURN_TYPE_SINT:
+         dtypeprefix = "intBitsToFloat";
+         break;
+      case TGSI_RETURN_TYPE_UINT:
+         dtypeprefix = "uintBitsToFloat";
+         break;
+      default:
+         break;
+      }
+   }
 
    switch (inst->Texture.Texture) {
    case TGSI_TEXTURE_1D:
@@ -1262,7 +1279,7 @@ static int translate_tex(struct dump_ctx *ctx,
       }
    }
    if (inst->Instruction.Opcode == TGSI_OPCODE_TXF) {
-      snprintf(buf, 255, "%s = %s(texelFetch%s(%s, %s(%s%s)%s%s)%s);\n", dsts[0], dstconv, tex_ext, srcs[sampler_index], txfi, srcs[0], twm, bias, offbuf, dst0_override_no_wm ? "" : writemask);
+      snprintf(buf, 255, "%s = %s(%s(texelFetch%s(%s, %s(%s%s)%s%s)%s));\n", dsts[0], dstconv, dtypeprefix, tex_ext, srcs[sampler_index], txfi, srcs[0], twm, bias, offbuf, dst0_override_no_wm ? "" : writemask);
    } else if (ctx->cfg->glsl_version < 140 && ctx->uses_sampler_rect) {
       /* rect is special in GLSL 1.30 */
       if (inst->Texture.Texture == TGSI_TEXTURE_RECT)
@@ -1272,9 +1289,9 @@ static int translate_tex(struct dump_ctx *ctx,
    } else if (is_shad) { /* TGSI returns 1.0 in alpha */
       const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
       const struct tgsi_full_src_register *src = &inst->Src[sampler_index];
-      snprintf(buf, 255, "%s = %s(vec4(vec4(texture%s(%s, %s%s%s%s)) * %sshadmask%d + %sshadadd%d)%s);\n", dsts[0], dstconv, tex_ext, srcs[sampler_index], srcs[0], twm, offbuf, bias, cname, src->Register.Index, cname, src->Register.Index, writemask);
+      snprintf(buf, 255, "%s = %s(%s(vec4(vec4(texture%s(%s, %s%s%s%s)) * %sshadmask%d + %sshadadd%d)%s));\n", dsts[0], dstconv, dtypeprefix, tex_ext, srcs[sampler_index], srcs[0], twm, offbuf, bias, cname, src->Register.Index, cname, src->Register.Index, writemask);
    } else
-      snprintf(buf, 255, "%s = %s(texture%s(%s, %s%s%s%s)%s);\n", dsts[0], dstconv, tex_ext, srcs[sampler_index], srcs[0], twm, offbuf, bias, dst0_override_no_wm ? "" : writemask);
+      snprintf(buf, 255, "%s = %s(%s(texture%s(%s, %s%s%s%s)%s));\n", dsts[0], dstconv, dtypeprefix, tex_ext, srcs[sampler_index], srcs[0], twm, offbuf, bias, dst0_override_no_wm ? "" : writemask);
    return emit_buf(ctx, buf);
 }
 
@@ -1812,7 +1829,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
    case TGSI_OPCODE_TXP:
    case TGSI_OPCODE_TXQ:
    case TGSI_OPCODE_LODQ:
-      ret = translate_tex(ctx, inst, sreg_index, srcs, dsts, writemask, dstconv, dtypeprefix, dst_override_no_wm[0]);
+      ret = translate_tex(ctx, inst, sreg_index, srcs, dsts, writemask, dstconv, dst_override_no_wm[0]);
       if (ret)
          return FALSE;
       break;
@@ -2054,6 +2071,18 @@ static char *emit_header(struct dump_ctx *ctx, char *glsl_hdr)
    return glsl_hdr;
 }
 
+char vrend_shader_samplerreturnconv(enum tgsi_return_type type)
+{
+   switch (type) {
+   case TGSI_RETURN_TYPE_SINT:
+      return 'i';
+   case TGSI_RETURN_TYPE_UINT:
+      return 'u';
+   default:
+      return ' ';
+   }
+}
+
 const char *vrend_shader_samplertypeconv(int sampler_type, int *is_shad)
 {
    switch (sampler_type) {
@@ -2278,17 +2307,19 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
    for (i = 0; i < 32; i++) {
       int is_shad = 0;
       const char *stc;
+      char ptc;
 
       if ((ctx->samplers_used & (1 << i)) == 0)
          continue;
 
+      ptc = vrend_shader_samplerreturnconv(ctx->samplers[i].tgsi_sampler_return);
       stc = vrend_shader_samplertypeconv(ctx->samplers[i].tgsi_sampler_type, &is_shad);
 
       if (stc) {
          const char *sname;
 
          sname = tgsi_proc_to_prefix(ctx->prog_type);
-         snprintf(buf, 255, "uniform sampler%s %ssamp%d;\n", stc, sname, i);
+         snprintf(buf, 255, "uniform %csampler%s %ssamp%d;\n", ptc, stc, sname, i);
          STRCAT_WITH_RET(glsl_hdr, buf);
          if (is_shad) {
             snprintf(buf, 255, "uniform vec4 %sshadmask%d;\n", sname, i);
