@@ -29,9 +29,13 @@ libvrend_la_SOURCES = \
         vrend_formats.c \
         vrend_blitter.c \
         vrend_blitter.h \
-        iov.c \
+        iov.c
+
+if !OS_WIN32
+libvrend_la_SOURCES += \
         virgl_egl.h \
         virgl_egl_context.c
+endif
 
 lib_LTLIBRARIES = libvirglrenderer.la
 noinst_LTLIBRARIES = libvrend.la
