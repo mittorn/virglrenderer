@@ -19,7 +19,11 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 # IN THE SOFTWARE.
 
-SUBDIRS = src vtest tests
+SUBDIRS = src tests
+
+if !OS_WIN32
+SUBDIRS += vtest
+endif
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = virglrenderer.pc
