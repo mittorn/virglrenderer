@@ -24,7 +24,16 @@
 #ifndef VREND_IOV_H
 #define VREND_IOV_H
 
+#include "config.h"
+
+#ifdef HAVE_SYS_UIO_H
 #include <sys/uio.h>
+#else
+struct iovec {
+    void *iov_base;
+    size_t iov_len;
+};
+#endif
 
 typedef void (*iov_cb)(void *cookie, unsigned int doff, void *src, int len);
 
