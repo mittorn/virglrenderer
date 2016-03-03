@@ -3630,6 +3630,7 @@ static void vrend_free_sync_thread(void)
    pipe_mutex_destroy(vrend_state.fence_mutex);
 }
 
+#ifdef HAVE_EVENTFD
 static ssize_t
 write_full(int fd, const void *ptr, size_t count)
 {
@@ -3713,7 +3714,6 @@ static int thread_sync(void *arg)
    return 0;
 }
 
-#ifdef HAVE_EVENTFD
 static void vrend_renderer_use_threaded_sync(void)
 {
    struct virgl_gl_ctx_param ctx_params;
