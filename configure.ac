@@ -89,7 +89,7 @@ if test "x$build_tests" = "xyes"; then
 fi
 
 AC_CHECK_FUNCS_ONCE([eventfd])
-
+AC_CHECK_HEADERS_ONCE([sys/uio.h epoxy/egl.h])
 AM_CONDITIONAL(HAVE_VALGRIND, [test "x$VALGRIND" != "x"])
 AM_CONDITIONAL(BUILD_TESTS, [test "x$build_tests" = "xyes"])
 
