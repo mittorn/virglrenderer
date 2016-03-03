@@ -28,7 +28,21 @@ AC_SYS_LARGEFILE
 AC_CHECK_PROGS([PYTHON2], [python2 python])
 AX_CODE_COVERAGE
 
-AX_PTHREAD
+AC_MSG_CHECKING([for native Win32])
+case "$host_os" in
+     *mingw*|*cygwin*)
+        os_win32=yes
+        ;;
+     *)
+        os_win32=no
+        ;;
+esac
+AC_MSG_RESULT([$os_win32])
+AM_CONDITIONAL([OS_WIN32],[test "$os_win32" = "yes"])
+
+if test "x$os_win32" = xno; then
+   AX_PTHREAD
+fi
 
 AC_ARG_ENABLE([debug],
     [AS_HELP_STRING([--enable-debug],
@@ -81,9 +95,12 @@ AM_CONDITIONAL(BUILD_TESTS, [test "x$build_tests" = "xyes"])
 
 LIBDRM_REQUIRED=2.4.50
 
-PKG_CHECK_MODULES([LIBDRM], [libdrm >= $LIBDRM_REQUIRED])
+if test "x$os_win32" = xno; then
+    PKG_CHECK_MODULES([LIBDRM], [libdrm >= $LIBDRM_REQUIRED])
+    PKG_CHECK_MODULES([GBM], [gbm])
+fi
+
 PKG_CHECK_MODULES([EPOXY], [epoxy])
-PKG_CHECK_MODULES([GBM], [gbm])
 
 AC_SUBST([DEFINES])
 AC_CONFIG_FILES([
