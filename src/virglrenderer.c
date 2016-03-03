@@ -27,14 +27,10 @@
 
 #include <epoxy/gl.h>
 
-#include <sys/mman.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <unistd.h>
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <sys/eventfd.h>
 #include "pipe/p_state.h"
 #include "util/u_format.h"
 #include "util/u_math.h"
