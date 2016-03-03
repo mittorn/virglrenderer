@@ -77,7 +77,7 @@ AC_ARG_ENABLE(tests,
 
 PKG_CHECK_MODULES(CHECK, [check >= 0.9.4], [HAVE_CHECK="yes"], [HAVE_CHECK="no"])
 
-if test "x$build_tests" = "xauto"; then
+if test "x$build_tests" = "xauto" && test "x$os_win32" = "xno"; then
 	build_tests="$HAVE_CHECK"
 fi
 if test "x$build_tests" = "xyes"; then
