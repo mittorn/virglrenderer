@@ -4055,7 +4055,7 @@ static int check_resource_valid(struct vrend_renderer_resource_create_args *args
       /* buffer and rect textures can't have mipmaps */
       if (args->target == PIPE_BUFFER || args->target == PIPE_TEXTURE_RECT)
          return -1;
-      if (args->last_level > (floor(log2(MAX2(args->width, args->width))) + 1))
+      if (args->last_level > (floor(log2(MAX2(args->width, args->height))) + 1))
          return -1;
    }
    if (args->flags != 0 && args->flags != VIRGL_RESOURCE_Y_0_TOP)
