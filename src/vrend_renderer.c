@@ -905,7 +905,7 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
 
    sprog->id = prog_id;
 
-   list_add(&sprog->head, &ctx->sub->programs);
+   list_addtail(&sprog->head, &ctx->sub->programs);
 
    if (fs->key.pstipple_tex)
       sprog->fs_stipple_loc = glGetUniformLocation(prog_id, "pstipple_sampler");
