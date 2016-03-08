@@ -311,6 +311,7 @@ struct vrend_sub_context {
    struct vrend_shader_selector *shaders[PIPE_SHADER_TYPES];
    struct vrend_linked_shader_program *prog;
 
+   int prog_ids[PIPE_SHADER_TYPES];
    struct vrend_shader_view views[PIPE_SHADER_TYPES];
 
    struct vrend_constants consts[PIPE_SHADER_TYPES];
@@ -2733,6 +2734,7 @@ void vrend_draw_vbo(struct vrend_context *ctx,
       struct vrend_linked_shader_program *prog;
       bool fs_dirty, vs_dirty, gs_dirty;
       bool dual_src = util_blend_state_is_dual(&ctx->sub->blend_state, 0);
+      bool same_prog;
       if (!ctx->sub->shaders[PIPE_SHADER_VERTEX] || !ctx->sub->shaders[PIPE_SHADER_FRAGMENT]) {
          fprintf(stderr,"dropping rendering due to missing shaders: %s\n", ctx->debug_name);
          return;
@@ -2747,16 +2749,31 @@ void vrend_draw_vbo(struct vrend_context *ctx,
          fprintf(stderr, "failure to compile shader variants: %s\n", ctx->debug_name);
          return;
       }
-      prog = lookup_shader_program(ctx, ctx->sub->shaders[PIPE_SHADER_VERTEX]->current->id, ctx->sub->shaders[PIPE_SHADER_FRAGMENT]->current->id, ctx->sub->shaders[PIPE_SHADER_GEOMETRY] ? ctx->sub->shaders[PIPE_SHADER_GEOMETRY]->current->id : 0, dual_src);
-      if (!prog) {
-         prog = add_shader_program(ctx,
-                                   ctx->sub->shaders[PIPE_SHADER_VERTEX]->current,
-                                   ctx->sub->shaders[PIPE_SHADER_FRAGMENT]->current, ctx->sub->shaders[PIPE_SHADER_GEOMETRY] ? ctx->sub->shaders[PIPE_SHADER_GEOMETRY]->current : NULL);
-         if (!prog)
-            return;
-      }
+      same_prog = true;
+      if (ctx->sub->shaders[PIPE_SHADER_VERTEX]->current->id != ctx->sub->prog_ids[PIPE_SHADER_VERTEX])
+         same_prog = false;
+      if (ctx->sub->shaders[PIPE_SHADER_FRAGMENT]->current->id != ctx->sub->prog_ids[PIPE_SHADER_FRAGMENT])
+         same_prog = false;
+      if (ctx->sub->shaders[PIPE_SHADER_GEOMETRY] && ctx->sub->shaders[PIPE_SHADER_FRAGMENT]->current->id != ctx->sub->prog_ids[PIPE_SHADER_FRAGMENT])
+         same_prog = false;
+
+      if (!same_prog) {
+         prog = lookup_shader_program(ctx, ctx->sub->shaders[PIPE_SHADER_VERTEX]->current->id, ctx->sub->shaders[PIPE_SHADER_FRAGMENT]->current->id, ctx->sub->shaders[PIPE_SHADER_GEOMETRY] ? ctx->sub->shaders[PIPE_SHADER_GEOMETRY]->current->id : 0, dual_src);
+         if (!prog) {
+            prog = add_shader_program(ctx,
+                                      ctx->sub->shaders[PIPE_SHADER_VERTEX]->current,
+                                      ctx->sub->shaders[PIPE_SHADER_FRAGMENT]->current, ctx->sub->shaders[PIPE_SHADER_GEOMETRY] ? ctx->sub->shaders[PIPE_SHADER_GEOMETRY]->current : NULL);
+            if (!prog)
+               return;
+         }
+      } else
+         prog = ctx->sub->prog;
       if (ctx->sub->prog != prog) {
          new_program = true;
+         ctx->sub->prog_ids[PIPE_SHADER_VERTEX] = ctx->sub->shaders[PIPE_SHADER_VERTEX]->current->id;
+         ctx->sub->prog_ids[PIPE_SHADER_FRAGMENT] = ctx->sub->shaders[PIPE_SHADER_FRAGMENT]->current->id;
+         if (ctx->sub->shaders[PIPE_SHADER_GEOMETRY])
+            ctx->sub->prog_ids[PIPE_SHADER_GEOMETRY] = ctx->sub->shaders[PIPE_SHADER_GEOMETRY]->current->id;
          ctx->sub->prog = prog;
       }
    }
