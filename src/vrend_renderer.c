@@ -217,7 +217,6 @@ struct vrend_so_target {
 struct vrend_sampler_view {
    struct pipe_reference reference;
    GLuint id;
-   GLuint res_handle;
    GLuint format;
    GLuint val0, val1;
    GLuint gl_swizzle_r;
@@ -1283,7 +1282,6 @@ int vrend_create_sampler_view(struct vrend_context *ctx,
       return ENOMEM;
 
    pipe_reference_init(&view->reference, 1);
-   view->res_handle = res_handle;
    view->format = format;
    view->val0 = val0;
    view->val1 = val1;
@@ -1911,13 +1909,12 @@ void vrend_set_single_sampler_view(struct vrend_context *ctx,
       if (ctx->sub->views[shader_type].views[index] == view) {
          return;
       }
-      tex = (struct vrend_texture *)vrend_renderer_ctx_res_lookup(ctx, view->res_handle);
+      /* we should have a reference to this texture taken at create time */
+      tex = (struct vrend_texture *)view->texture;
       if (!tex) {
-         fprintf(stderr,"cannot find texture to back resource view %d %d\n", handle, view->res_handle);
          return;
       }
       if (view->texture->target != GL_TEXTURE_BUFFER) {
-         tex = (struct vrend_texture *)view->texture;
          glBindTexture(view->texture->target, view->texture->id);
 
          if (util_format_is_depth_or_stencil(view->format)) {
@@ -1965,7 +1962,6 @@ void vrend_set_single_sampler_view(struct vrend_context *ctx,
          }
       } else {
          GLenum internalformat;
-         tex = (struct vrend_texture *)view->texture;
 
          glBindTexture(GL_TEXTURE_BUFFER, view->texture->tbo_tex_id);
          internalformat = tex_conv_table[view->format].internalformat;
