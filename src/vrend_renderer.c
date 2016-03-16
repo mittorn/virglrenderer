@@ -1906,6 +1906,9 @@ void vrend_set_single_sampler_view(struct vrend_context *ctx,
          report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_HANDLE, handle);
          return;
       }
+      if (ctx->sub->views[shader_type].views[index] == view) {
+         return;
+      }
       tex = (struct vrend_texture *)vrend_renderer_ctx_res_lookup(ctx, view->res_handle);
       if (!tex) {
          fprintf(stderr,"cannot find texture to back resource view %d %d\n", handle, view->res_handle);
