@@ -360,6 +360,7 @@ struct vrend_sub_context {
    bool stencil_test_enabled;
 
    GLuint program_id;
+   int last_shader_idx;
 
    struct pipe_rasterizer_state hw_rs_state;
    struct pipe_blend_state hw_blend_state;
@@ -815,7 +816,7 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
    GLuint prog_id;
    GLint lret;
    int id;
-
+   int last_shader;
    if (!sprog)
       return NULL;
 
@@ -904,6 +905,7 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
    if (gs)
       list_add(&sprog->sl[PIPE_SHADER_GEOMETRY], &gs->programs);
 
+   last_shader = gs ? PIPE_SHADER_GEOMETRY : PIPE_SHADER_FRAGMENT;
    sprog->id = prog_id;
 
    list_addtail(&sprog->head, &ctx->sub->programs);
@@ -913,7 +915,7 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
    else
       sprog->fs_stipple_loc = -1;
    sprog->vs_ws_adjust_loc = glGetUniformLocation(prog_id, "winsys_adjust");
-   for (id = PIPE_SHADER_VERTEX; id <= (gs ? PIPE_SHADER_GEOMETRY : PIPE_SHADER_FRAGMENT); id++) {
+   for (id = PIPE_SHADER_VERTEX; id <= last_shader; id++) {
       if (sprog->ss[id]->sel->sinfo.samplers_used_mask) {
          uint32_t mask = sprog->ss[id]->sel->sinfo.samplers_used_mask;
          int nsamp = util_bitcount(sprog->ss[id]->sel->sinfo.samplers_used_mask);
@@ -951,7 +953,7 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
       sprog->samplers_used_mask[id] = sprog->ss[id]->sel->sinfo.samplers_used_mask;
    }
 
-   for (id = PIPE_SHADER_VERTEX; id <= (gs ? PIPE_SHADER_GEOMETRY : PIPE_SHADER_FRAGMENT); id++) {
+   for (id = PIPE_SHADER_VERTEX; id <= last_shader; id++) {
       if (sprog->ss[id]->sel->sinfo.num_consts) {
          sprog->const_locs[id] = calloc(sprog->ss[id]->sel->sinfo.num_consts, sizeof(uint32_t));
          if (sprog->const_locs[id]) {
@@ -978,7 +980,7 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
          sprog->attrib_locs = NULL;
    }
 
-   for (id = PIPE_SHADER_VERTEX; id <= (gs ? PIPE_SHADER_GEOMETRY : PIPE_SHADER_FRAGMENT); id++) {
+   for (id = PIPE_SHADER_VERTEX; id <= last_shader; id++) {
       if (sprog->ss[id]->sel->sinfo.num_ubos) {
          const char *prefix = pipe_shader_to_prefix(id);
 
@@ -2610,7 +2612,7 @@ static void vrend_draw_bind_samplers(struct vrend_context *ctx)
    int shader_type;
 
    sampler_id = 0;
-   for (shader_type = PIPE_SHADER_VERTEX; shader_type <= (ctx->sub->shaders[PIPE_SHADER_GEOMETRY] ? PIPE_SHADER_GEOMETRY : PIPE_SHADER_FRAGMENT); shader_type++) {
+   for (shader_type = PIPE_SHADER_VERTEX; shader_type <= ctx->sub->last_shader_idx; shader_type++) {
       int index = 0;
       for (i = 0; i < ctx->sub->views[shader_type].num_views; i++) {
          struct vrend_resource *texture = NULL;
@@ -2682,7 +2684,7 @@ static void vrend_draw_bind_ubo(struct vrend_context *ctx)
    int shader_type;
 
    ubo_id = 0;
-   for (shader_type = PIPE_SHADER_VERTEX; shader_type <= (ctx->sub->shaders[PIPE_SHADER_GEOMETRY] ? PIPE_SHADER_GEOMETRY : PIPE_SHADER_FRAGMENT); shader_type++) {
+   for (shader_type = PIPE_SHADER_VERTEX; shader_type <= ctx->sub->last_shader_idx; shader_type++) {
       uint32_t mask;
       int shader_ubo_idx = 0;
       struct pipe_constant_buffer *cb;
@@ -2769,6 +2771,8 @@ void vrend_draw_vbo(struct vrend_context *ctx,
             if (!prog)
                return;
          }
+
+         ctx->sub->last_shader_idx = ctx->sub->shaders[PIPE_SHADER_GEOMETRY] ? PIPE_SHADER_GEOMETRY : PIPE_SHADER_FRAGMENT;
       } else
          prog = ctx->sub->prog;
       if (ctx->sub->prog != prog) {
@@ -2788,7 +2792,7 @@ void vrend_draw_vbo(struct vrend_context *ctx,
 
    vrend_use_program(ctx, ctx->sub->prog->id);
 
-   for (shader_type = PIPE_SHADER_VERTEX; shader_type <= (ctx->sub->shaders[PIPE_SHADER_GEOMETRY] ? PIPE_SHADER_GEOMETRY : PIPE_SHADER_FRAGMENT); shader_type++) {
+   for (shader_type = PIPE_SHADER_VERTEX; shader_type <= ctx->sub->last_shader_idx; shader_type++) {
       if (ctx->sub->prog->const_locs[shader_type] && (ctx->sub->const_dirty[shader_type] || new_program)) {
          int nc;
          nc = ctx->sub->shaders[shader_type]->sinfo.num_consts;
