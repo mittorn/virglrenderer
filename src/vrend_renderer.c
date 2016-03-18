@@ -2145,7 +2145,6 @@ static int vrend_finish_shader(struct vrend_context *ctx,
 
    r = vrend_shader_select(ctx, sel, NULL);
    if (r) {
-      vrend_destroy_shader_selector(sel);
       return EINVAL;
    }
    return 0;
@@ -2245,9 +2244,11 @@ int vrend_create_shader(struct vrend_context *ctx,
          goto error;
       }
 
-      if (vrend_finish_shader(ctx, sel, tokens))
-         new_shader = false;
-      else {
+      if (vrend_finish_shader(ctx, sel, tokens)) {
+         free(tokens);
+         ret = EINVAL;
+         goto error;
+      } else {
          free(sel->tmp_buf);
          sel->tmp_buf = NULL;
       }
