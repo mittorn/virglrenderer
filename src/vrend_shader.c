@@ -249,6 +249,10 @@ iter_declaration(struct tgsi_iterate_context *iter,
    switch (decl->Declaration.File) {
    case TGSI_FILE_INPUT:
       i = ctx->num_inputs++;
+      if (ctx->num_inputs > ARRAY_SIZE(ctx->inputs)) {
+         fprintf(stderr, "Number of inputs exceeded, max is %lu\n", ARRAY_SIZE(ctx->inputs));
+         return FALSE;
+      }
       if (iter->processor.Processor == TGSI_PROCESSOR_VERTEX) {
          ctx->attrib_input_mask |= (1 << decl->Range.First);
       }
@@ -275,6 +279,11 @@ iter_declaration(struct tgsi_iterate_context *iter,
             } else {
                if (ctx->key->color_two_side) {
                   int j = ctx->num_inputs++;
+                  if (ctx->num_inputs > ARRAY_SIZE(ctx->inputs)) {
+                     fprintf(stderr, "Number of inputs exceeded, max is %lu\n", ARRAY_SIZE(ctx->inputs));
+                     return FALSE;
+                  }
+
                   ctx->inputs[j].name = TGSI_SEMANTIC_BCOLOR;
                   ctx->inputs[j].sid = decl->Semantic.Index;
                   ctx->inputs[j].interpolate = decl->Interp.Interpolate;
@@ -287,6 +296,11 @@ iter_declaration(struct tgsi_iterate_context *iter,
 
                   if (ctx->front_face_emitted == false) {
                      int k = ctx->num_inputs++;
+                     if (ctx->num_inputs > ARRAY_SIZE(ctx->inputs)) {
+                        fprintf(stderr, "Number of inputs exceeded, max is %lu\n", ARRAY_SIZE(ctx->inputs));
+                        return FALSE;
+                     }
+
                      ctx->inputs[k].name = TGSI_SEMANTIC_FACE;
                      ctx->inputs[k].sid = 0;
                      ctx->inputs[k].interpolate = 0;
@@ -433,6 +447,11 @@ iter_declaration(struct tgsi_iterate_context *iter,
       break;
    case TGSI_FILE_OUTPUT:
       i = ctx->num_outputs++;
+      if (ctx->num_outputs > ARRAY_SIZE(ctx->outputs)) {
+         fprintf(stderr, "Number of outputs exceeded, max is %lu\n", ARRAY_SIZE(ctx->outputs));
+         return FALSE;
+      }
+
       ctx->outputs[i].name = decl->Semantic.Name;
       ctx->outputs[i].sid = decl->Semantic.Index;
       ctx->outputs[i].interpolate = decl->Interp.Interpolate;
@@ -594,6 +613,10 @@ iter_declaration(struct tgsi_iterate_context *iter,
       ctx->samplers_used |= (1 << decl->Range.Last);
       break;
    case TGSI_FILE_SAMPLER_VIEW:
+      if (decl->Range.First >= ARRAY_SIZE(ctx->samplers)) {
+         fprintf(stderr, "Sampler view exceeded, max is %lu\n", ARRAY_SIZE(ctx->samplers));
+         return FALSE;
+      }
       ctx->samplers[decl->Range.First].tgsi_sampler_return = decl->SamplerView.ReturnTypeX;
       break;
    case TGSI_FILE_CONSTANT:
@@ -618,6 +641,11 @@ iter_declaration(struct tgsi_iterate_context *iter,
       break;
    case TGSI_FILE_SYSTEM_VALUE:
       i = ctx->num_system_values++;
+      if (ctx->num_system_values > ARRAY_SIZE(ctx->system_values)) {
+         fprintf(stderr, "Number of system values exceeded, max is %lu\n", ARRAY_SIZE(ctx->system_values));
+         return FALSE;
+      }
+
       ctx->system_values[i].name = decl->Semantic.Name;
       ctx->system_values[i].sid = decl->Semantic.Index;
       ctx->system_values[i].glsl_predefined_no_emit = true;
@@ -842,6 +870,11 @@ static int emit_so_movs(struct dump_ctx *ctx)
    char writemask[6];
    char *sret;
 
+   if (ctx->so->num_outputs >= PIPE_MAX_SO_OUTPUTS) {
+      fprintf(stderr, "Num outputs exceeded, max is %lu\n", PIPE_MAX_SO_OUTPUTS);
+      return EINVAL;
+   }
+
    for (i = 0; i < ctx->so->num_outputs; i++) {
       if (ctx->so->output[i].start_component != 0) {
          int wm_idx = 0;
@@ -979,6 +1012,11 @@ static int translate_tex(struct dump_ctx *ctx,
    char bias[128] = {0};
    int sampler_index;
    const char *tex_ext;
+
+   if (sreg_index >= ARRAY_SIZE(ctx->samplers)) {
+      fprintf(stderr, "Sampler view exceeded, max is %lu\n", ARRAY_SIZE(ctx->samplers));
+      return FALSE;
+   }
 
    ctx->samplers[sreg_index].tgsi_sampler_type = inst->Texture.Texture;
 
@@ -1245,7 +1283,11 @@ static int translate_tex(struct dump_ctx *ctx,
    }
 
    if (inst->Texture.NumOffsets == 1) {
-      struct immed *imd = &ctx->imm[(inst->TexOffsets[0].Index)];
+      if (inst->TexOffsets[0].Index >= ARRAY_SIZE(ctx->imm)) {
+         fprintf(stderr, "Immediate exceeded, max is %lu\n", ARRAY_SIZE(ctx->imm));
+         return false;
+      }
+      struct immed *imd = &ctx->imm[inst->TexOffsets[0].Index];
       switch (inst->Texture.Texture) {
       case TGSI_TEXTURE_1D:
       case TGSI_TEXTURE_1D_ARRAY:
@@ -1521,7 +1563,11 @@ iter_instruction(struct tgsi_iterate_context *iter,
          snprintf(srcs[i], 255, "%ssamp%d%s", cname, src->Register.Index, swizzle);
          sreg_index = src->Register.Index;
       } else if (src->Register.File == TGSI_FILE_IMMEDIATE) {
-         struct immed *imd = &ctx->imm[(src->Register.Index)];
+         if (src->Register.Index >= ARRAY_SIZE(ctx->imm)) {
+            fprintf(stderr, "Immediate exceeded, max is %lu\n", ARRAY_SIZE(ctx->imm));
+            return false;
+         }
+         struct immed *imd = &ctx->imm[src->Register.Index];
          int idx = src->Register.SwizzleX;
          char temp[48];
          const char *vtype = "vec4";
@@ -2133,6 +2179,11 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
    const char *prefix = "";
    bool fcolor_emitted[2], bcolor_emitted[2];
    ctx->num_interps = 0;
+
+   if (ctx->so && ctx->so->num_outputs >= PIPE_MAX_SO_OUTPUTS) {
+      fprintf(stderr, "Num outputs exceeded, max is %lu\n", PIPE_MAX_SO_OUTPUTS);
+      return NULL;
+   }
 
    if (ctx->key->color_two_side) {
       fcolor_emitted[0] = fcolor_emitted[1] = false;
