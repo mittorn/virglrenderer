@@ -119,6 +119,14 @@ static boolean str_match_nocase_whole( const char **pcur, const char *str )
    return FALSE;
 }
 
+/* Eat until eol
+ */
+static void eat_until_eol( const char **pcur )
+{
+   while (**pcur != '\0' && **pcur != '\n')
+      (*pcur)++;
+}
+
 /* Eat zero or more whitespaces.
  */
 static void eat_opt_white( const char **pcur )
@@ -1593,8 +1601,9 @@ static boolean parse_property( struct translate_ctx *ctx )
       }
    }
    if (property_name >= TGSI_PROPERTY_COUNT) {
-      debug_printf( "\nError: Unknown property : '%s'", id );
-      return FALSE;
+      eat_until_eol( &ctx->cur );
+      report_error(ctx, "\nError: Unknown property : '%s'\n", id);
+      return TRUE;
    }
 
    eat_opt_white( &ctx->cur );
