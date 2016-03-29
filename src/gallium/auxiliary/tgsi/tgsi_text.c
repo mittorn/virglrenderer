@@ -272,11 +272,18 @@ struct translate_ctx
    unsigned num_immediates;
 };
 
-static void report_error( struct translate_ctx *ctx, const char *msg )
+static void report_error(struct translate_ctx *ctx, const char *format, ...)
 {
+   va_list args;
    int line = 1;
    int column = 1;
    const char *itr = ctx->text;
+
+   debug_printf("\nTGSI asm error: ");
+
+   va_start(args, format);
+   _debug_vprintf(format, args);
+   va_end(args);
 
    while (itr != ctx->cur) {
       if (*itr == '\n') {
@@ -287,7 +294,7 @@ static void report_error( struct translate_ctx *ctx, const char *msg )
       ++itr;
    }
 
-   debug_printf( "\nTGSI asm error: %s [%d : %d] \n", msg, line, column );
+   debug_printf(" [%d : %d] \n", line, column);
 }
 
 /* Parse shader header.
