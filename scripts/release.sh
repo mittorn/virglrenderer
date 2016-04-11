@@ -431,8 +431,8 @@ process_module() {
     list_to="virglrenderer-devel@lists.freedesktop.org"
 
     host_current=$host_fdo
-    section_path=www/software/virgl
-    srv_path="/srv/$host_current/$section_path"
+    section_path=software/virgl
+    srv_path="/srv/$host_current/www/$section_path"
 
     # Use personal web space on the host for unit testing (leave commented out)
     # srv_path="~/public_html$srv_path"
