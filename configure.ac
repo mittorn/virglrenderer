@@ -102,6 +102,13 @@ fi
 
 PKG_CHECK_MODULES([EPOXY], [epoxy])
 
+AC_ARG_WITH([glx], AS_HELP_STRING([--with-glx], [Build with the x11/glx backend]))
+AS_IF([test "x$with_glx" = "xyes"], [
+  PKG_CHECK_MODULES([X11], [x11])
+  AC_CHECK_HEADER([epoxy/glx.h])
+])
+AM_CONDITIONAL([WITH_GLX], [test "x$with_glx" = "xyes"])
+
 AC_SUBST([DEFINES])
 AC_CONFIG_FILES([
 		virglrenderer.pc
@@ -112,3 +119,18 @@ AC_CONFIG_FILES([
 		tests/Makefile
 ])
 AC_OUTPUT
+
+AC_MSG_NOTICE([
+
+      virgl $VERSION
+      ==============
+
+      prefix:                   $prefix
+      c compiler:               $CC
+      win32:                    $os_win32
+
+      glx:                      $with_glx
+      debug:                    $enable_debug
+      tests:                    $build_tests
+
+])

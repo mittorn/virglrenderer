@@ -61,6 +61,7 @@ struct virgl_renderer_callbacks {
  * need to use virgl_renderer_get_poll_fd to know if this feature is in effect.
  */
 #define VIRGL_RENDERER_THREAD_SYNC 2
+#define VIRGL_RENDERER_USE_GLX (1 << 2)
 
 VIRGL_EXPORT int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks *cb);
 VIRGL_EXPORT void virgl_renderer_poll(void); /* force fences */

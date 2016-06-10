@@ -41,8 +41,20 @@
 #ifdef HAVE_EPOXY_EGL_H
 #include "virgl_egl.h"
 static struct virgl_egl *egl_info;
-static int use_egl_context;
 #endif
+
+#ifdef HAVE_EPOXY_GLX_H
+#include "virgl_glx.h"
+static struct virgl_glx *glx_info;
+#endif
+
+enum {
+   CONTEXT_NONE,
+   CONTEXT_EGL,
+   CONTEXT_GLX
+};
+
+static int use_context = CONTEXT_NONE;
 
 /* new API - just wrap internal API for now */
 
@@ -163,7 +175,7 @@ int virgl_renderer_resource_get_info(int res_handle,
    int ret;
    ret = vrend_renderer_resource_get_info(res_handle, (struct vrend_renderer_resource_info *)info);
 #ifdef HAVE_EPOXY_EGL_H
-   if (ret == 0 && use_egl_context)
+   if (ret == 0 && use_context == CONTEXT_EGL)
       return virgl_egl_get_fourcc_for_texture(egl_info, info->tex_id, info->virgl_format, &info->drm_fourcc);
 #endif
 
@@ -199,8 +211,12 @@ static virgl_renderer_gl_context create_gl_context(int scanout_idx, struct virgl
    struct virgl_renderer_gl_ctx_param vparam;
 
 #ifdef HAVE_EPOXY_EGL_H
-   if (use_egl_context)
+   if (use_context == CONTEXT_EGL)
       return virgl_egl_create_context(egl_info, param);
+#endif
+#ifdef HAVE_EPOXY_GLX_H
+   if (use_context == CONTEXT_GLX)
+      return virgl_glx_create_context(glx_info, param);
 #endif
    vparam.version = 1;
    vparam.shared = param->shared;
@@ -212,8 +228,12 @@ static virgl_renderer_gl_context create_gl_context(int scanout_idx, struct virgl
 static void destroy_gl_context(virgl_renderer_gl_context ctx)
 {
 #ifdef HAVE_EPOXY_EGL_H
-   if (use_egl_context)
+   if (use_context == CONTEXT_EGL)
       return virgl_egl_destroy_context(egl_info, ctx);
+#endif
+#ifdef HAVE_EPOXY_GLX_H
+   if (use_context == CONTEXT_GLX)
+      return virgl_glx_destroy_context(glx_info, ctx);
 #endif
    return rcbs->destroy_gl_context(dev_cookie, ctx);
 }
@@ -221,8 +241,12 @@ static void destroy_gl_context(virgl_renderer_gl_context ctx)
 static int make_current(int scanout_idx, virgl_renderer_gl_context ctx)
 {
 #ifdef HAVE_EPOXY_EGL_H
-   if (use_egl_context)
+   if (use_context == CONTEXT_EGL)
       return virgl_egl_make_context_current(egl_info, ctx);
+#endif
+#ifdef HAVE_EPOXY_GLX_H
+   if (use_context == CONTEXT_GLX)
+      return virgl_glx_make_context_current(glx_info, ctx);
 #endif
    return rcbs->make_current(dev_cookie, scanout_idx, ctx);
 }
@@ -249,10 +273,17 @@ void virgl_renderer_cleanup(void *cookie)
 {
    vrend_renderer_fini();
 #ifdef HAVE_EPOXY_EGL_H
-   if (use_egl_context) {
+   if (use_context == CONTEXT_EGL) {
       virgl_egl_destroy(egl_info);
       egl_info = NULL;
-      use_egl_context = 0;
+      use_context = CONTEXT_NONE;
+   }
+#endif
+#ifdef HAVE_EPOXY_GLX_H
+   if (use_context == CONTEXT_GLX) {
+      virgl_glx_destroy(glx_info);
+      glx_info = NULL;
+      use_context = CONTEXT_NONE;
    }
 #endif
 }
@@ -274,9 +305,19 @@ int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks
       egl_info = virgl_egl_init();
       if (!egl_info)
          return -1;
-      use_egl_context = 1;
+      use_context = CONTEXT_EGL;
 #else
       fprintf(stderr, "EGL is not supported on this platform\n");
+      return -1;
+#endif
+   } else if (flags & VIRGL_RENDERER_USE_GLX) {
+#ifdef HAVE_EPOXY_GLX_H
+      glx_info = virgl_glx_init();
+      if (!glx_info)
+         return -1;
+      use_context = CONTEXT_GLX;
+#else
+      fprintf(stderr, "GLX is not supported on this platform\n");
       return -1;
 #endif
    }
