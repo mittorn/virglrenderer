@@ -113,13 +113,16 @@ int vtest_create_renderer(int in_fd, int out_fd, uint32_t length)
 {
     char *vtestname;
     int ret;
+    int ctx = VIRGL_RENDERER_USE_EGL;
 
     renderer.in_fd = in_fd;
     renderer.out_fd = out_fd;
 
+    if (getenv("VTEST_USE_GLX"))
+       ctx = VIRGL_RENDERER_USE_GLX;
+
     ret = virgl_renderer_init(&renderer,
-                              VIRGL_RENDERER_USE_EGL |
-                              VIRGL_RENDERER_THREAD_SYNC, &vtest_cbs);
+                              ctx | VIRGL_RENDERER_THREAD_SYNC, &vtest_cbs);
     if (ret) {
       fprintf(stderr, "failed to initialise renderer.\n");
       return -1;
