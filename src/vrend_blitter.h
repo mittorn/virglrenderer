@@ -45,6 +45,16 @@
    "   gl_FragColor = texture(samp, tc%s)%s;\n" \
    "}\n"
 
+#define FS_TEXFETCH_COL_ALPHA_DEST              \
+   "#version 130\n"                             \
+   "%s"                                         \
+   "uniform sampler%s samp;\n"                  \
+   "in vec4 tc;\n"                              \
+   "void main() {\n"                            \
+   "   vec4 temp = texture(samp, tc%s)%s;\n"     \
+   "   gl_FragColor = temp.aaaa;\n" \
+   "}\n"
+
 #define FS_TEXFETCH_DS                                  \
    "#version 130\n"                                     \
    "uniform sampler%s samp;\n"                          \

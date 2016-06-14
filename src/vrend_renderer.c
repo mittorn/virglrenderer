@@ -439,7 +439,7 @@ bool vrend_is_ds_format(enum virgl_formats format)
    return vrend_format_is_ds(format);
 }
 
-static inline bool vrend_format_is_emulated_alpha(enum virgl_formats format)
+bool vrend_format_is_emulated_alpha(enum virgl_formats format)
 {
    if (!vrend_state.use_core_profile)
       return false;
@@ -5496,6 +5496,9 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
 
    /* for 3D mipmapped blits - hand roll time */
    if (info->src.box.depth != info->dst.box.depth)
+      use_gl = true;
+
+   if (vrend_format_is_emulated_alpha(info->dst.format))
       use_gl = true;
 
    if (use_gl) {

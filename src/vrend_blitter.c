@@ -58,6 +58,7 @@ struct vrend_blitter_ctx {
    GLuint vs;
    GLuint vs_pos_only;
    GLuint fs_texfetch_col[PIPE_MAX_TEXTURE_TYPES];
+   GLuint fs_texfetch_col_emu_alpha[PIPE_MAX_TEXTURE_TYPES];
    GLuint fs_texfetch_depth[PIPE_MAX_TEXTURE_TYPES];
    GLuint fs_texfetch_depth_msaa[PIPE_MAX_TEXTURE_TYPES];
    GLuint fb_id;
@@ -143,6 +144,59 @@ static GLuint blit_build_frag_tex_col(struct vrend_blitter_ctx *blit_ctx, int tg
       ext_str = "#extension GL_ARB_texture_cube_map_array : require\n";
 
    snprintf(shader_buf, 4096, FS_TEXFETCH_COL, ext_str, vrend_shader_samplertypeconv(tgsi_tex_target, &is_shad), twm, "");
+
+   fs_id = glCreateShader(GL_FRAGMENT_SHADER);
+
+   if (!build_and_check(fs_id, shader_buf)) {
+      glDeleteShader(fs_id);
+      return 0;
+   }
+
+   return fs_id;
+}
+
+static GLuint blit_build_frag_tex_col_emu_alpha(struct vrend_blitter_ctx *blit_ctx, int tgsi_tex_target)
+{
+   GLuint fs_id;
+   char shader_buf[4096];
+   int is_shad;
+   const char *twm;
+   const char *ext_str = "";
+   switch (tgsi_tex_target) {
+   case TGSI_TEXTURE_1D:
+   case TGSI_TEXTURE_BUFFER:
+      twm = ".x";
+      break;
+   case TGSI_TEXTURE_1D_ARRAY:
+   case TGSI_TEXTURE_2D:
+   case TGSI_TEXTURE_RECT:
+   case TGSI_TEXTURE_2D_MSAA:
+   default:
+      twm = ".xy";
+      break;
+   case TGSI_TEXTURE_SHADOW1D:
+   case TGSI_TEXTURE_SHADOW2D:
+   case TGSI_TEXTURE_SHADOW1D_ARRAY:
+   case TGSI_TEXTURE_SHADOWRECT:
+   case TGSI_TEXTURE_3D:
+   case TGSI_TEXTURE_CUBE:
+   case TGSI_TEXTURE_2D_ARRAY:
+   case TGSI_TEXTURE_2D_ARRAY_MSAA:
+      twm = ".xyz";
+      break;
+   case TGSI_TEXTURE_SHADOWCUBE:
+   case TGSI_TEXTURE_SHADOW2D_ARRAY:
+   case TGSI_TEXTURE_SHADOWCUBE_ARRAY:
+   case TGSI_TEXTURE_CUBE_ARRAY:
+      twm = "";
+      break;
+   }
+
+   if (tgsi_tex_target == TGSI_TEXTURE_CUBE_ARRAY ||
+       tgsi_tex_target == TGSI_TEXTURE_SHADOWCUBE_ARRAY)
+      ext_str = "#extension GL_ARB_texture_cube_map_array : require\n";
+
+   snprintf(shader_buf, 4096, FS_TEXFETCH_COL_ALPHA_DEST, ext_str, vrend_shader_samplertypeconv(tgsi_tex_target, &is_shad), twm, "");
 
    fs_id = glCreateShader(GL_FRAGMENT_SHADER);
 
@@ -275,6 +329,24 @@ static GLuint blit_get_frag_tex_col(struct vrend_blitter_ctx *blit_ctx, int pipe
          unsigned tgsi_tex = util_pipe_tex_to_tgsi_tex(pipe_tex_target, 0);
 
          *shader = blit_build_frag_tex_col(blit_ctx, tgsi_tex);
+      }
+      return *shader;
+   }
+}
+
+static GLuint blit_get_frag_tex_col_emu_alpha(struct vrend_blitter_ctx *blit_ctx, int pipe_tex_target, unsigned nr_samples)
+{
+   assert(pipe_tex_target < PIPE_MAX_TEXTURE_TYPES);
+
+   if (nr_samples > 1) {
+      return 0;
+   } else {
+      GLuint *shader = &blit_ctx->fs_texfetch_col_emu_alpha[pipe_tex_target];
+
+      if (!*shader) {
+         unsigned tgsi_tex = util_pipe_tex_to_tgsi_tex(pipe_tex_target, 0);
+
+         *shader = blit_build_frag_tex_col_emu_alpha(blit_ctx, tgsi_tex);
       }
       return *shader;
    }
@@ -501,6 +573,8 @@ void vrend_renderer_blit_gl(struct vrend_context *ctx,
 
    if (blit_depth || blit_stencil)
       fs_id = blit_get_frag_tex_writedepth(blit_ctx, src_res->base.target, src_res->base.nr_samples);
+   else if (vrend_format_is_emulated_alpha(info->dst.format))
+      fs_id = blit_get_frag_tex_col_emu_alpha(blit_ctx, src_res->base.target, src_res->base.nr_samples);
    else
       fs_id = blit_get_frag_tex_col(blit_ctx, src_res->base.target, src_res->base.nr_samples);
    glAttachShader(prog_id, fs_id);
