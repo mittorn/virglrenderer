@@ -5498,7 +5498,8 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
    if (info->src.box.depth != info->dst.box.depth)
       use_gl = true;
 
-   if (vrend_format_is_emulated_alpha(info->dst.format))
+   if (vrend_format_is_emulated_alpha(info->dst.format) ||
+       vrend_format_is_emulated_alpha(info->src.format))
       use_gl = true;
 
    if (use_gl) {
