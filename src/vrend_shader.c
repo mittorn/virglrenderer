@@ -1124,6 +1124,7 @@ static int translate_tex(struct dump_ctx *ctx,
             case TGSI_TEXTURE_SHADOWRECT:
             case TGSI_TEXTURE_CUBE:
             case TGSI_TEXTURE_SHADOWCUBE:
+            case TGSI_TEXTURE_2D_MSAA:
                twm = ".xy";
                break;
             case TGSI_TEXTURE_3D:
@@ -1131,6 +1132,7 @@ static int translate_tex(struct dump_ctx *ctx,
             case TGSI_TEXTURE_SHADOW2D_ARRAY:
             case TGSI_TEXTURE_SHADOWCUBE_ARRAY:
             case TGSI_TEXTURE_CUBE_ARRAY:
+            case TGSI_TEXTURE_2D_ARRAY_MSAA:
                twm = ".xyz";
                break;
             }
