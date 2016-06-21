@@ -485,6 +485,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
             ctx->outputs[i].glsl_no_index = true;
             ctx->outputs[i].override_no_wm = true;
             ctx->outputs[i].is_int = true;
+            ctx->has_ints = true;
             ctx->uses_stencil_export = true;
          }
          break;
