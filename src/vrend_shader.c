@@ -1632,7 +1632,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
       } else if (src->Register.File == TGSI_FILE_SYSTEM_VALUE) {
          for (j = 0; j < ctx->num_system_values; j++)
             if (ctx->system_values[j].first == src->Register.Index) {
-               if (ctx->system_values[j].name == TGSI_SEMANTIC_VERTEXID)
+               if (ctx->system_values[j].name == TGSI_SEMANTIC_VERTEXID || ctx->system_values[j].name == TGSI_SEMANTIC_INSTANCEID)
                   snprintf(srcs[i], 255, "%s(vec4(intBitsToFloat(%s)))", stypeprefix, ctx->system_values[j].glsl_name);
                else
                   snprintf(srcs[i], 255, "%s%s", prefix, ctx->system_values[j].glsl_name);
