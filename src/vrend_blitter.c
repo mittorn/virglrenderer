@@ -361,6 +361,7 @@ static void vrend_renderer_init_blit_ctx(struct vrend_blitter_ctx *blit_ctx)
       return;
    }
 
+   blit_ctx->initialised = true;
    ctx_params.shared = true;
    ctx_params.major_ver = VREND_GL_VER_MAJOR;
    ctx_params.minor_ver = VREND_GL_VER_MINOR;
