@@ -136,6 +136,10 @@ static int vrend_decode_set_framebuffer_state(struct vrend_decode_ctx *ctx, int 
 
    if (length != (2 + nr_cbufs))
       return EINVAL;
+
+   if (nr_cbufs > 8)
+      return EINVAL;
+
    for (i = 0; i < nr_cbufs; i++)
       surf_handle[i] = get_buf_entry(ctx, VIRGL_SET_FRAMEBUFFER_STATE_CBUF_HANDLE(i));
    vrend_set_framebuffer_state(ctx->grctx, nr_cbufs, surf_handle, zsurf_handle);
