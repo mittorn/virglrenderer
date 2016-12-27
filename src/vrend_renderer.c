@@ -1656,6 +1656,9 @@ int vrend_create_vertex_elements_state(struct vrend_context *ctx,
    if (!v)
       return ENOMEM;
 
+   if (num_elements > PIPE_MAX_ATTRIBS)
+      return EINVAL;
+
    v->count = num_elements;
    for (i = 0; i < num_elements; i++) {
       memcpy(&v->elements[i].base, &elements[i], sizeof(struct pipe_vertex_element));
