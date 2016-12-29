@@ -127,7 +127,7 @@ void vrend_draw_vbo(struct vrend_context *ctx,
                     uint32_t cso);
 
 void vrend_set_framebuffer_state(struct vrend_context *ctx,
-                                 uint32_t nr_cbufs, uint32_t surf_handle[8],
+                                 uint32_t nr_cbufs, uint32_t surf_handle[PIPE_MAX_COLOR_BUFS],
                                  uint32_t zsurf_handle);
 
 struct vrend_context *vrend_create_context(int id, uint32_t nlen, const char *debug_name);

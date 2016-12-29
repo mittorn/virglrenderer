@@ -325,7 +325,7 @@ struct vrend_sub_context {
    uint32_t fb_id;
    int nr_cbufs, old_nr_cbufs;
    struct vrend_surface *zsurf;
-   struct vrend_surface *surf[8];
+   struct vrend_surface *surf[PIPE_MAX_COLOR_BUFS];
 
    struct vrend_viewport vps[PIPE_MAX_VIEWPORTS];
    float depth_transform, depth_scale;
@@ -1482,7 +1482,7 @@ static void vrend_hw_emit_framebuffer_state(struct vrend_context *ctx)
 }
 
 void vrend_set_framebuffer_state(struct vrend_context *ctx,
-                                 uint32_t nr_cbufs, uint32_t surf_handle[8],
+                                 uint32_t nr_cbufs, uint32_t surf_handle[PIPE_MAX_COLOR_BUFS],
                                  uint32_t zsurf_handle)
 {
    struct vrend_surface *surf, *zsurf;
@@ -2367,10 +2367,10 @@ void vrend_clear(struct vrend_context *ctx,
          mask = buffers >> 2;
          while (mask) {
             i = u_bit_scan(&mask);
-            if (util_format_is_pure_uint(ctx->sub->surf[i]->format))
+            if (i < PIPE_MAX_COLOR_BUFS && ctx->sub->surf[i] && util_format_is_pure_uint(ctx->sub->surf[i] && ctx->sub->surf[i]->format))
                glClearBufferuiv(GL_COLOR,
                                 i, (GLuint *)color);
-            else if (util_format_is_pure_sint(ctx->sub->surf[i]->format))
+            else if (i < PIPE_MAX_COLOR_BUFS && ctx->sub->surf[i] && util_format_is_pure_sint(ctx->sub->surf[i] && ctx->sub->surf[i]->format))
                glClearBufferiv(GL_COLOR,
                                 i, (GLint *)color);
             else
