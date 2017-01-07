@@ -2215,6 +2215,15 @@ int vrend_create_shader(struct vrend_context *ctx,
          ret = EINVAL;
          goto error;
       }
+
+      /*make sure no overflow */
+      if (pkt_length * 4 < pkt_length ||
+          pkt_length * 4 + sel->buf_offset < pkt_length * 4 ||
+          pkt_length * 4 + sel->buf_offset < sel->buf_offset) {
+            ret = EINVAL;
+            goto error;
+          }
+
       if ((pkt_length * 4 + sel->buf_offset) > sel->buf_len) {
          fprintf(stderr, "Got too large shader continuation %d vs %d\n",
                  pkt_length * 4 + sel->buf_offset, sel->buf_len);
