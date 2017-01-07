@@ -892,6 +892,7 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
          fprintf(stderr,"geom shader: %d GLSL\n%s\n", gs->id, gs->glsl_prog);
       fprintf(stderr,"frag shader: %d GLSL\n%s\n", fs->id, fs->glsl_prog);
       glDeleteProgram(prog_id);
+      free(sprog);
       return NULL;
    }
 
