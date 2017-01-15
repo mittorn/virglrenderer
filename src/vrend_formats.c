@@ -241,6 +241,13 @@ static struct vrend_format_table exponent_float_formats[] = {
   { VIRGL_FORMAT_R9G9B9E5_FLOAT, GL_RGB9_E5, GL_RGB, GL_UNSIGNED_INT_5_9_9_9_REV},
 };
 
+static struct vrend_format_table bptc_formats[] = {
+   { VIRGL_FORMAT_BPTC_RGBA_UNORM, GL_COMPRESSED_RGBA_BPTC_UNORM, GL_RGBA, GL_UNSIGNED_BYTE },
+   { VIRGL_FORMAT_BPTC_SRGBA, GL_COMPRESSED_SRGB_ALPHA_BPTC_UNORM, GL_RGBA, GL_UNSIGNED_BYTE },
+   { VIRGL_FORMAT_BPTC_RGB_FLOAT, GL_COMPRESSED_RGB_BPTC_SIGNED_FLOAT, GL_RGB, GL_UNSIGNED_BYTE },
+   { VIRGL_FORMAT_BPTC_RGB_UFLOAT, GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT, GL_RGB, GL_UNSIGNED_BYTE },
+};
+
 static void vrend_add_formats(struct vrend_format_table *table, int num_entries)
 {
   int i;
@@ -355,4 +362,5 @@ void vrend_build_format_list(void)
   add_formats(packed_float_formats);
   add_formats(exponent_float_formats);
 
+  add_formats(bptc_formats);
 }
