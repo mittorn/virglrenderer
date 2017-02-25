@@ -613,8 +613,10 @@ static int vrend_decode_create_ve(struct vrend_decode_ctx *ctx, uint32_t handle,
          ve[i].instance_divisor = get_buf_entry(ctx, VIRGL_OBJ_VERTEX_ELEMENTS_V0_INSTANCE_DIVISOR(i));
          ve[i].vertex_buffer_index = get_buf_entry(ctx, VIRGL_OBJ_VERTEX_ELEMENTS_V0_VERTEX_BUFFER_INDEX(i));
 
-         if (ve[i].vertex_buffer_index >= PIPE_MAX_ATTRIBS)
+         if (ve[i].vertex_buffer_index >= PIPE_MAX_ATTRIBS) {
+            FREE(ve);
             return EINVAL;
+         }
 
          ve[i].src_format = get_buf_entry(ctx, VIRGL_OBJ_VERTEX_ELEMENTS_V0_SRC_FORMAT(i));
       }
