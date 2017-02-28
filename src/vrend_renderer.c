@@ -1648,17 +1648,18 @@ int vrend_create_vertex_elements_state(struct vrend_context *ctx,
                                        unsigned num_elements,
                                        const struct pipe_vertex_element *elements)
 {
-   struct vrend_vertex_element_array *v = CALLOC_STRUCT(vrend_vertex_element_array);
+   struct vrend_vertex_element_array *v;
    const struct util_format_description *desc;
    GLenum type;
    int i;
    uint32_t ret_handle;
 
-   if (!v)
-      return ENOMEM;
-
    if (num_elements > PIPE_MAX_ATTRIBS)
       return EINVAL;
+
+   v = CALLOC_STRUCT(vrend_vertex_element_array);
+   if (!v)
+      return ENOMEM;
 
    v->count = num_elements;
    for (i = 0; i < num_elements; i++) {
