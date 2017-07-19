@@ -155,7 +155,26 @@ struct virgl_egl *virgl_egl_init(void)
    if (!d->gbm_dev)
       goto fail;
 
-   d->egl_display = eglGetDisplay((EGLNativeDisplayType)d->gbm_dev);
+   const char *client_extensions = eglQueryString (NULL, EGL_EXTENSIONS);
+
+   if (strstr (client_extensions, "EGL_KHR_platform_base")) {
+      PFNEGLGETPLATFORMDISPLAYEXTPROC get_platform_display =
+         (PFNEGLGETPLATFORMDISPLAYEXTPROC) eglGetProcAddress ("eglGetPlatformDisplay");
+
+      if (get_platform_display)
+         d->egl_display = get_platform_display (EGL_PLATFORM_GBM_KHR,
+                                                (EGLNativeDisplayType)d->gbm_dev, NULL);
+   } else if (strstr (client_extensions, "EGL_EXT_platform_base")) {
+      PFNEGLGETPLATFORMDISPLAYEXTPROC get_platform_display =
+         (PFNEGLGETPLATFORMDISPLAYEXTPROC) eglGetProcAddress ("eglGetPlatformDisplayEXT");
+
+      if (get_platform_display)
+         d->egl_display = get_platform_display (EGL_PLATFORM_GBM_KHR,
+                                                (EGLNativeDisplayType)d->gbm_dev, NULL);
+   } else {
+      d->egl_display = eglGetDisplay((EGLNativeDisplayType)d->gbm_dev);
+   }
+
    if (!d->egl_display)
       goto fail;
 
