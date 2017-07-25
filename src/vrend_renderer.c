@@ -4746,7 +4746,8 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
                                          glformat, comp_size, data);
             } else {
                glTexSubImage2D(res->target, info->level, x, res->target == GL_TEXTURE_1D_ARRAY ? info->box->z : y,
-                               info->box->width, info->box->height,
+                               info->box->width,
+                               res->target == GL_TEXTURE_1D_ARRAY ? info->box->depth : info->box->height,
                                glformat, gltype, data);
             }
          }
