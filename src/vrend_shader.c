@@ -85,9 +85,9 @@ struct dump_ctx {
    int num_interps;
    int num_inputs;
    uint32_t attrib_input_mask;
-   struct vrend_shader_io inputs[32];
+   struct vrend_shader_io inputs[35];
    int num_outputs;
-   struct vrend_shader_io outputs[32];
+   struct vrend_shader_io outputs[35];
    int num_system_values;
    struct vrend_shader_io system_values[32];
 
