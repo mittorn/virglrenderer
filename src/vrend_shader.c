@@ -1520,8 +1520,14 @@ iter_instruction(struct tgsi_iterate_context *iter,
                   idx = ctx->inputs[j].sid * 4;
                   idx += src->Register.SwizzleX;
                   snprintf(srcs[i], 255, "%s(vec4(%s%s%s[%d]))", stypeprefix, prefix, arrayname, ctx->inputs[j].glsl_name, idx);
-               } else
-                  snprintf(srcs[i], 255, "%s(%s%s%s%s)", stypeprefix, prefix, ctx->inputs[j].glsl_name, arrayname, ctx->inputs[j].is_int ? "" : swizzle);
+               } else {
+                  const char *srcstypeprefix = stypeprefix;
+                  if (stype == TGSI_TYPE_UNSIGNED &&
+                      ctx->inputs[j].is_int)
+                     srcstypeprefix = "";
+                  snprintf(srcs[i], 255, "%s(%s%s%s%s)",
+                           srcstypeprefix, prefix, ctx->inputs[j].glsl_name, arrayname, ctx->inputs[j].is_int ? "" : swizzle);
+               }
                override_no_wm[i] = ctx->inputs[j].override_no_wm;
                break;
             }
