@@ -1026,10 +1026,14 @@ static int translate_tex(struct dump_ctx *ctx,
    } else {
       switch (ctx->samplers[sreg_index].tgsi_sampler_return) {
       case TGSI_RETURN_TYPE_SINT:
-         dtypeprefix = "intBitsToFloat";
+         /* if dstconv isn't an int */
+         if (strcmp(dstconv, "int"))
+            dtypeprefix = "intBitsToFloat";
          break;
       case TGSI_RETURN_TYPE_UINT:
-         dtypeprefix = "uintBitsToFloat";
+         /* if dstconv isn't an int */
+         if (strcmp(dstconv, "int"))
+            dtypeprefix = "uintBitsToFloat";
          break;
       default:
          break;
