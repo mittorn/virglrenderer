@@ -140,6 +140,7 @@ struct dump_ctx {
    bool has_clipvertex_so;
    bool has_viewport_idx;
    bool has_frag_viewport_idx;
+   bool vs_has_pervertex;
 };
 
 static inline const char *tgsi_proc_to_prefix(int shader_type)
@@ -2290,6 +2291,7 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
             STRCAT_WITH_RET(glsl_hdr, buf);
          }
          if (ctx->key->gs_present) {
+            ctx->vs_has_pervertex = true;
             snprintf(buf, 255, "out gl_PerVertex {\n vec4 gl_Position;\n float gl_PointSize;\n float gl_ClipDistance[%d];\n};\n", ctx->num_clip_dist ? ctx->num_clip_dist : 8);
             STRCAT_WITH_RET(glsl_hdr, buf);
          } else {
@@ -2304,8 +2306,17 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
    if (ctx->prog_type == TGSI_PROCESSOR_GEOMETRY) {
       snprintf(buf, 255, "uniform vec4 winsys_adjust;\n");
       STRCAT_WITH_RET(glsl_hdr, buf);
-      if (ctx->num_in_clip_dist || ctx->key->clip_plane_enable) {
-         snprintf(buf, 255, "in gl_PerVertex {\n vec4 gl_Position;\n float gl_PointSize; \n float gl_ClipDistance[%d];\n} gl_in[];\n", ctx->num_in_clip_dist ? ctx->num_in_clip_dist : 8);
+      if (ctx->num_in_clip_dist || ctx->key->clip_plane_enable || ctx->key->vs_has_pervertex) {
+         int clip_dist;
+
+         if (ctx->key->vs_has_pervertex)
+            clip_dist = ctx->key->vs_pervertex_num_clip;
+         else if (ctx->num_in_clip_dist)
+            clip_dist = ctx->num_in_clip_dist;
+         else
+            clip_dist = 8;
+
+         snprintf(buf, 255, "in gl_PerVertex {\n vec4 gl_Position;\n float gl_PointSize; \n float gl_ClipDistance[%d];\n} gl_in[];\n", clip_dist);
          STRCAT_WITH_RET(glsl_hdr, buf);
       }
       if (ctx->num_clip_dist) {
@@ -2515,6 +2526,7 @@ char *vrend_convert_shader(struct vrend_shader_cfg *cfg,
    free(ctx.glsl_main);
    free(glsl_hdr);
    sinfo->num_ucp = ctx.key->clip_plane_enable ? 8 : 0;
+   sinfo->num_pervertex_clip = (ctx.vs_has_pervertex ? (ctx.num_clip_dist ? ctx.num_clip_dist : 8) : 0);
    sinfo->samplers_used_mask = ctx.samplers_used;
    sinfo->num_consts = ctx.num_consts;
    sinfo->num_ubos = ctx.num_ubo;

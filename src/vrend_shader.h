@@ -43,6 +43,7 @@ struct vrend_shader_info {
    int num_ubos;
    int num_ucp;
    int glsl_ver;
+   uint8_t num_pervertex_clip;
    uint32_t shadow_samp_mask;
    int gs_out_prim;
    uint32_t attrib_input_mask;
@@ -62,6 +63,8 @@ struct vrend_shader_key {
    uint8_t clip_plane_enable;
    bool gs_present;
    bool flatshade;
+   bool vs_has_pervertex;
+   uint8_t vs_pervertex_num_clip;
    float alpha_ref_val;
    uint32_t cbufs_are_a8_bitmask;
 };

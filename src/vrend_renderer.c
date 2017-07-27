@@ -1998,6 +1998,7 @@ static void vrend_destroy_shader_object(void *obj_ptr)
 }
 
 static inline void vrend_fill_shader_key(struct vrend_context *ctx,
+                                         unsigned type,
                                          struct vrend_shader_key *key)
 {
    if (vrend_state.use_core_profile == true) {
@@ -2032,6 +2033,11 @@ static inline void vrend_fill_shader_key(struct vrend_context *ctx,
 
    if (ctx->sub->shaders[PIPE_SHADER_GEOMETRY])
       key->gs_present = true;
+
+   if (type == PIPE_SHADER_GEOMETRY && ctx->sub->shaders[PIPE_SHADER_VERTEX]) {
+      key->vs_has_pervertex = ctx->sub->shaders[PIPE_SHADER_VERTEX]->sinfo.num_pervertex_clip > 0;
+      key->vs_pervertex_num_clip = ctx->sub->shaders[PIPE_SHADER_VERTEX]->sinfo.num_pervertex_clip;
+   }
 }
 
 static inline int conv_shader_type(int type)
@@ -2086,7 +2092,7 @@ static int vrend_shader_select(struct vrend_context *ctx,
    int r;
 
    memset(&key, 0, sizeof(key));
-   vrend_fill_shader_key(ctx, &key);
+   vrend_fill_shader_key(ctx, sel->type, &key);
 
    if (sel->current && !memcmp(&sel->current->key, &key, sizeof(key)))
       return 0;
