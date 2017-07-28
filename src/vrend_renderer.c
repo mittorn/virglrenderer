@@ -107,6 +107,7 @@ struct global_renderer_state {
    bool have_bit_encoding;
    bool have_vertex_attrib_binding;
    bool have_tf2;
+   bool have_stencil_texturing;
 
    /* these appeared broken on at least one driver */
    bool use_explicit_locations;
@@ -1928,6 +1929,14 @@ void vrend_set_single_sampler_view(struct vrend_context *ctx,
                if (view->depth_texture_mode != GL_RED) {
                   glTexParameteri(view->texture->target, GL_DEPTH_TEXTURE_MODE, GL_RED);
                   view->depth_texture_mode = GL_RED;
+               }
+            }
+            if (vrend_state.have_stencil_texturing) {
+               const struct util_format_description *desc = util_format_description(view->format);
+               if (!util_format_has_depth(desc)) {
+                  glTexParameteri(view->texture->target, GL_DEPTH_STENCIL_TEXTURE_MODE, GL_STENCIL_INDEX);
+               } else {
+                  glTexParameteri(view->texture->target, GL_DEPTH_STENCIL_TEXTURE_MODE, GL_DEPTH_COMPONENT);
                }
             }
          }
@@ -3853,6 +3862,8 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
    if (gl_ver >= 40 || epoxy_has_gl_extension("GL_ARB_transform_feedback2"))
       vrend_state.have_tf2 = true;
 
+   if (epoxy_has_gl_extension("GL_ARB_stencil_texturing"))
+      vrend_state.have_stencil_texturing = true;
    if (epoxy_has_gl_extension("GL_EXT_framebuffer_multisample") && epoxy_has_gl_extension("GL_ARB_texture_multisample")) {
       vrend_state.have_multisample = true;
       if (epoxy_has_gl_extension("GL_EXT_framebuffer_multisample_blit_scaled"))

@@ -112,6 +112,8 @@ enum virgl_formats {
    VIRGL_FORMAT_B10G10R10A2_UNORM       = 131,
    VIRGL_FORMAT_R8G8B8X8_UNORM          = 134,
    VIRGL_FORMAT_B4G4R4X4_UNORM          = 135,
+   VIRGL_FORMAT_X24S8_UINT              = 136,
+   VIRGL_FORMAT_S8X24_UINT              = 137,
    VIRGL_FORMAT_B2G3R3_UNORM            = 139,
 
    VIRGL_FORMAT_L16A16_UNORM            = 140,
