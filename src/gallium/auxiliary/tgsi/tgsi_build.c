@@ -615,7 +615,8 @@ tgsi_default_instruction( void )
    instruction.NumSrcRegs = 1;
    instruction.Label = 0;
    instruction.Texture = 0;
-   instruction.Padding  = 0;
+   instruction.Memory = 0;
+   instruction.Precise = 0;
 
    return instruction;
 }

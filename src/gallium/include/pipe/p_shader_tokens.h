@@ -302,6 +302,10 @@ struct tgsi_property_data {
  * which APIs are known to use which opcodes, see
  * gallium/docs/source/tgsi.rst
  */
+/* VIRGLRENDERER specific - DON'T SYNC WITH MESA
+ * OR REMOVE OPCODES - FILL in and REWRITE tgsi_info
+ * accordingly.
+ */
 #define TGSI_OPCODE_ARL                 0
 #define TGSI_OPCODE_MOV                 1
 #define TGSI_OPCODE_LIT                 2
@@ -554,17 +558,23 @@ struct tgsi_property_data {
  * Saturate controls how are final results in destination registers modified.
  */
 
+/*
+ * VIRGLRENDERER specific -
+ * we no long keep this in sync with mesa, we had to increase the NrTokens
+ * as mesa can remove old opcodes, but the renderer cannot.
+ */
 struct tgsi_instruction
 {
    unsigned Type       : 4;  /* TGSI_TOKEN_TYPE_INSTRUCTION */
-   unsigned NrTokens   : 8;  /* UINT */
+   unsigned NrTokens   : 9;  /* UINT */
    unsigned Opcode     : 8;  /* TGSI_OPCODE_ */
    unsigned Saturate   : 1;  /* BOOL */
    unsigned NumDstRegs : 2;  /* UINT */
    unsigned NumSrcRegs : 4;  /* UINT */
    unsigned Label      : 1;
    unsigned Texture    : 1;
-   unsigned Padding    : 3;
+   unsigned Memory     : 1;
+   unsigned Precise    : 1;
 };
 
 /*
