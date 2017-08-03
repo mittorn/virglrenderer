@@ -509,12 +509,6 @@ struct ureg_emit_insn_result
 ureg_emit_insn(struct ureg_program *ureg,
                unsigned opcode,
                boolean saturate,
-               boolean predicate,
-               boolean pred_negate,
-               unsigned pred_swizzle_x,
-               unsigned pred_swizzle_y,
-               unsigned pred_swizzle_z,
-               unsigned pred_swizzle_w,
                unsigned num_dst,
                unsigned num_src );
 
@@ -553,12 +547,6 @@ static inline void ureg_##op( struct ureg_program *ureg )       \
    insn = ureg_emit_insn(ureg,                                  \
                          opcode,                                \
                          FALSE,                                 \
-                         FALSE,                                 \
-                         FALSE,                                 \
-                         TGSI_SWIZZLE_X,                        \
-                         TGSI_SWIZZLE_Y,                        \
-                         TGSI_SWIZZLE_Z,                        \
-                         TGSI_SWIZZLE_W,                        \
                          0,                                     \
                          0);                                    \
    ureg_fixup_insn_size( ureg, insn.insn_token );               \
@@ -573,12 +561,6 @@ static inline void ureg_##op( struct ureg_program *ureg,        \
    insn = ureg_emit_insn(ureg,                                  \
                          opcode,                                \
                          FALSE,                                 \
-                         FALSE,                                 \
-                         FALSE,                                 \
-                         TGSI_SWIZZLE_X,                        \
-                         TGSI_SWIZZLE_Y,                        \
-                         TGSI_SWIZZLE_Z,                        \
-                         TGSI_SWIZZLE_W,                        \
                          0,                                     \
                          1);                                    \
    ureg_emit_src( ureg, src );                                  \
@@ -594,12 +576,6 @@ static inline void ureg_##op( struct ureg_program *ureg,        \
    insn = ureg_emit_insn(ureg,                                  \
                          opcode,                                \
                          FALSE,                                 \
-                         FALSE,                                 \
-                         FALSE,                                 \
-                         TGSI_SWIZZLE_X,                        \
-                         TGSI_SWIZZLE_Y,                        \
-                         TGSI_SWIZZLE_Z,                        \
-                         TGSI_SWIZZLE_W,                        \
                          0,                                     \
                          0);                                    \
    ureg_emit_label( ureg, insn.extended_token, label_token );   \
@@ -616,12 +592,6 @@ static inline void ureg_##op( struct ureg_program *ureg,        \
    insn = ureg_emit_insn(ureg,                                  \
                          opcode,                                \
                          FALSE,                                 \
-                         FALSE,                                 \
-                         FALSE,                                 \
-                         TGSI_SWIZZLE_X,                        \
-                         TGSI_SWIZZLE_Y,                        \
-                         TGSI_SWIZZLE_Z,                        \
-                         TGSI_SWIZZLE_W,                        \
                          0,                                     \
                          1);                                    \
    ureg_emit_label( ureg, insn.extended_token, label_token );   \
@@ -640,12 +610,6 @@ static inline void ureg_##op( struct ureg_program *ureg,                \
    insn = ureg_emit_insn(ureg,                                          \
                          opcode,                                        \
                          dst.Saturate,                                  \
-                         dst.Predicate,                                 \
-                         dst.PredNegate,                                \
-                         dst.PredSwizzleX,                              \
-                         dst.PredSwizzleY,                              \
-                         dst.PredSwizzleZ,                              \
-                         dst.PredSwizzleW,                              \
                          1,                                             \
                          0);                                            \
    ureg_emit_dst( ureg, dst );                                          \
@@ -665,12 +629,6 @@ static inline void ureg_##op( struct ureg_program *ureg,                \
    insn = ureg_emit_insn(ureg,                                          \
                          opcode,                                        \
                          dst.Saturate,                                  \
-                         dst.Predicate,                                 \
-                         dst.PredNegate,                                \
-                         dst.PredSwizzleX,                              \
-                         dst.PredSwizzleY,                              \
-                         dst.PredSwizzleZ,                              \
-                         dst.PredSwizzleW,                              \
                          1,                                             \
                          1);                                            \
    ureg_emit_dst( ureg, dst );                                          \
@@ -691,12 +649,6 @@ static inline void ureg_##op( struct ureg_program *ureg,                \
    insn = ureg_emit_insn(ureg,                                          \
                          opcode,                                        \
                          dst.Saturate,                                  \
-                         dst.Predicate,                                 \
-                         dst.PredNegate,                                \
-                         dst.PredSwizzleX,                              \
-                         dst.PredSwizzleY,                              \
-                         dst.PredSwizzleZ,                              \
-                         dst.PredSwizzleW,                              \
                          1,                                             \
                          2);                                            \
    ureg_emit_dst( ureg, dst );                                          \
@@ -719,12 +671,6 @@ static inline void ureg_##op( struct ureg_program *ureg,                \
    insn = ureg_emit_insn(ureg,                                          \
                          opcode,                                        \
                          dst.Saturate,                                  \
-                         dst.Predicate,                                 \
-                         dst.PredNegate,                                \
-                         dst.PredSwizzleX,                              \
-                         dst.PredSwizzleY,                              \
-                         dst.PredSwizzleZ,                              \
-                         dst.PredSwizzleW,                              \
                          1,                                             \
                          2);                                            \
    ureg_emit_texture( ureg, insn.extended_token, target, 0 );		\
@@ -748,12 +694,6 @@ static inline void ureg_##op( struct ureg_program *ureg,                \
    insn = ureg_emit_insn(ureg,                                          \
                          opcode,                                        \
                          dst.Saturate,                                  \
-                         dst.Predicate,                                 \
-                         dst.PredNegate,                                \
-                         dst.PredSwizzleX,                              \
-                         dst.PredSwizzleY,                              \
-                         dst.PredSwizzleZ,                              \
-                         dst.PredSwizzleW,                              \
                          1,                                             \
                          2);                                            \
    ureg_emit_texture( ureg, insn.extended_token, target, 0 );           \
@@ -777,12 +717,6 @@ static inline void ureg_##op( struct ureg_program *ureg,                \
    insn = ureg_emit_insn(ureg,                                          \
                          opcode,                                        \
                          dst.Saturate,                                  \
-                         dst.Predicate,                                 \
-                         dst.PredNegate,                                \
-                         dst.PredSwizzleX,                              \
-                         dst.PredSwizzleY,                              \
-                         dst.PredSwizzleZ,                              \
-                         dst.PredSwizzleW,                              \
                          1,                                             \
                          3);                                            \
    ureg_emit_dst( ureg, dst );                                          \
@@ -807,12 +741,6 @@ static inline void ureg_##op( struct ureg_program *ureg,                \
    insn = ureg_emit_insn(ureg,                                          \
                          opcode,                                        \
                          dst.Saturate,                                  \
-                         dst.Predicate,                                 \
-                         dst.PredNegate,                                \
-                         dst.PredSwizzleX,                              \
-                         dst.PredSwizzleY,                              \
-                         dst.PredSwizzleZ,                              \
-                         dst.PredSwizzleW,                              \
                          1,                                             \
                          3);                                            \
    ureg_emit_texture( ureg, insn.extended_token, target, 0 );           \
@@ -839,12 +767,6 @@ static inline void ureg_##op( struct ureg_program *ureg,                \
    insn = ureg_emit_insn(ureg,                                          \
                          opcode,                                        \
                          dst.Saturate,                                  \
-                         dst.Predicate,                                 \
-                         dst.PredNegate,                                \
-                         dst.PredSwizzleX,                              \
-                         dst.PredSwizzleY,                              \
-                         dst.PredSwizzleZ,                              \
-                         dst.PredSwizzleW,                              \
                          1,                                             \
                          4);                                            \
    ureg_emit_texture( ureg, insn.extended_token, target, 0 );		\
@@ -872,12 +794,6 @@ static inline void ureg_##op( struct ureg_program *ureg,                \
    insn = ureg_emit_insn(ureg,                                          \
                          opcode,                                        \
                          dst.Saturate,                                  \
-                         dst.Predicate,                                 \
-                         dst.PredNegate,                                \
-                         dst.PredSwizzleX,                              \
-                         dst.PredSwizzleY,                              \
-                         dst.PredSwizzleZ,                              \
-                         dst.PredSwizzleW,                              \
                          1,                                             \
                          4);                                            \
    ureg_emit_texture( ureg, insn.extended_token, target, 0 );           \
@@ -905,12 +821,6 @@ static inline void ureg_##op( struct ureg_program *ureg,                \
    insn = ureg_emit_insn(ureg,                                          \
                          opcode,                                        \
                          dst.Saturate,                                  \
-                         dst.Predicate,                                 \
-                         dst.PredNegate,                                \
-                         dst.PredSwizzleX,                              \
-                         dst.PredSwizzleY,                              \
-                         dst.PredSwizzleZ,                              \
-                         dst.PredSwizzleW,                              \
                          1,                                             \
                          4);                                            \
    ureg_emit_dst( ureg, dst );                                          \
@@ -938,12 +848,6 @@ static inline void ureg_##op( struct ureg_program *ureg,                \
    insn = ureg_emit_insn(ureg,                                          \
                          opcode,                                        \
                          dst.Saturate,                                  \
-                         dst.Predicate,                                 \
-                         dst.PredNegate,                                \
-                         dst.PredSwizzleX,                              \
-                         dst.PredSwizzleY,                              \
-                         dst.PredSwizzleZ,                              \
-                         dst.PredSwizzleW,                              \
                          1,                                             \
                          5);                                            \
    ureg_emit_dst( ureg, dst );                                          \
@@ -972,12 +876,6 @@ static inline void ureg_##op( struct ureg_program *ureg,                \
    insn = ureg_emit_insn(ureg,                                          \
                          opcode,                                        \
                          dst.Saturate,                                  \
-                         dst.Predicate,                                 \
-                         dst.PredNegate,                                \
-                         dst.PredSwizzleX,                              \
-                         dst.PredSwizzleY,                              \
-                         dst.PredSwizzleZ,                              \
-                         dst.PredSwizzleW,                              \
                          1,                                             \
                          5);                                            \
    ureg_emit_texture( ureg, insn.extended_token, target, 0 );           \
@@ -1152,12 +1050,6 @@ ureg_dst( struct ureg_src src )
    dst.IndirectIndex = src.IndirectIndex;
    dst.IndirectSwizzle = src.IndirectSwizzle;
    dst.Saturate  = 0;
-   dst.Predicate = 0;
-   dst.PredNegate = 0;
-   dst.PredSwizzleX = TGSI_SWIZZLE_X;
-   dst.PredSwizzleY = TGSI_SWIZZLE_Y;
-   dst.PredSwizzleZ = TGSI_SWIZZLE_Z;
-   dst.PredSwizzleW = TGSI_SWIZZLE_W;
    dst.Index     = src.Index;
    dst.ArrayID = src.ArrayID;
 
@@ -1235,12 +1127,6 @@ ureg_dst_undef( void )
    dst.IndirectIndex = 0;
    dst.IndirectSwizzle = 0;
    dst.Saturate  = 0;
-   dst.Predicate = 0;
-   dst.PredNegate = 0;
-   dst.PredSwizzleX = TGSI_SWIZZLE_X;
-   dst.PredSwizzleY = TGSI_SWIZZLE_Y;
-   dst.PredSwizzleZ = TGSI_SWIZZLE_Z;
-   dst.PredSwizzleW = TGSI_SWIZZLE_W;
    dst.Index     = 0;
    dst.ArrayID = 0;
 

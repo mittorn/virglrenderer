@@ -54,7 +54,6 @@ union tgsi_any_token {
    struct tgsi_immediate imm;
    union  tgsi_immediate_data imm_data;
    struct tgsi_instruction insn;
-   struct tgsi_instruction_predicate insn_predicate;
    struct tgsi_instruction_label insn_label;
    struct tgsi_instruction_texture insn_texture;
    struct tgsi_texture_offset insn_texture_offset;
@@ -256,7 +255,6 @@ ureg_dst_register( unsigned file,
    dst.IndirectIndex = 0;
    dst.IndirectSwizzle = 0;
    dst.Saturate  = 0;
-   dst.Predicate = 0;
    dst.PredNegate = 0;
    dst.PredSwizzleX = TGSI_SWIZZLE_X;
    dst.PredSwizzleY = TGSI_SWIZZLE_Y;
@@ -925,17 +923,11 @@ struct ureg_emit_insn_result
 ureg_emit_insn(struct ureg_program *ureg,
                unsigned opcode,
                boolean saturate,
-               boolean predicate,
-               boolean pred_negate,
-               unsigned pred_swizzle_x,
-               unsigned pred_swizzle_y,
-               unsigned pred_swizzle_z,
-               unsigned pred_swizzle_w,
                unsigned num_dst,
                unsigned num_src )
 {
    union tgsi_any_token *out;
-   uint count = predicate ? 2 : 1;
+   uint count = 1;
    struct ureg_emit_insn_result result;
 
    validate( opcode, num_dst, num_src );
@@ -949,16 +941,6 @@ ureg_emit_insn(struct ureg_program *ureg,
 
    result.insn_token = ureg->domain[DOMAIN_INSN].count - count;
    result.extended_token = result.insn_token;
-
-   if (predicate) {
-      out[0].insn.Predicate = 1;
-      out[1].insn_predicate = tgsi_default_instruction_predicate();
-      out[1].insn_predicate.Negate = pred_negate;
-      out[1].insn_predicate.SwizzleX = pred_swizzle_x;
-      out[1].insn_predicate.SwizzleY = pred_swizzle_y;
-      out[1].insn_predicate.SwizzleZ = pred_swizzle_z;
-      out[1].insn_predicate.SwizzleW = pred_swizzle_w;
-   }
 
    ureg->nr_instructions++;
 
@@ -1061,7 +1043,6 @@ ureg_insn(struct ureg_program *ureg,
    struct ureg_emit_insn_result insn;
    unsigned i;
    boolean saturate;
-   boolean predicate;
    boolean negate = FALSE;
    unsigned swizzle[4] = { 0 };
 
@@ -1070,24 +1051,10 @@ ureg_insn(struct ureg_program *ureg,
    }
 
    saturate = nr_dst ? dst[0].Saturate : FALSE;
-   predicate = nr_dst ? dst[0].Predicate : FALSE;
-   if (predicate) {
-      negate = dst[0].PredNegate;
-      swizzle[0] = dst[0].PredSwizzleX;
-      swizzle[1] = dst[0].PredSwizzleY;
-      swizzle[2] = dst[0].PredSwizzleZ;
-      swizzle[3] = dst[0].PredSwizzleW;
-   }
 
    insn = ureg_emit_insn(ureg,
                          opcode,
                          saturate,
-                         predicate,
-                         negate,
-                         swizzle[0],
-                         swizzle[1],
-                         swizzle[2],
-                         swizzle[3],
                          nr_dst,
                          nr_src);
 
@@ -1114,7 +1081,6 @@ ureg_tex_insn(struct ureg_program *ureg,
    struct ureg_emit_insn_result insn;
    unsigned i;
    boolean saturate;
-   boolean predicate;
    boolean negate = FALSE;
    unsigned swizzle[4] = { 0 };
 
@@ -1123,24 +1089,10 @@ ureg_tex_insn(struct ureg_program *ureg,
    }
 
    saturate = nr_dst ? dst[0].Saturate : FALSE;
-   predicate = nr_dst ? dst[0].Predicate : FALSE;
-   if (predicate) {
-      negate = dst[0].PredNegate;
-      swizzle[0] = dst[0].PredSwizzleX;
-      swizzle[1] = dst[0].PredSwizzleY;
-      swizzle[2] = dst[0].PredSwizzleZ;
-      swizzle[3] = dst[0].PredSwizzleW;
-   }
 
    insn = ureg_emit_insn(ureg,
                          opcode,
                          saturate,
-                         predicate,
-                         negate,
-                         swizzle[0],
-                         swizzle[1],
-                         swizzle[2],
-                         swizzle[3],
                          nr_dst,
                          nr_src);
 
@@ -1172,12 +1124,6 @@ ureg_label_insn(struct ureg_program *ureg,
    insn = ureg_emit_insn(ureg,
                          opcode,
                          FALSE,
-                         FALSE,
-                         FALSE,
-                         TGSI_SWIZZLE_X,
-                         TGSI_SWIZZLE_Y,
-                         TGSI_SWIZZLE_Z,
-                         TGSI_SWIZZLE_W,
                          0,
                          nr_src);
 

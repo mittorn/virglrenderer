@@ -611,7 +611,6 @@ tgsi_default_instruction( void )
    instruction.NrTokens = 0;
    instruction.Opcode = TGSI_OPCODE_MOV;
    instruction.Saturate = 0;
-   instruction.Predicate = 0;
    instruction.NumDstRegs = 1;
    instruction.NumSrcRegs = 1;
    instruction.Label = 0;
@@ -624,7 +623,6 @@ tgsi_default_instruction( void )
 static struct tgsi_instruction
 tgsi_build_instruction(unsigned opcode,
                        unsigned saturate,
-                       unsigned predicate,
                        unsigned num_dst_regs,
                        unsigned num_src_regs,
                        struct tgsi_header *header)
@@ -639,7 +637,6 @@ tgsi_build_instruction(unsigned opcode,
    instruction = tgsi_default_instruction();
    instruction.Opcode = opcode;
    instruction.Saturate = saturate;
-   instruction.Predicate = predicate;
    instruction.NumDstRegs = num_dst_regs;
    instruction.NumSrcRegs = num_src_regs;
 
@@ -658,47 +655,6 @@ instruction_grow(
    instruction->NrTokens++;
 
    header_bodysize_grow( header );
-}
-
-struct tgsi_instruction_predicate
-tgsi_default_instruction_predicate(void)
-{
-   struct tgsi_instruction_predicate instruction_predicate;
-
-   instruction_predicate.SwizzleX = TGSI_SWIZZLE_X;
-   instruction_predicate.SwizzleY = TGSI_SWIZZLE_Y;
-   instruction_predicate.SwizzleZ = TGSI_SWIZZLE_Z;
-   instruction_predicate.SwizzleW = TGSI_SWIZZLE_W;
-   instruction_predicate.Negate = 0;
-   instruction_predicate.Index = 0;
-   instruction_predicate.Padding = 0;
-
-   return instruction_predicate;
-}
-
-static struct tgsi_instruction_predicate
-tgsi_build_instruction_predicate(int index,
-                                 unsigned negate,
-                                 unsigned swizzleX,
-                                 unsigned swizzleY,
-                                 unsigned swizzleZ,
-                                 unsigned swizzleW,
-                                 struct tgsi_instruction *instruction,
-                                 struct tgsi_header *header)
-{
-   struct tgsi_instruction_predicate instruction_predicate;
-
-   instruction_predicate = tgsi_default_instruction_predicate();
-   instruction_predicate.SwizzleX = swizzleX;
-   instruction_predicate.SwizzleY = swizzleY;
-   instruction_predicate.SwizzleZ = swizzleZ;
-   instruction_predicate.SwizzleW = swizzleW;
-   instruction_predicate.Negate = negate;
-   instruction_predicate.Index = index;
-
-   instruction_grow(instruction, header);
-
-   return instruction_predicate;
 }
 
 static struct tgsi_instruction_label
@@ -1005,7 +961,6 @@ tgsi_default_full_instruction( void )
    unsigned i;
 
    full_instruction.Instruction = tgsi_default_instruction();
-   full_instruction.Predicate = tgsi_default_instruction_predicate();
    full_instruction.Label = tgsi_default_instruction_label();
    full_instruction.Texture = tgsi_default_instruction_texture();
    for( i = 0;  i < TGSI_FULL_MAX_TEX_OFFSETS; i++ ) {
@@ -1040,31 +995,10 @@ tgsi_build_full_instruction(
 
    *instruction = tgsi_build_instruction(full_inst->Instruction.Opcode,
                                          full_inst->Instruction.Saturate,
-                                         full_inst->Instruction.Predicate,
                                          full_inst->Instruction.NumDstRegs,
                                          full_inst->Instruction.NumSrcRegs,
                                          header);
    prev_token = (struct tgsi_token  *) instruction;
-
-   if (full_inst->Instruction.Predicate) {
-      struct tgsi_instruction_predicate *instruction_predicate;
-
-      if (maxsize <= size) {
-         return 0;
-      }
-      instruction_predicate = (struct tgsi_instruction_predicate *)&tokens[size];
-      size++;
-
-      *instruction_predicate =
-         tgsi_build_instruction_predicate(full_inst->Predicate.Index,
-                                          full_inst->Predicate.Negate,
-                                          full_inst->Predicate.SwizzleX,
-                                          full_inst->Predicate.SwizzleY,
-                                          full_inst->Predicate.SwizzleZ,
-                                          full_inst->Predicate.SwizzleW,
-                                          instruction,
-                                          header);
-   }
 
    if (full_inst->Instruction.Label) {
       struct tgsi_instruction_label *instruction_label;

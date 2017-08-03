@@ -551,8 +551,6 @@ struct tgsi_property_data {
  * respectively. For a given operation code, those numbers are fixed and are
  * present here only for convenience.
  *
- * If Predicate is TRUE, tgsi_instruction_predicate token immediately follows.
- *
  * Saturate controls how are final results in destination registers modified.
  */
 
@@ -564,10 +562,9 @@ struct tgsi_instruction
    unsigned Saturate   : 1;  /* BOOL */
    unsigned NumDstRegs : 2;  /* UINT */
    unsigned NumSrcRegs : 4;  /* UINT */
-   unsigned Predicate  : 1;  /* BOOL */
    unsigned Label      : 1;
    unsigned Texture    : 1;
-   unsigned Padding    : 2;
+   unsigned Padding    : 3;
 };
 
 /*
@@ -637,21 +634,6 @@ struct tgsi_texture_offset
    unsigned SwizzleY : 2;  /* TGSI_SWIZZLE_x */
    unsigned SwizzleZ : 2;  /* TGSI_SWIZZLE_x */
    unsigned Padding  : 6;
-};
-
-/*
- * For SM3, the following constraint applies.
- *   - Swizzle is either set to identity or replicate.
- */
-struct tgsi_instruction_predicate
-{
-   int      Index    : 16; /* SINT */
-   unsigned SwizzleX : 2;  /* TGSI_SWIZZLE_x */
-   unsigned SwizzleY : 2;  /* TGSI_SWIZZLE_x */
-   unsigned SwizzleZ : 2;  /* TGSI_SWIZZLE_x */
-   unsigned SwizzleW : 2;  /* TGSI_SWIZZLE_x */
-   unsigned Negate   : 1;  /* BOOL */
-   unsigned Padding  : 7;
 };
 
 /**
