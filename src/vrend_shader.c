@@ -141,6 +141,7 @@ struct dump_ctx {
    bool has_viewport_idx;
    bool has_frag_viewport_idx;
    bool vs_has_pervertex;
+   bool uses_sample_shading;
 };
 
 static inline const char *tgsi_proc_to_prefix(int shader_type)
@@ -506,7 +507,18 @@ iter_declaration(struct tgsi_iterate_context *iter,
          if (ctx->glsl_ver_required >= 140)
             ctx->has_clipvertex = true;
          break;
-
+      case TGSI_SEMANTIC_SAMPLEMASK:
+         if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
+            ctx->outputs[i].glsl_predefined_no_emit = true;
+            ctx->outputs[i].glsl_no_index = true;
+            ctx->outputs[i].override_no_wm = true;
+            ctx->outputs[i].is_int = true;
+            ctx->has_ints = true;
+            name_prefix = "gl_SampleMask";
+            ctx->uses_sample_shading = true;
+            break;
+         }
+         break;
       case TGSI_SEMANTIC_COLOR:
          if (iter->processor.Processor == TGSI_PROCESSOR_VERTEX) {
             if (ctx->glsl_ver_required < 140) {
@@ -660,6 +672,13 @@ iter_declaration(struct tgsi_iterate_context *iter,
       } else if (decl->Semantic.Name == TGSI_SEMANTIC_VERTEXID) {
          name_prefix = "gl_VertexID";
          ctx->has_ints = true;
+      } else if (decl->Semantic.Name == TGSI_SEMANTIC_SAMPLEID) {
+         name_prefix = "gl_SampleID";
+         ctx->uses_sample_shading = true;
+         ctx->has_ints = true;
+      } else if (decl->Semantic.Name == TGSI_SEMANTIC_SAMPLEPOS) {
+         name_prefix = "gl_SamplePosition";
+         ctx->uses_sample_shading = true;
       } else {
          fprintf(stderr, "unsupported system value %d\n", decl->Semantic.Name);
          name_prefix = "unknown";
@@ -1446,6 +1465,22 @@ iter_instruction(struct tgsi_iterate_context *iter,
                   snprintf(dsts[i], 255, "clipv_tmp");
                } else if (ctx->outputs[j].name == TGSI_SEMANTIC_CLIPDIST) {
                   snprintf(dsts[i], 255, "clip_dist_temp[%d]", ctx->outputs[j].sid);
+               } else if (ctx->outputs[j].name == TGSI_SEMANTIC_SAMPLEMASK) {
+                  int idx;
+                  switch (dst->Register.WriteMask) {
+                  case 0x1: idx = 0; break;
+                  case 0x2: idx = 1; break;
+                  case 0x4: idx = 2; break;
+                  case 0x8: idx = 3; break;
+                  default:
+                     idx = 0;
+                     break;
+                  }
+                  snprintf(dsts[i], 255, "%s[%d]", ctx->outputs[j].glsl_name, idx);
+                  if (ctx->outputs[j].is_int) {
+                        dtypeprefix = "floatBitsToInt";
+                        snprintf(dstconv, 6, "int");
+                  }
                } else {
                   snprintf(dsts[i], 255, "%s%s", ctx->outputs[j].glsl_name, ctx->outputs[j].override_no_wm ? "" : writemask);
                   dst_override_no_wm[i] = ctx->outputs[j].override_no_wm;
@@ -1646,9 +1681,17 @@ iter_instruction(struct tgsi_iterate_context *iter,
       } else if (src->Register.File == TGSI_FILE_SYSTEM_VALUE) {
          for (j = 0; j < ctx->num_system_values; j++)
             if (ctx->system_values[j].first == src->Register.Index) {
-               if (ctx->system_values[j].name == TGSI_SEMANTIC_VERTEXID || ctx->system_values[j].name == TGSI_SEMANTIC_INSTANCEID)
+               if (ctx->system_values[j].name == TGSI_SEMANTIC_VERTEXID ||
+                   ctx->system_values[j].name == TGSI_SEMANTIC_INSTANCEID ||
+                   ctx->system_values[j].name == TGSI_SEMANTIC_SAMPLEID)
                   snprintf(srcs[i], 255, "%s(vec4(intBitsToFloat(%s)))", stypeprefix, ctx->system_values[j].glsl_name);
-               else
+               else if (ctx->system_values[j].name == TGSI_SEMANTIC_SAMPLEPOS) {
+                  snprintf(srcs[i], 255, "vec4(%s.%c, %s.%c, %s.%c, %s.%c)",
+                           ctx->system_values[j].glsl_name, get_swiz_char(src->Register.SwizzleX),
+                           ctx->system_values[j].glsl_name, get_swiz_char(src->Register.SwizzleY),
+                           ctx->system_values[j].glsl_name, get_swiz_char(src->Register.SwizzleZ),
+                           ctx->system_values[j].glsl_name, get_swiz_char(src->Register.SwizzleW));
+               } else
                   snprintf(srcs[i], 255, "%s%s", prefix, ctx->system_values[j].glsl_name);
                override_no_wm[i] = ctx->system_values[j].override_no_wm;
                break;
@@ -2128,6 +2171,8 @@ static char *emit_header(struct dump_ctx *ctx, char *glsl_hdr)
       STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_shader_stencil_export : require\n");
    if (ctx->uses_layer)
       STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_fragment_layer_viewport : require\n");
+   if (ctx->uses_sample_shading)
+      STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_sample_shading : require\n");
    return glsl_hdr;
 }
 

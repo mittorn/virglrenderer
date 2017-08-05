@@ -523,6 +523,7 @@ static int vrend_decode_create_rasterizer(struct vrend_decode_ctx *ctx, uint32_t
    ebit(line_last_pixel, 28);
    ebit(half_pixel_center, 29);
    ebit(bottom_edge_rule, 30);
+   ebit(force_persample_interp, 31);
    rs_state->point_size = uif(get_buf_entry(ctx, VIRGL_OBJ_RS_POINT_SIZE));
    rs_state->sprite_coord_enable = get_buf_entry(ctx, VIRGL_OBJ_RS_SPRITE_COORD_ENABLE);
    tmp = get_buf_entry(ctx, VIRGL_OBJ_RS_S3);

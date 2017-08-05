@@ -115,6 +115,7 @@ struct global_renderer_state {
    bool have_vertex_attrib_binding;
    bool have_tf2;
    bool have_stencil_texturing;
+   bool have_sample_shading;
 
    /* these appeared broken on at least one driver */
    bool use_explicit_locations;
@@ -3646,6 +3647,12 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
          glDisable(GL_MULTISAMPLE);
          glDisable(GL_SAMPLE_MASK);
       }
+      if (vrend_state.have_sample_shading) {
+         if (state->force_persample_interp)
+            glEnable(GL_SAMPLE_SHADING);
+         else
+            glDisable(GL_SAMPLE_SHADING);
+      }
    }
 }
 
@@ -4047,6 +4054,9 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
       if (epoxy_has_gl_extension("GL_EXT_framebuffer_multisample_blit_scaled"))
          vrend_state.have_ms_scaled_blit = true;
    }
+
+   if (gl_ver >= 40 || epoxy_has_gl_extension("GL_ARB_sample_shading"))
+      vrend_state.have_sample_shading = true;
 
    /* callbacks for when we are cleaning up the object table */
    vrend_resource_set_destroy_callback(vrend_destroy_resource_object);
@@ -6337,6 +6347,7 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
       caps->v1.bset.cube_map_array = 1;
       caps->v1.bset.texture_query_lod = 1;
       caps->v1.bset.has_indirect_draw = 1;
+      caps->v1.bset.has_sample_shading = 1;
    } else {
       if (epoxy_has_gl_extension("GL_ARB_draw_buffers_blend"))
          caps->v1.bset.indep_blend_func = 1;
@@ -6346,6 +6357,8 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
          caps->v1.bset.texture_query_lod = 1;
       if (epoxy_has_gl_extension("GL_ARB_indirect_draw"))
          caps->v1.bset.has_indirect_draw = 1;
+      if (epoxy_has_gl_extension("GL_ARB_sample_shading"))
+         caps->v1.bset.has_sample_shading = 1;
    }
 
    if (gl_ver >= 42) {
