@@ -124,7 +124,7 @@ void vrend_clear(struct vrend_context *ctx,
 
 void vrend_draw_vbo(struct vrend_context *ctx,
                     const struct pipe_draw_info *info,
-                    uint32_t cso);
+                    uint32_t cso, uint32_t indirect_handle, uint32_t indirect_draw_count_handle);
 
 void vrend_set_framebuffer_state(struct vrend_context *ctx,
                                  uint32_t nr_cbufs, uint32_t surf_handle[PIPE_MAX_COLOR_BUFS],

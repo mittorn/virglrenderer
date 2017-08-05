@@ -2821,14 +2821,30 @@ static void vrend_draw_bind_ubo(struct vrend_context *ctx)
 
 void vrend_draw_vbo(struct vrend_context *ctx,
                     const struct pipe_draw_info *info,
-                    uint32_t cso)
+                    uint32_t cso, uint32_t indirect_handle,
+                    uint32_t indirect_draw_count_handle)
 {
    int i;
    bool new_program = false;
    uint32_t shader_type;
+   struct vrend_resource *indirect_res = NULL;
 
    if (ctx->in_error)
       return;
+
+   if (indirect_handle) {
+      indirect_res = vrend_renderer_ctx_res_lookup(ctx, indirect_handle);
+      if (!indirect_res) {
+         report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, indirect_handle);
+         return;
+      }
+   }
+
+   /* this must be zero until we support the feature */
+   if (indirect_draw_count_handle) {
+      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, indirect_handle);
+      return;
+   }
 
    if (ctx->ctx_switch_pending)
       vrend_finish_context_switch(ctx);
@@ -2972,12 +2988,21 @@ void vrend_draw_vbo(struct vrend_context *ctx,
          glPrimitiveRestartIndex(info->restart_index);
       }
    }
+
+   if (indirect_res)
+      glBindBuffer(GL_DRAW_INDIRECT_BUFFER, indirect_res->id);
+   else
+      glBindBuffer(GL_DRAW_INDIRECT_BUFFER, 0);
+
    /* set the vertex state up now on a delay */
    if (!info->indexed) {
       GLenum mode = info->mode;
       int count = cso ? cso : info->count;
       int start = cso ? 0 : info->start;
-      if (info->instance_count <= 1)
+
+      if (indirect_handle)
+         glDrawArraysIndirect(mode, (GLvoid const *)(unsigned long)info->indirect.offset);
+      else if (info->instance_count <= 1)
          glDrawArrays(mode, start, count);
       else if (info->start_instance)
          glDrawArraysInstancedBaseInstance(mode, start, count, info->instance_count, info->start_instance);
@@ -2999,7 +3024,9 @@ void vrend_draw_vbo(struct vrend_context *ctx,
          break;
       }
 
-      if (info->index_bias) {
+      if (indirect_handle)
+         glDrawElementsIndirect(mode, elsz, (GLvoid const *)(unsigned long)info->indirect.offset);
+      else if (info->index_bias) {
          if (info->instance_count > 1)
             glDrawElementsInstancedBaseVertex(mode, info->count, elsz, (void *)(unsigned long)ctx->sub->ib.offset, info->instance_count, info->index_bias);
          else if (info->min_index != 0 || info->max_index != -1)
@@ -6309,6 +6336,7 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
       caps->v1.bset.indep_blend_func = 1;
       caps->v1.bset.cube_map_array = 1;
       caps->v1.bset.texture_query_lod = 1;
+      caps->v1.bset.has_indirect_draw = 1;
    } else {
       if (epoxy_has_gl_extension("GL_ARB_draw_buffers_blend"))
          caps->v1.bset.indep_blend_func = 1;
@@ -6316,6 +6344,8 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
          caps->v1.bset.cube_map_array = 1;
       if (epoxy_has_gl_extension("GL_ARB_texture_query_lod"))
          caps->v1.bset.texture_query_lod = 1;
+      if (epoxy_has_gl_extension("GL_ARB_indirect_draw"))
+         caps->v1.bset.has_indirect_draw = 1;
    }
 
    if (gl_ver >= 42) {

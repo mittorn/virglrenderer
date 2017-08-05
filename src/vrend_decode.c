@@ -352,7 +352,9 @@ static int vrend_decode_draw_vbo(struct vrend_decode_ctx *ctx, int length)
 {
    struct pipe_draw_info info;
    uint32_t cso;
-   if (length != VIRGL_DRAW_VBO_SIZE)
+   uint32_t handle = 0, indirect_draw_count_handle = 0;
+   if (length != VIRGL_DRAW_VBO_SIZE && length != VIRGL_DRAW_VBO_SIZE_TESS &&
+       length != VIRGL_DRAW_VBO_SIZE_INDIRECT)
       return EINVAL;
    memset(&info, 0, sizeof(struct pipe_draw_info));
 
@@ -368,9 +370,23 @@ static int vrend_decode_draw_vbo(struct vrend_decode_ctx *ctx, int length)
    info.min_index = get_buf_entry(ctx, VIRGL_DRAW_VBO_MIN_INDEX);
    info.max_index = get_buf_entry(ctx, VIRGL_DRAW_VBO_MAX_INDEX);
 
+   if (length >= VIRGL_DRAW_VBO_SIZE_TESS) {
+      info.vertices_per_patch = get_buf_entry(ctx, VIRGL_DRAW_VBO_VERTICES_PER_PATCH);
+      info.drawid = get_buf_entry(ctx, VIRGL_DRAW_VBO_DRAWID);
+   }
+
+   if (length == VIRGL_DRAW_VBO_SIZE_INDIRECT) {
+      handle = get_buf_entry(ctx, VIRGL_DRAW_VBO_INDIRECT_HANDLE);
+      info.indirect.offset = get_buf_entry(ctx, VIRGL_DRAW_VBO_INDIRECT_OFFSET);
+      info.indirect.stride = get_buf_entry(ctx, VIRGL_DRAW_VBO_INDIRECT_STRIDE);
+      info.indirect.draw_count = get_buf_entry(ctx, VIRGL_DRAW_VBO_INDIRECT_DRAW_COUNT);
+      info.indirect.indirect_draw_count_offset = get_buf_entry(ctx, VIRGL_DRAW_VBO_INDIRECT_DRAW_COUNT_OFFSET);
+      indirect_draw_count_handle = get_buf_entry(ctx, VIRGL_DRAW_VBO_INDIRECT_DRAW_COUNT_HANDLE);
+   }
+
    cso = get_buf_entry(ctx, VIRGL_DRAW_VBO_COUNT_FROM_SO);
 
-   vrend_draw_vbo(ctx->grctx, &info, cso);
+   vrend_draw_vbo(ctx->grctx, &info, cso, handle, indirect_draw_count_handle);
    return 0;
 }
 

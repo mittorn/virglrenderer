@@ -526,6 +526,38 @@ struct pipe_index_buffer
    const void *user_buffer;  /**< pointer to a user buffer if buffer == NULL */
 };
 
+struct pipe_draw_indirect_info
+{
+   unsigned offset; /**< must be 4 byte aligned */
+   unsigned stride; /**< must be 4 byte aligned */
+   unsigned draw_count; /**< number of indirect draws */
+   unsigned indirect_draw_count_offset; /**< must be 4 byte aligned */
+
+   /* Indirect draw parameters resource is laid out as follows:
+    *
+    * if using indexed drawing:
+    *  struct {
+    *     uint32_t count;
+    *     uint32_t instance_count;
+    *     uint32_t start;
+    *     int32_t index_bias;
+    *     uint32_t start_instance;
+    *  };
+    * otherwise:
+    *  struct {
+    *     uint32_t count;
+    *     uint32_t instance_count;
+    *     uint32_t start;
+    *     uint32_t start_instance;
+    *  };
+    */
+   struct pipe_resource *buffer;
+
+   /* Indirect draw count resource: If not NULL, contains a 32-bit value which
+    * is to be used as the real draw_count.
+    */
+   struct pipe_resource *indirect_draw_count;
+};
 
 /**
  * Information to describe a draw_vbo call.
@@ -533,6 +565,7 @@ struct pipe_index_buffer
 struct pipe_draw_info
 {
    boolean indexed;  /**< use index buffer */
+   ubyte vertices_per_patch; /**< the number of vertices per patch */
 
    unsigned mode;  /**< the mode of the primitive */
    unsigned start;  /**< the index of the first vertex */
@@ -541,6 +574,7 @@ struct pipe_draw_info
    unsigned start_instance; /**< first instance id */
    unsigned instance_count; /**< number of instances */
 
+   unsigned drawid; /**< id of this draw in a multidraw */
    /**
     * For indexed drawing, these fields apply after index lookup.
     */
@@ -554,6 +588,7 @@ struct pipe_draw_info
    boolean primitive_restart;
    unsigned restart_index;
 
+   struct pipe_draw_indirect_info indirect;
    /**
     * Stream output target. If not NULL, it's used to provide the 'count'
     * parameter based on the number vertices captured by the stream output
