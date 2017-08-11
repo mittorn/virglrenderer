@@ -5791,6 +5791,14 @@ void vrend_set_sample_mask(UNUSED struct vrend_context *ctx, unsigned sample_mas
    glSampleMaski(0, sample_mask);
 }
 
+void vrend_set_tess_state(UNUSED struct vrend_context *ctx, const float tess_factors[6])
+{
+   if (vrend_state.have_tessellation) {
+      glPatchParameterfv(GL_PATCH_DEFAULT_OUTER_LEVEL, tess_factors);
+      glPatchParameterfv(GL_PATCH_DEFAULT_INNER_LEVEL, &tess_factors[4]);
+   }
+}
+
 static void vrend_hw_emit_streamout_targets(UNUSED struct vrend_context *ctx, struct vrend_streamout_object *so_obj)
 {
    uint i;

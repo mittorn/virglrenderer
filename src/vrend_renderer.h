@@ -276,6 +276,8 @@ void vrend_set_uniform_buffer(struct vrend_context *ctx, uint32_t shader,
                               uint32_t index, uint32_t offset, uint32_t length,
                               uint32_t res_handle);
 
+void vrend_set_tess_state(struct vrend_context *ctx, const float tess_factors[6]);
+
 void vrend_renderer_fini(void);
 
 int vrend_decode_block(uint32_t ctx_id, uint32_t *block, int ndw);
