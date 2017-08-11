@@ -870,12 +870,17 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
    GLint lret;
    int id;
    int last_shader;
+   bool do_patch = false;
    if (!sprog)
       return NULL;
 
    /* need to rewrite VS code to add interpolation params */
-   if ((gs && gs->compiled_fs_id != fs->id) ||
-       (!gs && vs->compiled_fs_id != fs->id)) {
+   if (gs && gs->compiled_fs_id != fs->id)
+      do_patch = true;
+   if (!gs && vs->compiled_fs_id != fs->id)
+      do_patch = true;
+
+   if (do_patch) {
       bool ret;
 
       if (gs)
@@ -1066,18 +1071,24 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
 }
 
 static struct vrend_linked_shader_program *lookup_shader_program(struct vrend_context *ctx,
-                                                                 GLuint vs_id, GLuint fs_id, GLuint gs_id, bool dual_src)
+                                                                 GLuint vs_id,
+                                                                 GLuint fs_id,
+                                                                 GLuint gs_id,
+                                                                 bool dual_src)
 {
    struct vrend_linked_shader_program *ent;
    LIST_FOR_EACH_ENTRY(ent, &ctx->sub->programs, head) {
       if (ent->dual_src_linked != dual_src)
          continue;
-      if (ent->ss[PIPE_SHADER_VERTEX]->id == vs_id && ent->ss[PIPE_SHADER_FRAGMENT]->id == fs_id) {
-         if (!ent->ss[PIPE_SHADER_GEOMETRY] && gs_id == 0)
-            return ent;
-         if (ent->ss[PIPE_SHADER_GEOMETRY] && ent->ss[PIPE_SHADER_GEOMETRY]->id == gs_id)
-            return ent;
-      }
+
+      if (ent->ss[PIPE_SHADER_VERTEX]->id != vs_id)
+        continue;
+      if (ent->ss[PIPE_SHADER_FRAGMENT]->id != fs_id)
+        continue;
+      if (ent->ss[PIPE_SHADER_GEOMETRY] &&
+          ent->ss[PIPE_SHADER_GEOMETRY]->id != gs_id)
+        continue;
+      return ent;
    }
    return NULL;
 }
@@ -2985,7 +2996,9 @@ void vrend_draw_vbo(struct vrend_context *ctx,
       if (ctx->sub->shaders[PIPE_SHADER_GEOMETRY])
          vrend_shader_select(ctx, ctx->sub->shaders[PIPE_SHADER_GEOMETRY], &gs_dirty);
 
-      if (!ctx->sub->shaders[PIPE_SHADER_VERTEX]->current || !ctx->sub->shaders[PIPE_SHADER_FRAGMENT]->current || (ctx->sub->shaders[PIPE_SHADER_GEOMETRY] && !ctx->sub->shaders[PIPE_SHADER_GEOMETRY]->current)) {
+      if (!ctx->sub->shaders[PIPE_SHADER_VERTEX]->current ||
+          !ctx->sub->shaders[PIPE_SHADER_FRAGMENT]->current ||
+          (ctx->sub->shaders[PIPE_SHADER_GEOMETRY] && !ctx->sub->shaders[PIPE_SHADER_GEOMETRY]->current)) {
          fprintf(stderr, "failure to compile shader variants: %s\n", ctx->debug_name);
          return;
       }
@@ -3000,11 +3013,16 @@ void vrend_draw_vbo(struct vrend_context *ctx,
          same_prog = false;
 
       if (!same_prog) {
-         prog = lookup_shader_program(ctx, ctx->sub->shaders[PIPE_SHADER_VERTEX]->current->id, ctx->sub->shaders[PIPE_SHADER_FRAGMENT]->current->id, ctx->sub->shaders[PIPE_SHADER_GEOMETRY] ? ctx->sub->shaders[PIPE_SHADER_GEOMETRY]->current->id : 0, dual_src);
+         prog = lookup_shader_program(ctx,
+                                      ctx->sub->shaders[PIPE_SHADER_VERTEX]->current->id,
+                                      ctx->sub->shaders[PIPE_SHADER_FRAGMENT]->current->id,
+                                      ctx->sub->shaders[PIPE_SHADER_GEOMETRY] ? ctx->sub->shaders[PIPE_SHADER_GEOMETRY]->current->id : 0,
+                                      dual_src);
          if (!prog) {
             prog = add_shader_program(ctx,
                                       ctx->sub->shaders[PIPE_SHADER_VERTEX]->current,
-                                      ctx->sub->shaders[PIPE_SHADER_FRAGMENT]->current, ctx->sub->shaders[PIPE_SHADER_GEOMETRY] ? ctx->sub->shaders[PIPE_SHADER_GEOMETRY]->current : NULL);
+                                      ctx->sub->shaders[PIPE_SHADER_FRAGMENT]->current,
+                                      ctx->sub->shaders[PIPE_SHADER_GEOMETRY] ? ctx->sub->shaders[PIPE_SHADER_GEOMETRY]->current : NULL);
             if (!prog)
                return;
          }
