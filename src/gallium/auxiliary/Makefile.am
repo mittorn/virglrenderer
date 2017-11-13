@@ -67,7 +67,7 @@ libgallium_la_SOURCES = \
 
 util/u_format_table.c: $(srcdir)/util/u_format_table.py $(srcdir)/util/u_format_pack.py $(srcdir)/util/u_format_parse.py $(srcdir)/util/u_format.csv
 	$(AM_V_at)$(MKDIR_P) util
-	$(AM_V_GEN) $(PYTHON2) $(srcdir)/util/u_format_table.py $(srcdir)/util/u_format.csv > $@
+	$(AM_V_GEN) $(PYTHON) $(srcdir)/util/u_format_table.py $(srcdir)/util/u_format.csv > $@
 
 -include $(top_srcdir)/git.mk
 

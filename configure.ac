@@ -25,7 +25,7 @@ m4_ifdef([AM_PROG_AR], [AM_PROG_AR])
 AC_DISABLE_STATIC
 LT_INIT([disable-static])
 AC_SYS_LARGEFILE
-AC_CHECK_PROGS([PYTHON2], [python2 python])
+AC_CHECK_PROGS([PYTHON], [python2 python python3])
 AX_CODE_COVERAGE
 
 AC_MSG_CHECKING([for native Win32])
