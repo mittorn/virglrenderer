@@ -253,7 +253,9 @@ static void vrend_add_formats(struct vrend_format_table *table, int num_entries)
 {
   int i;
   uint32_t binding = 0;
+  GLuint buffers;
   GLuint tex_id, fb_id;
+
   for (i = 0; i < num_entries; i++) {
     GLenum status;
     bool is_depth = false;
@@ -304,11 +306,14 @@ static void vrend_add_formats(struct vrend_format_table *table, int num_entries)
       glFramebufferTexture2D(GL_FRAMEBUFFER_EXT, attachment, GL_TEXTURE_2D, tex_id, 0);
 
       is_depth = true;
-      glDrawBuffer(GL_NONE);
+
+      buffers = GL_NONE;
+      glDrawBuffers(1, &buffers);
     } else {
       glFramebufferTexture2D(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, tex_id, 0);
 
-      glDrawBuffer(GL_COLOR_ATTACHMENT0);
+      buffers = GL_COLOR_ATTACHMENT0_EXT;
+      glDrawBuffers(1, &buffers);
     }
 
     status = glCheckFramebufferStatus(GL_FRAMEBUFFER);

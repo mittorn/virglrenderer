@@ -535,6 +535,7 @@ void vrend_renderer_blit_gl(struct vrend_context *ctx,
                             const struct pipe_blit_info *info)
 {
    struct vrend_blitter_ctx *blit_ctx = &vrend_blit_ctx;
+   GLuint buffers;
    GLuint prog_id;
    GLuint fs_id;
    GLint lret;
@@ -597,7 +598,8 @@ void vrend_renderer_blit_gl(struct vrend_context *ctx,
    glBindFramebuffer(GL_FRAMEBUFFER_EXT, blit_ctx->fb_id);
    vrend_fb_bind_texture(dst_res, 0, info->dst.level, info->dst.box.z);
 
-   glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
+   buffers = GL_COLOR_ATTACHMENT0_EXT;
+   glDrawBuffers(1, &buffers);
 
    glBindTexture(src_res->target, src_res->id);
 
@@ -635,7 +637,10 @@ void vrend_renderer_blit_gl(struct vrend_context *ctx,
       glBindFramebuffer(GL_FRAMEBUFFER_EXT, blit_ctx->fb_id);
       vrend_fb_bind_texture(dst_res, 0, info->dst.level, dst_z);
 
-      glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
+
+
+      buffers = GL_COLOR_ATTACHMENT0_EXT;
+      glDrawBuffers(1, &buffers);
       blitter_set_texcoords(blit_ctx, src_res, info->src.level,
                             info->src.box.z + src_z, 0,
                             info->src.box.x, info->src.box.y,

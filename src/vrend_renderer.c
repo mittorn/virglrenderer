@@ -4676,6 +4676,8 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
       gltype = tex_conv_table[res->base.format].gltype;
 
       if ((!vrend_state.use_core_profile) && (res->y_0_top)) {
+         GLuint buffers;
+
          if (res->readback_fb_id == 0 || res->readback_fb_level != info->level) {
             GLuint fb_id;
             if (res->readback_fb_id)
@@ -4690,7 +4692,9 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
          } else {
             glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, res->readback_fb_id);
          }
-         glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
+
+         buffers = GL_COLOR_ATTACHMENT0_EXT;
+         glDrawBuffers(1, &buffers);
          vrend_blend_enable(ctx, false);
          vrend_depth_test_enable(ctx, false);
          vrend_alpha_test_enable(ctx, false);
