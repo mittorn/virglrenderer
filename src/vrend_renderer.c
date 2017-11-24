@@ -61,6 +61,9 @@
 /* debugging aid to dump shaders */
 int vrend_dump_shaders;
 
+/* debugging via KHR_debug extension */
+int vrend_use_debug_cb = 0;
+
 struct vrend_if_cbs *vrend_clicbs;
 
 struct vrend_fence {
@@ -3813,6 +3816,17 @@ static void vrend_renderer_use_threaded_sync(void)
 }
 #endif
 
+static void vrend_debug_cb(GLenum source, GLenum type, GLuint id,
+                           GLenum severity, GLsizei length,
+                           const GLchar* message, const void* userParam)
+{
+   if (type != GL_DEBUG_TYPE_ERROR) {
+      return;
+   }
+
+   fprintf(stderr, "ERROR: %s\n", message);
+}
+
 int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
 {
    int gl_ver;
@@ -3832,6 +3846,13 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
    gl_context = vrend_clicbs->create_gl_context(0, &ctx_params);
    vrend_clicbs->make_current(0, gl_context);
    gl_ver = epoxy_gl_version();
+
+   /* enable error output as early as possible */
+   if (vrend_use_debug_cb && epoxy_has_gl_extension("GL_KHR_debug")) {
+      glDebugMessageCallback(vrend_debug_cb, NULL);
+      glEnable(GL_DEBUG_OUTPUT);
+      glDisable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+   }
 
    vrend_state.gl_major_ver = gl_ver / 10;
    vrend_state.gl_minor_ver = gl_ver % 10;
