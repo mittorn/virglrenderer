@@ -89,7 +89,7 @@ if test "x$build_tests" = "xyes"; then
 fi
 
 AC_CHECK_FUNCS_ONCE([eventfd])
-AC_CHECK_HEADERS_ONCE([sys/uio.h epoxy/egl.h])
+AC_CHECK_HEADERS_ONCE([sys/uio.h])
 AM_CONDITIONAL(HAVE_VALGRIND, [test "x$VALGRIND" != "x"])
 AM_CONDITIONAL(BUILD_TESTS, [test "x$build_tests" = "xyes"])
 
@@ -101,6 +101,13 @@ if test "x$os_win32" = xno; then
 fi
 
 PKG_CHECK_MODULES([EPOXY], [epoxy])
+PKG_CHECK_VAR(epoxy_has_egl, [epoxy], [epoxy_has_egl])
+AS_IF([test "x$epoxy_has_egl" = "x1"], [
+  epoxy_has_egl=yes
+  AC_DEFINE([HAVE_EPOXY_EGL_H], [1], [Libepoxy has EGL support.])
+],[
+  epoxy_has_egl=no
+])
 
 AC_ARG_WITH([glx], AS_HELP_STRING([--with-glx], [Build with the x11/glx backend]))
 AS_IF([test "x$with_glx" = "xyes"], [
@@ -108,6 +115,7 @@ AS_IF([test "x$with_glx" = "xyes"], [
   AC_CHECK_HEADER([epoxy/glx.h])
 ])
 AM_CONDITIONAL([WITH_GLX], [test "x$with_glx" = "xyes"])
+
 
 AC_SUBST([DEFINES])
 AC_CONFIG_FILES([
@@ -130,6 +138,7 @@ AC_MSG_NOTICE([
       win32:                    $os_win32
 
       glx:                      $with_glx
+      egl:                      $epoxy_has_egl
       debug:                    $enable_debug
       tests:                    $build_tests
 
