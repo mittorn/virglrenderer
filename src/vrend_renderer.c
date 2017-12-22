@@ -504,12 +504,15 @@ static void __report_core_warn(const char *fname, struct vrend_context *ctx, enu
 #define GLES_WARN_POINT_SIZE 4
 #define GLES_WARN_LOD_BIAS 5
 #define GLES_WARN_SRGB_FB 6
+#define GLES_WARN_TEXTURE_RECT 7
 
-static const char *vrend_gles_warn_strings[] = { "None", "Stipple", "Polygon Mode", "Depth Range", "Point Size", "Lod Bias", "SRGB Framebuffer" };
+static const char *vrend_gles_warn_strings[] = { "None", "Stipple", "Polygon Mode", "Depth Range", "Point Size", "Lod Bias", "SRGB Framebuffer", "Texture Rect" };
 
 static void __report_gles_warn(const char *fname, struct vrend_context *ctx, enum virgl_ctx_errors error, uint32_t value)
 {
-   fprintf(stderr,"%s: gles violation reported %d \"%s\" %s %d\n", fname, ctx->ctx_id, ctx->debug_name, vrend_gles_warn_strings[error], value);
+   int id = ctx ? ctx->ctx_id : -1;
+   const char *name = ctx ? ctx->debug_name : "NO_CONTEXT";
+   fprintf(stderr,"%s: gles violation reported %d \"%s\" %s %d\n", fname, id, ctx->debug_name, vrend_gles_warn_strings[error], value);
 }
 #define report_gles_warn(ctx, error, value) __report_gles_warn(__func__, ctx, error, value)
 
@@ -4391,6 +4394,16 @@ int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *a
       struct vrend_texture *gt = (struct vrend_texture *)gr;
       GLenum internalformat, glformat, gltype;
       gr->target = tgsitargettogltarget(args->target, args->nr_samples);
+
+      /* ugly workaround for texture rectangle missing on GLES */
+      if (vrend_state.use_gles && gr->target == GL_TEXTURE_RECTANGLE_NV) {
+         /* for some guests this is the only usage of rect */
+         if (args->width != 1 || args->height != 1) {
+            report_gles_warn(NULL, GLES_WARN_TEXTURE_RECT, 0);
+         }
+         gr->target = GL_TEXTURE_2D;
+      }
+
       glGenTextures(1, &gr->id);
       glBindTexture(gr->target, gr->id);
 
