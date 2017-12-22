@@ -503,8 +503,9 @@ static void __report_core_warn(const char *fname, struct vrend_context *ctx, enu
 #define GLES_WARN_DEPTH_RANGE 3
 #define GLES_WARN_POINT_SIZE 4
 #define GLES_WARN_LOD_BIAS 5
+#define GLES_WARN_SRGB_FB 6
 
-static const char *vrend_gles_warn_strings[] = { "None", "Stipple", "Polygon Mode", "Depth Range", "Point Size", "Lod Bias" };
+static const char *vrend_gles_warn_strings[] = { "None", "Stipple", "Polygon Mode", "Depth Range", "Point Size", "Lod Bias", "SRGB Framebuffer" };
 
 static void __report_gles_warn(const char *fname, struct vrend_context *ctx, enum virgl_ctx_errors error, uint32_t value)
 {
@@ -1495,7 +1496,9 @@ static void vrend_hw_emit_framebuffer_state(struct vrend_context *ctx)
 
    if (ctx->sub->nr_cbufs == 0) {
       glReadBuffer(GL_NONE);
-      glDisable(GL_FRAMEBUFFER_SRGB_EXT);
+      if (!vrend_state.use_gles) {
+         glDisable(GL_FRAMEBUFFER_SRGB_EXT);
+      }
    } else {
       struct vrend_surface *surf = NULL;
       int i;
@@ -1505,9 +1508,15 @@ static void vrend_hw_emit_framebuffer_state(struct vrend_context *ctx)
          }
       }
       if (util_format_is_srgb(surf->format)) {
-         glEnable(GL_FRAMEBUFFER_SRGB_EXT);
+         if (!vrend_state.use_gles) {
+            glEnable(GL_FRAMEBUFFER_SRGB_EXT);
+         } else {
+            report_gles_warn(ctx, GLES_WARN_SRGB_FB, 0);
+         }
       } else {
-         glDisable(GL_FRAMEBUFFER_SRGB_EXT);
+         if (!vrend_state.use_gles) {
+            glDisable(GL_FRAMEBUFFER_SRGB_EXT);
+         }
       }
    }
    glDrawBuffers(ctx->sub->nr_cbufs, buffers);
