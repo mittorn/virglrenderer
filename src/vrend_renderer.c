@@ -98,6 +98,7 @@ struct global_renderer_state {
    struct list_head waiting_query_list;
 
    bool inited;
+   bool use_gles;
    bool use_core_profile;
 
    bool have_debug_cb;
@@ -3830,6 +3831,7 @@ static void vrend_debug_cb(GLenum source, GLenum type, GLuint id,
 
 int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
 {
+   bool gles;
    int gl_ver;
    virgl_gl_context gl_context;
    struct virgl_gl_ctx_param ctx_params;
@@ -3856,9 +3858,18 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
       vrend_state.have_debug_cb = true;
    }
 
+   /* make sure you have the latest version of libepoxy */
+   gles = epoxy_is_desktop_gl() == 0;
+
    vrend_state.gl_major_ver = gl_ver / 10;
    vrend_state.gl_minor_ver = gl_ver % 10;
-   if (gl_ver > 30 && !epoxy_has_gl_extension("GL_ARB_compatibility")) {
+
+   if (gles) {
+      fprintf(stderr, "gl_version %d - es profile enabled\n", gl_ver);
+      vrend_state.use_gles = true;
+      /* for now, makes the rest of the code use the most GLES 3.x like path */
+      vrend_state.use_core_profile = 1;
+   } else if (gl_ver > 30 && !epoxy_has_gl_extension("GL_ARB_compatibility")) {
       fprintf(stderr, "gl_version %d - core profile enabled\n", gl_ver);
       vrend_state.use_core_profile = 1;
    } else {
