@@ -495,6 +495,21 @@ static void __report_core_warn(const char *fname, struct vrend_context *ctx, enu
    fprintf(stderr,"%s: core profile violation reported %d \"%s\" %s %d\n", fname, ctx->ctx_id, ctx->debug_name, vrend_core_profile_warn_strings[error], value);
 }
 #define report_core_warn(ctx, error, value) __report_core_warn(__func__, ctx, error, value)
+
+
+#define GLES_WARN_NONE 0
+#define GLES_WARN_STIPPLE 1
+#define GLES_WARN_POLYGON_MODE 2
+
+static const char *vrend_gles_warn_strings[] = { "None", "Stipple", "Polygon Mode" };
+
+static void __report_gles_warn(const char *fname, struct vrend_context *ctx, enum virgl_ctx_errors error, uint32_t value)
+{
+   fprintf(stderr,"%s: gles violation reported %d \"%s\" %s %d\n", fname, ctx->ctx_id, ctx->debug_name, vrend_gles_warn_strings[error], value);
+}
+#define report_gles_warn(ctx, error, value) __report_gles_warn(__func__, ctx, error, value)
+
+
 static inline bool should_invert_viewport(struct vrend_context *ctx)
 {
    /* if we have a negative viewport then gallium wanted to invert it,
@@ -3382,7 +3397,14 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
          glDisable(GL_RASTERIZER_DISCARD);
    }
 
-   if (vrend_state.use_core_profile == false) {
+   if (vrend_state.use_gles == true) {
+      if (translate_fill(state->fill_front) != GL_FILL) {
+         report_gles_warn(ctx, GLES_WARN_POLYGON_MODE, 0);
+      }
+      if (translate_fill(state->fill_back) != GL_FILL) {
+         report_gles_warn(ctx, GLES_WARN_POLYGON_MODE, 0);
+      }
+   } else if (vrend_state.use_core_profile == false) {
       glPolygonMode(GL_FRONT, translate_fill(state->fill_front));
       glPolygonMode(GL_BACK, translate_fill(state->fill_back));
    } else if (state->fill_front == state->fill_back) {
@@ -3486,8 +3508,12 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
          glEnable(GL_LINE_STIPPLE);
       else
          glDisable(GL_LINE_STIPPLE);
-   } else if (state->line_stipple_enable)
-      report_core_warn(ctx, CORE_PROFILE_WARN_STIPPLE, 0);
+   } else if (state->line_stipple_enable) {
+      if (vrend_state.use_gles)
+         report_core_warn(ctx, GLES_WARN_STIPPLE, 0);
+      else
+         report_core_warn(ctx, CORE_PROFILE_WARN_STIPPLE, 0);
+   }
 
    if (state->line_smooth)
       glEnable(GL_LINE_SMOOTH);
