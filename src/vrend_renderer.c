@@ -500,8 +500,9 @@ static void __report_core_warn(const char *fname, struct vrend_context *ctx, enu
 #define GLES_WARN_NONE 0
 #define GLES_WARN_STIPPLE 1
 #define GLES_WARN_POLYGON_MODE 2
+#define GLES_WARN_DEPTH_RANGE 3
 
-static const char *vrend_gles_warn_strings[] = { "None", "Stipple", "Polygon Mode" };
+static const char *vrend_gles_warn_strings[] = { "None", "Stipple", "Polygon Mode", "Depth Range" };
 
 static void __report_gles_warn(const char *fname, struct vrend_context *ctx, enum virgl_ctx_errors error, uint32_t value)
 {
@@ -1658,7 +1659,16 @@ void vrend_set_viewport_states(struct vrend_context *ctx,
           ctx->sub->vps[idx].far_val != far_val) {
          ctx->sub->vps[idx].near_val = near_val;
          ctx->sub->vps[idx].far_val = far_val;
-         if (idx)
+
+         if (vrend_state.use_gles) {
+            if (near_val < 0.0f || far_val < 0.0f ||
+                near_val > 1.0f || far_val > 1.0f || idx) {
+               report_gles_warn(ctx, GLES_WARN_DEPTH_RANGE, 0);
+            }
+
+            /* Best effort despite the warning, gles will clamp. */
+            glDepthRangef(ctx->sub->vps[idx].near_val, ctx->sub->vps[idx].far_val);
+         } else if (idx)
             glDepthRangeIndexed(idx, ctx->sub->vps[idx].near_val, ctx->sub->vps[idx].far_val);
          else
             glDepthRange(ctx->sub->vps[idx].near_val, ctx->sub->vps[idx].far_val);
