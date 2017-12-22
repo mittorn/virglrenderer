@@ -100,6 +100,7 @@ struct global_renderer_state {
    bool inited;
    bool use_core_profile;
 
+   bool have_debug_cb;
    bool have_mesa_invert;
    bool have_samplers;
    bool have_robustness;
@@ -3852,6 +3853,7 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
       glDebugMessageCallback(vrend_debug_cb, NULL);
       glEnable(GL_DEBUG_OUTPUT);
       glDisable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+      vrend_state.have_debug_cb = true;
    }
 
    vrend_state.gl_major_ver = gl_ver / 10;
@@ -3901,7 +3903,17 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
    vrend_object_set_destroy_callback(VIRGL_OBJECT_SAMPLER_STATE, vrend_destroy_sampler_state_object);
    vrend_object_set_destroy_callback(VIRGL_OBJECT_VERTEX_ELEMENTS, vrend_destroy_vertex_elements_object);
 
+   /* disable for format testing, spews a lot of errors */
+   if (vrend_state.have_debug_cb) {
+      glDisable(GL_DEBUG_OUTPUT);
+   }
+
    vrend_build_format_list();
+
+   /* disable for format testing */
+   if (vrend_state.have_debug_cb) {
+      glDisable(GL_DEBUG_OUTPUT);
+   }
 
    vrend_clicbs->destroy_gl_context(gl_context);
    list_inithead(&vrend_state.fence_list);
@@ -6448,6 +6460,13 @@ void vrend_renderer_create_sub_ctx(struct vrend_context *ctx, int sub_ctx_id)
    ctx_params.minor_ver = vrend_state.gl_minor_ver;
    sub->gl_context = vrend_clicbs->create_gl_context(0, &ctx_params);
    vrend_clicbs->make_current(0, sub->gl_context);
+
+   /* enable if vrend_renderer_init function has done it as well */
+   if (vrend_state.have_debug_cb) {
+      glDebugMessageCallback(vrend_debug_cb, NULL);
+      glEnable(GL_DEBUG_OUTPUT);
+      glDisable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+   }
 
    sub->sub_ctx_id = sub_ctx_id;
 
