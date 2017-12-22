@@ -497,6 +497,13 @@ START_TEST(virgl_test_render_geom_simple)
     ret = testvirgl_init_ctx_cmdbuf(&ctx);
     ck_assert_int_eq(ret, 0);
 
+    /* Geometry shader are only available since GLSL 150 */
+    uint32_t glsl_level = testvirgl_get_glsl_level_from_caps();
+    if (glsl_level < 150) {
+      testvirgl_fini_ctx_cmdbuf(&ctx);
+      return;
+    }
+
     /* init and create simple 2D resource */
     ret = testvirgl_create_backed_simple_2d_res(&res, 1, tw, th);
     ck_assert_int_eq(ret, 0);

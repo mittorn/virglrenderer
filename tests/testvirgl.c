@@ -32,6 +32,7 @@
 #include "util/u_format.h"
 #include "testvirgl.h"
 
+#include "virgl_hw.h"
 #include "virglrenderer.h"
 
 void testvirgl_init_simple_1d_resource(struct virgl_renderer_resource_create_args *res, int handle)
@@ -264,4 +265,26 @@ int testvirgl_create_backed_simple_buffer(struct virgl_resource *res,
 
     virgl_renderer_resource_attach_iov(res->handle, res->iovs, res->niovs);
     return 0;
+}
+
+uint32_t testvirgl_get_glsl_level_from_caps(void)
+{
+  uint32_t max_ver, max_size, glsl_level;
+  void *caps;
+
+  virgl_renderer_get_cap_set(1, &max_ver, &max_size);
+  ck_assert_int_eq(max_ver, 1);
+  ck_assert_int_ne(max_size, 0);
+  ck_assert_int_eq(max_size, sizeof(struct virgl_caps_v1));
+
+  caps = malloc(max_size);
+
+  virgl_renderer_fill_caps(0, 0, caps);
+
+  struct virgl_caps_v1 *v1 = (struct virgl_caps_v1*) caps;
+  glsl_level = v1->glsl_level;
+
+  free(caps);
+
+  return glsl_level;
 }
