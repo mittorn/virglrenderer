@@ -260,6 +260,13 @@ START_TEST(virgl_res_tests)
   ret = testvirgl_init_single_ctx();
   ck_assert_int_eq(ret, 0);
 
+  /* Do not test if multisample is not available */
+  unsigned multisample = testvirgl_get_multisample_from_caps();
+  if (!multisample) {
+    testvirgl_fini_single_ctx();
+    return;
+  }
+
   ret = virgl_renderer_resource_create(&testlist[_i].args, NULL, 0);
   ck_assert_int_eq(ret, testlist[_i].retval);
 

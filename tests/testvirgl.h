@@ -78,4 +78,5 @@ int testvirgl_create_backed_simple_buffer(struct virgl_resource *res,
 					  int handle, int size, int bind);
 void testvirgl_destroy_backed_res(struct virgl_resource *res);
 uint32_t testvirgl_get_glsl_level_from_caps(void);
+unsigned testvirgl_get_multisample_from_caps(void);
 #endif
