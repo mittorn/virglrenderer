@@ -501,8 +501,9 @@ static void __report_core_warn(const char *fname, struct vrend_context *ctx, enu
 #define GLES_WARN_STIPPLE 1
 #define GLES_WARN_POLYGON_MODE 2
 #define GLES_WARN_DEPTH_RANGE 3
+#define GLES_WARN_POINT_SIZE 4
 
-static const char *vrend_gles_warn_strings[] = { "None", "Stipple", "Polygon Mode", "Depth Range" };
+static const char *vrend_gles_warn_strings[] = { "None", "Stipple", "Polygon Mode", "Depth Range", "Point Size" };
 
 static void __report_gles_warn(const char *fname, struct vrend_context *ctx, enum virgl_ctx_errors error, uint32_t value)
 {
@@ -3391,12 +3392,20 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
       glEnable(GL_DEPTH_CLAMP);
    }
 
-   if (state->point_size_per_vertex) {
+   if (vrend_state.use_gles) {
+      /* guest send invalid glPointSize parameter */
+      if (!state->point_size_per_vertex &&
+          state->point_size != 1.0f &&
+          state->point_size != 0.0f) {
+         report_gles_warn(ctx, GLES_WARN_POINT_SIZE, 0);
+      }
+   } else if (state->point_size_per_vertex) {
       glEnable(GL_PROGRAM_POINT_SIZE);
    } else {
       glDisable(GL_PROGRAM_POINT_SIZE);
-      if (state->point_size)
+      if (state->point_size) {
          glPointSize(state->point_size);
+      }
    }
 
    if (state->rasterizer_discard != ctx->sub->hw_rs_state.rasterizer_discard) {
