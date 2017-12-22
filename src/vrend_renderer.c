@@ -106,6 +106,7 @@ struct global_renderer_state {
    bool have_samplers;
    bool have_gles_khr_robustness;
    bool have_arb_robustness;
+   bool have_arb_or_gles_ext_texture_buffer;
    bool have_multisample;
    bool have_ms_scaled_blit;
    bool have_nv_prim_restart;
@@ -3885,6 +3886,14 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
       fprintf(stderr,"WARNING: running without ARB/KHR robustness in place may crash\n");
    }
 
+   /* used for buffers that we want to texture from */
+   if (epoxy_has_gl_extension("GL_ARB_texture_buffer_object")) {
+      vrend_state.have_arb_or_gles_ext_texture_buffer = true;
+   }
+   if (gles && epoxy_has_gl_extension("GL_EXT_texture_buffer")) {
+      vrend_state.have_arb_or_gles_ext_texture_buffer = true;
+   }
+
    if (epoxy_has_gl_extension("GL_MESA_pack_invert"))
       vrend_state.have_mesa_invert = true;
    if (gl_ver >= 43 || epoxy_has_gl_extension("GL_ARB_vertex_attrib_binding"))
@@ -4284,8 +4293,17 @@ int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *a
       glBufferData(gr->target, args->width, NULL, GL_STREAM_DRAW);
    } else if (args->target == PIPE_BUFFER && (args->bind & VREND_RES_BIND_SAMPLER_VIEW)) {
       GLenum internalformat;
+
+      /*
+       * On Desktop we use GL_ARB_texture_buffer_object on GLES we use
+       * GL_EXT_texture_buffer (it is in the ANDRIOD extension pack).
+       */
+#if GL_TEXTURE_BUFFER != GL_TEXTURE_BUFFER_EXT
+#error "GL_TEXTURE_BUFFER enums differ, they shouldn't."
+#endif
+
       /* need to check GL version here */
-      if (epoxy_has_gl_extension("GL_ARB_texture_buffer_object")) {
+      if (vrend_state.have_arb_or_gles_ext_texture_buffer) {
          gr->target = GL_TEXTURE_BUFFER;
          glGenBuffersARB(1, &gr->id);
          glBindBufferARB(gr->target, gr->id);
