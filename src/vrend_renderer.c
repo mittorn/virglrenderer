@@ -502,8 +502,9 @@ static void __report_core_warn(const char *fname, struct vrend_context *ctx, enu
 #define GLES_WARN_POLYGON_MODE 2
 #define GLES_WARN_DEPTH_RANGE 3
 #define GLES_WARN_POINT_SIZE 4
+#define GLES_WARN_LOD_BIAS 5
 
-static const char *vrend_gles_warn_strings[] = { "None", "Stipple", "Polygon Mode", "Depth Range", "Point Size" };
+static const char *vrend_gles_warn_strings[] = { "None", "Stipple", "Polygon Mode", "Depth Range", "Point Size", "Lod Bias" };
 
 static void __report_gles_warn(const char *fname, struct vrend_context *ctx, enum virgl_ctx_errors error, uint32_t value)
 {
@@ -1257,9 +1258,15 @@ int vrend_create_sampler_state(struct vrend_context *ctx,
       glSamplerParameterf(state->id, GL_TEXTURE_MAG_FILTER, convert_mag_filter(templ->mag_img_filter));
       glSamplerParameterf(state->id, GL_TEXTURE_MIN_LOD, templ->min_lod);
       glSamplerParameterf(state->id, GL_TEXTURE_MAX_LOD, templ->max_lod);
-      glSamplerParameterf(state->id, GL_TEXTURE_LOD_BIAS, templ->lod_bias);
       glSamplerParameteri(state->id, GL_TEXTURE_COMPARE_MODE, templ->compare_mode ? GL_COMPARE_R_TO_TEXTURE : GL_NONE);
       glSamplerParameteri(state->id, GL_TEXTURE_COMPARE_FUNC, GL_NEVER + templ->compare_func);
+      if (vrend_state.use_gles) {
+         if (templ->lod_bias != 0.0f) {
+            report_gles_warn(ctx, GLES_WARN_LOD_BIAS, 0);
+         }
+      } else {
+         glSamplerParameterf(state->id, GL_TEXTURE_LOD_BIAS, templ->lod_bias);
+      }
 
       glSamplerParameterIuiv(state->id, GL_TEXTURE_BORDER_COLOR, templ->border_color.ui);
    }
@@ -3679,8 +3686,15 @@ static void vrend_apply_sampler_state(struct vrend_context *ctx,
          glTexParameterf(target, GL_TEXTURE_MIN_LOD, state->min_lod);
       if (tex->state.max_lod != state->max_lod || set_all)
          glTexParameterf(target, GL_TEXTURE_MAX_LOD, state->max_lod);
-      if (tex->state.lod_bias != state->lod_bias || set_all)
-         glTexParameterf(target, GL_TEXTURE_LOD_BIAS, state->lod_bias);
+      if (tex->state.lod_bias != state->lod_bias || set_all) {
+         if (vrend_state.use_gles) {
+            if (state->lod_bias) {
+               report_gles_warn(ctx, GLES_WARN_LOD_BIAS, 0);
+            }
+         } else {
+            glTexParameterf(target, GL_TEXTURE_LOD_BIAS, state->lod_bias);
+         }
+      }
    }
 
    if (tex->state.compare_mode != state->compare_mode || set_all)
