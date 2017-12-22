@@ -104,7 +104,8 @@ struct global_renderer_state {
    bool have_debug_cb;
    bool have_mesa_invert;
    bool have_samplers;
-   bool have_robustness;
+   bool have_gles_khr_robustness;
+   bool have_arb_robustness;
    bool have_multisample;
    bool have_ms_scaled_blit;
    bool have_nv_prim_restart;
@@ -3876,10 +3877,13 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
       fprintf(stderr, "gl_version %d - compat profile\n", gl_ver);
    }
 
-   if (epoxy_has_gl_extension("GL_ARB_robustness"))
-      vrend_state.have_robustness = true;
-   else
-      fprintf(stderr,"WARNING: running without ARB robustness in place may crash\n");
+   if (epoxy_has_gl_extension("GL_ARB_robustness")) {
+      vrend_state.have_arb_robustness = true;
+   } else if (gles && epoxy_has_gl_extension("GL_KHR_robustness")) {
+      vrend_state.have_gles_khr_robustness = true;
+   } else {
+      fprintf(stderr,"WARNING: running without ARB/KHR robustness in place may crash\n");
+   }
 
    if (epoxy_has_gl_extension("GL_MESA_pack_invert"))
       vrend_state.have_mesa_invert = true;
@@ -4888,12 +4892,12 @@ static int vrend_transfer_send_getteximage(struct vrend_context *ctx,
       target = res->target;
 
    if (compressed) {
-      if (vrend_state.have_robustness)
+      if (vrend_state.have_arb_robustness)
          glGetnCompressedTexImageARB(target, info->level, tex_size, data);
       else
          glGetCompressedTexImage(target, info->level, data);
    } else {
-      if (vrend_state.have_robustness)
+      if (vrend_state.have_arb_robustness)
          glGetnTexImageARB(target, info->level, format, type, tex_size, data);
       else
          glGetTexImage(target, info->level, format, type, data);
@@ -5003,8 +5007,10 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
          glPixelTransferf(GL_DEPTH_SCALE, depth_scale);
       }
    }
-   if (vrend_state.have_robustness)
+   if (vrend_state.have_arb_robustness)
       glReadnPixelsARB(info->box->x, y1, info->box->width, info->box->height, format, type, send_size, data);
+   else if (vrend_state.have_gles_khr_robustness)
+      glReadnPixelsKHR(info->box->x, y1, info->box->width, info->box->height, format, type, send_size, data);
    else
       glReadPixels(info->box->x, y1, info->box->width, info->box->height, format, type, data);
 
@@ -5385,12 +5391,12 @@ static void vrend_resource_copy_fallback(struct vrend_context *ctx,
    for (i = 0; i < cube_slice; i++) {
       GLenum ctarget = src_res->target == GL_TEXTURE_CUBE_MAP ? GL_TEXTURE_CUBE_MAP_POSITIVE_X + i : src_res->target;
       if (compressed) {
-         if (vrend_state.have_robustness)
+         if (vrend_state.have_arb_robustness)
             glGetnCompressedTexImageARB(ctarget, src_level, transfer_size, tptr + slice_offset);
          else
             glGetCompressedTexImage(ctarget, src_level, tptr + slice_offset);
       } else {
-         if (vrend_state.have_robustness)
+         if (vrend_state.have_arb_robustness)
             glGetnTexImageARB(ctarget, src_level, glformat, gltype, transfer_size, tptr + slice_offset);
          else
             glGetTexImage(ctarget, src_level, glformat, gltype, tptr + slice_offset);
