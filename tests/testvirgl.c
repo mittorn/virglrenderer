@@ -267,47 +267,42 @@ int testvirgl_create_backed_simple_buffer(struct virgl_resource *res,
     return 0;
 }
 
+static void *get_caps(void)
+{
+    uint32_t max_ver, max_size, glsl_level;
+    void *caps;
+
+    virgl_renderer_get_cap_set(1, &max_ver, &max_size);
+    ck_assert_int_eq(max_ver, 1);
+    ck_assert_int_ne(max_size, 0);
+    ck_assert_int_eq(max_size, sizeof(struct virgl_caps_v1));
+    caps = malloc(max_size);
+
+    virgl_renderer_fill_caps(0, 0, caps);
+    return caps;
+}
+
 uint32_t testvirgl_get_glsl_level_from_caps(void)
 {
-  uint32_t max_ver, max_size, glsl_level;
-  void *caps;
+    uint32_t glsl_level;
+    void *caps = get_caps();
+    struct virgl_caps_v1 *v1 = (struct virgl_caps_v1*) caps;
+    glsl_level = v1->glsl_level;
 
-  virgl_renderer_get_cap_set(1, &max_ver, &max_size);
-  ck_assert_int_eq(max_ver, 1);
-  ck_assert_int_ne(max_size, 0);
-  ck_assert_int_eq(max_size, sizeof(struct virgl_caps_v1));
+    free(caps);
 
-  caps = malloc(max_size);
-
-  virgl_renderer_fill_caps(0, 0, caps);
-
-  struct virgl_caps_v1 *v1 = (struct virgl_caps_v1*) caps;
-  glsl_level = v1->glsl_level;
-
-  free(caps);
-
-  return glsl_level;
+    return glsl_level;
 }
 
 unsigned testvirgl_get_multisample_from_caps(void)
 {
-  uint32_t max_ver, max_size;
-  unsigned multisample;
-  void *caps;
+    void *caps = get_caps();
+    unsigned multisample;
 
-  virgl_renderer_get_cap_set(1, &max_ver, &max_size);
-  ck_assert_int_eq(max_ver, 1);
-  ck_assert_int_ne(max_size, 0);
-  ck_assert_int_eq(max_size, sizeof(struct virgl_caps_v1));
+    struct virgl_caps_v1 *v1 = (struct virgl_caps_v1*) caps;
+    multisample = v1->bset.texture_multisample;
 
-  caps = malloc(max_size);
+    free(caps);
 
-  virgl_renderer_fill_caps(0, 0, caps);
-
-  struct virgl_caps_v1 *v1 = (struct virgl_caps_v1*) caps;
-  multisample = v1->bset.texture_multisample;
-
-  free(caps);
-
-  return multisample;
+    return multisample;
 }
