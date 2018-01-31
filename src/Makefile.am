@@ -33,7 +33,7 @@ libvrend_la_SOURCES = \
         vrend_blitter.h \
         iov.c
 
-if !OS_WIN32
+if HAVE_EPOXY_EGL
 libvrend_la_SOURCES += \
         virgl_egl.h \
         virgl_egl_context.c

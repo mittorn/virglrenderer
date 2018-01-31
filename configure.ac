@@ -75,6 +75,8 @@ AC_ARG_ENABLE(tests,
 	      [build_tests="$enableval"],
 	      [build_tests="auto"])
 
+AC_ARG_ENABLE([egl], AS_HELP_STRING([--disable-egl], [Disable EGL]))
+
 PKG_CHECK_MODULES(CHECK, [check >= 0.9.4], [HAVE_CHECK="yes"], [HAVE_CHECK="no"])
 
 if test "x$build_tests" = "xauto" && test "x$os_win32" = "xno"; then
@@ -95,19 +97,30 @@ AM_CONDITIONAL(BUILD_TESTS, [test "x$build_tests" = "xyes"])
 
 LIBDRM_REQUIRED=2.4.50
 
-if test "x$os_win32" = xno; then
-    PKG_CHECK_MODULES([LIBDRM], [libdrm >= $LIBDRM_REQUIRED])
-    PKG_CHECK_MODULES([GBM], [gbm])
+if test "x$os_win32" = xno && test "x$enable_egl" != "xno"; then
+	PKG_CHECK_MODULES([LIBDRM], [libdrm >= $LIBDRM_REQUIRED])
+	PKG_CHECK_MODULES([GBM], [gbm])
 fi
 
 PKG_CHECK_MODULES([EPOXY], [epoxy])
 PKG_CHECK_VAR(epoxy_has_egl, [epoxy], [epoxy_has_egl])
-AS_IF([test "x$epoxy_has_egl" = "x1"], [
+AS_IF([test "x$epoxy_has_egl" = "x1" && test "x$enable_egl" != "xno"], [
   epoxy_has_egl=yes
   AC_DEFINE([HAVE_EPOXY_EGL_H], [1], [Libepoxy has EGL support.])
 ],[
   epoxy_has_egl=no
 ])
+AM_CONDITIONAL([HAVE_EPOXY_EGL], [test "x$epoxy_has_egl" = "xyes"])
+
+if test "x$os_win32" = xno; then
+	AS_IF([test "x$epoxy_has_egl" = "x1"], [
+		PKG_CHECK_MODULES([LIBDRM], [libdrm >= $LIBDRM_REQUIRED])
+		PKG_CHECK_MODULES([GBM], [gbm])
+	])
+fi
+
+
+AM_CONDITIONAL([HAVE_EPOXY_EGL], [test "x$epoxy_has_egl" = "xyes"])
 
 AC_ARG_WITH([glx], AS_HELP_STRING([--with-glx], [Build with the x11/glx backend]))
 AS_IF([test "x$with_glx" = "xyes"], [
