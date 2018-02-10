@@ -6239,6 +6239,7 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
 {
    int i;
    GLint max;
+   GLfloat range[2];
    int gl_ver = epoxy_gl_version();
 
    if (!caps)
@@ -6251,7 +6252,7 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
       return;
    }
 
-   caps->max_version = 1;
+   caps->max_version = 2;
 
    caps->v1.bset.occlusion_query = 1;
    if (gl_ver >= 30) {
@@ -6412,6 +6413,40 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
          }
       }
    }
+
+   glGetFloatv(GL_ALIASED_POINT_SIZE_RANGE, range);
+   caps->v2.min_aliased_point_size = range[0];
+   caps->v2.max_aliased_point_size = range[1];
+
+   glGetFloatv(GL_SMOOTH_POINT_SIZE_RANGE, range);
+   caps->v2.min_smooth_point_size = range[0];
+   caps->v2.max_smooth_point_size = range[1];
+
+   glGetFloatv(GL_ALIASED_LINE_WIDTH_RANGE, range);
+   caps->v2.min_aliased_line_width = range[0];
+   caps->v2.max_aliased_line_width = range[1];
+
+   glGetFloatv(GL_SMOOTH_LINE_WIDTH_RANGE, range);
+   caps->v2.min_smooth_line_width = range[0];
+   caps->v2.max_smooth_line_width = range[1];
+
+   glGetFloatv(GL_MAX_TEXTURE_LOD_BIAS, &caps->v2.max_texture_lod_bias);
+   glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, &caps->v2.max_vertex_attribs);
+   glGetIntegerv(GL_MAX_VERTEX_OUTPUT_COMPONENTS, &max);
+   caps->v2.max_vertex_outputs = max / 4;
+
+   if (gl_ver >= 32) {
+      glGetIntegerv(GL_MAX_GEOMETRY_OUTPUT_VERTICES, &caps->v2.max_geom_output_vertices);
+      glGetIntegerv(GL_MAX_GEOMETRY_TOTAL_OUTPUT_COMPONENTS, &caps->v2.max_geom_total_output_components);
+   }
+   caps->v2.max_shader_patch_varyings = 0; // until we do tess.
+
+   if (epoxy_has_gl_extension("GL_ARB_texture_gather")) {
+       glGetIntegerv(GL_MIN_PROGRAM_TEXTURE_GATHER_OFFSET, &caps->v2.min_texture_gather_offset);
+       glGetIntegerv(GL_MAX_PROGRAM_TEXTURE_GATHER_OFFSET, &caps->v2.max_texture_gather_offset);
+   }
+   glGetIntegerv(GL_MIN_PROGRAM_TEXEL_OFFSET, &caps->v2.min_texel_offset);
+   glGetIntegerv(GL_MAX_PROGRAM_TEXEL_OFFSET, &caps->v2.max_texel_offset);
 }
 
 GLint64 vrend_renderer_get_timestamp(void)
@@ -6583,7 +6618,7 @@ void vrend_renderer_get_cap_set(uint32_t cap_set, uint32_t *max_ver,
       return;
    }
 
-   *max_ver = 1;
+   *max_ver = 2;
    *max_size = sizeof(union virgl_caps);
 }
 
