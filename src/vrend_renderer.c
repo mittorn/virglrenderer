@@ -3458,6 +3458,8 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
       }
    }
 
+   glLineWidth(state->line_width);
+
    if (state->rasterizer_discard != ctx->sub->hw_rs_state.rasterizer_discard) {
       ctx->sub->hw_rs_state.rasterizer_discard = state->rasterizer_discard;
       if (state->rasterizer_discard)
