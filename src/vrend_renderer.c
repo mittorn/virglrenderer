@@ -2413,6 +2413,17 @@ void vrend_clear(struct vrend_context *ctx,
       } else {
          glClearColor(color->f[0], color->f[1], color->f[2], color->f[3]);
       }
+
+      /* This function implements Gallium's full clear callback (st->pipe->clear) on the host. This
+         callback requires no color component be masked. We must unmask all components before
+         calling glClear* and restore the previous colormask afterwards, as Gallium expects. */
+      if (ctx->sub->hw_blend_state.independent_blend_enable) {
+         /* ARB_draw_buffers_blend is required for this */
+         int i;
+         for (i = 0; i < PIPE_MAX_COLOR_BUFS; i++)
+            glColorMaskIndexedEXT(i, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+      } else
+         glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
    }
 
    if (buffers & PIPE_CLEAR_DEPTH) {
@@ -2460,6 +2471,26 @@ void vrend_clear(struct vrend_context *ctx,
    if (buffers & PIPE_CLEAR_DEPTH)
       if (!ctx->sub->dsa_state.depth.writemask)
          glDepthMask(GL_FALSE);
+
+   /* Restore previous colormask */
+   if (buffers & PIPE_CLEAR_COLOR) {
+      if (ctx->sub->hw_blend_state.independent_blend_enable) {
+         /* ARB_draw_buffers_blend is required for this */
+         int i;
+         for (i = 0; i < PIPE_MAX_COLOR_BUFS; i++) {
+            struct pipe_blend_state *blend = &ctx->sub->hw_blend_state;
+            glColorMaskIndexedEXT(i, blend->rt[i].colormask & PIPE_MASK_R ? GL_TRUE : GL_FALSE,
+                                  blend->rt[i].colormask & PIPE_MASK_G ? GL_TRUE : GL_FALSE,
+                                  blend->rt[i].colormask & PIPE_MASK_B ? GL_TRUE : GL_FALSE,
+                                  blend->rt[i].colormask & PIPE_MASK_A ? GL_TRUE : GL_FALSE);
+         }
+      } else {
+         glColorMask(ctx->sub->hw_blend_state.rt[0].colormask & PIPE_MASK_R ? GL_TRUE : GL_FALSE,
+                     ctx->sub->hw_blend_state.rt[0].colormask & PIPE_MASK_G ? GL_TRUE : GL_FALSE,
+                     ctx->sub->hw_blend_state.rt[0].colormask & PIPE_MASK_B ? GL_TRUE : GL_FALSE,
+                     ctx->sub->hw_blend_state.rt[0].colormask & PIPE_MASK_A ? GL_TRUE : GL_FALSE);
+      }
+   }
 }
 
 static void vrend_update_scissor_state(struct vrend_context *ctx)
