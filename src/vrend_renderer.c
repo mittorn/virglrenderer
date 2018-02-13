@@ -6545,8 +6545,41 @@ void *vrend_renderer_get_cursor_contents(uint32_t res_handle, uint32_t *width, u
       return NULL;
    }
 
-   glBindTexture(res->target, res->id);
-   glGetnTexImageARB(res->target, 0, format, type, size, data);
+   if (vrend_state.have_arb_robustness) {
+      glBindTexture(res->target, res->id);
+      glGetnTexImageARB(res->target, 0, format, type, size, data);
+   } else if (vrend_state.use_gles) {
+      GLuint fb_id;
+
+      if (res->readback_fb_id == 0 || res->readback_fb_level != 0 || res->readback_fb_z != 0) {
+
+         if (res->readback_fb_id)
+            glDeleteFramebuffers(1, &res->readback_fb_id);
+
+         glGenFramebuffers(1, &fb_id);
+         glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fb_id);
+
+         vrend_fb_bind_texture(res, 0, 0, 0);
+
+         res->readback_fb_id = fb_id;
+         res->readback_fb_level = 0;
+         res->readback_fb_z = 0;
+      } else {
+         glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, res->readback_fb_id);
+      }
+
+      if (vrend_state.have_arb_robustness) {
+         glReadnPixelsARB(0, 0, *width, *height, format, type, size, data);
+      } else if (vrend_state.have_gles_khr_robustness) {
+         glReadnPixelsKHR(0, 0, *width, *height, format, type, size, data);
+      } else {
+         glReadPixels(0, 0, *width, *height, format, type, data);
+      }
+
+   } else {
+      glBindTexture(res->target, res->id);
+      glGetTexImage(res->target, 0, format, type, data);
+   }
 
    for (h = 0; h < res->base.height0; h++) {
       uint32_t doff = (res->base.height0 - h - 1) * res->base.width0 * blsize;
