@@ -254,6 +254,10 @@ static struct vrend_format_table gles_bgra_formats[] = {
   { VIRGL_FORMAT_B8G8R8A8_UNORM, GL_BGRA_EXT, GL_BGRA_EXT, GL_UNSIGNED_BYTE, 0 },
 };
 
+static struct vrend_format_table gles_z32_format[] = {
+  { VIRGL_FORMAT_Z32_UNORM, GL_DEPTH_COMPONENT24, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, 0 },
+};
+
 static void vrend_add_formats(struct vrend_format_table *table, int num_entries)
 {
   int i;
@@ -386,4 +390,11 @@ void vrend_build_format_list_gles(void)
    * GL_BGRA_EXT format is not supported by OpenGL Desktop.
    */
   add_formats(gles_bgra_formats);
+
+
+  /* The Z32 format is required, but OpenGL ES does not support
+   * using it as a depth buffer. We just fake support with Z24
+   * and hope nobody notices.
+   */
+  add_formats(gles_z32_format);
 }
