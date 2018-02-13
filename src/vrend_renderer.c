@@ -4074,7 +4074,11 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
       glDisable(GL_DEBUG_OUTPUT);
    }
 
-   vrend_build_format_list();
+   if (vrend_state.use_gles) {
+      vrend_build_format_list_gles();
+   } else {
+      vrend_build_format_list();
+   }
 
    /* disable for format testing */
    if (vrend_state.have_debug_cb) {

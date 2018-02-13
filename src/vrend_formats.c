@@ -249,6 +249,11 @@ static struct vrend_format_table bptc_formats[] = {
    { VIRGL_FORMAT_BPTC_RGB_UFLOAT, GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT, GL_RGB, GL_UNSIGNED_BYTE },
 };
 
+static struct vrend_format_table gles_bgra_formats[] = {
+  { VIRGL_FORMAT_B8G8R8X8_UNORM, GL_BGRA_EXT, GL_BGRA_EXT, GL_UNSIGNED_BYTE, 0 },
+  { VIRGL_FORMAT_B8G8R8A8_UNORM, GL_BGRA_EXT, GL_BGRA_EXT, GL_UNSIGNED_BYTE, 0 },
+};
+
 static void vrend_add_formats(struct vrend_format_table *table, int num_entries)
 {
   int i;
@@ -369,4 +374,16 @@ void vrend_build_format_list(void)
   add_formats(exponent_float_formats);
 
   add_formats(bptc_formats);
+}
+
+void vrend_build_format_list_gles(void)
+{
+  vrend_build_format_list();
+
+  /* The BGR[A|X] formats is required but OpenGL ES does not
+   * support rendering to it. Try to use GL_BGRA_EXT from the
+   * GL_EXT_texture_format_BGRA8888 extension. But the
+   * GL_BGRA_EXT format is not supported by OpenGL Desktop.
+   */
+  add_formats(gles_bgra_formats);
 }
