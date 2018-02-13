@@ -2885,7 +2885,7 @@ void vrend_draw_vbo(struct vrend_context *ctx,
          same_prog = false;
       if (ctx->sub->shaders[PIPE_SHADER_FRAGMENT]->current->id != ctx->sub->prog_ids[PIPE_SHADER_FRAGMENT])
          same_prog = false;
-      if (ctx->sub->shaders[PIPE_SHADER_GEOMETRY] && ctx->sub->shaders[PIPE_SHADER_FRAGMENT]->current->id != ctx->sub->prog_ids[PIPE_SHADER_FRAGMENT])
+      if (ctx->sub->shaders[PIPE_SHADER_GEOMETRY] && ctx->sub->shaders[PIPE_SHADER_GEOMETRY]->current->id != ctx->sub->prog_ids[PIPE_SHADER_GEOMETRY])
          same_prog = false;
 
       if (!same_prog) {
