@@ -4117,6 +4117,8 @@ vrend_renderer_fini(void)
    vrend_object_fini_resource_table();
    vrend_decode_reset(true);
 
+   vrend_state.current_ctx = NULL;
+   vrend_state.current_hw_ctx = NULL;
    vrend_state.inited = false;
 }
 
