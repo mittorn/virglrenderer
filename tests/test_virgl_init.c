@@ -280,9 +280,9 @@ START_TEST(virgl_init_get_caps_set1)
   ck_assert_int_eq(ret, 0);
 
   virgl_renderer_get_cap_set(1, &max_ver, &max_size);
-  ck_assert_int_eq(max_ver, 1);
+  ck_assert_int_ge(max_ver, 1);
   ck_assert_int_ne(max_size, 0);
-  ck_assert_int_eq(max_size, sizeof(struct virgl_caps_v1));
+  ck_assert_int_ge(max_size, sizeof(struct virgl_caps_v1));
 
   caps = malloc(max_size);
 
@@ -303,9 +303,9 @@ START_TEST(virgl_init_get_caps_null)
   ck_assert_int_eq(ret, 0);
 
   virgl_renderer_get_cap_set(1, &max_ver, &max_size);
-  ck_assert_int_eq(max_ver, 1);
+  ck_assert_int_ge(max_ver, 1);
   ck_assert_int_ne(max_size, 0);
-  ck_assert_int_eq(max_size, sizeof(struct virgl_caps_v1));
+  ck_assert_int_ge(max_size, sizeof(struct virgl_caps_v1));
 
   virgl_renderer_fill_caps(0, 0, NULL);
 
