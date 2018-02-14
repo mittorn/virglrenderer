@@ -125,6 +125,7 @@ struct dump_ctx {
    int fs_coord_origin, fs_pixel_center;
 
    int gs_in_prim, gs_out_prim, gs_max_out_verts;
+   int gs_num_invocations;
 
    struct vrend_shader_key *key;
    int indent_level;
@@ -142,6 +143,7 @@ struct dump_ctx {
    bool has_frag_viewport_idx;
    bool vs_has_pervertex;
    bool uses_sample_shading;
+   bool uses_gpu_shader5;
 };
 
 static inline const char *tgsi_proc_to_prefix(int shader_type)
@@ -679,6 +681,10 @@ iter_declaration(struct tgsi_iterate_context *iter,
       } else if (decl->Semantic.Name == TGSI_SEMANTIC_SAMPLEPOS) {
          name_prefix = "gl_SamplePosition";
          ctx->uses_sample_shading = true;
+      } else if (decl->Semantic.Name == TGSI_SEMANTIC_INVOCATIONID) {
+         name_prefix = "gl_InvocationID";
+         ctx->has_ints = true;
+         ctx->uses_gpu_shader5 = true;
       } else {
          fprintf(stderr, "unsupported system value %d\n", decl->Semantic.Name);
          name_prefix = "unknown";
@@ -722,6 +728,10 @@ iter_property(struct tgsi_iterate_context *iter,
 
    if (prop->Property.PropertyName == TGSI_PROPERTY_GS_MAX_OUTPUT_VERTICES) {
       ctx->gs_max_out_verts = prop->u[0].Data;
+   }
+
+   if (prop->Property.PropertyName == TGSI_PROPERTY_GS_INVOCATIONS) {
+      ctx->gs_num_invocations = prop->u[0].Data;
    }
    return TRUE;
 }
@@ -1683,6 +1693,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
             if (ctx->system_values[j].first == src->Register.Index) {
                if (ctx->system_values[j].name == TGSI_SEMANTIC_VERTEXID ||
                    ctx->system_values[j].name == TGSI_SEMANTIC_INSTANCEID ||
+                   ctx->system_values[j].name == TGSI_SEMANTIC_INVOCATIONID ||
                    ctx->system_values[j].name == TGSI_SEMANTIC_SAMPLEID)
                   snprintf(srcs[i], 255, "%s(vec4(intBitsToFloat(%s)))", stypeprefix, ctx->system_values[j].glsl_name);
                else if (ctx->system_values[j].name == TGSI_SEMANTIC_SAMPLEPOS) {
@@ -2173,6 +2184,9 @@ static char *emit_header(struct dump_ctx *ctx, char *glsl_hdr)
       STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_fragment_layer_viewport : require\n");
    if (ctx->uses_sample_shading)
       STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_sample_shading : require\n");
+   if (ctx->uses_gpu_shader5)
+      STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_gpu_shader5 : require\n");
+
    return glsl_hdr;
 }
 
@@ -2261,7 +2275,13 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
       }
    }
    if (ctx->prog_type == TGSI_PROCESSOR_GEOMETRY) {
-      snprintf(buf, 255, "layout(%s) in;\n", prim_to_name(ctx->gs_in_prim));
+      char invocbuf[25];
+
+      if (ctx->gs_num_invocations)
+         snprintf(invocbuf, 25, ", invocations = %d", ctx->gs_num_invocations);
+
+      snprintf(buf, 255, "layout(%s%s) in;\n", prim_to_name(ctx->gs_in_prim),
+               ctx->gs_num_invocations > 1 ? invocbuf : "");
       STRCAT_WITH_RET(glsl_hdr, buf);
       snprintf(buf, 255, "layout(%s, max_vertices = %d) out;\n", prim_to_name(ctx->gs_out_prim), ctx->gs_max_out_verts);
       STRCAT_WITH_RET(glsl_hdr, buf);
