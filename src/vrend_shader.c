@@ -1937,19 +1937,19 @@ iter_instruction(struct tgsi_iterate_context *iter,
          return FALSE;
       break;
    case TGSI_OPCODE_I2F:
-      snprintf(buf, 255, "%s = %s(ivec4(%s));\n", dsts[0], dstconv, srcs[0]);
+      snprintf(buf, 255, "%s = %s(ivec4(%s)%s);\n", dsts[0], dstconv, srcs[0], writemask);
       EMIT_BUF_WITH_RET(ctx, buf);
       break;
    case TGSI_OPCODE_U2F:
-      snprintf(buf, 255, "%s = %s(uvec4(%s));\n", dsts[0], dstconv, srcs[0]);
+      snprintf(buf, 255, "%s = %s(uvec4(%s)%s);\n", dsts[0], dstconv, srcs[0], writemask);
       EMIT_BUF_WITH_RET(ctx, buf);
       break;
    case TGSI_OPCODE_F2I:
-      snprintf(buf, 255, "%s = %s(%s(ivec4(%s)));\n", dsts[0], dstconv, dtypeprefix, srcs[0]);
+      snprintf(buf, 255, "%s = %s(%s(ivec4(%s))%s);\n", dsts[0], dstconv, dtypeprefix, srcs[0], writemask);
       EMIT_BUF_WITH_RET(ctx, buf);
       break;
    case TGSI_OPCODE_F2U:
-      snprintf(buf, 255, "%s = %s(%s(uvec4(%s)));\n", dsts[0], dstconv, dtypeprefix, srcs[0]);
+      snprintf(buf, 255, "%s = %s(%s(uvec4(%s))%s);\n", dsts[0], dstconv, dtypeprefix, srcs[0], writemask);
       EMIT_BUF_WITH_RET(ctx, buf);
       break;
    case TGSI_OPCODE_NOT:
