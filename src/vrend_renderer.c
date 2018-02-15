@@ -1505,13 +1505,17 @@ static void vrend_hw_emit_framebuffer_state(struct vrend_context *ctx)
       }
    } else {
       struct vrend_surface *surf = NULL;
+      bool use_srgb = false;
       int i;
       for (i = 0; i < ctx->sub->nr_cbufs; i++) {
          if (ctx->sub->surf[i]) {
             surf = ctx->sub->surf[i];
+            if (util_format_is_srgb(surf->format)) {
+               use_srgb = true;
+            }
          }
       }
-      if (util_format_is_srgb(surf->format)) {
+      if (use_srgb) {
          if (!vrend_state.use_gles) {
             glEnable(GL_FRAMEBUFFER_SRGB_EXT);
          } else {
