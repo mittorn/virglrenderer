@@ -169,4 +169,5 @@ VIRGL_EXPORT void virgl_renderer_cleanup(void *cookie);
 VIRGL_EXPORT void virgl_renderer_reset(void);
 
 VIRGL_EXPORT int virgl_renderer_get_poll_fd(void);
+
 #endif

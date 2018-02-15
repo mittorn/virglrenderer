@@ -6308,18 +6308,23 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
    GLint max;
    GLfloat range[2];
    int gl_ver = epoxy_gl_version();
-
+   bool fill_capset2 = false;
    if (!caps)
       return;
 
-   memset(caps, 0, sizeof(*caps));
-
-   if (set != 1 && set != 0) {
+   if (set > 2) {
       caps->max_version = 0;
       return;
    }
 
-   caps->max_version = 2;
+   if (set == 1) {
+      memset(caps, 0, sizeof(struct virgl_caps_v1));
+      caps->max_version = 1;
+   } else if (set == 2) {
+      fill_capset2 = true;
+      memset(caps, 0, sizeof(*caps));
+      caps->max_version = 2;
+   }
 
    caps->v1.bset.occlusion_query = 1;
    if (gl_ver >= 30) {
@@ -6486,6 +6491,9 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
          }
       }
    }
+
+   if (!fill_capset2)
+      return;
 
    glGetFloatv(GL_ALIASED_POINT_SIZE_RANGE, range);
    caps->v2.min_aliased_point_size = range[0];
@@ -6718,14 +6726,21 @@ int vrend_renderer_resource_get_info(int res_handle,
 void vrend_renderer_get_cap_set(uint32_t cap_set, uint32_t *max_ver,
                                 uint32_t *max_size)
 {
-   if (cap_set != VREND_CAP_SET) {
+   switch (cap_set) {
+   case VREND_CAP_SET:
+      *max_ver = 1;
+      *max_size = sizeof(struct virgl_caps_v1);
+      break;
+   case VREND_CAP_SET2:
+      /* we should never need to increase this - it should be possible to just grow virgl_caps */
+      *max_ver = 2;
+      *max_size = sizeof(struct virgl_caps_v2);
+      break;
+   default:
       *max_ver = 0;
       *max_size = 0;
-      return;
+      break;
    }
-
-   *max_ver = 2;
-   *max_size = sizeof(union virgl_caps);
 }
 
 void vrend_renderer_create_sub_ctx(struct vrend_context *ctx, int sub_ctx_id)

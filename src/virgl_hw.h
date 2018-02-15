@@ -260,6 +260,10 @@ struct virgl_caps_v1 {
         uint32_t max_texture_gather_components;
 };
 
+/*
+ * This struct should be growable when used in capset 2,
+ * so we shouldn't have to add a v3 ever.
+ */
 struct virgl_caps_v2 {
         struct virgl_caps_v1 v1;
         float min_aliased_point_size;
