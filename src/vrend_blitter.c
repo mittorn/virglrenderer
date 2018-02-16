@@ -363,9 +363,14 @@ static void vrend_renderer_init_blit_ctx(struct vrend_blitter_ctx *blit_ctx)
 
    blit_ctx->initialised = true;
    ctx_params.shared = true;
-   ctx_params.major_ver = VREND_GL_VER_MAJOR;
-   ctx_params.minor_ver = VREND_GL_VER_MINOR;
-   blit_ctx->gl_context = vrend_clicbs->create_gl_context(0, &ctx_params);
+   for (uint32_t i = 0; i < ARRAY_SIZE(gl_versions); i++) {
+      ctx_params.major_ver = gl_versions[i].major;
+      ctx_params.minor_ver = gl_versions[i].minor;
+
+      blit_ctx->gl_context = vrend_clicbs->create_gl_context(0, &ctx_params);
+      if (blit_ctx->gl_context)
+         break;
+   }
 
    vrend_clicbs->make_current(0, blit_ctx->gl_context);
    glGenVertexArrays(1, &blit_ctx->vaoid);

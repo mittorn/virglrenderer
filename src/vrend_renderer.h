@@ -376,8 +376,14 @@ void vrend_renderer_blit_gl(struct vrend_context *ctx,
 void vrend_renderer_reset(void);
 int vrend_renderer_get_poll_fd(void);
 void vrend_decode_reset(bool ctx_0_only);
-#define VREND_GL_VER_MAJOR 3
-#define VREND_GL_VER_MINOR 1
+
+struct gl_version {
+   uint32_t major;
+   uint32_t minor;
+};
+
+static const struct gl_version gl_versions[] = { {4,5}, {4,4}, {4,3}, {4,2}, {4,1}, {4,0},
+                                                 {3,3}, {3,2}, {3,1}, {3,0} };
 
 extern struct vrend_if_cbs *vrend_clicbs;
 #endif

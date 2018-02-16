@@ -3993,10 +3993,15 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
    }
 
    ctx_params.shared = false;
-   ctx_params.major_ver = VREND_GL_VER_MAJOR;
-   ctx_params.minor_ver = VREND_GL_VER_MINOR;
+   for (uint32_t i = 0; i < ARRAY_SIZE(gl_versions); i++) {
+      ctx_params.major_ver = gl_versions[i].major;
+      ctx_params.minor_ver = gl_versions[i].minor;
 
-   gl_context = vrend_clicbs->create_gl_context(0, &ctx_params);
+      gl_context = vrend_clicbs->create_gl_context(0, &ctx_params);
+      if (gl_context)
+         break;
+   }
+
    vrend_clicbs->make_current(0, gl_context);
    gl_ver = epoxy_gl_version();
 
