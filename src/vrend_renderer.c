@@ -3254,6 +3254,11 @@ static void vrend_hw_emit_blend(struct vrend_context *ctx, struct pipe_blend_sta
       else
          glDisable(GL_SAMPLE_ALPHA_TO_ONE);
    }
+
+   if (state->dither)
+      glEnable(GL_DITHER);
+   else
+      glDisable(GL_DITHER);
 }
 
 /* there are a few reasons we might need to patch the blend state.
