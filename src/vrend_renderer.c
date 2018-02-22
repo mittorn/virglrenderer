@@ -2382,8 +2382,11 @@ void vrend_bind_shader(struct vrend_context *ctx,
    if (sel->type != type)
       return;
 
-   if (ctx->sub->shaders[sel->type] != sel)
+   if (ctx->sub->shaders[sel->type] != sel) {
       ctx->sub->shader_dirty = true;
+      ctx->sub->prog_ids[sel->type] = 0;
+   }
+
    vrend_shader_state_reference(&ctx->sub->shaders[sel->type], sel);
 }
 
