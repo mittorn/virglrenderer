@@ -945,7 +945,7 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
       sprog->fs_stipple_loc = glGetUniformLocation(prog_id, "pstipple_sampler");
    else
       sprog->fs_stipple_loc = -1;
-   sprog->vs_ws_adjust_loc = glGetUniformLocation(prog_id, "winsys_adjust");
+   sprog->vs_ws_adjust_loc = glGetUniformLocation(prog_id, "winsys_adjust_y");
    for (id = PIPE_SHADER_VERTEX; id <= last_shader; id++) {
       if (sprog->ss[id]->sel->sinfo.samplers_used_mask) {
          uint32_t mask = sprog->ss[id]->sel->sinfo.samplers_used_mask;
@@ -2945,7 +2945,7 @@ void vrend_draw_vbo(struct vrend_context *ctx,
       fprintf(stderr,"illegal VE setup - skipping renderering\n");
       return;
    }
-   glUniform4f(ctx->sub->prog->vs_ws_adjust_loc, 0.0, ctx->sub->viewport_is_negative ? -1.0 : 1.0, ctx->sub->depth_scale, ctx->sub->depth_transform);
+   glUniform1f(ctx->sub->prog->vs_ws_adjust_loc, ctx->sub->viewport_is_negative ? -1.0 : 1.0);
 
    if (ctx->sub->rs_state.clip_plane_enable) {
       for (i = 0 ; i < 8; i++) {

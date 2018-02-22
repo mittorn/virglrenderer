@@ -882,11 +882,7 @@ static int emit_prescale(struct dump_ctx *ctx)
    char buf[255];
    char *sret;
 
-   snprintf(buf, 255, "gl_Position.y = gl_Position.y * winsys_adjust.y;\n");
-   sret = add_str_to_glsl_main(ctx, buf);
-   if (!sret)
-      return ENOMEM;
-   snprintf(buf, 255, "gl_Position.z = dot(gl_Position, vec4(0.0, 0.0, winsys_adjust.zw));\n");
+   snprintf(buf, 255, "gl_Position.y = gl_Position.y * winsys_adjust_y;\n");
    sret = add_str_to_glsl_main(ctx, buf);
    if (!sret)
       return ENOMEM;
@@ -2402,7 +2398,7 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
    }
 
    if (ctx->prog_type == TGSI_PROCESSOR_VERTEX) {
-      snprintf(buf, 255, "uniform vec4 winsys_adjust;\n");
+      snprintf(buf, 255, "uniform float winsys_adjust_y;\n");
       STRCAT_WITH_RET(glsl_hdr, buf);
 
       if (ctx->has_clipvertex) {
@@ -2429,7 +2425,7 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
    }
 
    if (ctx->prog_type == TGSI_PROCESSOR_GEOMETRY) {
-      snprintf(buf, 255, "uniform vec4 winsys_adjust;\n");
+      snprintf(buf, 255, "uniform float winsys_adjust_y;\n");
       STRCAT_WITH_RET(glsl_hdr, buf);
       if (ctx->num_in_clip_dist || ctx->key->clip_plane_enable || ctx->key->vs_has_pervertex) {
          int clip_dist;
