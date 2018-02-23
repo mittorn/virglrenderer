@@ -52,6 +52,7 @@
 struct vrend_blitter_ctx {
    virgl_gl_context gl_context;
    bool initialised;
+   bool use_gles;
 
    GLuint vaoid;
 
@@ -94,7 +95,8 @@ static bool blit_build_vs_passthrough(struct vrend_blitter_ctx *blit_ctx)
 {
    blit_ctx->vs = glCreateShader(GL_VERTEX_SHADER);
 
-   if (!build_and_check(blit_ctx->vs, VS_PASSTHROUGH)) {
+   if (!build_and_check(blit_ctx->vs,
+        blit_ctx->use_gles ? VS_PASSTHROUGH_GLES : VS_PASSTHROUGH_GL)) {
       glDeleteShader(blit_ctx->vs);
       blit_ctx->vs = 0;
       return false;
@@ -143,7 +145,8 @@ static GLuint blit_build_frag_tex_col(struct vrend_blitter_ctx *blit_ctx, int tg
        tgsi_tex_target == TGSI_TEXTURE_SHADOWCUBE_ARRAY)
       ext_str = "#extension GL_ARB_texture_cube_map_array : require\n";
 
-   snprintf(shader_buf, 4096, FS_TEXFETCH_COL, ext_str, vrend_shader_samplertypeconv(tgsi_tex_target, &is_shad), twm, "");
+   snprintf(shader_buf, 4096, blit_ctx->use_gles ? FS_TEXFETCH_COL_GLES : FS_TEXFETCH_COL_GL,
+      ext_str, vrend_shader_samplertypeconv(tgsi_tex_target, &is_shad), twm, "");
 
    fs_id = glCreateShader(GL_FRAGMENT_SHADER);
 
@@ -196,7 +199,8 @@ static GLuint blit_build_frag_tex_col_emu_alpha(struct vrend_blitter_ctx *blit_c
        tgsi_tex_target == TGSI_TEXTURE_SHADOWCUBE_ARRAY)
       ext_str = "#extension GL_ARB_texture_cube_map_array : require\n";
 
-   snprintf(shader_buf, 4096, FS_TEXFETCH_COL_ALPHA_DEST, ext_str, vrend_shader_samplertypeconv(tgsi_tex_target, &is_shad), twm, "");
+   snprintf(shader_buf, 4096, blit_ctx->use_gles ? FS_TEXFETCH_COL_ALPHA_DEST_GLES : FS_TEXFETCH_COL_ALPHA_DEST_GL,
+      ext_str, vrend_shader_samplertypeconv(tgsi_tex_target, &is_shad), twm, "");
 
    fs_id = glCreateShader(GL_FRAGMENT_SHADER);
 
@@ -245,7 +249,8 @@ static GLuint blit_build_frag_tex_writedepth(struct vrend_blitter_ctx *blit_ctx,
       break;
    }
 
-   snprintf(shader_buf, 4096, FS_TEXFETCH_DS, vrend_shader_samplertypeconv(tgsi_tex_target, &is_shad), twm);
+   snprintf(shader_buf, 4096, blit_ctx->use_gles ? FS_TEXFETCH_DS_GLES : FS_TEXFETCH_DS_GL,
+      vrend_shader_samplertypeconv(tgsi_tex_target, &is_shad), twm);
 
    fs_id = glCreateShader(GL_FRAGMENT_SHADER);
 
@@ -278,7 +283,8 @@ static GLuint blit_build_frag_blit_msaa_depth(struct vrend_blitter_ctx *blit_ctx
       return 0;
    }
 
-   snprintf(shader_buf, 4096, FS_TEXFETCH_DS_MSAA, vrend_shader_samplertypeconv(tgsi_tex_target, &is_shad), ivec, twm);
+   snprintf(shader_buf, 4096, blit_ctx->use_gles ? FS_TEXFETCH_DS_MSAA_GLES : FS_TEXFETCH_DS_MSAA_GL,
+      vrend_shader_samplertypeconv(tgsi_tex_target, &is_shad), ivec, twm);
 
    fs_id = glCreateShader(GL_FRAGMENT_SHADER);
 
@@ -362,6 +368,7 @@ static void vrend_renderer_init_blit_ctx(struct vrend_blitter_ctx *blit_ctx)
    }
 
    blit_ctx->initialised = true;
+   blit_ctx->use_gles = epoxy_is_desktop_gl() == 0;
    ctx_params.shared = true;
    for (uint32_t i = 0; i < ARRAY_SIZE(gl_versions); i++) {
       ctx_params.major_ver = gl_versions[i].major;
