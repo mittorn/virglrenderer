@@ -856,11 +856,11 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
       bool ret;
 
       if (gs)
-         vrend_patch_vertex_shader_interpolants(gs->glsl_prog,
+         vrend_patch_vertex_shader_interpolants(&ctx->shader_cfg, gs->glsl_prog,
                                                 &gs->sel->sinfo,
                                                 &fs->sel->sinfo, true, fs->key.flatshade);
       else
-         vrend_patch_vertex_shader_interpolants(vs->glsl_prog,
+         vrend_patch_vertex_shader_interpolants(&ctx->shader_cfg, vs->glsl_prog,
                                                 &vs->sel->sinfo,
                                                 &fs->sel->sinfo, false, fs->key.flatshade);
       ret = vrend_compile_shader(ctx, gs ? gs : vs);
@@ -4264,6 +4264,7 @@ struct vrend_context *vrend_create_context(int id, uint32_t nlen, const char *de
 
    grctx->res_hash = vrend_object_init_ctx_table();
 
+   grctx->shader_cfg.use_gles = vrend_state.use_gles;
    grctx->shader_cfg.use_core_profile = vrend_state.use_core_profile;
    grctx->shader_cfg.use_explicit_locations = vrend_state.use_explicit_locations;
    vrend_renderer_create_sub_ctx(grctx, 0);

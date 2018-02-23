@@ -31,6 +31,7 @@
 #include <math.h>
 #include <errno.h>
 #include "vrend_shader.h"
+
 extern int vrend_dump_shaders;
 
 /* start convert of tgsi to glsl */
@@ -2213,48 +2214,51 @@ prolog(struct tgsi_iterate_context *iter)
 
 static char *emit_header(struct dump_ctx *ctx, char *glsl_hdr)
 {
-   if (ctx->prog_type == TGSI_PROCESSOR_GEOMETRY || ctx->glsl_ver_required == 150)
-      STRCAT_WITH_RET(glsl_hdr, "#version 150\n");
-
-   else if (ctx->glsl_ver_required == 140)
-      STRCAT_WITH_RET(glsl_hdr, "#version 140\n");
-   else
-      STRCAT_WITH_RET(glsl_hdr, "#version 130\n");
-   if (ctx->prog_type == TGSI_PROCESSOR_VERTEX && ctx->cfg->use_explicit_locations)
-      STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_explicit_attrib_location : enable\n");
-   if (ctx->prog_type == TGSI_PROCESSOR_FRAGMENT && fs_emit_layout(ctx))
-      STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_fragment_coord_conventions : enable\n");
-   if (ctx->glsl_ver_required < 140 && ctx->uses_sampler_rect)
-      STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_texture_rectangle : require\n");
-   if (ctx->uses_cube_array)
-      STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_texture_cube_map_array : require\n");
-   if (ctx->has_ints)
-      STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_shader_bit_encoding : require\n");
-   if (ctx->uses_sampler_ms)
-      STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_texture_multisample : require\n");
-   if (ctx->has_instanceid)
-      STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_draw_instanced : require\n");
-   if (ctx->num_ubo)
-      STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_uniform_buffer_object : require\n");
-   if (ctx->uses_lodq)
-      STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_texture_query_lod : require\n");
-   if (ctx->uses_txq_levels)
-      STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_texture_query_levels : require\n");
-   if (ctx->uses_tg4)
-      STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_texture_gather : require\n");
-   if (ctx->has_viewport_idx)
-      STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_viewport_array : require\n");
-   if (ctx->has_frag_viewport_idx)
-      STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_fragment_layer_viewport : require\n");
-   if (ctx->uses_stencil_export)
-      STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_shader_stencil_export : require\n");
-   if (ctx->uses_layer)
-      STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_fragment_layer_viewport : require\n");
-   if (ctx->uses_sample_shading)
-      STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_sample_shading : require\n");
-   if (ctx->uses_gpu_shader5)
-      STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_gpu_shader5 : require\n");
-
+   if (ctx->cfg->use_gles) {
+      STRCAT_WITH_RET(glsl_hdr, "#version 300 es\n");
+      STRCAT_WITH_RET(glsl_hdr, "precision highp float;\n");
+   } else {
+      if (ctx->prog_type == TGSI_PROCESSOR_GEOMETRY || ctx->glsl_ver_required == 150)
+         STRCAT_WITH_RET(glsl_hdr, "#version 150\n");
+      else if (ctx->glsl_ver_required == 140)
+         STRCAT_WITH_RET(glsl_hdr, "#version 140\n");
+      else
+         STRCAT_WITH_RET(glsl_hdr, "#version 130\n");
+      if (ctx->prog_type == TGSI_PROCESSOR_VERTEX && ctx->cfg->use_explicit_locations)
+         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_explicit_attrib_location : enable\n");
+      if (ctx->prog_type == TGSI_PROCESSOR_FRAGMENT && fs_emit_layout(ctx))
+         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_fragment_coord_conventions : enable\n");
+      if (ctx->glsl_ver_required < 140 && ctx->uses_sampler_rect)
+         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_texture_rectangle : require\n");
+      if (ctx->uses_cube_array)
+         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_texture_cube_map_array : require\n");
+      if (ctx->has_ints)
+         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_shader_bit_encoding : require\n");
+      if (ctx->uses_sampler_ms)
+         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_texture_multisample : require\n");
+      if (ctx->has_instanceid)
+         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_draw_instanced : require\n");
+      if (ctx->num_ubo)
+         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_uniform_buffer_object : require\n");
+      if (ctx->uses_lodq)
+         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_texture_query_lod : require\n");
+      if (ctx->uses_txq_levels)
+         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_texture_query_levels : require\n");
+      if (ctx->uses_tg4)
+         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_texture_gather : require\n");
+      if (ctx->has_viewport_idx)
+         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_viewport_array : require\n");
+      if (ctx->has_frag_viewport_idx)
+         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_fragment_layer_viewport : require\n");
+      if (ctx->uses_stencil_export)
+         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_shader_stencil_export : require\n");
+      if (ctx->uses_layer)
+         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_fragment_layer_viewport : require\n");
+      if (ctx->uses_sample_shading)
+         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_sample_shading : require\n");
+      if (ctx->uses_gpu_shader5)
+         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_gpu_shader5 : require\n");
+   }
    return glsl_hdr;
 }
 
@@ -2295,11 +2299,14 @@ const char *vrend_shader_samplertypeconv(int sampler_type, int *is_shad)
    }
 }
 
-static const char *get_interp_string(int interpolate, bool flatshade)
+static const char *get_interp_string(struct vrend_shader_cfg *cfg, int interpolate, bool flatshade)
 {
    switch (interpolate) {
    case TGSI_INTERPOLATE_LINEAR:
+   if (!cfg->use_gles)
       return "noperspective ";
+   else
+      return "";
    case TGSI_INTERPOLATE_PERSPECTIVE:
       return "smooth ";
    case TGSI_INTERPOLATE_CONSTANT:
@@ -2363,7 +2370,7 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
          if (ctx->prog_type == TGSI_PROCESSOR_FRAGMENT &&
              (ctx->inputs[i].name == TGSI_SEMANTIC_GENERIC ||
               ctx->inputs[i].name == TGSI_SEMANTIC_COLOR)) {
-            prefix = get_interp_string(ctx->inputs[i].interpolate, ctx->key->flatshade);
+            prefix = get_interp_string(ctx->cfg, ctx->inputs[i].interpolate, ctx->key->flatshade);
             if (!prefix)
                prefix = "";
             ctx->num_interps++;
@@ -2705,7 +2712,7 @@ static void replace_interp(char *program,
    memcpy(ptr, pstring, strlen(pstring));
 }
 
-bool vrend_patch_vertex_shader_interpolants(char *program,
+bool vrend_patch_vertex_shader_interpolants(struct vrend_shader_cfg *cfg, char *program,
                                             struct vrend_shader_info *vs_info,
                                             struct vrend_shader_info *fs_info, bool is_gs, bool flatshade)
 {
@@ -2719,7 +2726,7 @@ bool vrend_patch_vertex_shader_interpolants(char *program,
       return true;
 
    for (i = 0; i < fs_info->num_interps; i++) {
-      pstring = get_interp_string(fs_info->interpinfo[i].interpolate, flatshade);
+      pstring = get_interp_string(cfg, fs_info->interpinfo[i].interpolate, flatshade);
       if (!pstring)
          continue;
 
