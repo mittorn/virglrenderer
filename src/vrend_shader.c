@@ -1022,6 +1022,50 @@ static int emit_buf(struct dump_ctx *ctx, const char *buf)
       if (_ret) return FALSE;                        \
    } while(0)
 
+static int handle_vertex_proc_exit(struct dump_ctx *ctx)
+{
+    if (ctx->so && !ctx->key->gs_present) {
+       if (emit_so_movs(ctx))
+          return FALSE;
+    }
+
+    if (emit_clip_dist_movs(ctx))
+       return FALSE;
+
+    if (!ctx->key->gs_present) {
+       if (emit_prescale(ctx))
+          return FALSE;
+    }
+
+    return TRUE;
+}
+
+static int handle_fragment_proc_exit(struct dump_ctx *ctx)
+{
+    if (ctx->key->pstipple_tex) {
+       if (emit_pstipple_pass(ctx))
+          return FALSE;
+    }
+
+    if (ctx->key->cbufs_are_a8_bitmask) {
+       if (emit_a8_swizzle(ctx))
+          return FALSE;
+    }
+
+    if (ctx->key->add_alpha_test) {
+       if (emit_alpha_test(ctx))
+          return FALSE;
+    }
+
+    if (ctx->write_all_cbufs) {
+       if (emit_cbuf_writes(ctx))
+          return FALSE;
+    }
+
+    return TRUE;
+}
+
+
 static int translate_tex(struct dump_ctx *ctx,
                          struct tgsi_full_instruction *inst,
                          int sreg_index,
@@ -2072,49 +2116,24 @@ iter_instruction(struct tgsi_iterate_context *iter,
       break;
    case TGSI_OPCODE_END:
       if (iter->processor.Processor == TGSI_PROCESSOR_VERTEX) {
-         if (ctx->so && !ctx->key->gs_present) {
-            ret = emit_so_movs(ctx);
-            if (ret)
-               return FALSE;
-         }
-         ret = emit_clip_dist_movs(ctx);
-         if (ret)
+         if (handle_vertex_proc_exit(ctx) == FALSE)
             return FALSE;
-         if (!ctx->key->gs_present) {
-            ret = emit_prescale(ctx);
-            if (ret)
-               return FALSE;
-         }
-
-      } else if (iter->processor.Processor == TGSI_PROCESSOR_GEOMETRY) {
-
       } else if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
-         if (ctx->key->pstipple_tex) {
-            ret = emit_pstipple_pass(ctx);
-            if (ret)
-               return FALSE;
-         }
-         if (ctx->key->cbufs_are_a8_bitmask) {
-            ret = emit_a8_swizzle(ctx);
-            if (ret)
-               return FALSE;
-         }
-         if (ctx->key->add_alpha_test) {
-            ret = emit_alpha_test(ctx);
-            if (ret)
-               return FALSE;
-         }
-         if (ctx->write_all_cbufs) {
-            ret = emit_cbuf_writes(ctx);
-            if (ret)
-               return FALSE;
-         }
+         if (handle_fragment_proc_exit(ctx) == FALSE)
+            return FALSE;
       }
       sret = add_str_to_glsl_main(ctx, "}\n");
       if (!sret)
          return FALSE;
       break;
    case TGSI_OPCODE_RET:
+      if (iter->processor.Processor == TGSI_PROCESSOR_VERTEX) {
+         if (handle_vertex_proc_exit(ctx) == FALSE)
+            return FALSE;
+      } else if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
+         if (handle_fragment_proc_exit(ctx) == FALSE)
+            return FALSE;
+      }
       EMIT_BUF_WITH_RET(ctx, "return;\n");
       break;
    case TGSI_OPCODE_ARL:
