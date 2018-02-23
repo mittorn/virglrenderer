@@ -6542,6 +6542,11 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
    }
    glGetIntegerv(GL_MIN_PROGRAM_TEXEL_OFFSET, &caps->v2.min_texel_offset);
    glGetIntegerv(GL_MAX_PROGRAM_TEXEL_OFFSET, &caps->v2.max_texel_offset);
+
+   glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &caps->v2.uniform_buffer_offset_alignment);
+
+   if (gl_ver >= 43)
+      glGetIntegerv(GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT, &caps->v2.texture_buffer_offset_alignment);
 }
 
 GLint64 vrend_renderer_get_timestamp(void)
