@@ -1463,8 +1463,16 @@ static int translate_tex(struct dump_ctx *ctx,
       const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
       const struct tgsi_full_src_register *src = &inst->Src[sampler_index];
       snprintf(buf, 255, "%s = %s(%s(vec4(vec4(texture%s(%s, %s%s%s%s)) * %sshadmask%d + %sshadadd%d)%s));\n", dsts[0], dstconv, dtypeprefix, tex_ext, srcs[sampler_index], srcs[0], twm, offbuf, bias, cname, src->Register.Index, cname, src->Register.Index, writemask);
-   } else
-      snprintf(buf, 255, "%s = %s(%s(texture%s(%s, %s%s%s%s)%s));\n", dsts[0], dstconv, dtypeprefix, tex_ext, srcs[sampler_index], srcs[0], twm, offbuf, bias, dst0_override_no_wm ? "" : writemask);
+   } else {
+      /* OpenGL ES do not support 1D texture
+       * so we use a 2D texture with a parameter set to 0.5
+       */
+      if (ctx->cfg->use_gles && inst->Texture.Texture == TGSI_TEXTURE_1D) {
+         snprintf(buf, 255, "%s = %s(%s(texture2D(%s, vec2(%s%s%s%s, 0.5))%s));\n", dsts[0], dstconv, dtypeprefix, srcs[sampler_index], srcs[0], twm, offbuf, bias, dst0_override_no_wm ? "" : writemask);
+      } else {
+         snprintf(buf, 255, "%s = %s(%s(texture%s(%s, %s%s%s%s)%s));\n", dsts[0], dstconv, dtypeprefix, tex_ext, srcs[sampler_index], srcs[0], twm, offbuf, bias, dst0_override_no_wm ? "" : writemask);
+      }
+   }
    return emit_buf(ctx, buf);
 }
 
@@ -2534,7 +2542,14 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
          const char *sname;
 
          sname = tgsi_proc_to_prefix(ctx->prog_type);
-         snprintf(buf, 255, "uniform %csampler%s %ssamp%d;\n", ptc, stc, sname, i);
+         /* OpenGL ES do not support 1D texture
+          * so we use a 2D texture with a parameter set to 0.5
+          */
+         if (ctx->cfg->use_gles && !memcmp(stc, "1D", sizeof(stc)))
+            snprintf(buf, 255, "uniform %csampler2D %ssamp%d;\n", ptc, sname, i);
+         else
+            snprintf(buf, 255, "uniform %csampler%s %ssamp%d;\n", ptc, stc, sname, i);
+
          STRCAT_WITH_RET(glsl_hdr, buf);
          if (is_shad) {
             snprintf(buf, 255, "uniform vec4 %sshadmask%d;\n", sname, i);

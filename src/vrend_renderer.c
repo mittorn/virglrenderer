@@ -4499,6 +4499,16 @@ int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *a
          gr->target = GL_TEXTURE_2D;
       }
 
+      /* fallback for 1D textures */
+      if (vrend_state.use_gles && gr->target == GL_TEXTURE_1D) {
+         gr->target = GL_TEXTURE_2D;
+      }
+
+      /* fallback for 1D array textures */
+      if (vrend_state.use_gles && gr->target == GL_TEXTURE_1D_ARRAY) {
+         gr->target = GL_TEXTURE_2D_ARRAY;
+      }
+
       glGenTextures(1, &gr->id);
       glBindTexture(gr->target, gr->id);
 
