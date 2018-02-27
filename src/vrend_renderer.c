@@ -4673,23 +4673,27 @@ static void read_transfer_data(struct pipe_resource *res,
                                               box->height) * blsize * box->depth;
    uint32_t bwx = util_format_get_nblocksx(res->format, box->width) * blsize;
    uint32_t bh = util_format_get_nblocksy(res->format, box->height);
-   int h;
+   int d, h;
    uint32_t myoffset = offset;
 
    if ((send_size == size || bh == 1) && !invert)
       vrend_read_from_iovec(iov, num_iovs, offset, data, send_size);
    else {
       if (invert) {
-         for (h = bh - 1; h >= 0; h--) {
-            void *ptr = data + (h * bwx);
-            vrend_read_from_iovec(iov, num_iovs, myoffset, ptr, bwx);
-            myoffset += src_stride;
+         for (d = 0; d < box->depth; d++) {
+            for (h = bh - 1; h >= 0; h--) {
+               void *ptr = data + (h * bwx) + d * (bh * src_stride);
+               vrend_read_from_iovec(iov, num_iovs, myoffset, ptr, bwx);
+               myoffset += src_stride;
+            }
          }
       } else {
-         for (h = 0; h < bh; h++) {
-            void *ptr = data + (h * bwx);
-            vrend_read_from_iovec(iov, num_iovs, myoffset, ptr, bwx);
-            myoffset += src_stride;
+         for (d = 0; d < box->depth; d++) {
+            for (h = 0; h < bh; h++) {
+               void *ptr = data + (h * bwx) + d * (bh * src_stride);
+               vrend_read_from_iovec(iov, num_iovs, myoffset, ptr, bwx);
+               myoffset += src_stride;
+            }
          }
       }
    }
@@ -4711,23 +4715,27 @@ static void write_transfer_data(struct pipe_resource *res,
                                                 box->height) * blsize * box->depth;
    uint32_t bwx = util_format_get_nblocksx(res->format, box->width) * blsize;
    uint32_t bh = util_format_get_nblocksy(res->format, box->height);
-   int h;
+   int d, h;
    uint32_t myoffset = offset;
    uint32_t stride = dst_stride ? dst_stride : util_format_get_nblocksx(res->format, u_minify(res->width0, level)) * blsize;
 
    if ((send_size == size || bh == 1) && !invert) {
       vrend_write_to_iovec(iov, num_iovs, offset, data, send_size);
    } else if (invert) {
-      for (h = bh - 1; h >= 0; h--) {
-         void *ptr = data + (h * bwx);
-         vrend_write_to_iovec(iov, num_iovs, myoffset, ptr, bwx);
-         myoffset += stride;
+      for (d = 0; d < box->depth; d++) {
+         for (h = bh - 1; h >= 0; h--) {
+            void *ptr = data + (h * bwx) + d * (bh * stride);
+            vrend_write_to_iovec(iov, num_iovs, myoffset, ptr, bwx);
+            myoffset += stride;
+         }
       }
    } else {
-      for (h = 0; h < bh; h++) {
-         void *ptr = data + (h * bwx);
-         vrend_write_to_iovec(iov, num_iovs, myoffset, ptr, bwx);
-         myoffset += stride;
+      for (d = 0; d < box->depth; d++) {
+         for (h = 0; h < bh; h++) {
+            void *ptr = data + (h * bwx) + d * (bh * stride);
+            vrend_write_to_iovec(iov, num_iovs, myoffset, ptr, bwx);
+            myoffset += stride;
+         }
       }
    }
 }
