@@ -616,7 +616,7 @@ void vrend_renderer_blit_gl(struct vrend_context *ctx,
    glBindTexture(src_res->target, src_res->id);
 
    if (vrend_format_is_emulated_alpha(info->src.format))
-      glTexParameteri(src_res->target, GL_TEXTURE_SWIZZLE_R, GL_ALPHA);
+      glTexParameteri(src_res->target, GL_TEXTURE_SWIZZLE_A, GL_RED);
 
    glTexParameteri(src_res->target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
    glTexParameteri(src_res->target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
