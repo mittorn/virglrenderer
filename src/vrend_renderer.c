@@ -2747,10 +2747,10 @@ static void vrend_draw_bind_samplers(struct vrend_context *ctx)
          if (ctx->sub->prog->shadow_samp_mask[shader_type] & (1 << i)) {
             struct vrend_sampler_view *tview = ctx->sub->views[shader_type].views[i];
             glUniform4f(ctx->sub->prog->shadow_samp_mask_locs[shader_type][index],
-                        tview->gl_swizzle_r == GL_ZERO ? 0.0 : 1.0,
-                        tview->gl_swizzle_g == GL_ZERO ? 0.0 : 1.0,
-                        tview->gl_swizzle_b == GL_ZERO ? 0.0 : 1.0,
-                        tview->gl_swizzle_a == GL_ZERO ? 0.0 : 1.0);
+                        (tview->gl_swizzle_r == GL_ZERO || tview->gl_swizzle_r == GL_ONE) ? 0.0 : 1.0,
+                        (tview->gl_swizzle_g == GL_ZERO || tview->gl_swizzle_g == GL_ONE) ? 0.0 : 1.0,
+                        (tview->gl_swizzle_b == GL_ZERO || tview->gl_swizzle_b == GL_ONE) ? 0.0 : 1.0,
+                        (tview->gl_swizzle_a == GL_ZERO || tview->gl_swizzle_a == GL_ONE) ? 0.0 : 1.0);
             glUniform4f(ctx->sub->prog->shadow_samp_add_locs[shader_type][index],
                         tview->gl_swizzle_r == GL_ONE ? 1.0 : 0.0,
                         tview->gl_swizzle_g == GL_ONE ? 1.0 : 0.0,
