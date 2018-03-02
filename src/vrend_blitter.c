@@ -645,11 +645,10 @@ void vrend_renderer_blit_gl(struct vrend_context *ctx,
       float dst_offset = ((info->src.box.depth - 1) -
                           (info->dst.box.depth - 1) * dst2src_scale) * 0.5;
       float src_z = (dst_z + dst_offset) * dst2src_scale;
+      uint32_t layer = (dst_res->target == GL_TEXTURE_CUBE_MAP) ? info->dst.box.z : dst_z;
 
       glBindFramebuffer(GL_FRAMEBUFFER_EXT, blit_ctx->fb_id);
-      vrend_fb_bind_texture(dst_res, 0, info->dst.level, dst_z);
-
-
+      vrend_fb_bind_texture(dst_res, 0, info->dst.level, layer);
 
       buffers = GL_COLOR_ATTACHMENT0_EXT;
       glDrawBuffers(1, &buffers);
