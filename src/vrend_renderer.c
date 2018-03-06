@@ -4682,7 +4682,7 @@ static void read_transfer_data(struct pipe_resource *res,
       if (invert) {
          for (d = 0; d < box->depth; d++) {
             for (h = bh - 1; h >= 0; h--) {
-               void *ptr = data + (h * bwx) + d * (bh * src_stride);
+               void *ptr = data + (h * bwx) + d * (bh * bwx);
                vrend_read_from_iovec(iov, num_iovs, myoffset, ptr, bwx);
                myoffset += src_stride;
             }
@@ -4690,7 +4690,7 @@ static void read_transfer_data(struct pipe_resource *res,
       } else {
          for (d = 0; d < box->depth; d++) {
             for (h = 0; h < bh; h++) {
-               void *ptr = data + (h * bwx) + d * (bh * src_stride);
+               void *ptr = data + (h * bwx) + d * (bh * bwx);
                vrend_read_from_iovec(iov, num_iovs, myoffset, ptr, bwx);
                myoffset += src_stride;
             }
@@ -4724,7 +4724,7 @@ static void write_transfer_data(struct pipe_resource *res,
    } else if (invert) {
       for (d = 0; d < box->depth; d++) {
          for (h = bh - 1; h >= 0; h--) {
-            void *ptr = data + (h * bwx) + d * (bh * stride);
+            void *ptr = data + (h * bwx) + d * (bh * bwx);
             vrend_write_to_iovec(iov, num_iovs, myoffset, ptr, bwx);
             myoffset += stride;
          }
@@ -4732,7 +4732,7 @@ static void write_transfer_data(struct pipe_resource *res,
    } else {
       for (d = 0; d < box->depth; d++) {
          for (h = 0; h < bh; h++) {
-            void *ptr = data + (h * bwx) + d * (bh * stride);
+            void *ptr = data + (h * bwx) + d * (bh * bwx);
             vrend_write_to_iovec(iov, num_iovs, myoffset, ptr, bwx);
             myoffset += stride;
          }
