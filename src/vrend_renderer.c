@@ -4669,7 +4669,8 @@ static void read_transfer_data(struct pipe_resource *res,
 {
    int blsize = util_format_get_blocksize(res->format);
    uint32_t size = vrend_get_iovec_size(iov, num_iovs);
-   uint32_t send_size = util_format_get_2d_size(res->format, src_stride, box->height) * box->depth;
+   uint32_t send_size = util_format_get_nblocks(res->format, box->width,
+                                              box->height) * blsize * box->depth;
    uint32_t bwx = util_format_get_nblocksx(res->format, box->width) * blsize;
    uint32_t bh = util_format_get_nblocksy(res->format, box->height);
    int d, h;
@@ -4710,12 +4711,13 @@ static void write_transfer_data(struct pipe_resource *res,
 {
    int blsize = util_format_get_blocksize(res->format);
    uint32_t size = vrend_get_iovec_size(iov, num_iovs);
+   uint32_t send_size = util_format_get_nblocks(res->format, box->width,
+                                                box->height) * blsize * box->depth;
    uint32_t bwx = util_format_get_nblocksx(res->format, box->width) * blsize;
    uint32_t bh = util_format_get_nblocksy(res->format, box->height);
    int d, h;
    uint32_t myoffset = offset;
    uint32_t stride = dst_stride ? dst_stride : util_format_get_nblocksx(res->format, u_minify(res->width0, level)) * blsize;
-   uint32_t send_size = util_format_get_2d_size(res->format, stride, box->height) * box->depth;
 
    if ((send_size == size || bh == 1) && !invert) {
       vrend_write_to_iovec(iov, num_iovs, offset, data, send_size);
@@ -4897,7 +4899,8 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
       }
 
       if (need_temp) {
-         send_size = util_format_get_2d_size(res->base.format, stride, info->box->height) * info->box->depth;
+         send_size = util_format_get_nblocks(res->base.format, info->box->width,
+                                             info->box->height) * elsize * info->box->depth;
          data = malloc(send_size);
          if (!data)
             return ENOMEM;
@@ -5153,12 +5156,8 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
       need_temp = 1;
 
    if (need_temp) {
-      uint32_t alloc_size, stride;
-
-      stride = util_format_get_nblocksx(res->base.format, u_minify(res->base.width0, info->level)) * elsize;
       send_size = util_format_get_nblocks(res->base.format, info->box->width, info->box->height) * info->box->depth * util_format_get_blocksize(res->base.format);
-      alloc_size = util_format_get_2d_size(res->base.format, stride, info->box->height) * info->box->depth;
-      data = malloc(alloc_size);
+      data = malloc(send_size);
       if (!data) {
          fprintf(stderr,"malloc failed %d\n", send_size);
          return ENOMEM;
