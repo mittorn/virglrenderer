@@ -2247,9 +2247,9 @@ static char *emit_header(struct dump_ctx *ctx, char *glsl_hdr)
       else
          STRCAT_WITH_RET(glsl_hdr, "#version 130\n");
       if (ctx->prog_type == TGSI_PROCESSOR_VERTEX && ctx->cfg->use_explicit_locations)
-         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_explicit_attrib_location : enable\n");
+         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_explicit_attrib_location : require\n");
       if (ctx->prog_type == TGSI_PROCESSOR_FRAGMENT && fs_emit_layout(ctx))
-         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_fragment_coord_conventions : enable\n");
+         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_fragment_coord_conventions : require\n");
       if (ctx->glsl_ver_required < 140 && ctx->uses_sampler_rect)
          STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_texture_rectangle : require\n");
       if (ctx->uses_cube_array)
