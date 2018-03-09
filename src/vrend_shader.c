@@ -418,15 +418,21 @@ iter_declaration(struct tgsi_iterate_context *iter,
             }
          }
       default:
-         if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT ||
-             iter->processor.Processor == TGSI_PROCESSOR_GEOMETRY) {
-            if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT &&
-                ctx->key->gs_present)
-               name_prefix = "out";
+         switch (iter->processor.Processor) {
+         case TGSI_PROCESSOR_FRAGMENT:
+            if (ctx->key->gs_present)
+               name_prefix = "gso";
             else
-               name_prefix = "ex";
-         } else
+               name_prefix = "vso";
+            break;
+         case TGSI_PROCESSOR_GEOMETRY:
+            name_prefix = "vso";
+            break;
+         case TGSI_PROCESSOR_VERTEX:
+         default:
             name_prefix = "in";
+            break;
+         }
          break;
       }
 
@@ -596,12 +602,20 @@ iter_declaration(struct tgsi_iterate_context *iter,
             if (ctx->outputs[i].name == TGSI_SEMANTIC_GENERIC)
                color_offset = -1;
       default:
-         if (iter->processor.Processor == TGSI_PROCESSOR_VERTEX)
-            name_prefix = "ex";
-         else if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT)
+         switch (iter->processor.Processor) {
+         case TGSI_PROCESSOR_FRAGMENT:
             name_prefix = "fsout";
-         else
+            break;
+         case TGSI_PROCESSOR_GEOMETRY:
+            name_prefix = "gso";
+            break;
+         case TGSI_PROCESSOR_VERTEX:
+            name_prefix = "vso";
+            break;
+         default:
             name_prefix = "out";
+            break;
+         }
          break;
       }
 
@@ -2729,7 +2743,7 @@ static void replace_interp(char *program,
 
 bool vrend_patch_vertex_shader_interpolants(struct vrend_shader_cfg *cfg, char *program,
                                             struct vrend_shader_info *vs_info,
-                                            struct vrend_shader_info *fs_info, bool is_gs, bool flatshade)
+                                            struct vrend_shader_info *fs_info, const char *oprefix, bool flatshade)
 {
    int i;
    const char *pstring;
@@ -2764,7 +2778,7 @@ bool vrend_patch_vertex_shader_interpolants(struct vrend_shader_cfg *cfg, char *
          }
          break;
       case TGSI_SEMANTIC_GENERIC:
-         snprintf(glsl_name, 64, "%s_g%d", is_gs ? "out" : "ex", fs_info->interpinfo[i].semantic_index);
+         snprintf(glsl_name, 64, "%s_g%d", oprefix, fs_info->interpinfo[i].semantic_index);
          replace_interp(program, glsl_name, pstring);
          break;
       default:

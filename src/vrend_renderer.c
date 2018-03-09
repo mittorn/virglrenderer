@@ -858,11 +858,11 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
       if (gs)
          vrend_patch_vertex_shader_interpolants(&ctx->shader_cfg, gs->glsl_prog,
                                                 &gs->sel->sinfo,
-                                                &fs->sel->sinfo, true, fs->key.flatshade);
+                                                &fs->sel->sinfo, "gso", fs->key.flatshade);
       else
          vrend_patch_vertex_shader_interpolants(&ctx->shader_cfg, vs->glsl_prog,
                                                 &vs->sel->sinfo,
-                                                &fs->sel->sinfo, false, fs->key.flatshade);
+                                                &fs->sel->sinfo, "vso", fs->key.flatshade);
       ret = vrend_compile_shader(ctx, gs ? gs : vs);
       if (ret == false) {
          glDeleteShader(gs ? gs->id : vs->id);

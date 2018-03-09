@@ -80,7 +80,7 @@ bool vrend_patch_vertex_shader_interpolants(struct vrend_shader_cfg *cfg,
                                             char *program,
                                             struct vrend_shader_info *vs_info,
                                             struct vrend_shader_info *fs_info,
-                                            bool is_gs, bool flatshade);
+                                            const char *oprefix, bool flatshade);
 
 char *vrend_convert_shader(struct vrend_shader_cfg *cfg,
                            const struct tgsi_token *tokens,
