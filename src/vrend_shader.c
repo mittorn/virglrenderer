@@ -835,6 +835,14 @@ static int emit_alpha_test(struct dump_ctx *ctx)
    char comp_buf[128];
    char *sret;
 
+   if (!ctx->num_outputs)
+           return 0;
+
+   if (!ctx->write_all_cbufs) {
+           /* only emit alpha stanza if first output is 0 */
+           if (ctx->outputs[0].sid != 0)
+                   return 0;
+   }
    switch (ctx->key->alpha_test) {
    case PIPE_FUNC_NEVER:
    case PIPE_FUNC_ALWAYS:
