@@ -531,6 +531,14 @@ static void __report_gles_warn(const char *fname, struct vrend_context *ctx, enu
 }
 #define report_gles_warn(ctx, error, value) __report_gles_warn(__func__, ctx, error, value)
 
+static void __report_gles_missing_func(const char *fname, struct vrend_context *ctx, const char *missf)
+{
+   int id = ctx ? ctx->ctx_id : -1;
+   const char *name = ctx ? ctx->debug_name : "NO_CONTEXT";
+   fprintf(stderr,"%s: gles violation reported %d \"%s\" %s is missing\n", fname, id, ctx->debug_name, missf);
+}
+#define report_gles_missing_func(ctx, missf) __report_gles_missing_func(__func__, ctx, missf)
+
 
 static inline bool should_invert_viewport(struct vrend_context *ctx)
 {
@@ -4587,7 +4595,9 @@ int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *a
       }
 
       if (args->nr_samples > 1) {
-         if (gr->target == GL_TEXTURE_2D_MULTISAMPLE) {
+         if (vrend_state.use_gles) {
+            report_gles_missing_func(NULL, "glTexImage[2,3]DMultisample");
+         } else if (gr->target == GL_TEXTURE_2D_MULTISAMPLE) {
             glTexImage2DMultisample(gr->target, args->nr_samples,
                                     internalformat, args->width, args->height,
                                     GL_TRUE);
@@ -4619,6 +4629,8 @@ int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *a
                          glformat,
                          gltype, NULL);
          }
+      } else if (gr->target == GL_TEXTURE_1D && vrend_state.use_gles) {
+         report_gles_missing_func(NULL, "glTexImage1D");
       } else if (gr->target == GL_TEXTURE_1D) {
          for (level = 0; level <= args->last_level; level++) {
             unsigned mwidth = u_minify(args->width, level);
@@ -5081,7 +5093,10 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
                                glformat, gltype, data);
             }
          } else if (res->target == GL_TEXTURE_1D) {
-            if (compressed) {
+            if (vrend_state.use_gles) {
+               /* Covers both compressed and none compressed. */
+               report_gles_missing_func(ctx, "gl[Compressed]TexSubImage1D");
+            } else if (compressed) {
                glCompressedTexSubImage1D(res->target, info->level, info->box->x,
                                          info->box->width,
                                          glformat, comp_size, data);
@@ -5173,15 +5188,21 @@ static int vrend_transfer_send_getteximage(struct vrend_context *ctx,
       target = res->target;
 
    if (compressed) {
-      if (vrend_state.have_arb_robustness)
+      if (vrend_state.have_arb_robustness) {
          glGetnCompressedTexImageARB(target, info->level, tex_size, data);
-      else
+      } else if (vrend_state.use_gles) {
+         report_gles_missing_func(ctx, "glGetCompressedTexImage");
+      } else {
          glGetCompressedTexImage(target, info->level, data);
+      }
    } else {
-      if (vrend_state.have_arb_robustness)
+      if (vrend_state.have_arb_robustness) {
          glGetnTexImageARB(target, info->level, format, type, tex_size, data);
-      else
+      } else if (vrend_state.use_gles) {
+         report_gles_missing_func(ctx, "glGetTexImage");
+      } else {
          glGetTexImage(target, info->level, format, type, data);
+      }
    }
 
    glPixelStorei(GL_PACK_ALIGNMENT, 4);
@@ -5674,11 +5695,15 @@ static void vrend_resource_copy_fallback(struct vrend_context *ctx,
       if (compressed) {
          if (vrend_state.have_arb_robustness)
             glGetnCompressedTexImageARB(ctarget, src_level, transfer_size, tptr + slice_offset);
+         else if (vrend_state.use_gles)
+            report_gles_missing_func(ctx, "glGetCompressedTexImage");
          else
             glGetCompressedTexImage(ctarget, src_level, tptr + slice_offset);
       } else {
          if (vrend_state.have_arb_robustness)
             glGetnTexImageARB(ctarget, src_level, glformat, gltype, transfer_size, tptr + slice_offset);
+         else if (vrend_state.use_gles)
+            report_gles_missing_func(ctx, "glGetTexImage");
          else
             glGetTexImage(ctarget, src_level, glformat, gltype, tptr + slice_offset);
       }
