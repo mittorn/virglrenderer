@@ -506,8 +506,22 @@ static void __report_core_warn(const char *fname, struct vrend_context *ctx, enu
 #define GLES_WARN_LOD_BIAS 5
 #define GLES_WARN_SRGB_FB 6
 #define GLES_WARN_TEXTURE_RECT 7
+#define GLES_WARN_OFFSET_LINE 8
+#define GLES_WARN_OFFSET_POINT 9
+#define GLES_WARN_DEPTH_CLIP 10
+#define GLES_WARN_FLATSHADE_FIRST 11
+#define GLES_WARN_LINE_SMOOTH 12
+#define GLES_WARN_POLY_SMOOTH 13
+#define GLES_WARN_DEPTH_CLEAR 14
+#define GLES_WARN_LOGIC_OP 15
+#define GLES_WARN_TIMESTAMP 16
 
-static const char *vrend_gles_warn_strings[] = { "None", "Stipple", "Polygon Mode", "Depth Range", "Point Size", "Lod Bias", "SRGB Framebuffer", "Texture Rect" };
+static const char *vrend_gles_warn_strings[] = {
+   "None", "Stipple", "Polygon Mode", "Depth Range", "Point Size", "Lod Bias",
+   "SRGB Framebuffer", "Texture Rect", "Offset Line", "Offset Point",
+   "Depth Clip", "Flatshade First", "Line Smooth", "Poly Smooth",
+   "Depth Clear", "LogicOp", "GL_TIMESTAMP"
+};
 
 static void __report_gles_warn(const char *fname, struct vrend_context *ctx, enum virgl_ctx_errors error, uint32_t value)
 {
@@ -2437,7 +2451,15 @@ void vrend_clear(struct vrend_context *ctx,
    if (buffers & PIPE_CLEAR_DEPTH) {
       /* gallium clears don't respect depth mask */
       glDepthMask(GL_TRUE);
-      glClearDepth(depth);
+      if (vrend_state.use_gles) {
+         if (0.0f < depth && depth > 1.0f) {
+            // Only warn, it is clamped by the function.
+            report_gles_warn(ctx, GLES_WARN_DEPTH_CLEAR, 0);
+         }
+         glClearDepthf(depth);
+      } else {
+         glClearDepth(depth);
+      }
    }
 
    if (buffers & PIPE_CLEAR_STENCIL)
@@ -3191,11 +3213,16 @@ static void vrend_hw_emit_blend(struct vrend_context *ctx, struct pipe_blend_sta
 {
    if (state->logicop_enable != ctx->sub->hw_blend_state.logicop_enable) {
       ctx->sub->hw_blend_state.logicop_enable = state->logicop_enable;
-      if (state->logicop_enable) {
+      if (vrend_state.use_gles) {
+         if (state->logicop_enable) {
+            report_gles_warn(ctx, GLES_WARN_LOGIC_OP, 0);
+         }
+      } else if (state->logicop_enable) {
          glEnable(GL_COLOR_LOGIC_OP);
          glLogicOp(translate_logicop(state->logicop_func));
-      } else
+      } else {
          glDisable(GL_COLOR_LOGIC_OP);
+      }
    }
 
    if (state->independent_blend_enable) {
@@ -3476,7 +3503,11 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
    struct pipe_rasterizer_state *state = &ctx->sub->rs_state;
    int i;
 
-   if (state->depth_clip) {
+   if (vrend_state.use_gles) {
+      if (!state->depth_clip) {
+         report_gles_warn(ctx, GLES_WARN_DEPTH_CLIP, 0);
+      }
+   } else if (state->depth_clip) {
       glDisable(GL_DEPTH_CLAMP);
    } else {
       glEnable(GL_DEPTH_CLAMP);
@@ -3524,20 +3555,31 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
    } else
       report_core_warn(ctx, CORE_PROFILE_WARN_POLYGON_MODE, 0);
 
-   if (state->offset_tri)
+   if (state->offset_tri) {
       glEnable(GL_POLYGON_OFFSET_FILL);
-   else
+   } else {
       glDisable(GL_POLYGON_OFFSET_FILL);
+   }
 
-   if (state->offset_line)
+   if (vrend_state.use_gles) {
+      if (state->offset_line) {
+         report_gles_warn(ctx, GLES_WARN_OFFSET_LINE, 0);
+      }
+   } else if (state->offset_line) {
       glEnable(GL_POLYGON_OFFSET_LINE);
-   else
+   } else {
       glDisable(GL_POLYGON_OFFSET_LINE);
+   }
 
-   if (state->offset_point)
+   if (vrend_state.use_gles) {
+      if (state->offset_point) {
+         report_gles_warn(ctx, GLES_WARN_OFFSET_POINT, 0);
+      }
+   } else if (state->offset_point) {
       glEnable(GL_POLYGON_OFFSET_POINT);
-   else
+   } else {
       glDisable(GL_POLYGON_OFFSET_POINT);
+   }
 
 
    if (state->flatshade != ctx->sub->hw_rs_state.flatshade) {
@@ -3553,10 +3595,15 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
 
    if (state->flatshade_first != ctx->sub->hw_rs_state.flatshade_first) {
       ctx->sub->hw_rs_state.flatshade_first = state->flatshade_first;
-      if (state->flatshade_first)
+      if (vrend_state.use_gles) {
+         if (state->flatshade_first) {
+            report_gles_warn(ctx, GLES_WARN_FLATSHADE_FIRST, 0);
+         }
+      } else if (state->flatshade_first) {
          glProvokingVertexEXT(GL_FIRST_VERTEX_CONVENTION_EXT);
-      else
+      } else {
          glProvokingVertexEXT(GL_LAST_VERTEX_CONVENTION_EXT);
+      }
    }
    glPolygonOffset(state->offset_scale, state->offset_units);
 
@@ -3571,14 +3618,21 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
    }
 
    if (state->point_quad_rasterization) {
-      if (vrend_state.use_core_profile == false)
+      if (vrend_state.use_core_profile == false &&
+          vrend_state.use_gles == false) {
          glEnable(GL_POINT_SPRITE);
+      }
 
-      glPointParameteri(GL_POINT_SPRITE_COORD_ORIGIN, state->sprite_coord_mode ? GL_UPPER_LEFT : GL_LOWER_LEFT);
+      if (vrend_state.use_gles == false) {
+         glPointParameteri(GL_POINT_SPRITE_COORD_ORIGIN, state->sprite_coord_mode ? GL_UPPER_LEFT : GL_LOWER_LEFT);
+      }
    } else {
-      if (vrend_state.use_core_profile == false)
+      if (vrend_state.use_core_profile == false &&
+          vrend_state.use_gles == false) {
          glDisable(GL_POINT_SPRITE);
+      }
    }
+
    if (state->cull_face != PIPE_FACE_NONE) {
       switch (state->cull_face) {
       case PIPE_FACE_FRONT:
@@ -3627,15 +3681,26 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
          report_core_warn(ctx, CORE_PROFILE_WARN_STIPPLE, 0);
    }
 
-   if (state->line_smooth)
-      glEnable(GL_LINE_SMOOTH);
-   else
-      glDisable(GL_LINE_SMOOTH);
 
-   if (state->poly_smooth)
+   if (vrend_state.use_gles) {
+      if (state->line_smooth) {
+         report_gles_warn(ctx, GLES_WARN_LINE_SMOOTH, 0);
+      }
+   } else if (state->line_smooth) {
+      glEnable(GL_LINE_SMOOTH);
+   } else {
+      glDisable(GL_LINE_SMOOTH);
+   }
+
+   if (vrend_state.use_gles) {
+      if (state->poly_smooth) {
+         report_gles_warn(ctx, GLES_WARN_POLY_SMOOTH, 0);
+      }
+   } else if (state->poly_smooth) {
       glEnable(GL_POLYGON_SMOOTH);
-   else
+   } else {
       glDisable(GL_POLYGON_SMOOTH);
+   }
 
    if (vrend_state.use_core_profile == false) {
       if (state->clamp_vertex_color)
@@ -6188,11 +6253,14 @@ void vrend_end_query(struct vrend_context *ctx, uint32_t handle)
       return;
 
    if (vrend_is_timer_query(q->gltype)) {
-      if (q->gltype == GL_TIMESTAMP)
+      if (vrend_state.use_gles && q->gltype == GL_TIMESTAMP) {
+         report_gles_warn(ctx, GLES_WARN_TIMESTAMP, 0);
+      } else if (q->gltype == GL_TIMESTAMP) {
          glQueryCounter(q->id, q->gltype);
-      /* remove from active query list for this context */
-      else
+      } else {
+         /* remove from active query list for this context */
          glEndQuery(q->gltype);
+      }
       return;
    }
 
