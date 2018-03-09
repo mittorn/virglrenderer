@@ -841,7 +841,7 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
                                                               struct vrend_shader *gs)
 {
    struct vrend_linked_shader_program *sprog = CALLOC_STRUCT(vrend_linked_shader_program);
-   char name[16];
+   char name[32];
    int i;
    GLuint prog_id;
    GLint lret;
@@ -903,7 +903,7 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
       uint32_t mask = vs->sel->sinfo.attrib_input_mask;
       while (mask) {
          i = u_bit_scan(&mask);
-         snprintf(name, 10, "in_%d", i);
+         snprintf(name, 32, "in_%d", i);
          glBindAttribLocation(prog_id, i, name);
       }
    }
@@ -964,12 +964,12 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
             index = 0;
             while(mask) {
                i = u_bit_scan(&mask);
-               snprintf(name, 10, "%ssamp%d", prefix, i);
+               snprintf(name, 32, "%ssamp%d", prefix, i);
                sprog->samp_locs[id][index] = glGetUniformLocation(prog_id, name);
                if (sprog->ss[id]->sel->sinfo.shadow_samp_mask & (1 << i)) {
-                  snprintf(name, 14, "%sshadmask%d", prefix, i);
+                  snprintf(name, 32, "%sshadmask%d", prefix, i);
                   sprog->shadow_samp_mask_locs[id][index] = glGetUniformLocation(prog_id, name);
-                  snprintf(name, 14, "%sshadadd%d", prefix, i);
+                  snprintf(name, 32, "%sshadadd%d", prefix, i);
                   sprog->shadow_samp_add_locs[id][index] = glGetUniformLocation(prog_id, name);
                }
                index++;
@@ -990,7 +990,7 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
          if (sprog->const_locs[id]) {
             const char *prefix = pipe_shader_to_prefix(id);
             for (i = 0; i < sprog->ss[id]->sel->sinfo.num_consts; i++) {
-               snprintf(name, 16, "%sconst0[%d]", prefix, i);
+               snprintf(name, 32, "%sconst0[%d]", prefix, i);
                sprog->const_locs[id][i] = glGetUniformLocation(prog_id, name);
             }
          }
@@ -1003,7 +1003,7 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
          sprog->attrib_locs = calloc(vs->sel->sinfo.num_inputs, sizeof(uint32_t));
          if (sprog->attrib_locs) {
             for (i = 0; i < vs->sel->sinfo.num_inputs; i++) {
-               snprintf(name, 10, "in_%d", i);
+               snprintf(name, 32, "in_%d", i);
                sprog->attrib_locs[i] = glGetAttribLocation(prog_id, name);
             }
          }
@@ -1017,7 +1017,7 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
 
          sprog->ubo_locs[id] = calloc(sprog->ss[id]->sel->sinfo.num_ubos, sizeof(uint32_t));
          for (i = 0; i < sprog->ss[id]->sel->sinfo.num_ubos; i++) {
-            snprintf(name, 16, "%subo%d", prefix, i + 1);
+            snprintf(name, 32, "%subo%d", prefix, i + 1);
             sprog->ubo_locs[id][i] = glGetUniformBlockIndex(prog_id, name);
          }
       } else
@@ -1026,7 +1026,7 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
 
    if (vs->sel->sinfo.num_ucp) {
       for (i = 0; i < vs->sel->sinfo.num_ucp; i++) {
-         snprintf(name, 10, "clipp[%d]", i);
+         snprintf(name, 32, "clipp[%d]", i);
          sprog->clip_locs[i] = glGetUniformLocation(prog_id, name);
       }
    }
