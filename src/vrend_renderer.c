@@ -4998,6 +4998,7 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
 
       switch (elsize) {
       case 1:
+      case 3:
          glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
          break;
       case 2:
