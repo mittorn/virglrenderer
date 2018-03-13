@@ -6760,6 +6760,13 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
       caps->v1.bset.shader_stencil_export = 1;
    }
 
+   if (gl_ver >= 45) {
+     caps->v1.bset.has_cull = 1;
+   } else {
+     if (epoxy_has_gl_extension("GL_ARB_cull_distance"))
+        caps->v1.bset.has_cull = 1;
+   }
+
    if (epoxy_has_gl_extension("GL_EXT_texture_mirror_clamp")) {
       caps->v1.bset.mirror_clamp = true;
    }
