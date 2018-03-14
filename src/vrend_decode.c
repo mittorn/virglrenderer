@@ -47,7 +47,7 @@ struct vrend_decode_ctx {
    struct vrend_decoder_state ids, *ds;
    struct vrend_context *grctx;
 };
-#define VREND_MAX_CTX 16
+#define VREND_MAX_CTX 64
 static struct vrend_decode_ctx *dec_ctx[VREND_MAX_CTX];
 
 static inline uint32_t get_buf_entry(struct vrend_decode_ctx *ctx, uint32_t offset)
