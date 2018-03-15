@@ -2470,8 +2470,10 @@ void vrend_clear(struct vrend_context *ctx,
       }
    }
 
-   if (buffers & PIPE_CLEAR_STENCIL)
+   if (buffers & PIPE_CLEAR_STENCIL) {
+      glStencilMask(~0u);
       glClearStencil(stencil);
+   }
 
    if (buffers & PIPE_CLEAR_COLOR) {
       uint32_t mask = 0;
@@ -2509,6 +2511,12 @@ void vrend_clear(struct vrend_context *ctx,
    if (buffers & PIPE_CLEAR_DEPTH)
       if (!ctx->sub->dsa_state.depth.writemask)
          glDepthMask(GL_FALSE);
+
+   /* Restore previous stencil buffer write masks for both front and back faces */
+   if (buffers & PIPE_CLEAR_STENCIL) {
+      glStencilMaskSeparate(GL_FRONT, ctx->sub->dsa_state.stencil[0].writemask);
+      glStencilMaskSeparate(GL_BACK, ctx->sub->dsa_state.stencil[1].writemask);
+   }
 
    /* Restore previous colormask */
    if (buffers & PIPE_CLEAR_COLOR) {
