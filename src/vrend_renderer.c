@@ -5756,7 +5756,7 @@ static void vrend_resource_copy_fallback(struct vrend_context *ctx,
          } else if (ctarget == GL_TEXTURE_3D ||
                     ctarget == GL_TEXTURE_2D_ARRAY ||
                     ctarget == GL_TEXTURE_CUBE_MAP_ARRAY) {
-            glTexSubImage3D(ctarget, dst_level, dstx, dsty, 0,src_box->width, src_box->height, src_box->depth, glformat, gltype, tptr + slice_offset);
+            glTexSubImage3D(ctarget, dst_level, dstx, dsty, dstz, src_box->width, src_box->height, src_box->depth, glformat, gltype, tptr + slice_offset);
          } else {
             glTexSubImage2D(ctarget, dst_level, dstx, dsty, src_box->width, src_box->height, glformat, gltype, tptr + slice_offset);
          }
