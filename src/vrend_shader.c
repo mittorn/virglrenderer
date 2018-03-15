@@ -921,7 +921,7 @@ static int emit_so_movs(struct dump_ctx *ctx)
    char *sret;
 
    if (ctx->so->num_outputs >= PIPE_MAX_SO_OUTPUTS) {
-      fprintf(stderr, "Num outputs exceeded, max is %lu\n", PIPE_MAX_SO_OUTPUTS);
+      fprintf(stderr, "Num outputs exceeded, max is %u\n", PIPE_MAX_SO_OUTPUTS);
       return EINVAL;
    }
 
@@ -1646,7 +1646,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
       const struct tgsi_full_src_register *src = &inst->Src[i];
       char swizzle[8] = {0};
       char prefix[6] = {0};
-      char arrayname[8] = {0};
+      char arrayname[9] = {0};
       int swz_idx = 0, pre_idx = 0;
       boolean isabsolute = src->Register.Absolute;
 
@@ -2359,7 +2359,7 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
    ctx->num_interps = 0;
 
    if (ctx->so && ctx->so->num_outputs >= PIPE_MAX_SO_OUTPUTS) {
-      fprintf(stderr, "Num outputs exceeded, max is %lu\n", PIPE_MAX_SO_OUTPUTS);
+      fprintf(stderr, "Num outputs exceeded, max is %u\n", PIPE_MAX_SO_OUTPUTS);
       return NULL;
    }
 
