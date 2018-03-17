@@ -1287,6 +1287,7 @@ int vrend_create_sampler_state(struct vrend_context *ctx,
       glSamplerParameterf(state->id, GL_TEXTURE_MAX_LOD, templ->max_lod);
       glSamplerParameteri(state->id, GL_TEXTURE_COMPARE_MODE, templ->compare_mode ? GL_COMPARE_R_TO_TEXTURE : GL_NONE);
       glSamplerParameteri(state->id, GL_TEXTURE_COMPARE_FUNC, GL_NEVER + templ->compare_func);
+      glSamplerParameteri(state->id, GL_TEXTURE_CUBE_MAP_SEAMLESS, templ->seamless_cube_map);
       if (vrend_state.use_gles) {
          if (templ->lod_bias != 0.0f) {
             report_gles_warn(ctx, GLES_WARN_LOD_BIAS, 0);
@@ -3874,6 +3875,10 @@ static void vrend_apply_sampler_state(struct vrend_context *ctx,
       glTexParameteri(target, GL_TEXTURE_COMPARE_MODE, state->compare_mode ? GL_COMPARE_R_TO_TEXTURE : GL_NONE);
    if (tex->state.compare_func != state->compare_func || set_all)
       glTexParameteri(target, GL_TEXTURE_COMPARE_FUNC, GL_NEVER + state->compare_func);
+   if (state->seamless_cube_map)
+      glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
+   else
+      glDisable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
 
    if (memcmp(&tex->state.border_color, &state->border_color, 16) || set_all)
       glTexParameterIuiv(target, GL_TEXTURE_BORDER_COLOR, state->border_color.ui);

@@ -594,6 +594,7 @@ static int vrend_decode_create_sampler_state(struct vrend_decode_ctx *ctx, uint3
    state.mag_img_filter = (tmp >> 13) & 0x3;
    state.compare_mode = (tmp >> 15) & 0x1;
    state.compare_func = (tmp >> 16) & 0x7;
+   state.seamless_cube_map = (tmp >> 19) & 0x1;
 
    state.lod_bias = uif(get_buf_entry(ctx, VIRGL_OBJ_SAMPLER_STATE_LOD_BIAS));
    state.min_lod = uif(get_buf_entry(ctx, VIRGL_OBJ_SAMPLER_STATE_MIN_LOD));
