@@ -5680,8 +5680,8 @@ static void vrend_resource_copy_fallback(struct vrend_context *ctx,
 
    /* this is ugly need to do a full GetTexImage */
    slice_size = util_format_get_nblocks(src_res->base.format, u_minify(src_res->base.width0, src_level), u_minify(src_res->base.height0, src_level)) *
-      u_minify(src_res->base.depth0, src_level) * util_format_get_blocksize(src_res->base.format);
-   transfer_size = slice_size * src_res->base.array_size;
+                util_format_get_blocksize(src_res->base.format);
+   transfer_size = slice_size * vrend_get_texture_depth(src_res, src_level);
 
    tptr = malloc(transfer_size);
    if (!tptr)
@@ -5749,8 +5749,10 @@ static void vrend_resource_copy_fallback(struct vrend_context *ctx,
    }
 
    glBindTexture(dst_res->target, dst_res->id);
-   slice_offset = 0;
-   for (i = 0; i < cube_slice; i++) {
+   slice_offset = src_box->z * slice_size;
+   cube_slice = (src_res->target == GL_TEXTURE_CUBE_MAP) ? src_box->z + src_box->depth : cube_slice;
+   i = (src_res->target == GL_TEXTURE_CUBE_MAP) ? src_box->z : 0;
+   for (; i < cube_slice; i++) {
       GLenum ctarget = dst_res->target == GL_TEXTURE_CUBE_MAP ? GL_TEXTURE_CUBE_MAP_POSITIVE_X + i : dst_res->target;
       if (compressed) {
          if (ctarget == GL_TEXTURE_1D) {
