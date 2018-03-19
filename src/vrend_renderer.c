@@ -5145,6 +5145,18 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
    return 0;
 }
 
+static uint32_t vrend_get_texture_depth(struct vrend_resource *res, uint32_t level)
+{
+   uint32_t depth = 1;
+   if (res->target == GL_TEXTURE_3D)
+      depth = u_minify(res->base.depth0, level);
+   else if (res->target == GL_TEXTURE_1D_ARRAY || res->target == GL_TEXTURE_2D_ARRAY ||
+            res->target == GL_TEXTURE_CUBE_MAP || res->target == GL_TEXTURE_CUBE_MAP_ARRAY)
+      depth = res->base.array_size;
+
+   return depth;
+}
+
 static int vrend_transfer_send_getteximage(struct vrend_context *ctx,
                                            struct vrend_resource *res,
                                            struct iovec *iov, int num_iovs,
@@ -5156,7 +5168,6 @@ static int vrend_transfer_send_getteximage(struct vrend_context *ctx,
    int elsize = util_format_get_blocksize(res->base.format);
    int compressed = util_format_is_compressed(res->base.format);
    GLenum target;
-   uint32_t depth = 1;
    uint32_t send_offset = 0;
    format = tex_conv_table[res->base.format].glformat;
    type = tex_conv_table[res->base.format].gltype;
@@ -5164,12 +5175,8 @@ static int vrend_transfer_send_getteximage(struct vrend_context *ctx,
    if (compressed)
       format = tex_conv_table[res->base.format].internalformat;
 
-   if (res->target == GL_TEXTURE_3D)
-      depth = u_minify(res->base.depth0, info->level);
-   else if (res->target == GL_TEXTURE_2D_ARRAY || res->target == GL_TEXTURE_1D_ARRAY || res->target == GL_TEXTURE_CUBE_MAP_ARRAY)
-      depth = res->base.array_size;
-
-   tex_size = util_format_get_nblocks(res->base.format, u_minify(res->base.width0, info->level), u_minify(res->base.height0, info->level)) * util_format_get_blocksize(res->base.format) * depth;
+   tex_size = util_format_get_nblocks(res->base.format, u_minify(res->base.width0, info->level), u_minify(res->base.height0, info->level)) *
+              util_format_get_blocksize(res->base.format) * vrend_get_texture_depth(res, info->level);
 
    if (info->box->z && res->target != GL_TEXTURE_CUBE_MAP) {
       send_offset = util_format_get_nblocks(res->base.format, u_minify(res->base.width0, info->level), u_minify(res->base.height0, info->level)) * util_format_get_blocksize(res->base.format) * info->box->z;
