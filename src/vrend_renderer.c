@@ -6443,6 +6443,209 @@ static void vrender_get_glsl_version(int *glsl_version)
       *glsl_version = version;
 }
 
+/*
+ * Does all of the common caps setting,
+ * if it dedects a early out returns true.
+ */
+bool vrend_renderer_fill_caps_common(uint32_t set, uint32_t version,
+                                     union virgl_caps *caps)
+{
+   int i, gl_ver;
+   GLint max;
+
+   if (!caps) {
+      return true;
+   }
+
+   if (set > 2) {
+      caps->max_version = 0;
+      return true;
+   }
+
+   if (set == 1) {
+      memset(caps, 0, sizeof(struct virgl_caps_v1));
+      caps->max_version = 1;
+   } else if (set == 2) {
+      memset(caps, 0, sizeof(*caps));
+      caps->max_version = 2;
+   }
+
+   gl_ver = epoxy_gl_version();
+
+   /*
+    * We can't fully support this feature on GLES,
+    * but it is needed for OpenGL 2.1 so lie.
+    */
+   caps->v1.bset.occlusion_query = 1;
+
+
+   /* Some checks looks at v1.glsl_level so set it here. */
+   if (vrend_state.use_gles) {
+      caps->v1.glsl_level = 120;
+   } else if (vrend_state.use_core_profile) {
+      if (gl_ver == 31)
+         caps->v1.glsl_level = 140;
+      else if (gl_ver == 32)
+         caps->v1.glsl_level = 150;
+      else if (gl_ver >= 33)
+         caps->v1.glsl_level = 330;
+   } else {
+      caps->v1.glsl_level = 130;
+   }
+
+
+   /* Set supported prims here as we now know what shaders we support. */
+   caps->v1.prim_mask = (1 << PIPE_PRIM_POINTS) | (1 << PIPE_PRIM_LINES) | (1 << PIPE_PRIM_LINE_STRIP) | (1 << PIPE_PRIM_LINE_LOOP) | (1 << PIPE_PRIM_TRIANGLES) | (1 << PIPE_PRIM_TRIANGLE_STRIP) | (1 << PIPE_PRIM_TRIANGLE_FAN);
+
+   if (vrend_state.use_gles == false &&
+       vrend_state.use_core_profile == false) {
+      caps->v1.prim_mask |= (1 << PIPE_PRIM_QUADS) | (1 << PIPE_PRIM_QUAD_STRIP) | (1 << PIPE_PRIM_POLYGON);
+   }
+
+   if (!vrend_state.use_gles && caps->v1.glsl_level >= 150) {
+      caps->v1.prim_mask |= (1 << PIPE_PRIM_LINES_ADJACENCY) |
+         (1 << PIPE_PRIM_LINE_STRIP_ADJACENCY) |
+         (1 << PIPE_PRIM_TRIANGLES_ADJACENCY) |
+         (1 << PIPE_PRIM_TRIANGLE_STRIP_ADJACENCY);
+   }
+
+
+   /* Common limits for all backends. */
+   glGetIntegerv(GL_MAX_DRAW_BUFFERS, &max);
+   caps->v1.max_render_targets = max;
+
+   glGetIntegerv(GL_MAX_SAMPLES, &max);
+   caps->v1.max_samples = max;
+
+
+   /* All of the formats are common. */
+   for (i = 0; i < VIRGL_FORMAT_MAX; i++) {
+      uint32_t offset = i / 32;
+      uint32_t index = i % 32;
+
+      if (tex_conv_table[i].internalformat != 0) {
+         if (vrend_format_can_sample(i)) {
+            caps->v1.sampler.bitmask[offset] |= (1 << index);
+            if (vrend_format_can_render(i))
+               caps->v1.render.bitmask[offset] |= (1 << index);
+         }
+      }
+   }
+
+   if (!vrend_state.use_gles &&
+       epoxy_has_gl_extension("GL_ARB_vertex_type_10f_11f_11f_rev")) {
+      int val = VIRGL_FORMAT_R11G11B10_FLOAT;
+      uint32_t offset = val / 32;
+      uint32_t index = val % 32;
+
+      caps->v1.vertexbuffer.bitmask[offset] |= (1 << index);
+   }
+
+
+   /* These are filled in by the init code, so are common. */
+   if (vrend_state.have_nv_prim_restart ||
+       vrend_state.have_gl_prim_restart) {
+      caps->v1.bset.primitive_restart = 1;
+   }
+
+   return false;
+}
+
+void vrend_renderer_fill_caps_gles(uint32_t set, uint32_t version,
+                                   union virgl_caps *caps)
+{
+   GLint max;
+   GLfloat range[2];
+   bool fill_capset2 = false;
+
+   if (set == 2) {
+      fill_capset2 = true;
+   }
+
+   caps->v1.bset.indep_blend_enable = 0;
+   caps->v1.bset.conditional_render = 0;
+
+   caps->v1.bset.poly_stipple = 0;
+   caps->v1.bset.color_clamping = 0;
+
+   caps->v1.bset.instanceid = 0;
+
+   caps->v1.bset.primitive_restart = 0;
+
+   caps->v1.bset.fragment_coord_conventions = 0;
+   caps->v1.bset.depth_clip_disable = 0;
+   caps->v1.bset.seamless_cube_map = 0;
+
+   caps->v1.bset.seamless_cube_map_per_texture = 0;
+
+   caps->v1.bset.texture_multisample = 0;
+
+   caps->v1.bset.mirror_clamp = 0;
+   caps->v1.bset.indep_blend_func = 0;
+   caps->v1.bset.cube_map_array = 0;
+   caps->v1.bset.texture_query_lod = 0;
+   caps->v1.bset.has_indirect_draw = 0;
+   caps->v1.bset.has_sample_shading = 0;
+
+   caps->v1.bset.start_instance = 0;
+
+   caps->v1.bset.shader_stencil_export = 0;
+
+   caps->v1.bset.streamout_pause_resume = 0;
+
+   caps->v1.max_dual_source_render_targets = 0;
+
+   caps->v1.max_dual_source_render_targets = 0;
+
+   caps->v1.max_tbo_size = 0;
+
+   caps->v1.max_texture_gather_components = 0;
+
+   caps->v1.max_viewports = 1;
+
+   if (!fill_capset2) {
+      return;
+   }
+
+   glGetFloatv(GL_ALIASED_POINT_SIZE_RANGE, range);
+   caps->v2.min_aliased_point_size = range[0];
+   caps->v2.max_aliased_point_size = range[1];
+
+   /* Not available on GLES */
+   caps->v2.min_smooth_point_size = 0.0f;
+   caps->v2.max_smooth_point_size = 0.0f;
+
+   glGetFloatv(GL_ALIASED_LINE_WIDTH_RANGE, range);
+   caps->v2.min_aliased_line_width = range[0];
+   caps->v2.max_aliased_line_width = range[1];
+
+   /* Not available on GLES */
+   caps->v2.min_smooth_line_width = 0.0f;
+   caps->v2.max_smooth_line_width = 0.0f;
+
+   glGetFloatv(GL_MAX_TEXTURE_LOD_BIAS, &caps->v2.max_texture_lod_bias);
+   glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, &caps->v2.max_vertex_attribs);
+   glGetIntegerv(GL_MAX_VERTEX_OUTPUT_COMPONENTS, &max);
+   caps->v2.max_vertex_outputs = max / 4;
+
+   /* Not available on GLES */
+   caps->v2.max_geom_output_vertices = 0;
+   caps->v2.max_geom_total_output_components = 0;
+   caps->v2.max_shader_patch_varyings = 0;
+
+   /* Not available on GLES */
+   caps->v2.min_texture_gather_offset = 0;
+   caps->v2.max_texture_gather_offset = 0;
+
+   glGetIntegerv(GL_MIN_PROGRAM_TEXEL_OFFSET, &caps->v2.min_texel_offset);
+   glGetIntegerv(GL_MAX_PROGRAM_TEXEL_OFFSET, &caps->v2.max_texel_offset);
+
+   glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &caps->v2.uniform_buffer_offset_alignment);
+
+   /* Not available on GLES */
+   caps->v2.texture_buffer_offset_alignment = 0;
+}
+
 void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
                               union virgl_caps *caps)
 {
@@ -6451,24 +6654,22 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
    GLfloat range[2];
    int gl_ver = epoxy_gl_version();
    bool fill_capset2 = false;
-   if (!caps)
-      return;
 
-   if (set > 2) {
-      caps->max_version = 0;
+   /* Returns true if we should early out. */
+   if (vrend_renderer_fill_caps_common(set, version, caps)) {
       return;
    }
 
-   if (set == 1) {
-      memset(caps, 0, sizeof(struct virgl_caps_v1));
-      caps->max_version = 1;
-   } else if (set == 2) {
+   /* GLES has it's own path */
+   if (vrend_state.use_gles) {
+      vrend_renderer_fill_caps_gles(set, version, caps);
+      return;
+   }
+
+   if (set == 2) {
       fill_capset2 = true;
-      memset(caps, 0, sizeof(*caps));
-      caps->max_version = 2;
    }
 
-   caps->v1.bset.occlusion_query = 1;
    if (gl_ver >= 30) {
       caps->v1.bset.indep_blend_enable = 1;
       caps->v1.bset.conditional_render = 1;
@@ -6486,6 +6687,7 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
       caps->v1.bset.poly_stipple = 1;
       caps->v1.bset.color_clamping = 1;
    }
+
    if (gl_ver >= 31) {
       caps->v1.bset.instanceid = 1;
       glGetIntegerv(GL_MAX_VERTEX_UNIFORM_BLOCKS, &max);
@@ -6495,9 +6697,6 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
       if (epoxy_has_gl_extension("GL_ARB_draw_instanced"))
          caps->v1.bset.instanceid = 1;
    }
-
-   if (vrend_state.have_nv_prim_restart || vrend_state.have_gl_prim_restart)
-      caps->v1.bset.primitive_restart = 1;
 
    if (gl_ver >= 32) {
       caps->v1.bset.fragment_coord_conventions = 1;
@@ -6510,13 +6709,14 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
          caps->v1.bset.seamless_cube_map = 1;
    }
 
-   if (epoxy_has_gl_extension("GL_AMD_seamless_cube_map_per_texture"))
+   if (epoxy_has_gl_extension("GL_AMD_seamless_cube_map_per_texture")) {
       caps->v1.bset.seamless_cube_map_per_texture = 1;
+   }
 
    if (epoxy_has_gl_extension("GL_ARB_texture_multisample")) {
-      /* disable multisample until developed */
       caps->v1.bset.texture_multisample = 1;
    }
+
    if (gl_ver >= 40) {
       caps->v1.bset.indep_blend_func = 1;
       caps->v1.bset.cube_map_array = 1;
@@ -6538,26 +6738,17 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
 
    if (gl_ver >= 42) {
       caps->v1.bset.start_instance = 1;
-   } else {
-      if (epoxy_has_gl_extension("GL_ARB_base_instance"))
-         caps->v1.bset.start_instance = 1;
+   } else if (epoxy_has_gl_extension("GL_ARB_base_instance")) {
+      caps->v1.bset.start_instance = 1;
    }
-   if (epoxy_has_gl_extension("GL_ARB_shader_stencil_export"))
+
+   if (epoxy_has_gl_extension("GL_ARB_shader_stencil_export")) {
       caps->v1.bset.shader_stencil_export = 1;
-
-   /* we only support up to GLSL 1.40 features now */
-   caps->v1.glsl_level = 130;
-   if (vrend_state.use_core_profile) {
-      if (gl_ver == 31)
-         caps->v1.glsl_level = 140;
-      else if (gl_ver == 32)
-         caps->v1.glsl_level = 150;
-      else if (gl_ver >= 33)
-         caps->v1.glsl_level = 330;
    }
 
-   if (epoxy_has_gl_extension("GL_EXT_texture_mirror_clamp"))
+   if (epoxy_has_gl_extension("GL_EXT_texture_mirror_clamp")) {
       caps->v1.bset.mirror_clamp = true;
+   }
 
    if (epoxy_has_gl_extension("GL_EXT_texture_array")) {
       glGetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS, &max);
@@ -6572,19 +6763,14 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
    if (epoxy_has_gl_extension("GL_ARB_transform_feedback3")) {
       glGetIntegerv(GL_MAX_TRANSFORM_FEEDBACK_BUFFERS, &max);
       caps->v1.max_streamout_buffers = max;
-   } else if (epoxy_has_gl_extension("GL_EXT_transform_feedback"))
+   } else if (epoxy_has_gl_extension("GL_EXT_transform_feedback")) {
       caps->v1.max_streamout_buffers = 4;
+   }
+
    if (epoxy_has_gl_extension("GL_ARB_blend_func_extended")) {
       glGetIntegerv(GL_MAX_DUAL_SOURCE_DRAW_BUFFERS, &max);
       caps->v1.max_dual_source_render_targets = max;
-   } else
-      caps->v1.max_dual_source_render_targets = 0;
-
-   glGetIntegerv(GL_MAX_DRAW_BUFFERS, &max);
-   caps->v1.max_render_targets = max;
-
-   glGetIntegerv(GL_MAX_SAMPLES, &max);
-   caps->v1.max_samples = max;
+   }
 
    if (epoxy_has_gl_extension("GL_ARB_texture_buffer_object")) {
       glGetIntegerv(GL_MAX_TEXTURE_BUFFER_SIZE, &max);
@@ -6599,40 +6785,10 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
    if (epoxy_has_gl_extension("GL_ARB_viewport_array")) {
       glGetIntegerv(GL_MAX_VIEWPORTS, &max);
       caps->v1.max_viewports = max;
-   } else
+   } else {
       caps->v1.max_viewports = 1;
-
-   caps->v1.prim_mask = (1 << PIPE_PRIM_POINTS) | (1 << PIPE_PRIM_LINES) | (1 << PIPE_PRIM_LINE_STRIP) | (1 << PIPE_PRIM_LINE_LOOP) | (1 << PIPE_PRIM_TRIANGLES) | (1 << PIPE_PRIM_TRIANGLE_STRIP) | (1 << PIPE_PRIM_TRIANGLE_FAN);
-   if (vrend_state.use_core_profile == false) {
-      caps->v1.prim_mask |= (1 << PIPE_PRIM_QUADS) | (1 << PIPE_PRIM_QUAD_STRIP) | (1 << PIPE_PRIM_POLYGON);
-   }
-   if (caps->v1.glsl_level >= 150)
-      caps->v1.prim_mask |= (1 << PIPE_PRIM_LINES_ADJACENCY) |
-         (1 << PIPE_PRIM_LINE_STRIP_ADJACENCY) |
-         (1 << PIPE_PRIM_TRIANGLES_ADJACENCY) |
-         (1 << PIPE_PRIM_TRIANGLE_STRIP_ADJACENCY);
-
-
-   if (epoxy_has_gl_extension("GL_ARB_vertex_type_10f_11f_11f_rev")) {
-      int val = VIRGL_FORMAT_R11G11B10_FLOAT;
-      uint32_t offset = val / 32;
-      uint32_t index = val % 32;
-
-      caps->v1.vertexbuffer.bitmask[offset] |= (1 << index);
    }
 
-   for (i = 0; i < VIRGL_FORMAT_MAX; i++) {
-      uint32_t offset = i / 32;
-      uint32_t index = i % 32;
-
-      if (tex_conv_table[i].internalformat != 0) {
-         if (vrend_format_can_sample(i)) {
-            caps->v1.sampler.bitmask[offset] |= (1 << index);
-            if (vrend_format_can_render(i))
-               caps->v1.render.bitmask[offset] |= (1 << index);
-         }
-      }
-   }
 
    if (!fill_capset2)
       return;
