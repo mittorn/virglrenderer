@@ -4772,7 +4772,7 @@ static void read_transfer_data(struct pipe_resource *res,
    else {
       if (invert) {
          for (d = 0; d < box->depth; d++) {
-            uint32_t myoffset = offset + d * src_stride * (res->height0 >> level);
+            uint32_t myoffset = offset + d * src_stride * u_minify(res->height0, level);
             for (h = bh - 1; h >= 0; h--) {
                void *ptr = data + (h * bwx) + d * (bh * bwx);
                vrend_read_from_iovec(iov, num_iovs, myoffset, ptr, bwx);
@@ -4781,7 +4781,7 @@ static void read_transfer_data(struct pipe_resource *res,
          }
       } else {
          for (d = 0; d < box->depth; d++) {
-            uint32_t myoffset = offset + d * src_stride * (res->height0 >> level);
+            uint32_t myoffset = offset + d * src_stride * u_minify(res->height0, level);
             for (h = 0; h < bh; h++) {
                void *ptr = data + (h * bwx) + d * (bh * bwx);
                vrend_read_from_iovec(iov, num_iovs, myoffset, ptr, bwx);
@@ -4815,7 +4815,7 @@ static void write_transfer_data(struct pipe_resource *res,
       vrend_write_to_iovec(iov, num_iovs, offset, data, send_size);
    } else if (invert) {
       for (d = 0; d < box->depth; d++) {
-         uint32_t myoffset = offset + d * stride * (res->height0 >> level);
+         uint32_t myoffset = offset + d * stride * u_minify(res->height0, level);
          for (h = bh - 1; h >= 0; h--) {
             void *ptr = data + (h * bwx) + d * (bh * bwx);
             vrend_write_to_iovec(iov, num_iovs, myoffset, ptr, bwx);
@@ -4824,7 +4824,7 @@ static void write_transfer_data(struct pipe_resource *res,
       }
    } else {
       for (d = 0; d < box->depth; d++) {
-         uint32_t myoffset = offset + d * stride * (res->height0 >> level);
+         uint32_t myoffset = offset + d * stride * u_minify(res->height0, level);
          for (h = 0; h < bh; h++) {
             void *ptr = data + (h * bwx) + d * (bh * bwx);
             vrend_write_to_iovec(iov, num_iovs, myoffset, ptr, bwx);
