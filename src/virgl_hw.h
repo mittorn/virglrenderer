@@ -38,6 +38,7 @@ enum virgl_formats {
    VIRGL_FORMAT_B5G5R5A1_UNORM          = 5,
    VIRGL_FORMAT_B4G4R4A4_UNORM          = 6,
    VIRGL_FORMAT_B5G6R5_UNORM            = 7,
+   VIRGL_FORMAT_R10G10B10A2_UNORM       = 8,
    VIRGL_FORMAT_L8_UNORM                = 9,    /**< ubyte luminance */
    VIRGL_FORMAT_A8_UNORM                = 10,   /**< ubyte alpha */
    VIRGL_FORMAT_L8A8_UNORM              = 12,   /**< ubyte alpha, luminance */
@@ -201,6 +202,9 @@ enum virgl_formats {
    VIRGL_FORMAT_BPTC_SRGBA              = 256,
    VIRGL_FORMAT_BPTC_RGB_FLOAT          = 257,
    VIRGL_FORMAT_BPTC_RGB_UFLOAT         = 258,
+
+   VIRGL_FORMAT_R10G10B10X2_UNORM       = 308,
+
    VIRGL_FORMAT_MAX,
 };
 
