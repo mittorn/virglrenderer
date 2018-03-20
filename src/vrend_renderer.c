@@ -3875,10 +3875,20 @@ static void vrend_apply_sampler_state(struct vrend_context *ctx,
       glTexParameteri(target, GL_TEXTURE_COMPARE_MODE, state->compare_mode ? GL_COMPARE_R_TO_TEXTURE : GL_NONE);
    if (tex->state.compare_func != state->compare_func || set_all)
       glTexParameteri(target, GL_TEXTURE_COMPARE_FUNC, GL_NEVER + state->compare_func);
-   if (state->seamless_cube_map)
-      glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
-   else
-      glDisable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
+
+   /*
+    * Oh this is a fun one. On GLES 2.0 all cubemap MUST NOT be seamless.
+    * But on GLES 3.0 all cubemaps MUST be seamless. Either way there is no
+    * way to toggle between the behaviour when running on GLES. And adding
+    * warnings will spew the logs quite bad. Ignore and hope for the best.
+    */
+   if (!vrend_state.use_gles) {
+      if (state->seamless_cube_map) {
+         glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
+      } else {
+         glDisable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
+      }
+   }
 
    if (memcmp(&tex->state.border_color, &state->border_color, 16) || set_all)
       glTexParameterIuiv(target, GL_TEXTURE_BORDER_COLOR, state->border_color.ui);
