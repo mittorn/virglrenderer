@@ -2567,7 +2567,7 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
          /* OpenGL ES do not support 1D texture
           * so we use a 2D texture with a parameter set to 0.5
           */
-         if (ctx->cfg->use_gles && !memcmp(stc, "1D", sizeof(stc)))
+         if (ctx->cfg->use_gles && !strcmp(stc, "1D"))
             snprintf(buf, 255, "uniform %csampler2D %ssamp%d;\n", ptc, sname, i);
          else
             snprintf(buf, 255, "uniform %csampler%s %ssamp%d;\n", ptc, stc, sname, i);
