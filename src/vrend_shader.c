@@ -2438,7 +2438,10 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
    }
    if (ctx->write_all_cbufs) {
       for (i = 0; i < 8; i++) {
-         snprintf(buf, 255, "out vec4 fsout_c%d;\n", i);
+         if (ctx->cfg->use_gles)
+            snprintf(buf, 255, "layout (location=%d) out vec4 fsout_c%d;\n", i, i);
+         else
+            snprintf(buf, 255, "out vec4 fsout_c%d;\n", i);
          STRCAT_WITH_RET(glsl_hdr, buf);
       }
    } else {
