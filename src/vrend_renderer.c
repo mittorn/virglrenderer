@@ -5020,6 +5020,7 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
 
       if (stride && !need_temp) {
          glPixelStorei(GL_UNPACK_ROW_LENGTH, stride / elsize);
+         glPixelStorei(GL_UNPACK_IMAGE_HEIGHT, u_minify(res->base.height0, info->level));
       } else
          glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
 
@@ -5149,8 +5150,12 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
                glPixelTransferf(GL_DEPTH_SCALE, 1.0);
          }
       }
-      if (stride && !need_temp)
+
+      if (stride && !need_temp) {
          glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+         glPixelStorei(GL_UNPACK_IMAGE_HEIGHT, 0);
+      }
+
       glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
 
       if (need_temp)
