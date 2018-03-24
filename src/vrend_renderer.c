@@ -5916,7 +5916,8 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
       use_gl = true;
 
    /* for scaled MS blits we either need extensions or hand roll */
-   if (src_res->base.nr_samples > 1 &&
+   if (info->mask & PIPE_MASK_RGBA &&
+       src_res->base.nr_samples > 1 &&
        src_res->base.nr_samples != dst_res->base.nr_samples &&
        (info->src.box.width != info->dst.box.width ||
         info->src.box.height != info->dst.box.height)) {
