@@ -45,6 +45,7 @@ struct vrend_shader_info {
    int glsl_ver;
    bool has_pervertex_out;
    uint8_t num_clip_out;
+   uint8_t num_cull_out;
    uint32_t shadow_samp_mask;
    int gs_out_prim;
    uint32_t attrib_input_mask;
@@ -66,6 +67,7 @@ struct vrend_shader_key {
    bool flatshade;
    bool prev_stage_pervertex_out;
    uint8_t prev_stage_num_clip_out;
+   uint8_t prev_stage_num_cull_out;
    float alpha_ref_val;
    uint32_t cbufs_are_a8_bitmask;
 };

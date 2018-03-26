@@ -1530,7 +1530,11 @@ create_swizzled_clipdist(struct dump_ctx *ctx,
 {
    char clipdistvec[4][64] = {};
    int idx;
+   bool has_prev_vals = (ctx->key->prev_stage_num_cull_out + ctx->key->prev_stage_num_clip_out) > 0;
+   int num_culls = has_prev_vals ? ctx->key->prev_stage_num_cull_out : 0;
+   int num_clips = has_prev_vals ? ctx->key->prev_stage_num_clip_out : ctx->num_in_clip_dist;
    for (unsigned cc = 0; cc < 4; cc++) {
+      const char *cc_name = ctx->inputs[input_idx].glsl_name;
       idx = ctx->inputs[input_idx].sid * 4;
       if (cc == 0)
          idx += src->Register.SwizzleX;
@@ -1540,10 +1544,24 @@ create_swizzled_clipdist(struct dump_ctx *ctx,
          idx += src->Register.SwizzleZ;
       else if (cc == 3)
          idx += src->Register.SwizzleW;
+
+      if (num_culls) {
+         if (idx >= num_clips) {
+            idx -= num_clips;
+            cc_name = "gl_CullDistance";
+         }
+         if (ctx->key->prev_stage_num_cull_out)
+            if (idx >= ctx->key->prev_stage_num_cull_out)
+               idx = 0;
+      } else {
+         if (ctx->key->prev_stage_num_clip_out)
+            if (idx >= ctx->key->prev_stage_num_clip_out)
+               idx = 0;
+      }
       if (gl_in)
-         snprintf(clipdistvec[cc], 64, "%sgl_in%s.%s[%d]", prefix, arrayname, ctx->inputs[input_idx].glsl_name, idx);
+         snprintf(clipdistvec[cc], 64, "%sgl_in%s.%s[%d]", prefix, arrayname, cc_name, idx);
       else
-         snprintf(clipdistvec[cc], 64, "%s%s%s[%d]", prefix, arrayname, ctx->inputs[input_idx].glsl_name, idx);
+         snprintf(clipdistvec[cc], 64, "%s%s%s[%d]", prefix, arrayname, cc_name, idx);
    }
    snprintf(result, 255, "%s(vec4(%s,%s,%s,%s))", stypeprefix, clipdistvec[0], clipdistvec[1], clipdistvec[2], clipdistvec[3]);
 }
@@ -2332,7 +2350,7 @@ static char *emit_header(struct dump_ctx *ctx, char *glsl_hdr)
          STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_sample_shading : require\n");
       if (ctx->uses_gpu_shader5)
          STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_gpu_shader5 : require\n");
-      if (ctx->num_cull_dist_prop)
+      if (ctx->num_cull_dist_prop || ctx->key->prev_stage_num_cull_out)
          STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_cull_distance : require\n");
    }
    return glsl_hdr;
@@ -2546,20 +2564,36 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
       snprintf(buf, 255, "uniform float winsys_adjust_y;\n");
       STRCAT_WITH_RET(glsl_hdr, buf);
       if (ctx->num_in_clip_dist || ctx->key->clip_plane_enable || ctx->key->prev_stage_pervertex_out) {
-         int clip_dist;
+         int clip_dist, cull_dist;
+         char clip_var[64] = {}, cull_var[64] = {};
 
-         if (ctx->key->prev_stage_pervertex_out)
-            clip_dist = ctx->key->prev_stage_num_clip_out;
-         else if (ctx->num_in_clip_dist)
-            clip_dist = ctx->num_in_clip_dist;
-         else
-            clip_dist = 8;
+         clip_dist = ctx->key->prev_stage_num_clip_out ? ctx->key->prev_stage_num_clip_out : ctx->num_in_clip_dist;
+         cull_dist = ctx->key->prev_stage_num_cull_out;
 
-         snprintf(buf, 255, "in gl_PerVertex {\n vec4 gl_Position;\n float gl_PointSize; \n float gl_ClipDistance[%d];\n} gl_in[];\n", clip_dist);
+         if (clip_dist)
+            snprintf(clip_var, 64, "float gl_ClipDistance[%d];\n", clip_dist);
+         if (cull_dist)
+            snprintf(cull_var, 64, "float gl_CullDistance[%d];\n", cull_dist);
+
+         snprintf(buf, 255, "in gl_PerVertex {\n vec4 gl_Position;\n float gl_PointSize; \n %s%s\n} gl_in[];\n", clip_var, cull_var);
          STRCAT_WITH_RET(glsl_hdr, buf);
       }
       if (ctx->num_clip_dist) {
-         snprintf(buf, 255, "out float gl_ClipDistance[%d];\n", ctx->num_clip_dist);
+         bool has_prop = (ctx->num_clip_dist_prop + ctx->num_cull_dist_prop) > 0;
+         int num_clip_dists = ctx->num_clip_dist ? ctx->num_clip_dist : 8;
+         int num_cull_dists = 0;
+         char cull_buf[64] = { 0 };
+         char clip_buf[64] = { 0 };
+         if (has_prop) {
+            num_clip_dists = ctx->num_clip_dist_prop;
+            num_cull_dists = ctx->num_cull_dist_prop;
+            if (num_clip_dists)
+               snprintf(clip_buf, 64, "out float gl_ClipDistance[%d];\n", num_clip_dists);
+            if (num_cull_dists)
+               snprintf(cull_buf, 64, "out float gl_CullDistance[%d];\n", num_cull_dists);
+         } else
+            snprintf(clip_buf, 64, "out float gl_ClipDistance[%d];\n", num_clip_dists);
+         snprintf(buf, 255, "%s%s\n", clip_buf, cull_buf);
          STRCAT_WITH_RET(glsl_hdr, buf);
          snprintf(buf, 255, "vec4 clip_dist_temp[2];\n");
          STRCAT_WITH_RET(glsl_hdr, buf);
@@ -2569,6 +2603,10 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
    if (ctx->prog_type == TGSI_PROCESSOR_FRAGMENT && ctx->num_in_clip_dist) {
       if (ctx->key->prev_stage_num_clip_out) {
          snprintf(buf, 255, "in float gl_ClipDistance[%d];\n", ctx->key->prev_stage_num_clip_out);
+         STRCAT_WITH_RET(glsl_hdr, buf);
+      }
+      if (ctx->key->prev_stage_num_cull_out) {
+         snprintf(buf, 255, "in float gl_CullDistance[%d];\n", ctx->key->prev_stage_num_cull_out);
          STRCAT_WITH_RET(glsl_hdr, buf);
       }
    }
@@ -2780,7 +2818,9 @@ char *vrend_convert_shader(struct vrend_shader_cfg *cfg,
    free(glsl_hdr);
    sinfo->num_ucp = ctx.key->clip_plane_enable ? 8 : 0;
    sinfo->has_pervertex_out = ctx.vs_has_pervertex;
-   sinfo->num_clip_out = (ctx.num_clip_dist ? ctx.num_clip_dist : 8);
+   bool has_prop = (ctx.num_clip_dist_prop + ctx.num_cull_dist_prop) > 0;
+   sinfo->num_clip_out = has_prop ? ctx.num_clip_dist_prop : (ctx.num_clip_dist ? ctx.num_clip_dist : 8);
+   sinfo->num_cull_out = has_prop ? ctx.num_cull_dist_prop : 0;
    sinfo->samplers_used_mask = ctx.samplers_used;
    sinfo->num_consts = ctx.num_consts;
    sinfo->num_ubos = ctx.num_ubo;
