@@ -1518,6 +1518,25 @@ static int translate_tex(struct dump_ctx *ctx,
    return emit_buf(ctx, buf);
 }
 
+static void
+create_swizzled_clipdist(struct dump_ctx *ctx,
+                         char *result,
+			 const struct tgsi_full_src_register *src,
+			 int input_idx,
+			 bool gl_in,
+			 const char *stypeprefix,
+			 const char *prefix,
+			 const char *arrayname)
+{
+   int idx;
+   idx = ctx->inputs[input_idx].sid * 4;
+   idx += src->Register.SwizzleX;
+   if (gl_in)
+      snprintf(result, 255, "%s(vec4(%sgl_in%s.%s[%d]))", stypeprefix, prefix, arrayname, ctx->inputs[input_idx].glsl_name, idx);
+   else
+      snprintf(result, 255, "%s(vec4(%s%s%s[%d]))", stypeprefix, prefix, arrayname, ctx->inputs[input_idx].glsl_name, idx);
+}
+
 static boolean
 iter_instruction(struct tgsi_iterate_context *iter,
                  struct tgsi_full_instruction *inst)
@@ -1700,10 +1719,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
                else if (ctx->inputs[j].glsl_gl_in) {
                   /* GS input clipdist requires a conversion */
                   if (ctx->inputs[j].name == TGSI_SEMANTIC_CLIPDIST) {
-                     int idx;
-                     idx = ctx->inputs[j].sid * 4;
-                     idx += src->Register.SwizzleX;
-                     snprintf(srcs[i], 255, "%s(vec4(%sgl_in%s.%s[%d]))", stypeprefix, prefix, arrayname, ctx->inputs[j].glsl_name, idx);
+                     create_swizzled_clipdist(ctx, srcs[i], src, j, true, stypeprefix, prefix, arrayname);
                   } else {
                      snprintf(srcs[i], 255, "%s(vec4(%sgl_in%s.%s)%s)", stypeprefix, prefix, arrayname, ctx->inputs[j].glsl_name, swizzle);
                   }
@@ -1713,10 +1729,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
                else if (ctx->inputs[j].name == TGSI_SEMANTIC_FACE)
                   snprintf(srcs[i], 255, "%s(%s ? 1.0 : -1.0)", stypeprefix, ctx->inputs[j].glsl_name);
                else if (ctx->inputs[j].name == TGSI_SEMANTIC_CLIPDIST) {
-                  int idx;
-                  idx = ctx->inputs[j].sid * 4;
-                  idx += src->Register.SwizzleX;
-                  snprintf(srcs[i], 255, "%s(vec4(%s%s%s[%d]))", stypeprefix, prefix, arrayname, ctx->inputs[j].glsl_name, idx);
+                  create_swizzled_clipdist(ctx, srcs[i], src, j, false, stypeprefix, prefix, arrayname);
                } else {
                   const char *srcstypeprefix = stypeprefix;
                   if (stype == TGSI_TYPE_UNSIGNED &&
