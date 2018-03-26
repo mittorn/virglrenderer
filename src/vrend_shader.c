@@ -1528,13 +1528,24 @@ create_swizzled_clipdist(struct dump_ctx *ctx,
 			 const char *prefix,
 			 const char *arrayname)
 {
+   char clipdistvec[4][64] = {};
    int idx;
-   idx = ctx->inputs[input_idx].sid * 4;
-   idx += src->Register.SwizzleX;
-   if (gl_in)
-      snprintf(result, 255, "%s(vec4(%sgl_in%s.%s[%d]))", stypeprefix, prefix, arrayname, ctx->inputs[input_idx].glsl_name, idx);
-   else
-      snprintf(result, 255, "%s(vec4(%s%s%s[%d]))", stypeprefix, prefix, arrayname, ctx->inputs[input_idx].glsl_name, idx);
+   for (unsigned cc = 0; cc < 4; cc++) {
+      idx = ctx->inputs[input_idx].sid * 4;
+      if (cc == 0)
+         idx += src->Register.SwizzleX;
+      else if (cc == 1)
+         idx += src->Register.SwizzleY;
+      else if (cc == 2)
+         idx += src->Register.SwizzleZ;
+      else if (cc == 3)
+         idx += src->Register.SwizzleW;
+      if (gl_in)
+         snprintf(clipdistvec[cc], 64, "%sgl_in%s.%s[%d]", prefix, arrayname, ctx->inputs[input_idx].glsl_name, idx);
+      else
+         snprintf(clipdistvec[cc], 64, "%s%s%s[%d]", prefix, arrayname, ctx->inputs[input_idx].glsl_name, idx);
+   }
+   snprintf(result, 255, "%s(vec4(%s,%s,%s,%s))", stypeprefix, clipdistvec[0], clipdistvec[1], clipdistvec[2], clipdistvec[3]);
 }
 
 static boolean
@@ -2175,7 +2186,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
       EMIT_BUF_WITH_RET(ctx, buf);
       break;
    case TGSI_OPCODE_UCMP:
-      snprintf(buf, 255, "%s = mix(%s, %s, notEqual(floatBitsToUint(%s), uvec4(0.0)))%s;\n", dsts[0], srcs[2], srcs[1], srcs[0], writemask);
+      snprintf(buf, 512, "%s = mix(%s, %s, notEqual(floatBitsToUint(%s), uvec4(0.0)))%s;\n", dsts[0], srcs[2], srcs[1], srcs[0], writemask);
       EMIT_BUF_WITH_RET(ctx, buf);
       break;
    case TGSI_OPCODE_END:
