@@ -5388,6 +5388,39 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
    return 0;
 }
 
+static int vrend_transfer_send_readonly(struct vrend_context *ctx,
+                                        struct vrend_resource *res,
+                                        struct iovec *iov, int num_iovs,
+                                        const struct vrend_transfer_info *info)
+{
+   bool same_iov = true;
+   int i;
+
+   if (res->num_iovs == num_iovs) {
+      for (i = 0; i < res->num_iovs; i++) {
+         if (res->iov[i].iov_len != iov[i].iov_len ||
+             res->iov[i].iov_base != iov[i].iov_base) {
+            same_iov = false;
+         }
+      }
+   } else {
+      same_iov = false;
+   }
+
+   /*
+    * When we detect that we are reading back to the same iovs that are
+    * attached to the resource and we know that the resource can not
+    * be rendered to (as this function is only called then), we do not
+    * need to do anything more.
+    */
+   if (same_iov) {
+      return 0;
+   }
+
+   /* Fallback to getteximage, will probably fail on GLES. */
+   return -1;
+}
+
 static int vrend_renderer_transfer_send_iov(struct vrend_context *ctx,
                                             struct vrend_resource *res,
                                             struct iovec *iov, int num_iovs,
@@ -5415,18 +5448,22 @@ static int vrend_renderer_transfer_send_iov(struct vrend_context *ctx,
          vrend_write_to_iovec(iov, num_iovs, info->offset, data, send_size);
       glUnmapBuffer(res->target);
    } else {
+      int ret = -1;
       bool can_readpixels = true;
 
       can_readpixels = vrend_format_can_render(res->base.format) || vrend_format_is_ds(res->base.format);
 
       if (can_readpixels) {
-         return vrend_transfer_send_readpixels(ctx, res,
-                                               iov, num_iovs, info);
+         ret = vrend_transfer_send_readpixels(ctx, res, iov, num_iovs, info);
+      } else {
+         ret = vrend_transfer_send_readonly(ctx, res, iov, num_iovs, info);
       }
 
-      return vrend_transfer_send_getteximage(ctx, res,
-                                             iov, num_iovs, info);
-
+      /* Can hit this on a non-error path as well. */
+      if (ret != 0) {
+         ret = vrend_transfer_send_getteximage(ctx, res, iov, num_iovs, info);
+      }
+      return ret;
    }
    return 0;
 }
