@@ -2128,8 +2128,8 @@ static inline void vrend_fill_shader_key(struct vrend_context *ctx,
       key->gs_present = true;
 
    if (type == PIPE_SHADER_GEOMETRY && ctx->sub->shaders[PIPE_SHADER_VERTEX]) {
-      key->vs_has_pervertex = ctx->sub->shaders[PIPE_SHADER_VERTEX]->sinfo.num_pervertex_clip > 0;
-      key->vs_pervertex_num_clip = ctx->sub->shaders[PIPE_SHADER_VERTEX]->sinfo.num_pervertex_clip;
+      key->prev_stage_pervertex_out = ctx->sub->shaders[PIPE_SHADER_VERTEX]->sinfo.has_pervertex_out;
+      key->prev_stage_num_clip_out = ctx->sub->shaders[PIPE_SHADER_VERTEX]->sinfo.num_clip_out;
    }
 }
 

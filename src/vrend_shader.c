@@ -2545,11 +2545,11 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
    if (ctx->prog_type == TGSI_PROCESSOR_GEOMETRY) {
       snprintf(buf, 255, "uniform float winsys_adjust_y;\n");
       STRCAT_WITH_RET(glsl_hdr, buf);
-      if (ctx->num_in_clip_dist || ctx->key->clip_plane_enable || ctx->key->vs_has_pervertex) {
+      if (ctx->num_in_clip_dist || ctx->key->clip_plane_enable || ctx->key->prev_stage_pervertex_out) {
          int clip_dist;
 
-         if (ctx->key->vs_has_pervertex)
-            clip_dist = ctx->key->vs_pervertex_num_clip;
+         if (ctx->key->prev_stage_pervertex_out)
+            clip_dist = ctx->key->prev_stage_num_clip_out;
          else if (ctx->num_in_clip_dist)
             clip_dist = ctx->num_in_clip_dist;
          else
@@ -2772,7 +2772,8 @@ char *vrend_convert_shader(struct vrend_shader_cfg *cfg,
    free(ctx.glsl_main);
    free(glsl_hdr);
    sinfo->num_ucp = ctx.key->clip_plane_enable ? 8 : 0;
-   sinfo->num_pervertex_clip = (ctx.vs_has_pervertex ? (ctx.num_clip_dist ? ctx.num_clip_dist : 8) : 0);
+   sinfo->has_pervertex_out = ctx.vs_has_pervertex;
+   sinfo->num_clip_out = (ctx.num_clip_dist ? ctx.num_clip_dist : 8);
    sinfo->samplers_used_mask = ctx.samplers_used;
    sinfo->num_consts = ctx.num_consts;
    sinfo->num_ubos = ctx.num_ubo;
