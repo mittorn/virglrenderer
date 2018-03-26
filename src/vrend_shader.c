@@ -2566,6 +2566,13 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
       }
    }
 
+   if (ctx->prog_type == TGSI_PROCESSOR_FRAGMENT && ctx->num_in_clip_dist) {
+      if (ctx->key->prev_stage_num_clip_out) {
+         snprintf(buf, 255, "in float gl_ClipDistance[%d];\n", ctx->key->prev_stage_num_clip_out);
+         STRCAT_WITH_RET(glsl_hdr, buf);
+      }
+   }
+
    if (ctx->so) {
       char outtype[6] = {0};
       for (i = 0; i < ctx->so->num_outputs; i++) {

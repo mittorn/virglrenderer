@@ -2127,7 +2127,7 @@ static inline void vrend_fill_shader_key(struct vrend_context *ctx,
    if (ctx->sub->shaders[PIPE_SHADER_GEOMETRY])
       key->gs_present = true;
 
-   if (type == PIPE_SHADER_GEOMETRY && ctx->sub->shaders[PIPE_SHADER_VERTEX]) {
+   if ((type == PIPE_SHADER_GEOMETRY || type == PIPE_SHADER_FRAGMENT) && ctx->sub->shaders[PIPE_SHADER_VERTEX]) {
       key->prev_stage_pervertex_out = ctx->sub->shaders[PIPE_SHADER_VERTEX]->sinfo.has_pervertex_out;
       key->prev_stage_num_clip_out = ctx->sub->shaders[PIPE_SHADER_VERTEX]->sinfo.num_clip_out;
    }
