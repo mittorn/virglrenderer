@@ -348,13 +348,30 @@ iter_declaration(
       }
    }
 
-   if (decl->Declaration.File == TGSI_FILE_RESOURCE) {
+   if (decl->Declaration.File == TGSI_FILE_IMAGE) {
       TXT(", ");
-      ENM(decl->Resource.Resource, tgsi_texture_names);
-      if (decl->Resource.Writable)
+      ENM(decl->Image.Resource, tgsi_texture_names);
+      TXT(", ");
+      TXT(util_format_name(decl->Image.Format));
+      if (decl->Image.Writable)
          TXT(", WR");
-      if (decl->Resource.Raw)
+      if (decl->Image.Raw)
          TXT(", RAW");
+   }
+
+   if (decl->Declaration.File == TGSI_FILE_BUFFER) {
+      if (decl->Declaration.Atomic)
+         TXT(", ATOMIC");
+   }
+
+   if (decl->Declaration.File == TGSI_FILE_MEMORY) {
+      switch (decl->Declaration.MemType) {
+      /* Note: ,GLOBAL is optional / the default */
+      case TGSI_MEMORY_TYPE_GLOBAL:  TXT(", GLOBAL");  break;
+      case TGSI_MEMORY_TYPE_SHARED:  TXT(", SHARED");  break;
+      case TGSI_MEMORY_TYPE_PRIVATE: TXT(", PRIVATE"); break;
+      case TGSI_MEMORY_TYPE_INPUT:   TXT(", INPUT");   break;
+      }
    }
 
    if (decl->Declaration.File == TGSI_FILE_SAMPLER_VIEW) {
@@ -593,17 +610,37 @@ iter_instruction(
       }
    }
 
-   switch (inst->Instruction.Opcode) {
-   case TGSI_OPCODE_IF:
-   case TGSI_OPCODE_UIF:
-   case TGSI_OPCODE_ELSE:
-   case TGSI_OPCODE_BGNLOOP:
-   case TGSI_OPCODE_ENDLOOP:
-   case TGSI_OPCODE_CAL:
-   case TGSI_OPCODE_BGNSUB:
-      TXT( " :" );
-      UID( inst->Label.Label );
-      break;
+   if (inst->Instruction.Memory) {
+      uint32_t qualifier = inst->Memory.Qualifier;
+      while (qualifier) {
+         int bit = ffs(qualifier) - 1;
+         qualifier &= ~(1U << bit);
+         TXT(", ");
+         ENM(bit, tgsi_memory_names);
+      }
+      if (inst->Memory.Texture) {
+         TXT( ", " );
+         ENM( inst->Memory.Texture, tgsi_texture_names );
+      }
+      if (inst->Memory.Format) {
+         TXT( ", " );
+         TXT( util_format_name(inst->Memory.Format) );
+      }
+   }
+
+   if (inst->Instruction.Label) {
+      switch (inst->Instruction.Opcode) {
+      case TGSI_OPCODE_IF:
+      case TGSI_OPCODE_UIF:
+      case TGSI_OPCODE_ELSE:
+      case TGSI_OPCODE_BGNLOOP:
+      case TGSI_OPCODE_ENDLOOP:
+      case TGSI_OPCODE_CAL:
+      case TGSI_OPCODE_BGNSUB:
+         TXT( " :" );
+         UID( inst->Label.Label );
+         break;
+      }
    }
 
    /* update indentation */

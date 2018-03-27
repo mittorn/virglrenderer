@@ -76,8 +76,10 @@ enum tgsi_file_type {
    TGSI_FILE_IMMEDIATE           =7,
    TGSI_FILE_PREDICATE           =8,
    TGSI_FILE_SYSTEM_VALUE        =9,
-   TGSI_FILE_RESOURCE            =10,
+   TGSI_FILE_IMAGE               =10,
    TGSI_FILE_SAMPLER_VIEW        =11,
+   TGSI_FILE_BUFFER,
+   TGSI_FILE_MEMORY,
    TGSI_FILE_COUNT      /**< how many TGSI_FILE_ types */
 };
 
@@ -115,6 +117,14 @@ enum tgsi_file_type {
 #define TGSI_CYLINDRICAL_WRAP_Z (1 << 2)
 #define TGSI_CYLINDRICAL_WRAP_W (1 << 3)
 
+enum tgsi_memory_type {
+   TGSI_MEMORY_TYPE_GLOBAL,         /* OpenCL global              */
+   TGSI_MEMORY_TYPE_SHARED,         /* OpenCL local / GLSL shared */
+   TGSI_MEMORY_TYPE_PRIVATE,        /* OpenCL private             */
+   TGSI_MEMORY_TYPE_INPUT,          /* OpenCL kernel input params */
+   TGSI_MEMORY_TYPE_COUNT,
+};
+
 struct tgsi_declaration
 {
    unsigned Type        : 4;  /**< TGSI_TOKEN_TYPE_DECLARATION */
@@ -127,7 +137,9 @@ struct tgsi_declaration
    unsigned Invariant   : 1;  /**< invariant optimization? */
    unsigned Local       : 1;  /**< optimize as subroutine local variable? */
    unsigned Array       : 1;  /**< extra array info? */
-   unsigned Padding     : 6;
+   unsigned Atomic      : 1;  /**< atomic only? for TGSI_FILE_BUFFER */
+   unsigned MemType     : 2;  /**< TGSI_MEMORY_TYPE_x for TGSI_FILE_MEMORY */
+   unsigned Padding     : 3;
 };
 
 struct tgsi_declaration_range
@@ -198,11 +210,12 @@ struct tgsi_declaration_semantic
    unsigned StreamW        : 2;
 };
 
-struct tgsi_declaration_resource {
+struct tgsi_declaration_image {
    unsigned Resource    : 8; /**< one of TGSI_TEXTURE_ */
    unsigned Raw         : 1;
    unsigned Writable    : 1;
-   unsigned Padding     : 22;
+   unsigned Format      : 10; /**< one of PIPE_FORMAT_ */
+   unsigned Padding     : 12;
 };
 
 enum tgsi_return_type {
@@ -420,6 +433,7 @@ struct tgsi_property_data {
 #define TGSI_OPCODE_ENDSUB              102
 #define TGSI_OPCODE_TXQ_LZ              103 /* TXQ for mipmap level 0 */
 #define TGSI_OPCODE_TXQS                104
+#define TGSI_OPCODE_RESQ                105
                                 /* gap */
 #define TGSI_OPCODE_NOP                 107
 
@@ -428,7 +442,7 @@ struct tgsi_property_data {
 #define TGSI_OPCODE_FSLT                110
 #define TGSI_OPCODE_FSNE                111
 
-                                /* gap */
+#define TGSI_OPCODE_MEMBAR              112
 #define TGSI_OPCODE_CALLNZ              113
                                 /* gap */
 #define TGSI_OPCODE_BREAKC              115
@@ -727,6 +741,26 @@ struct tgsi_dst_register
    unsigned Padding     : 6;
 };
 
+#define TGSI_MEMORY_COHERENT (1 << 0)
+#define TGSI_MEMORY_RESTRICT (1 << 1)
+#define TGSI_MEMORY_VOLATILE (1 << 2)
+
+/**
+ * Specifies the type of memory access to do for the LOAD/STORE instruction.
+ */
+struct tgsi_instruction_memory
+{
+   unsigned Qualifier : 3;  /* TGSI_MEMORY_ */
+   unsigned Texture   : 8;  /* only for images: TGSI_TEXTURE_ */
+   unsigned Format    : 10; /* only for images: PIPE_FORMAT_ */
+   unsigned Padding   : 11;
+};
+
+#define TGSI_MEMBAR_SHADER_BUFFER (1 << 0)
+#define TGSI_MEMBAR_ATOMIC_BUFFER (1 << 1)
+#define TGSI_MEMBAR_SHADER_IMAGE  (1 << 2)
+#define TGSI_MEMBAR_SHARED        (1 << 3)
+#define TGSI_MEMBAR_THREAD_GROUP  (1 << 4)
 
 #ifdef __cplusplus
 }

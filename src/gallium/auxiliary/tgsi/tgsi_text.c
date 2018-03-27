@@ -119,6 +119,42 @@ static boolean str_match_nocase_whole( const char **pcur, const char *str )
    return FALSE;
 }
 
+/* Return the array index that matches starting at *pcur, where the string at
+ * *pcur is terminated by a non-digit non-letter non-underscore.
+ * Returns -1 if no match is found.
+ *
+ * On success, the pointer to the first string is moved to the end of the read
+ * word.
+ */
+static int str_match_name_from_array(const char **pcur,
+                                     const char * const *array,
+                                     unsigned array_size)
+{
+   for (unsigned j = 0; j < array_size; ++j) {
+      if (str_match_nocase_whole(pcur, array[j]))
+         return j;
+   }
+   return -1;
+}
+
+/* Return the format corresponding to the name at *pcur.
+ * Returns -1 if there is no format name.
+ *
+ * On success, the pointer to the string is moved to the end of the read format
+ * name.
+ */
+static int str_match_format(const char **pcur)
+{
+   for (unsigned i = 0; i < PIPE_FORMAT_COUNT; i++) {
+      const struct util_format_description *desc =
+         util_format_description(i);
+      if (desc && str_match_nocase_whole(pcur, desc->name)) {
+         return i;
+      }
+   }
+   return -1;
+}
+
 /* Eat until eol
  */
 static void eat_until_eol( const char **pcur )
@@ -1028,6 +1064,12 @@ parse_instruction(
       inst.Texture.Texture = TGSI_TEXTURE_UNKNOWN;
    }
 
+   if ((i >= TGSI_OPCODE_LOAD && i <= TGSI_OPCODE_ATOMIMAX) ||
+       i == TGSI_OPCODE_RESQ) {
+      inst.Instruction.Memory = 1;
+      inst.Memory.Qualifier = 0;
+   }
+
    /* Parse instruction operands.
     */
    for (i = 0; i < info->num_dst + info->num_src + info->is_tex; i++) {
@@ -1078,6 +1120,41 @@ parse_instruction(
          eat_opt_white( &cur );
    }
    inst.Texture.NumOffsets = i;
+
+   cur = ctx->cur;
+   eat_opt_white(&cur);
+
+   for (; inst.Instruction.Memory && *cur == ',';
+        ctx->cur = cur, eat_opt_white(&cur)) {
+      int j;
+
+      cur++;
+      eat_opt_white(&cur);
+
+      j = str_match_name_from_array(&cur, tgsi_memory_names,
+                                    ARRAY_SIZE(tgsi_memory_names));
+      if (j >= 0) {
+         inst.Memory.Qualifier |= 1U << j;
+         continue;
+      }
+
+      j = str_match_name_from_array(&cur, tgsi_texture_names,
+                                    ARRAY_SIZE(tgsi_texture_names));
+      if (j >= 0) {
+         inst.Memory.Texture = j;
+         continue;
+      }
+
+      j = str_match_format(&cur);
+      if (j >= 0) {
+         inst.Memory.Format = j;
+         continue;
+      }
+
+      ctx->cur = cur;
+      report_error(ctx, "Expected memory qualifier, texture target, or format\n");
+      return FALSE;
+   }
 
    cur = ctx->cur;
    eat_opt_white( &cur );
@@ -1240,10 +1317,10 @@ static boolean parse_declaration( struct translate_ctx *ctx )
 
       cur++;
       eat_opt_white( &cur );
-      if (file == TGSI_FILE_RESOURCE) {
+      if (file == TGSI_FILE_IMAGE) {
          for (i = 0; i < TGSI_TEXTURE_COUNT; i++) {
             if (str_match_nocase_whole(&cur, tgsi_texture_names[i])) {
-               decl.Resource.Resource = i;
+               decl.Image.Resource = i;
                break;
             }
          }
@@ -1258,13 +1335,17 @@ static boolean parse_declaration( struct translate_ctx *ctx )
             cur2++;
             eat_opt_white(&cur2);
             if (str_match_nocase_whole(&cur2, "RAW")) {
-               decl.Resource.Raw = 1;
+               decl.Image.Raw = 1;
 
             } else if (str_match_nocase_whole(&cur2, "WR")) {
-               decl.Resource.Writable = 1;
+               decl.Image.Writable = 1;
 
             } else {
-               break;
+               int format = str_match_format(&cur2);
+               if (format < 0)
+                  break;
+
+               decl.Image.Format = format;
             }
             cur = cur2;
             eat_opt_white(&cur2);
@@ -1337,6 +1418,26 @@ static boolean parse_declaration( struct translate_ctx *ctx )
                decl.SamplerView.ReturnTypeX;
          }
          ctx->cur = cur;
+      } else if (file == TGSI_FILE_BUFFER) {
+         if (str_match_nocase_whole(&cur, "ATOMIC")) {
+            decl.Declaration.Atomic = 1;
+            ctx->cur = cur;
+         }
+      } else if (file == TGSI_FILE_MEMORY) {
+         if (str_match_nocase_whole(&cur, "GLOBAL")) {
+            /* Note this is a no-op global is the default */
+            decl.Declaration.MemType = TGSI_MEMORY_TYPE_GLOBAL;
+            ctx->cur = cur;
+         } else if (str_match_nocase_whole(&cur, "SHARED")) {
+            decl.Declaration.MemType = TGSI_MEMORY_TYPE_SHARED;
+            ctx->cur = cur;
+         } else if (str_match_nocase_whole(&cur, "PRIVATE")) {
+            decl.Declaration.MemType = TGSI_MEMORY_TYPE_PRIVATE;
+            ctx->cur = cur;
+         } else if (str_match_nocase_whole(&cur, "INPUT")) {
+            decl.Declaration.MemType = TGSI_MEMORY_TYPE_INPUT;
+            ctx->cur = cur;
+         }
       } else {
          if (str_match_nocase_whole(&cur, "LOCAL")) {
             decl.Declaration.Local = 1;
