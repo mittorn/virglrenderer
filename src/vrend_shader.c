@@ -201,6 +201,7 @@ struct dump_ctx {
    bool vs_has_pervertex;
    bool write_mul_temp;
    bool has_sample_input;
+   bool early_depth_stencil;
 
    int tcs_vertices_out;
    int tes_prim_mode;
@@ -1295,6 +1296,13 @@ iter_property(struct tgsi_iterate_context *iter,
    if (prop->Property.PropertyName == TGSI_PROPERTY_TES_POINT_MODE) {
       ctx->tes_point_mode = prop->u[0].Data;
    }
+
+   if (prop->Property.PropertyName == TGSI_PROPERTY_FS_EARLY_DEPTH_STENCIL) {
+      ctx->early_depth_stencil = prop->u[0].Data > 0;
+      if (ctx->early_depth_stencil)
+         ctx->shader_req_bits |= SHADER_REQ_IMAGE_LOAD_STORE;
+   }
+
    return TRUE;
 }
 
@@ -4135,6 +4143,10 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
                   upper_left ? "origin_upper_left" : "",
                   comma,
                   ctx->fs_pixel_center ? "pixel_center_integer" : "");
+         STRCAT_WITH_RET(glsl_hdr, buf);
+      }
+      if (ctx->early_depth_stencil) {
+         snprintf(buf, 255, "layout(early_fragment_tests) in;\n");
          STRCAT_WITH_RET(glsl_hdr, buf);
       }
    }
