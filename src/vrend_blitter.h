@@ -64,6 +64,17 @@
 #define FS_TEXFETCH_COL_GL HEADER_GL FS_TEXFETCH_COL_BODY
 #define FS_TEXFETCH_COL_GLES HEADER_GLES OUTFRAG_GLES FS_TEXFETCH_COL_BODY
 
+#define FS_TEXFETCH_COL_IGNORE_ALPHA_BODY       \
+   "%s"                                         \
+   "uniform sampler%s samp;\n"                  \
+   "in vec4 tc;\n"                              \
+   "void main() {\n"                            \
+   "   vec4 temp = texture(samp, tc%s)%s;\n"    \
+   "   gl_FragColor = vec4(temp.rgb, 1.0f);\n"  \
+   "}\n"
+
+#define FS_TEXFETCH_COL_IGNORE_ALPHA_GL HEADER_GL FS_TEXFETCH_COL_IGNORE_ALPHA_BODY
+#define FS_TEXFETCH_COL_IGNORE_ALPHA_GLES HEADER_GLES OUTFRAG_GLES FS_TEXFETCH_COL_IGNORE_ALPHA_BODY
 
 #define FS_TEXFETCH_COL_ALPHA_DEST_BODY         \
    "%s"                                         \

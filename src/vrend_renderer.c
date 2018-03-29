@@ -5945,6 +5945,9 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
        vrend_format_is_emulated_alpha(info->src.format))
       use_gl = true;
 
+   if (info->src.format == VIRGL_FORMAT_R8G8B8X8_UNORM)
+      use_gl = true;
+
    if (use_gl) {
       vrend_renderer_blit_gl(ctx, src_res, dst_res, info);
       vrend_clicbs->make_current(0, ctx->sub->gl_context);
