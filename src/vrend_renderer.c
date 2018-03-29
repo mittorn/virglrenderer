@@ -5906,6 +5906,9 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
        !vrend_format_is_ds(dst_res->base.format))
       use_gl = true;
 
+   if (util_format_is_srgb(src_res->base.format))
+      use_gl = true;
+
    /* different depth formats */
    if (vrend_format_is_ds(src_res->base.format) &&
        vrend_format_is_ds(dst_res->base.format)) {
