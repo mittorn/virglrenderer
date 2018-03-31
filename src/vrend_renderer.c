@@ -6581,6 +6581,7 @@ void vrend_renderer_fill_caps_gles(uint32_t set, uint32_t version,
    GLint max;
    GLfloat range[2];
    bool fill_capset2 = false;
+   int gles_ver = epoxy_gl_version();
 
    if (set == 2) {
       fill_capset2 = true;
@@ -6626,6 +6627,12 @@ void vrend_renderer_fill_caps_gles(uint32_t set, uint32_t version,
    caps->v1.max_texture_gather_components = 0;
 
    caps->v1.max_viewports = 1;
+
+   if (gles_ver >= 30) {
+      glGetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS, &max);
+      caps->v1.max_texture_array_layers = max;
+      caps->v1.bset.primitive_restart = 1;
+   }
 
    if (!fill_capset2) {
       return;
