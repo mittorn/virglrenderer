@@ -6062,6 +6062,7 @@ int vrend_renderer_create_fence(int client_fence_id, uint32_t ctx_id)
    fence->ctx_id = ctx_id;
    fence->fence_id = client_fence_id;
    fence->syncobj = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+   glFlush();
 
    if (fence->syncobj == NULL)
       goto fail;
