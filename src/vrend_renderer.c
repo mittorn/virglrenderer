@@ -6731,6 +6731,13 @@ void vrend_renderer_fill_caps_gles(uint32_t set, uint32_t version,
    }
 
    if (gles_ver >= 30) {
+      caps->v1.bset.instanceid = 1;
+      glGetIntegerv(GL_MAX_VERTEX_UNIFORM_BLOCKS, &max);
+      vrend_state.max_uniform_blocks = max;
+      caps->v1.max_uniform_blocks = max + 1;
+   }
+
+   if (gles_ver >= 30) {
       caps->v1.bset.texture_multisample = 1;
    }
 
