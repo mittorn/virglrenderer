@@ -4209,8 +4209,10 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
       vrend_state.have_gl_prim_restart = true;
    else if (epoxy_has_gl_extension("GL_NV_primitive_restart"))
       vrend_state.have_nv_prim_restart = true;
-   if (gl_ver >= 40 || epoxy_has_gl_extension("GL_ARB_transform_feedback2"))
+   if (gl_ver >= 40 || (gles && gl_ver >= 30) ||
+       epoxy_has_gl_extension("GL_ARB_transform_feedback2")) {
       vrend_state.have_tf2 = true;
+   }
 
    if (epoxy_has_gl_extension("GL_ARB_stencil_texturing"))
       vrend_state.have_stencil_texturing = true;
@@ -6735,6 +6737,14 @@ void vrend_renderer_fill_caps_gles(uint32_t set, uint32_t version,
       glGetIntegerv(GL_MAX_VERTEX_UNIFORM_BLOCKS, &max);
       vrend_state.max_uniform_blocks = max;
       caps->v1.max_uniform_blocks = max + 1;
+   }
+
+   if (gles_ver >= 30) {
+      glGetIntegerv(GL_MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS, &max);
+      /* As with the earlier version of transform feedback this min 4. */
+      if (max >= 4) {
+         caps->v1.max_streamout_buffers = 4;
+      }
    }
 
    if (gles_ver >= 30) {
