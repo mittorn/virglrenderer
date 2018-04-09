@@ -6871,6 +6871,8 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
 
    if (gl_ver >= 43)
       glGetIntegerv(GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT, &caps->v2.texture_buffer_offset_alignment);
+
+   caps->v2.tgsi_invariant = 1;
 }
 
 GLint64 vrend_renderer_get_timestamp(void)

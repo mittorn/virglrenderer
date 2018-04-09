@@ -37,6 +37,7 @@ extern int vrend_dump_shaders;
 /* start convert of tgsi to glsl */
 
 #define INTERP_PREFIX "               "
+#define INVARI_PREFIX "invariant"
 
 struct vrend_shader_io {
    unsigned                name;
@@ -46,6 +47,7 @@ struct vrend_shader_io {
    unsigned                interpolate;
    unsigned first;
    bool                 centroid;
+   bool                    invariant;
    bool glsl_predefined_no_emit;
    bool glsl_no_index;
    bool glsl_gl_in;
@@ -468,6 +470,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
       ctx->outputs[i].name = decl->Semantic.Name;
       ctx->outputs[i].sid = decl->Semantic.Index;
       ctx->outputs[i].interpolate = decl->Interp.Interpolate;
+      ctx->outputs[i].invariant = decl->Declaration.Invariant;
       ctx->outputs[i].first = decl->Range.First;
       ctx->outputs[i].glsl_predefined_no_emit = false;
       ctx->outputs[i].glsl_no_index = false;
@@ -2501,7 +2504,10 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
             } else
                prefix = "";
             /* ugly leave spaces to patch interp in later */
-            snprintf(buf, 255, "%sout vec4 %s;\n", prefix, ctx->outputs[i].glsl_name);
+            snprintf(buf, 255, "%s%sout vec4 %s;\n", prefix, ctx->outputs[i].invariant ? "invariant " : "", ctx->outputs[i].glsl_name);
+            STRCAT_WITH_RET(glsl_hdr, buf);
+         } else if (ctx->outputs[i].invariant) {
+            snprintf(buf, 255, "invariant %s;\n", ctx->outputs[i].glsl_name);
             STRCAT_WITH_RET(glsl_hdr, buf);
          }
       }
