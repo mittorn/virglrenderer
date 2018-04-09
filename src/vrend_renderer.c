@@ -3043,7 +3043,9 @@ void vrend_draw_vbo(struct vrend_context *ctx,
    }
 
    if (info->primitive_restart) {
-      if (vrend_state.have_nv_prim_restart) {
+      if (vrend_state.use_gles) {
+         glEnable(GL_PRIMITIVE_RESTART_FIXED_INDEX);
+      } else if (vrend_state.have_nv_prim_restart) {
          glEnableClientState(GL_PRIMITIVE_RESTART_NV);
          glPrimitiveRestartIndexNV(info->restart_index);
       } else {
@@ -3105,10 +3107,13 @@ void vrend_draw_vbo(struct vrend_context *ctx,
    }
 
    if (info->primitive_restart) {
-      if (vrend_state.have_nv_prim_restart)
+      if (vrend_state.use_gles) {
+         glEnable(GL_PRIMITIVE_RESTART_FIXED_INDEX);
+      } else if (vrend_state.have_nv_prim_restart) {
          glDisableClientState(GL_PRIMITIVE_RESTART_NV);
-      else if (vrend_state.have_gl_prim_restart)
+      } else if (vrend_state.have_gl_prim_restart) {
          glDisable(GL_PRIMITIVE_RESTART);
+      }
    }
 
    if (ctx->sub->current_so && vrend_state.have_tf2) {
