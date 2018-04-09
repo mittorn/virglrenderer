@@ -6605,7 +6605,11 @@ bool vrend_renderer_fill_caps_common(uint32_t set, uint32_t version,
 
    /* Some checks looks at v1.glsl_level so set it here. */
    if (vrend_state.use_gles) {
-      caps->v1.glsl_level = 120;
+      if (gl_ver >= 30) {
+         caps->v1.glsl_level = 130;
+      } else {
+         caps->v1.glsl_level = 120;
+      }
    } else if (vrend_state.use_core_profile) {
       if (gl_ver == 31)
          caps->v1.glsl_level = 140;
