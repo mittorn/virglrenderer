@@ -2312,6 +2312,7 @@ static char *emit_header(struct dump_ctx *ctx, char *glsl_hdr)
    if (ctx->cfg->use_gles) {
       STRCAT_WITH_RET(glsl_hdr, "#version 300 es\n");
       STRCAT_WITH_RET(glsl_hdr, "precision highp float;\n");
+      STRCAT_WITH_RET(glsl_hdr, "precision highp int;\n");
    } else {
       if (ctx->prog_type == TGSI_PROCESSOR_GEOMETRY || ctx->glsl_ver_required == 150)
          STRCAT_WITH_RET(glsl_hdr, "#version 150\n");
@@ -2675,21 +2676,29 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
 
       if (stc) {
          const char *sname;
+         const char *precision;
 
          sname = tgsi_proc_to_prefix(ctx->prog_type);
+
+         if (ctx->cfg->use_gles) {
+            precision = "highp ";
+         } else {
+            precision = " ";
+         }
+
          /* OpenGL ES do not support 1D texture
           * so we use a 2D texture with a parameter set to 0.5
           */
          if (ctx->cfg->use_gles && !strcmp(stc, "1D"))
             snprintf(buf, 255, "uniform %csampler2D %ssamp%d;\n", ptc, sname, i);
          else
-            snprintf(buf, 255, "uniform %csampler%s %ssamp%d;\n", ptc, stc, sname, i);
+            snprintf(buf, 255, "uniform %s%csampler%s %ssamp%d;\n", precision,  ptc, stc, sname, i);
 
          STRCAT_WITH_RET(glsl_hdr, buf);
          if (is_shad) {
-            snprintf(buf, 255, "uniform vec4 %sshadmask%d;\n", sname, i);
+            snprintf(buf, 255, "uniform %svec4 %sshadmask%d;\n", precision,  sname, i);
             STRCAT_WITH_RET(glsl_hdr, buf);
-            snprintf(buf, 255, "uniform vec4 %sshadadd%d;\n", sname, i);
+            snprintf(buf, 255, "uniform %svec4 %sshadadd%d;\n", precision,  sname, i);
             STRCAT_WITH_RET(glsl_hdr, buf);
             ctx->shadow_samp_mask |= (1 << i);
          }
