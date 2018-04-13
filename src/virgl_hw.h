@@ -291,6 +291,7 @@ struct virgl_caps_v2 {
         uint32_t texture_buffer_offset_alignment;
         uint32_t uniform_buffer_offset_alignment;
         uint32_t tgsi_invariant;
+        uint32_t shader_buffer_offset_alignment;
 };
 
 union virgl_caps {

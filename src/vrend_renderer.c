@@ -6678,6 +6678,9 @@ void vrend_renderer_fill_caps_gles(uint32_t set, uint32_t version,
 
    glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &caps->v2.uniform_buffer_offset_alignment);
 
+   if (gles_ver >= 31)
+      glGetIntegerv(GL_SHADER_STORAGE_BUFFER_OFFSET_ALIGNMENT, &caps->v2.shader_buffer_offset_alignment);
+
    /* Not available on GLES */
    caps->v2.texture_buffer_offset_alignment = 0;
 }
@@ -6872,8 +6875,10 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
 
    glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &caps->v2.uniform_buffer_offset_alignment);
 
-   if (gl_ver >= 43)
+   if (gl_ver >= 43) {
       glGetIntegerv(GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT, &caps->v2.texture_buffer_offset_alignment);
+      glGetIntegerv(GL_SHADER_STORAGE_BUFFER_OFFSET_ALIGNMENT, &caps->v2.shader_buffer_offset_alignment);
+   }
 
    caps->v2.tgsi_invariant = 1;
 }
