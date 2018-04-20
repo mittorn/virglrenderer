@@ -415,7 +415,10 @@ iter_declaration(struct tgsi_iterate_context *iter,
       case TGSI_SEMANTIC_GENERIC:
          if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
             if (ctx->key->coord_replace & (1 << ctx->inputs[i].sid)) {
-               name_prefix = "vec4(gl_PointCoord, 0.0, 1.0)";
+               if (ctx->cfg->use_gles)
+                  name_prefix = "vec4(gl_PointCoord.x, 1.0 - gl_PointCoord.y, 0.0, 1.0)";
+               else
+                  name_prefix = "vec4(gl_PointCoord, 0.0, 1.0)";
                ctx->inputs[i].glsl_predefined_no_emit = true;
                ctx->inputs[i].glsl_no_index = true;
                break;
