@@ -452,6 +452,11 @@ bool vrend_format_is_emulated_alpha(enum virgl_formats format)
            format == VIRGL_FORMAT_A16_UNORM);
 }
 
+bool vrend_format_needs_swizzle(enum virgl_formats format)
+{
+   return tex_conv_table[format].flags & VREND_BIND_NEED_SWIZZLE;
+}
+
 static inline const char *pipe_shader_to_prefix(int shader_type)
 {
    switch (shader_type) {
@@ -5947,11 +5952,8 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
    if (info->src.box.depth != info->dst.box.depth)
       use_gl = true;
 
-   if (vrend_format_is_emulated_alpha(info->dst.format) ||
-       vrend_format_is_emulated_alpha(info->src.format))
-      use_gl = true;
-
-   if (info->src.format == VIRGL_FORMAT_R8G8B8X8_UNORM)
+   if (vrend_format_needs_swizzle(info->dst.format) ||
+       vrend_format_needs_swizzle(info->src.format))
       use_gl = true;
 
    if (use_gl) {
