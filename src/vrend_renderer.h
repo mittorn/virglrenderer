@@ -74,9 +74,9 @@ struct vrend_format_table {
    GLenum internalformat;
    GLenum glformat;
    GLenum gltype;
+   uint8_t swizzle[4];
    uint32_t bindings;
    int flags;
-   uint8_t swizzle[4];
 };
 
 struct vrend_transfer_info {
