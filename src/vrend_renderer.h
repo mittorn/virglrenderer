@@ -105,6 +105,7 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags);
 
 void vrend_insert_format(struct vrend_format_table *entry, uint32_t bindings);
 void vrend_insert_format_swizzle(int override_format, struct vrend_format_table *entry, uint32_t bindings, uint8_t swizzle[4]);
+const struct vrend_format_table *vrend_get_format_table_entry(enum virgl_formats format);
 int vrend_create_shader(struct vrend_context *ctx,
                         uint32_t handle,
                         const struct pipe_stream_output_info *stream_output,

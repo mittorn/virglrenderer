@@ -614,6 +614,21 @@ static void set_dsa_write_depth_keep_stencil(void)
    glDepthMask(GL_TRUE);
 }
 
+static inline GLenum to_gl_swizzle(int swizzle)
+{
+   switch (swizzle) {
+   case PIPE_SWIZZLE_RED: return GL_RED;
+   case PIPE_SWIZZLE_GREEN: return GL_GREEN;
+   case PIPE_SWIZZLE_BLUE: return GL_BLUE;
+   case PIPE_SWIZZLE_ALPHA: return GL_ALPHA;
+   case PIPE_SWIZZLE_ZERO: return GL_ZERO;
+   case PIPE_SWIZZLE_ONE: return GL_ONE;
+   default:
+      assert(0);
+      return 0;
+   }
+}
+
 /* implement blitting using OpenGL. */
 void vrend_renderer_blit_gl(struct vrend_context *ctx,
                             struct vrend_resource *src_res,
@@ -635,6 +650,8 @@ void vrend_renderer_blit_gl(struct vrend_context *ctx,
       util_format_description(src_res->base.format);
    const struct util_format_description *dst_desc =
       util_format_description(dst_res->base.format);
+   const struct vrend_format_table *src_entry =
+      vrend_get_format_table_entry(info->src.format);
 
    has_depth = util_format_has_depth(src_desc) &&
       util_format_has_depth(dst_desc);
@@ -691,8 +708,17 @@ void vrend_renderer_blit_gl(struct vrend_context *ctx,
 
    glBindTexture(src_res->target, src_res->id);
 
-   if (vrend_format_is_emulated_alpha(info->src.format))
-      glTexParameteri(src_res->target, GL_TEXTURE_SWIZZLE_A, GL_RED);
+   if (src_entry->flags & VREND_BIND_NEED_SWIZZLE) {
+      glTexParameteri(src_res->target, GL_TEXTURE_SWIZZLE_R,
+                      to_gl_swizzle(src_entry->swizzle[0]));
+      glTexParameteri(src_res->target, GL_TEXTURE_SWIZZLE_G,
+                      to_gl_swizzle(src_entry->swizzle[1]));
+      glTexParameteri(src_res->target, GL_TEXTURE_SWIZZLE_B,
+                      to_gl_swizzle(src_entry->swizzle[2]));
+      glTexParameteri(src_res->target, GL_TEXTURE_SWIZZLE_A,
+                      to_gl_swizzle(src_entry->swizzle[3]));
+   }
+
 
    glTexParameteri(src_res->target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
    glTexParameteri(src_res->target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);

@@ -673,6 +673,12 @@ vrend_insert_format_swizzle(int override_format, struct vrend_format_table *entr
       tex_conv_table[override_format].swizzle[i] = swizzle[i];
 }
 
+const struct vrend_format_table *
+vrend_get_format_table_entry(enum virgl_formats format)
+{
+   return &tex_conv_table[format];
+}
+
 static bool vrend_is_timer_query(GLenum gltype)
 {
    return gltype == GL_TIMESTAMP ||
