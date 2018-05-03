@@ -41,6 +41,7 @@ struct vrend_shader_info {
    int num_interps;
    int num_outputs;
    int num_ubos;
+   int ubo_idx[32];
    int num_ucp;
    int glsl_ver;
    bool has_pervertex_out;

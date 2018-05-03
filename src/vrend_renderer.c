@@ -1046,7 +1046,8 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
 
          sprog->ubo_locs[id] = calloc(sprog->ss[id]->sel->sinfo.num_ubos, sizeof(uint32_t));
          for (i = 0; i < sprog->ss[id]->sel->sinfo.num_ubos; i++) {
-            snprintf(name, 32, "%subo%d", prefix, i + 1);
+            int ubo_idx = sprog->ss[id]->sel->sinfo.ubo_idx[i];
+            snprintf(name, 32, "%subo%d", prefix, ubo_idx);
             sprog->ubo_locs[id][i] = glGetUniformBlockIndex(prog_id, name);
          }
       } else
@@ -2873,25 +2874,40 @@ static void vrend_draw_bind_ubo(struct vrend_context *ctx)
    ubo_id = 0;
    for (shader_type = PIPE_SHADER_VERTEX; shader_type <= ctx->sub->last_shader_idx; shader_type++) {
       uint32_t mask;
-      int shader_ubo_idx = 0;
+      int shader_ubo_idx;
       struct pipe_constant_buffer *cb;
       struct vrend_resource *res;
+      struct vrend_shader_info* sinfo;
+
       if (!ctx->sub->const_bufs_used_mask[shader_type])
          continue;
 
       if (!ctx->sub->prog->ubo_locs[shader_type])
          continue;
 
+      sinfo = &ctx->sub->prog->ss[shader_type]->sel->sinfo;
+
       mask = ctx->sub->const_bufs_used_mask[shader_type];
       while (mask) {
+         /* The const_bufs_used_mask stores the gallium uniform buffer indices */
          i = u_bit_scan(&mask);
 
+         /* The cbs array is indexed using the gallium uniform buffer index */
          cb = &ctx->sub->cbs[shader_type][i];
          res = (struct vrend_resource *)cb->buffer;
+
+         /* Find the index of the uniform buffer in the array of shader ubo data */
+         for (shader_ubo_idx = 0; shader_ubo_idx < sinfo->num_ubos; shader_ubo_idx++) {
+            if (sinfo->ubo_idx[shader_ubo_idx] == i)
+               break;
+         }
+         if (shader_ubo_idx == sinfo->num_ubos)
+             continue;
+
          glBindBufferRange(GL_UNIFORM_BUFFER, ubo_id, res->id,
                            cb->buffer_offset, cb->buffer_size);
+         /* The ubo_locs array is indexed using the shader ubo index */
          glUniformBlockBinding(ctx->sub->prog->id, ctx->sub->prog->ubo_locs[shader_type][shader_ubo_idx], ubo_id);
-         shader_ubo_idx++;
          ubo_id++;
       }
    }

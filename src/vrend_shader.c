@@ -2839,6 +2839,7 @@ char *vrend_convert_shader(struct vrend_shader_cfg *cfg,
    sinfo->samplers_used_mask = ctx.samplers_used;
    sinfo->num_consts = ctx.num_consts;
    sinfo->num_ubos = ctx.num_ubo;
+   memcpy(sinfo->ubo_idx, ctx.ubo_idx, ctx.num_ubo * sizeof(*ctx.ubo_idx));
    sinfo->num_inputs = ctx.num_inputs;
    sinfo->num_interps = ctx.num_interps;
    sinfo->num_outputs = ctx.num_outputs;
