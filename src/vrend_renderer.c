@@ -2485,12 +2485,17 @@ void vrend_clear(struct vrend_context *ctx,
       } else {
          glClearDepth(depth);
       }
+      if (!ctx->sub->hw_rs_state.depth_clip)
+          glDisable(GL_DEPTH_CLAMP);
    }
 
    if (buffers & PIPE_CLEAR_STENCIL) {
       glStencilMask(~0u);
       glClearStencil(stencil);
    }
+
+   if (ctx->sub->hw_rs_state.rasterizer_discard)
+       glDisable(GL_RASTERIZER_DISCARD);
 
    if (buffers & PIPE_CLEAR_COLOR) {
       uint32_t mask = 0;
@@ -2525,9 +2530,19 @@ void vrend_clear(struct vrend_context *ctx,
    if (bits)
       glClear(bits);
 
-   if (buffers & PIPE_CLEAR_DEPTH)
+   /* Is it really necessary to restore the old states? The only reason we
+    * get here is because the guest cleared all those states but gallium
+    * didn't forward them before calling the clear command
+    */
+   if (ctx->sub->hw_rs_state.rasterizer_discard)
+       glEnable(GL_RASTERIZER_DISCARD);
+
+   if (buffers & PIPE_CLEAR_DEPTH) {
       if (!ctx->sub->dsa_state.depth.writemask)
          glDepthMask(GL_FALSE);
+      if (!ctx->sub->hw_rs_state.depth_clip)
+          glEnable(GL_DEPTH_CLAMP);
+   }
 
    /* Restore previous stencil buffer write masks for both front and back faces */
    if (buffers & PIPE_CLEAR_STENCIL) {
