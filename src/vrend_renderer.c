@@ -6343,6 +6343,9 @@ int vrend_create_query(struct vrend_context *ctx, uint32_t handle,
    case PIPE_QUERY_PRIMITIVES_EMITTED:
       q->gltype = GL_TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN;
       break;
+   case PIPE_QUERY_OCCLUSION_PREDICATE_CONSERVATIVE:
+      q->gltype = GL_ANY_SAMPLES_PASSED_CONSERVATIVE;
+      break;
    default:
       fprintf(stderr,"unknown query object received %d\n", q->type);
       break;

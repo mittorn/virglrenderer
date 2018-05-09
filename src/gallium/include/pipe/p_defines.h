@@ -446,7 +446,8 @@ enum pipe_flush_flags {
 #define PIPE_QUERY_SO_OVERFLOW_PREDICATE 8
 #define PIPE_QUERY_GPU_FINISHED          9
 #define PIPE_QUERY_PIPELINE_STATISTICS  10
-#define PIPE_QUERY_TYPES                11
+#define PIPE_QUERY_OCCLUSION_PREDICATE_CONSERVATIVE 11
+#define PIPE_QUERY_TYPES                12
 
 /* start of driver queries,
  * see pipe_screen::get_driver_query_info */
