@@ -564,15 +564,20 @@ static void calc_src_deltas_for_bounds(struct vrend_resource *src_res,
    int max_x = u_minify(src_res->base.width0, info->src.level) - 1;
    int max_y = u_minify(src_res->base.height0, info->src.level) - 1;
 
-   /* point 0 uses inclusive bounds */
-   src0_delta->dx = calc_delta_for_bound(info->src.box.x, max_x);
-   src0_delta->dy = calc_delta_for_bound(info->src.box.y, max_y);
+   /* Whether the bounds for the coordinates of a point are inclusive or
+    * exclusive depends on the direction of the blit read. Adjust the max
+    * bounds accordingly, with an adjustment of 0 for inclusive, and 1 for
+    * exclusive. */
+   int src0_x_excl = info->src.box.width < 0;
+   int src0_y_excl = info->src.box.height < 0;
 
-   /* point 1 uses exclusive bounds */
+   src0_delta->dx = calc_delta_for_bound(info->src.box.x, max_x + src0_x_excl);
+   src0_delta->dy = calc_delta_for_bound(info->src.box.y, max_y + src0_y_excl);
+
    src1_delta->dx = calc_delta_for_bound(info->src.box.x + info->src.box.width,
-                                         max_x + 1);
+                                         max_x + !src0_x_excl);
    src1_delta->dy = calc_delta_for_bound(info->src.box.y + info->src.box.height,
-                                         max_y + 1);
+                                         max_y + !src0_y_excl);
 }
 
 /* Calculate dst delta values to adjust the dst points for any changes in the
