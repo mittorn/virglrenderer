@@ -2486,8 +2486,6 @@ void vrend_clear(struct vrend_context *ctx,
       } else {
          glClearDepth(depth);
       }
-      if (!ctx->sub->hw_rs_state.depth_clip)
-          glDisable(GL_DEPTH_CLAMP);
    }
 
    if (buffers & PIPE_CLEAR_STENCIL) {
@@ -2541,8 +2539,6 @@ void vrend_clear(struct vrend_context *ctx,
    if (buffers & PIPE_CLEAR_DEPTH) {
       if (!ctx->sub->dsa_state.depth.writemask)
          glDepthMask(GL_FALSE);
-      if (!ctx->sub->hw_rs_state.depth_clip)
-          glEnable(GL_DEPTH_CLAMP);
    }
 
    /* Restore previous stencil buffer write masks for both front and back faces */
