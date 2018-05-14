@@ -1442,6 +1442,9 @@ void vrend_fb_bind_texture(struct vrend_resource *res,
       if (layer == 0xffffffff)
          glFramebufferTexture(GL_FRAMEBUFFER_EXT, attachment,
                               res->id, level);
+      else if (vrend_state.use_gles)
+         glFramebufferTexture3DOES(GL_FRAMEBUFFER_EXT, attachment,
+                                   res->target, res->id, level, layer);
       else
          glFramebufferTexture3DEXT(GL_FRAMEBUFFER_EXT, attachment,
                                    res->target, res->id, level, layer);
