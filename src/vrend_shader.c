@@ -152,6 +152,7 @@ struct dump_ctx {
    bool vs_has_pervertex;
    bool uses_sample_shading;
    bool uses_gpu_shader5;
+   bool write_mul_temp;
 };
 
 static inline const char *tgsi_proc_to_prefix(int shader_type)
@@ -2342,6 +2343,62 @@ iter_instruction(struct tgsi_iterate_context *iter,
       EMIT_BUF_WITH_RET(ctx, buf);
       break;
    }
+   case TGSI_OPCODE_UMUL_HI:
+      snprintf(buf, 255, "umulExtended(%s, %s, umul_temp, mul_temp);\n", srcs[0], srcs[1]);
+      EMIT_BUF_WITH_RET(ctx, buf);
+      snprintf(buf, 255, "%s = %s(%s(umul_temp));\n", dsts[0], dstconv, dtypeprefix);
+      EMIT_BUF_WITH_RET(ctx, buf);
+      ctx->uses_gpu_shader5 = true;
+      ctx->write_mul_temp = true;
+      break;
+   case TGSI_OPCODE_IMUL_HI:
+      snprintf(buf, 255, "imulExtended(%s, %s, imul_temp, mul_temp);\n", srcs[0], srcs[1]);
+      EMIT_BUF_WITH_RET(ctx, buf);
+      snprintf(buf, 255, "%s = %s(%s(imul_temp));\n", dsts[0], dstconv, dtypeprefix);
+      EMIT_BUF_WITH_RET(ctx, buf);
+      ctx->uses_gpu_shader5 = true;
+      ctx->write_mul_temp = true;
+      break;
+
+   case TGSI_OPCODE_IBFE:
+      snprintf(buf, 255, "%s = %s(%s(bitfieldExtract(%s, int(%s.x), int(%s.x))));\n", dsts[0], dstconv, dtypeprefix, srcs[0], srcs[1], srcs[2]);
+      EMIT_BUF_WITH_RET(ctx, buf);
+      ctx->uses_gpu_shader5 = true;
+      break;
+   case TGSI_OPCODE_UBFE:
+      snprintf(buf, 255, "%s = %s(%s(bitfieldExtract(%s, int(%s.x), int(%s.x))));\n", dsts[0], dstconv, dtypeprefix, srcs[0], srcs[1], srcs[2]);
+      EMIT_BUF_WITH_RET(ctx, buf);
+      ctx->uses_gpu_shader5 = true;
+      break;
+   case TGSI_OPCODE_BFI:
+      snprintf(buf, 255, "%s = %s(uintBitsToFloat(bitfieldInsert(%s, %s, int(%s), int(%s))));\n", dsts[0], dstconv, srcs[0], srcs[1], srcs[2], srcs[3]);
+      EMIT_BUF_WITH_RET(ctx, buf);
+      ctx->uses_gpu_shader5 = true;
+      break;
+   case TGSI_OPCODE_BREV:
+      snprintf(buf, 255, "%s = %s(%s(bitfieldReverse(%s)));\n", dsts[0], dstconv, dtypeprefix, srcs[0]);
+      EMIT_BUF_WITH_RET(ctx, buf);
+      ctx->uses_gpu_shader5 = true;
+      break;
+   case TGSI_OPCODE_POPC:
+      snprintf(buf, 255, "%s = %s(%s(bitCount(%s)));\n", dsts[0], dstconv, dtypeprefix, srcs[0]);
+      EMIT_BUF_WITH_RET(ctx, buf);
+      ctx->uses_gpu_shader5 = true;
+      break;
+   case TGSI_OPCODE_LSB:
+      snprintf(buf, 255, "%s = %s(%s(findLSB(%s)));\n", dsts[0], dstconv, dtypeprefix, srcs[0]);
+      EMIT_BUF_WITH_RET(ctx, buf);
+      ctx->uses_gpu_shader5 = true;
+      break;
+   case TGSI_OPCODE_IMSB:
+   case TGSI_OPCODE_UMSB:
+      snprintf(buf, 255, "%s = %s(%s(findMSB(%s)));\n", dsts[0], dstconv, dtypeprefix, srcs[0]);
+      EMIT_BUF_WITH_RET(ctx, buf);
+      ctx->uses_gpu_shader5 = true;
+      break;
+   case TGSI_OPCODE_BARRIER:
+      snprintf(buf, 255, "barrier();\n");
+      break;
    default:
       fprintf(stderr,"failed to convert opcode %d\n", inst->Instruction.Opcode);
       break;
@@ -2706,6 +2763,15 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
    }
    for (i = 0; i < ctx->num_temp_ranges; i++) {
       snprintf(buf, 255, "vec4 temp%d[%d];\n", ctx->temp_ranges[i].first, ctx->temp_ranges[i].last - ctx->temp_ranges[i].first + 1);
+      STRCAT_WITH_RET(glsl_hdr, buf);
+   }
+
+   if (ctx->write_mul_temp) {
+      snprintf(buf, 255, "uvec4 mul_temp;\n");
+      STRCAT_WITH_RET(glsl_hdr, buf);
+      snprintf(buf, 255, "uvec4 umul_temp;\n");
+      STRCAT_WITH_RET(glsl_hdr, buf);
+      snprintf(buf, 255, "ivec4 imul_temp;\n");
       STRCAT_WITH_RET(glsl_hdr, buf);
    }
 
