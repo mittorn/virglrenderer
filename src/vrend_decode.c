@@ -97,6 +97,8 @@ static int vrend_decode_create_shader(struct vrend_decode_ctx *ctx,
             so_info.output[i].num_components = (tmp >> 10) & 0x7;
             so_info.output[i].output_buffer = (tmp >> 13) & 0x7;
             so_info.output[i].dst_offset = (tmp >> 16) & 0xffff;
+            tmp = get_buf_entry(ctx, VIRGL_OBJ_SHADER_SO_OUTPUT0_SO(i));
+            so_info.output[i].stream = (tmp & 0x3);
          }
       }
       shader_offset += 4 + (2 * num_so_outputs);

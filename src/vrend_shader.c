@@ -55,6 +55,7 @@ struct vrend_shader_io {
    bool override_no_wm;
    bool is_int;
    char glsl_name[64];
+   unsigned stream;
 };
 
 struct vrend_shader_sampler {
@@ -930,6 +931,29 @@ static int emit_prescale(struct dump_ctx *ctx)
    return 0;
 }
 
+static int prepare_so_movs(struct dump_ctx *ctx)
+{
+   int i;
+   for (i = 0; i < ctx->so->num_outputs; i++) {
+      ctx->write_so_outputs[i] = true;
+      if (ctx->so->output[i].start_component != 0)
+         continue;
+      if (ctx->so->output[i].num_components != 4)
+         continue;
+      if (ctx->outputs[ctx->so->output[i].register_index].name == TGSI_SEMANTIC_CLIPDIST)
+         continue;
+      if (ctx->outputs[ctx->so->output[i].register_index].name == TGSI_SEMANTIC_POSITION)
+         continue;
+
+      ctx->outputs[ctx->so->output[i].register_index].stream = ctx->so->output[i].stream;
+      if (ctx->prog_type == TGSI_PROCESSOR_GEOMETRY && ctx->so->output[i].stream)
+         ctx->uses_gpu_shader5 = true;
+
+      ctx->write_so_outputs[i] = false;
+   }
+   return 0;
+}
+
 static int emit_so_movs(struct dump_ctx *ctx)
 {
    char buf[255];
@@ -960,7 +984,7 @@ static int emit_so_movs(struct dump_ctx *ctx)
       } else
          writemask[0] = 0;
 
-      if (ctx->so->output[i].num_components == 4 && writemask[0] == 0 && !(ctx->outputs[ctx->so->output[i].register_index].name == TGSI_SEMANTIC_CLIPDIST) && !(ctx->outputs[ctx->so->output[i].register_index].name == TGSI_SEMANTIC_POSITION)) {
+      if (!ctx->write_so_outputs[i]) {
          if (ctx->so->output[i].register_index > ctx->num_outputs)
             ctx->so_names[i] = NULL;
          else if (ctx->outputs[ctx->so->output[i].register_index].name == TGSI_SEMANTIC_CLIPVERTEX && ctx->has_clipvertex) {
@@ -968,13 +992,10 @@ static int emit_so_movs(struct dump_ctx *ctx)
             ctx->has_clipvertex_so = true;
          } else
             ctx->so_names[i] = strdup(ctx->outputs[ctx->so->output[i].register_index].glsl_name);
-         ctx->write_so_outputs[i] = false;
-
       } else {
          char ntemp[8];
          snprintf(ntemp, 8, "tfout%d", i);
          ctx->so_names[i] = strdup(ntemp);
-         ctx->write_so_outputs[i] = true;
       }
       if (ctx->so->output[i].num_components == 1) {
          if (ctx->outputs[ctx->so->output[i].register_index].is_int)
@@ -1641,6 +1662,8 @@ iter_instruction(struct tgsi_iterate_context *iter,
          if (ret)
             return FALSE;
       }
+      if (ctx->so)
+         prepare_so_movs(ctx);
    }
    for (i = 0; i < inst->Instruction.NumDstRegs; i++) {
       const struct tgsi_full_dst_register *dst = &inst->Dst[i];
@@ -2263,7 +2286,8 @@ iter_instruction(struct tgsi_iterate_context *iter,
       snprintf(buf, 255, "break;\n");
       EMIT_BUF_WITH_RET(ctx, buf);
       break;
-   case TGSI_OPCODE_EMIT:
+   case TGSI_OPCODE_EMIT: {
+      struct immed *imd = &ctx->imm[(inst->Src[0].Register.Index)];
       if (ctx->so && ctx->key->gs_present) {
          emit_so_movs(ctx);
       }
@@ -2273,13 +2297,24 @@ iter_instruction(struct tgsi_iterate_context *iter,
       ret = emit_prescale(ctx);
       if (ret)
          return FALSE;
-      snprintf(buf, 255, "EmitVertex();\n");
+      if (imd->val[inst->Src[0].Register.SwizzleX].ui > 0) {
+         ctx->uses_gpu_shader5 = true;
+         snprintf(buf, 255, "EmitStreamVertex(%d);\n", imd->val[inst->Src[0].Register.SwizzleX].ui);
+      } else
+         snprintf(buf, 255, "EmitVertex();\n");
       EMIT_BUF_WITH_RET(ctx, buf);
       break;
-   case TGSI_OPCODE_ENDPRIM:
-      snprintf(buf, 255, "EndPrimitive();\n");
+   }
+   case TGSI_OPCODE_ENDPRIM: {
+      struct immed *imd = &ctx->imm[(inst->Src[0].Register.Index)];
+      if (imd->val[inst->Src[0].Register.SwizzleX].ui > 0) {
+         ctx->uses_gpu_shader5 = true;
+         snprintf(buf, 255, "EndStreamPrimitive(%d);\n", imd->val[inst->Src[0].Register.SwizzleX].ui);
+      } else
+         snprintf(buf, 255, "EndPrimitive();\n");
       EMIT_BUF_WITH_RET(ctx, buf);
       break;
+   }
    default:
       fprintf(stderr,"failed to convert opcode %d\n", inst->Instruction.Opcode);
       break;
@@ -2510,7 +2545,10 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
             } else
                prefix = "";
             /* ugly leave spaces to patch interp in later */
-            snprintf(buf, 255, "%s%sout vec4 %s;\n", prefix, ctx->outputs[i].invariant ? "invariant " : "", ctx->outputs[i].glsl_name);
+            if (ctx->prog_type == TGSI_PROCESSOR_GEOMETRY && ctx->outputs[i].stream)
+               snprintf(buf, 255, "layout (stream = %d) %s%sout vec4 %s;\n", ctx->outputs[i].stream, prefix, ctx->outputs[i].invariant ? "invariant " : "", ctx->outputs[i].glsl_name);
+            else
+               snprintf(buf, 255, "%s%sout vec4 %s;\n", prefix, ctx->outputs[i].invariant ? "invariant " : "", ctx->outputs[i].glsl_name);
             STRCAT_WITH_RET(glsl_hdr, buf);
          } else if (ctx->outputs[i].invariant) {
             snprintf(buf, 255, "invariant %s;\n", ctx->outputs[i].glsl_name);
@@ -2632,7 +2670,10 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
             snprintf(outtype, 6, "float");
          else
             snprintf(outtype, 6, "vec%d", ctx->so->output[i].num_components);
-         snprintf(buf, 255, "out %s tfout%d;\n", outtype, i);
+         if (ctx->so->output[i].stream && ctx->prog_type == TGSI_PROCESSOR_GEOMETRY)
+            snprintf(buf, 255, "layout (stream=%d) out %s tfout%d;\n", ctx->so->output[i].stream, outtype, i);
+         else
+            snprintf(buf, 255, "out %s tfout%d;\n", outtype, i);
          STRCAT_WITH_RET(glsl_hdr, buf);
       }
    }

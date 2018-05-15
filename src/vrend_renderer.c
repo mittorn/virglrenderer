@@ -771,13 +771,14 @@ static void dump_stream_out(struct pipe_stream_output_info *so)
    printf("\n");
    printf("outputs:\n");
    for (i = 0; i < so->num_outputs; i++) {
-      printf("\t%d: reg: %d sc: %d, nc: %d ob: %d do: %d\n",
+      printf("\t%d: reg: %d sc: %d, nc: %d ob: %d do: %d st: %d\n",
              i,
              so->output[i].register_index,
              so->output[i].start_component,
              so->output[i].num_components,
              so->output[i].output_buffer,
-             so->output[i].dst_offset);
+             so->output[i].dst_offset,
+             so->output[i].stream);
    }
 }
 
