@@ -713,6 +713,14 @@ iter_declaration(struct tgsi_iterate_context *iter,
          name_prefix = "gl_InvocationID";
          ctx->has_ints = true;
          ctx->uses_gpu_shader5 = true;
+      } else if (decl->Semantic.Name == TGSI_SEMANTIC_SAMPLEMASK) {
+         name_prefix = "gl_SampleMaskIn[0]";
+         ctx->has_ints = true;
+         ctx->uses_gpu_shader5 = true;
+      } else if (decl->Semantic.Name == TGSI_SEMANTIC_PRIMID) {
+         name_prefix = "gl_PrimitiveID";
+         ctx->has_ints = true;
+         ctx->uses_gpu_shader5 = true;
       } else {
          fprintf(stderr, "unsupported system value %d\n", decl->Semantic.Name);
          name_prefix = "unknown";
