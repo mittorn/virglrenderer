@@ -32,6 +32,7 @@ struct vrend_interp_info {
    int semantic_name;
    int semantic_index;
    int interpolate;
+   bool centroid;
 };
 
 struct vrend_shader_info {

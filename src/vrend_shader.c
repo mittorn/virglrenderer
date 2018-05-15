@@ -37,7 +37,7 @@ extern int vrend_dump_shaders;
 
 /* start convert of tgsi to glsl */
 
-#define INTERP_PREFIX "               "
+#define INTERP_PREFIX "                           "
 #define INVARI_PREFIX "invariant"
 
 struct vrend_shader_io {
@@ -272,6 +272,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
       ctx->inputs[i].name = decl->Semantic.Name;
       ctx->inputs[i].sid = decl->Semantic.Index;
       ctx->inputs[i].interpolate = decl->Interp.Interpolate;
+      ctx->inputs[i].centroid = decl->Interp.Location == TGSI_INTERPOLATE_LOC_CENTROID;
       ctx->inputs[i].first = decl->Range.First;
       ctx->inputs[i].glsl_predefined_no_emit = false;
       ctx->inputs[i].glsl_no_index = false;
@@ -1632,6 +1633,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
    bool override_no_wm[4];
    bool dst_override_no_wm[2];
    char *sret;
+   char src_swizzle0[10];
    int ret;
    bool tg4_has_component = false;
    if (ctx->prog_type == -1)
@@ -1812,8 +1814,18 @@ iter_instruction(struct tgsi_iterate_context *iter,
                   if (stype == TGSI_TYPE_UNSIGNED &&
                       ctx->inputs[j].is_int)
                      srcstypeprefix = "";
-                  snprintf(srcs[i], 255, "%s(%s%s%s%s)",
-                           srcstypeprefix, prefix, ctx->inputs[j].glsl_name, arrayname, ctx->inputs[j].is_int ? "" : swizzle);
+
+                  if (inst->Instruction.Opcode == TGSI_OPCODE_INTERP_SAMPLE && i == 1) {
+                     snprintf(srcs[i], 255, "floatBitsToInt(%s%s%s%s)", prefix, ctx->inputs[j].glsl_name, arrayname, swizzle);
+                  } else
+                     snprintf(srcs[i], 255, "%s(%s%s%s%s)", srcstypeprefix, prefix, ctx->inputs[j].glsl_name, arrayname, ctx->inputs[j].is_int ? "" : swizzle);
+               }
+               if ((inst->Instruction.Opcode == TGSI_OPCODE_INTERP_SAMPLE ||
+                    inst->Instruction.Opcode == TGSI_OPCODE_INTERP_OFFSET ||
+                    inst->Instruction.Opcode == TGSI_OPCODE_INTERP_CENTROID) &&
+                   i == 0) {
+                  snprintf(srcs[0], 255, "%s", ctx->inputs[j].glsl_name);
+                  snprintf(src_swizzle0, 10, "%s", swizzle);
                }
                override_no_wm[i] = ctx->inputs[j].override_no_wm;
                break;
@@ -1823,6 +1835,11 @@ iter_instruction(struct tgsi_iterate_context *iter,
          struct vrend_temp_range *range = find_temp_range(ctx, src->Register.Index);
          if (!range)
             return FALSE;
+         if (inst->Instruction.Opcode == TGSI_OPCODE_INTERP_SAMPLE && i == 1) {
+            stprefix = true;
+            stypeprefix = "floatBitsToInt";
+         }
+
          if (src->Register.Indirect) {
             snprintf(srcs[i], 255, "%s%c%stemp%d[addr0 + %d]%s%c", stypeprefix, stprefix ? '(' : ' ', prefix, range->first, src->Register.Index - range->first, swizzle, stprefix ? ')' : ' ');
          } else
@@ -1839,7 +1856,9 @@ iter_instruction(struct tgsi_iterate_context *iter,
          } else {
             const char *csp;
             ctx->has_ints = true;
-            if (stype == TGSI_TYPE_FLOAT || stype == TGSI_TYPE_UNTYPED)
+            if (inst->Instruction.Opcode == TGSI_OPCODE_INTERP_SAMPLE && i == 1)
+               csp = "ivec4";
+            else if (stype == TGSI_TYPE_FLOAT || stype == TGSI_TYPE_UNTYPED)
                csp = "uintBitsToFloat";
             else if (stype == TGSI_TYPE_SIGNED)
                csp = "ivec4";
@@ -1866,7 +1885,8 @@ iter_instruction(struct tgsi_iterate_context *iter,
          const char *vtype = "vec4";
          const char *imm_stypeprefix = stypeprefix;
 
-         if ((inst->Instruction.Opcode == TGSI_OPCODE_TG4 && i == 1))
+         if ((inst->Instruction.Opcode == TGSI_OPCODE_TG4 && i == 1) ||
+             (inst->Instruction.Opcode == TGSI_OPCODE_INTERP_SAMPLE && i == 1))
             stype = TGSI_TYPE_SIGNED;
 
          if (imd->type == TGSI_IMM_UINT32 || imd->type == TGSI_IMM_INT32) {
@@ -2343,6 +2363,21 @@ iter_instruction(struct tgsi_iterate_context *iter,
       EMIT_BUF_WITH_RET(ctx, buf);
       break;
    }
+   case TGSI_OPCODE_INTERP_CENTROID:
+      snprintf(buf, 255, "%s = %s(%s(vec4(interpolateAtCentroid(%s))%s));\n", dsts[0], dstconv, dtypeprefix, srcs[0], src_swizzle0);
+      EMIT_BUF_WITH_RET(ctx, buf);
+      ctx->uses_gpu_shader5 = true;
+      break;
+   case TGSI_OPCODE_INTERP_SAMPLE:
+      snprintf(buf, 255, "%s = %s(%s(vec4(interpolateAtSample(%s, %s.x))%s));\n", dsts[0], dstconv, dtypeprefix, srcs[0], srcs[1], src_swizzle0);
+      EMIT_BUF_WITH_RET(ctx, buf);
+      ctx->uses_gpu_shader5 = true;
+      break;
+   case TGSI_OPCODE_INTERP_OFFSET:
+      snprintf(buf, 255, "%s = %s(%s(vec4(interpolateAtOffset(%s, %s.xy))%s));\n", dsts[0], dstconv, dtypeprefix, srcs[0], srcs[1], src_swizzle0);
+      EMIT_BUF_WITH_RET(ctx, buf);
+      ctx->uses_gpu_shader5 = true;
+      break;
    case TGSI_OPCODE_UMUL_HI:
       snprintf(buf, 255, "umulExtended(%s, %s, umul_temp, mul_temp);\n", srcs[0], srcs[1]);
       EMIT_BUF_WITH_RET(ctx, buf);
@@ -2541,13 +2576,20 @@ static const char *get_interp_string(struct vrend_shader_cfg *cfg, int interpola
    }
 }
 
+static const char *get_aux_string(struct vrend_shader_cfg *cfg, bool centroid)
+{
+   return centroid ? "centroid " : "";
+}
+
 static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
 {
    int i;
    char buf[255];
    char postfix[8];
-   const char *prefix = "";
+   const char *prefix = "", *auxprefix = "";
    bool fcolor_emitted[2], bcolor_emitted[2];
+   int nsamp;
+   const char *sname = tgsi_proc_to_prefix(ctx->prog_type);
    ctx->num_interps = 0;
 
    if (ctx->so && ctx->so->num_outputs >= PIPE_MAX_SO_OUTPUTS) {
@@ -2595,6 +2637,7 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
             prefix = get_interp_string(ctx->cfg, ctx->inputs[i].interpolate, ctx->key->flatshade);
             if (!prefix)
                prefix = "";
+            auxprefix = get_aux_string(ctx->cfg, ctx->inputs[i].centroid);
             ctx->num_interps++;
          }
 
@@ -2602,7 +2645,7 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
             snprintf(postfix, 8, "[%d]", gs_input_prim_to_size(ctx->gs_in_prim));
          } else
             postfix[0] = 0;
-         snprintf(buf, 255, "%sin vec4 %s%s;\n", prefix, ctx->inputs[i].glsl_name, postfix);
+         snprintf(buf, 255, "%s%sin vec4 %s%s;\n", prefix, auxprefix, ctx->inputs[i].glsl_name, postfix);
          STRCAT_WITH_RET(glsl_hdr, buf);
       }
    }
@@ -2870,6 +2913,7 @@ static boolean fill_fragment_interpolants(struct dump_ctx *ctx, struct vrend_sha
       sinfo->interpinfo[index].semantic_name = ctx->inputs[i].name;
       sinfo->interpinfo[index].semantic_index = ctx->inputs[i].sid;
       sinfo->interpinfo[index].interpolate = ctx->inputs[i].interpolate;
+      sinfo->interpinfo[index].centroid = ctx->inputs[i].centroid;
       index++;
    }
    return TRUE;
@@ -3000,7 +3044,7 @@ char *vrend_convert_shader(struct vrend_shader_cfg *cfg,
 
 static void replace_interp(char *program,
                            const char *var_name,
-                           const char *pstring)
+                           const char *pstring, const char *auxstring)
 {
    char *ptr;
    int mylen = strlen(INTERP_PREFIX) + strlen("out vec4 ");
@@ -3012,7 +3056,9 @@ static void replace_interp(char *program,
 
    ptr -= mylen;
 
+   memset(ptr, ' ', strlen(INTERP_PREFIX));
    memcpy(ptr, pstring, strlen(pstring));
+   memcpy(ptr + strlen(pstring), auxstring, strlen(auxstring));
 }
 
 bool vrend_patch_vertex_shader_interpolants(struct vrend_shader_cfg *cfg, char *program,
@@ -3020,7 +3066,7 @@ bool vrend_patch_vertex_shader_interpolants(struct vrend_shader_cfg *cfg, char *
                                             struct vrend_shader_info *fs_info, const char *oprefix, bool flatshade)
 {
    int i;
-   const char *pstring;
+   const char *pstring, *auxstring;
    char glsl_name[64];
    if (!vs_info || !fs_info)
       return true;
@@ -3033,27 +3079,29 @@ bool vrend_patch_vertex_shader_interpolants(struct vrend_shader_cfg *cfg, char *
       if (!pstring)
          continue;
 
+      auxstring = get_aux_string(cfg, fs_info->interpinfo[i].centroid);
+
       switch (fs_info->interpinfo[i].semantic_name) {
       case TGSI_SEMANTIC_COLOR:
          /* color is a bit trickier */
          if (fs_info->glsl_ver < 140) {
             if (fs_info->interpinfo[i].semantic_index == 1) {
-               replace_interp(program, "gl_FrontSecondaryColor", pstring);
-               replace_interp(program, "gl_BackSecondaryColor", pstring);
+               replace_interp(program, "gl_FrontSecondaryColor", pstring, auxstring);
+               replace_interp(program, "gl_BackSecondaryColor", pstring, auxstring);
             } else {
-               replace_interp(program, "gl_FrontColor", pstring);
-               replace_interp(program, "gl_BackColor", pstring);
+               replace_interp(program, "gl_FrontColor", pstring, auxstring);
+               replace_interp(program, "gl_BackColor", pstring, auxstring);
             }
          } else {
             snprintf(glsl_name, 64, "ex_c%d", fs_info->interpinfo[i].semantic_index);
-            replace_interp(program, glsl_name, pstring);
+            replace_interp(program, glsl_name, pstring, auxstring);
             snprintf(glsl_name, 64, "ex_bc%d", fs_info->interpinfo[i].semantic_index);
-            replace_interp(program, glsl_name, pstring);
+            replace_interp(program, glsl_name, pstring, auxstring);
          }
          break;
       case TGSI_SEMANTIC_GENERIC:
          snprintf(glsl_name, 64, "%s_g%d", oprefix, fs_info->interpinfo[i].semantic_index);
-         replace_interp(program, glsl_name, pstring);
+         replace_interp(program, glsl_name, pstring, auxstring);
          break;
       default:
          fprintf(stderr,"unhandled semantic: %x\n", fs_info->interpinfo[i].semantic_name);
