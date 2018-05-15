@@ -4670,15 +4670,25 @@ int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *a
 
       if (args->nr_samples > 1) {
          if (vrend_state.use_gles) {
-            report_gles_missing_func(NULL, "glTexImage[2,3]DMultisample");
-         } else if (gr->target == GL_TEXTURE_2D_MULTISAMPLE) {
-            glTexImage2DMultisample(gr->target, args->nr_samples,
-                                    internalformat, args->width, args->height,
-                                    GL_TRUE);
+            if (gr->target == GL_TEXTURE_2D_MULTISAMPLE) {
+               glTexStorage2DMultisample(gr->target, args->nr_samples,
+                                       internalformat, args->width, args->height,
+                                       GL_TRUE);
+            } else {
+               glTexStorage3DMultisample(gr->target, args->nr_samples,
+                                       internalformat, args->width, args->height, args->array_size,
+                                       GL_TRUE);
+            }
          } else {
-            glTexImage3DMultisample(gr->target, args->nr_samples,
-                                    internalformat, args->width, args->height, args->array_size,
-                                    GL_TRUE);
+            if (gr->target == GL_TEXTURE_2D_MULTISAMPLE) {
+               glTexImage2DMultisample(gr->target, args->nr_samples,
+                                       internalformat, args->width, args->height,
+                                       GL_TRUE);
+            } else {
+               glTexImage3DMultisample(gr->target, args->nr_samples,
+                                       internalformat, args->width, args->height, args->array_size,
+                                       GL_TRUE);
+            }
          }
 
       } else if (gr->target == GL_TEXTURE_CUBE_MAP) {
@@ -6691,8 +6701,6 @@ void vrend_renderer_fill_caps_gles(uint32_t set, uint32_t version,
 
    caps->v1.bset.seamless_cube_map_per_texture = 0;
 
-   caps->v1.bset.texture_multisample = 0;
-
    caps->v1.bset.mirror_clamp = 0;
    caps->v1.bset.indep_blend_func = 0;
    caps->v1.bset.cube_map_array = 0;
@@ -6720,6 +6728,10 @@ void vrend_renderer_fill_caps_gles(uint32_t set, uint32_t version,
       glGetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS, &max);
       caps->v1.max_texture_array_layers = max;
       caps->v1.bset.primitive_restart = 1;
+   }
+
+   if (gles_ver >= 30) {
+      caps->v1.bset.texture_multisample = 1;
    }
 
    if (!fill_capset2) {
