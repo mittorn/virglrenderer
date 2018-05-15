@@ -6443,7 +6443,10 @@ void vrend_begin_query(struct vrend_context *ctx, uint32_t handle)
    if (q->gltype == GL_TIMESTAMP)
       return;
 
-   glBeginQuery(q->gltype, q->id);
+   if (q->index > 0)
+      glBeginQueryIndexed(q->gltype, q->index, q->id);
+   else
+      glBeginQuery(q->gltype, q->id);
 }
 
 void vrend_end_query(struct vrend_context *ctx, uint32_t handle)
@@ -6465,7 +6468,10 @@ void vrend_end_query(struct vrend_context *ctx, uint32_t handle)
       return;
    }
 
-   glEndQuery(q->gltype);
+   if (q->index > 0)
+      glEndQueryIndexed(q->gltype, q->index);
+   else
+      glEndQuery(q->gltype);
 }
 
 void vrend_get_query_result(struct vrend_context *ctx, uint32_t handle,

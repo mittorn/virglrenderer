@@ -659,7 +659,7 @@ static int vrend_decode_create_query(struct vrend_decode_ctx *ctx, uint32_t hand
 
    tmp = get_buf_entry(ctx, VIRGL_OBJ_QUERY_TYPE_INDEX);
    query_type = VIRGL_OBJ_QUERY_TYPE(tmp);
-   query_index = VIRGL_OBJ_QUERY_INDEX(tmp);
+   query_index = (tmp >> 16) & 0xffff;
 
    offset = get_buf_entry(ctx, VIRGL_OBJ_QUERY_OFFSET);
    res_handle = get_buf_entry(ctx, VIRGL_OBJ_QUERY_RES_HANDLE);
