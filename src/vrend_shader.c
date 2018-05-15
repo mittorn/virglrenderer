@@ -1145,7 +1145,8 @@ static int translate_tex(struct dump_ctx *ctx,
                          char  dsts[3][255],
                          const char *writemask,
                          const char *dstconv,
-                         bool dst0_override_no_wm)
+                         bool dst0_override_no_wm,
+                         bool tg4_has_component)
 {
    const char *twm = "", *gwm = NULL, *txfi;
    const char *dtypeprefix = "";
@@ -1342,7 +1343,9 @@ static int translate_tex(struct dump_ctx *ctx,
    case TGSI_TEXTURE_SHADOWCUBE_ARRAY:
    case TGSI_TEXTURE_CUBE_ARRAY:
    default:
-      if (inst->Instruction.Opcode == TGSI_OPCODE_TG4 && inst->Texture.Texture != TGSI_TEXTURE_CUBE_ARRAY)
+      if (inst->Instruction.Opcode == TGSI_OPCODE_TG4 &&
+          inst->Texture.Texture != TGSI_TEXTURE_CUBE_ARRAY
+          && inst->Texture.Texture != TGSI_TEXTURE_SHADOWCUBE_ARRAY)
          twm = ".xyz";
       else
          twm = "";
@@ -1400,10 +1403,9 @@ static int translate_tex(struct dump_ctx *ctx,
       snprintf(bias, 128, ", %s%s, %s%s", srcs[1], gwm, srcs[2], gwm);
       sampler_index = 3;
    } else if (inst->Instruction.Opcode == TGSI_OPCODE_TG4) {
-
       sampler_index = 2;
       ctx->uses_tg4 = true;
-      if (inst->Texture.NumOffsets > 1 || is_shad)
+      if (inst->Texture.NumOffsets > 1 || is_shad || ctx->uses_sampler_rect)
          ctx->uses_gpu_shader5 = true;
       if (inst->Texture.NumOffsets == 1) {
          if (inst->TexOffsets[0].File != TGSI_FILE_IMMEDIATE)
@@ -1411,11 +1413,26 @@ static int translate_tex(struct dump_ctx *ctx,
       }
       if (is_shad) {
          if (inst->Texture.Texture == TGSI_TEXTURE_SHADOWCUBE ||
-             inst->Texture.Texture == TGSI_TEXTURE_SHADOW2D_ARRAY ||
-             inst->Texture.Texture == TGSI_TEXTURE_SHADOWCUBE_ARRAY)
+             inst->Texture.Texture == TGSI_TEXTURE_SHADOW2D_ARRAY)
             snprintf(bias, 64, ", %s.w", srcs[0]);
+         else if (inst->Texture.Texture == TGSI_TEXTURE_SHADOWCUBE_ARRAY)
+            snprintf(bias, 64, ", %s.x", srcs[1]);
          else
             snprintf(bias, 64, ", %s.z", srcs[0]);
+      } else if (tg4_has_component) {
+         if (inst->Texture.NumOffsets == 0) {
+            if (inst->Texture.Texture == TGSI_TEXTURE_2D ||
+                inst->Texture.Texture == TGSI_TEXTURE_RECT ||
+                inst->Texture.Texture == TGSI_TEXTURE_CUBE ||
+                inst->Texture.Texture == TGSI_TEXTURE_2D_ARRAY ||
+                inst->Texture.Texture == TGSI_TEXTURE_CUBE_ARRAY)
+               snprintf(bias, 64, ", int(%s)", srcs[1]);
+         } else if (inst->Texture.NumOffsets) {
+            if (inst->Texture.Texture == TGSI_TEXTURE_2D ||
+                inst->Texture.Texture == TGSI_TEXTURE_RECT ||
+                inst->Texture.Texture == TGSI_TEXTURE_2D_ARRAY)
+               snprintf(bias, 64, ", int(%s)", srcs[1]);
+         }
       }
    } else
       bias[0] = 0;
@@ -1514,12 +1531,11 @@ static int translate_tex(struct dump_ctx *ctx,
             break;
          }
       }
-      if (inst->Instruction.Opcode == TGSI_OPCODE_TXL || inst->Instruction.Opcode == TGSI_OPCODE_TXL2 || inst->Instruction.Opcode == TGSI_OPCODE_TXD) {
+      if (inst->Instruction.Opcode == TGSI_OPCODE_TXL || inst->Instruction.Opcode == TGSI_OPCODE_TXL2 || inst->Instruction.Opcode == TGSI_OPCODE_TXD || (inst->Instruction.Opcode == TGSI_OPCODE_TG4 && is_shad)) {
          char tmp[128];
          strcpy(tmp, offbuf);
          strcpy(offbuf, bias);
          strcpy(bias, tmp);
-
       }
    }
    if (inst->Instruction.Opcode == TGSI_OPCODE_TXF) {
@@ -1616,7 +1632,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
    bool dst_override_no_wm[2];
    char *sret;
    int ret;
-
+   bool tg4_has_component = false;
    if (ctx->prog_type == -1)
       ctx->prog_type = iter->processor.Processor;
    if (dtype == TGSI_TYPE_SIGNED || dtype == TGSI_TYPE_UNSIGNED ||
@@ -1849,6 +1865,9 @@ iter_instruction(struct tgsi_iterate_context *iter,
          const char *vtype = "vec4";
          const char *imm_stypeprefix = stypeprefix;
 
+         if ((inst->Instruction.Opcode == TGSI_OPCODE_TG4 && i == 1))
+            stype = TGSI_TYPE_SIGNED;
+
          if (imd->type == TGSI_IMM_UINT32 || imd->type == TGSI_IMM_INT32) {
             if (imd->type == TGSI_IMM_UINT32)
                vtype = "uvec4";
@@ -1879,6 +1898,14 @@ iter_instruction(struct tgsi_iterate_context *iter,
                idx = src->Register.SwizzleZ;
             else if (j == 3)
                idx = src->Register.SwizzleW;
+
+            if (inst->Instruction.Opcode == TGSI_OPCODE_TG4 && i == 1 && j == 0) {
+               if (imd->val[idx].ui > 0) {
+                  tg4_has_component = true;
+                  ctx->uses_gpu_shader5 = true;
+               }
+            }
+
             switch (imd->type) {
             case TGSI_IMM_FLOAT32:
                if (isinf(imd->val[idx].f) || isnan(imd->val[idx].f)) {
@@ -2160,7 +2187,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
    case TGSI_OPCODE_TXP:
    case TGSI_OPCODE_TXQ:
    case TGSI_OPCODE_LODQ:
-      ret = translate_tex(ctx, inst, sreg_index, srcs, dsts, writemask, dstconv, dst_override_no_wm[0]);
+      ret = translate_tex(ctx, inst, sreg_index, srcs, dsts, writemask, dstconv, dst_override_no_wm[0], tg4_has_component);
       if (ret)
          return FALSE;
       break;
