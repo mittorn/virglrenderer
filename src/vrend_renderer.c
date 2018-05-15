@@ -6660,8 +6660,10 @@ bool vrend_renderer_fill_caps_common(uint32_t set, uint32_t version,
          caps->v1.glsl_level = 140;
       else if (gl_ver == 32)
          caps->v1.glsl_level = 150;
-      else if (gl_ver >= 33)
+      else if (gl_ver == 33)
          caps->v1.glsl_level = 330;
+      else if (gl_ver >= 40)
+         caps->v1.glsl_level = 400;
    } else {
       caps->v1.glsl_level = 130;
    }
