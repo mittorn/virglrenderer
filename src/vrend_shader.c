@@ -102,8 +102,13 @@ struct dump_ctx {
 
    struct vrend_shader_sampler samplers[32];
    uint32_t samplers_used;
-   int num_consts;
+   bool sviews_used;
 
+   struct vrend_sampler_array *sampler_arrays;
+   int num_sampler_arrays;
+   int last_sampler_array_idx;
+
+   int num_consts;
    int num_imm;
    struct immed imm[MAX_IMMEDIATE];
    unsigned fragcoord_input;
@@ -247,6 +252,46 @@ static struct vrend_temp_range *find_temp_range(struct dump_ctx *ctx, int index)
          return &ctx->temp_ranges[i];
    }
    return NULL;
+}
+
+static int add_sampler_array(struct dump_ctx *ctx, int first, int last, int sview_type, int sview_rtype)
+{
+   int idx = ctx->num_sampler_arrays;
+   ctx->num_sampler_arrays++;
+   ctx->sampler_arrays = realloc(ctx->sampler_arrays, sizeof(struct vrend_sampler_array) * ctx->num_sampler_arrays);
+   if (!ctx->sampler_arrays)
+      return -1;
+
+   ctx->sampler_arrays[idx].first = first;
+   ctx->sampler_arrays[idx].last = last;
+   ctx->sampler_arrays[idx].idx = idx;
+   ctx->sampler_arrays[idx].sview_type = sview_type;
+   ctx->sampler_arrays[idx].sview_rtype = sview_rtype;
+   return idx;
+}
+
+int lookup_sampler_array(struct dump_ctx *ctx, int index)
+{
+   int i;
+   for (i = 0; i < ctx->num_sampler_arrays; i++) {
+      if (index >= ctx->sampler_arrays[i].first &&
+          index <= ctx->sampler_arrays[i].last) {
+         return ctx->sampler_arrays[i].idx;
+      }
+   }
+   return -1;
+}
+
+int shader_lookup_sampler_array(struct vrend_shader_info *sinfo, int index)
+{
+   int i;
+   for (i = 0; i < sinfo->num_sampler_arrays; i++) {
+      if (index >= sinfo->sampler_arrays[i].first &&
+          index <= sinfo->sampler_arrays[i].last) {
+         return sinfo->sampler_arrays[i].idx;
+      }
+   }
+   return -1;
 }
 
 static boolean
@@ -662,6 +707,19 @@ iter_declaration(struct tgsi_iterate_context *iter,
          return FALSE;
       }
       ctx->samplers[decl->Range.First].tgsi_sampler_return = decl->SamplerView.ReturnTypeX;
+      if (ctx->info.indirect_files & (1 << TGSI_FILE_SAMPLER)) {
+         if (ctx->last_sampler_array_idx != -1) {
+            if (ctx->sampler_arrays[ctx->last_sampler_array_idx].sview_type == decl->SamplerView.Resource &&
+                ctx->sampler_arrays[ctx->last_sampler_array_idx].sview_rtype == decl->SamplerView.ReturnTypeX) {
+               ctx->sampler_arrays[ctx->last_sampler_array_idx].last = decl->Range.Last + 1;
+            } else {
+               ctx->last_sampler_array_idx = add_sampler_array(ctx, decl->Range.First, decl->Range.Last + 1, decl->SamplerView.Resource, decl->SamplerView.ReturnTypeX);
+            }
+         } else {
+            ctx->last_sampler_array_idx = add_sampler_array(ctx, decl->Range.First, decl->Range.Last + 1, decl->SamplerView.Resource, decl->SamplerView.ReturnTypeX);
+         }
+      } else
+      ctx->sviews_used = true;
       break;
    case TGSI_FILE_CONSTANT:
       if (decl->Declaration.Dimension) {
@@ -681,7 +739,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
       }
       break;
    case TGSI_FILE_ADDRESS:
-      ctx->num_address = 1;
+      ctx->num_address = decl->Range.Last + 1;
       break;
    case TGSI_FILE_SYSTEM_VALUE:
       i = ctx->num_system_values++;
@@ -1770,9 +1828,13 @@ iter_instruction(struct tgsi_iterate_context *iter,
          if (!range)
             return FALSE;
          if (dst->Register.Indirect) {
-            snprintf(dsts[i], 255, "temp%d[addr0 + %d]%s", range->first, dst->Register.Index - range->first, writemask);
+            assert(dst->Indirect.File == TGSI_FILE_ADDRESS);
+            snprintf(dsts[i], 255, "temp%d[addr%d + %d]%s", range->first, dst->Indirect.Index, dst->Register.Index - range->first, writemask);
          } else
             snprintf(dsts[i], 255, "temp%d[%d]%s", range->first, dst->Register.Index - range->first, writemask);
+      }
+      else if (dst->Register.File == TGSI_FILE_ADDRESS) {
+         snprintf(dsts[i], 255, "addr%d", dst->Register.Index);
       }
    }
 
@@ -1793,8 +1855,13 @@ iter_instruction(struct tgsi_iterate_context *iter,
       if (isabsolute)
          strcpy(&prefix[pre_idx++], "abs(");
 
-      if (src->Register.Dimension)
-         sprintf(arrayname, "[%d]", src->Dimension.Index);
+      if (src->Register.Dimension) {
+         if (src->Dimension.Indirect) {
+            assert(src->DimIndirect.File == TGSI_FILE_ADDRESS);
+            sprintf(arrayname, "[addr%d]", src->DimIndirect.Index);
+         } else
+            sprintf(arrayname, "[%d]", src->Dimension.Index);
+      }
 
       if (src->Register.SwizzleX != TGSI_SWIZZLE_X ||
           src->Register.SwizzleY != TGSI_SWIZZLE_Y ||
@@ -1857,7 +1924,8 @@ iter_instruction(struct tgsi_iterate_context *iter,
          }
 
          if (src->Register.Indirect) {
-            snprintf(srcs[i], 255, "%s%c%stemp%d[addr0 + %d]%s%c", stypeprefix, stprefix ? '(' : ' ', prefix, range->first, src->Register.Index - range->first, swizzle, stprefix ? ')' : ' ');
+            assert(src->Indirect.File == TGSI_FILE_ADDRESS);
+            snprintf(srcs[i], 255, "%s%c%stemp%d[addr%d + %d]%s%c", stypeprefix, stprefix ? '(' : ' ', prefix, range->first, src->Indirect.Index, src->Register.Index - range->first, swizzle, stprefix ? ')' : ' ');
          } else
             snprintf(srcs[i], 255, "%s%c%stemp%d[%d]%s%c", stypeprefix, stprefix ? '(' : ' ', prefix, range->first, src->Register.Index - range->first, swizzle, stprefix ? ')' : ' ');
       } else if (src->Register.File == TGSI_FILE_CONSTANT) {
@@ -1865,10 +1933,27 @@ iter_instruction(struct tgsi_iterate_context *iter,
          int dim = 0;
          if (src->Register.Dimension) {
             dim = src->Dimension.Index;
-            if (src->Register.Indirect) {
-               snprintf(srcs[i], 255, "%s(%s%subo%dcontents[addr0 + %d]%s)", stypeprefix, prefix, cname, dim, src->Register.Index, swizzle);
-            } else
-               snprintf(srcs[i], 255, "%s(%s%subo%dcontents[%d]%s)", stypeprefix, prefix, cname, dim, src->Register.Index, swizzle);
+            if (src->Dimension.Indirect) {
+               assert(src->DimIndirect.File == TGSI_FILE_ADDRESS);
+               ctx->uses_gpu_shader5 = true;
+               if (src->Register.Indirect) {
+                  assert(src->Indirect.File == TGSI_FILE_ADDRESS);
+                  snprintf(srcs[i], 255, "%s(%s%suboarr[addr%d].ubocontents[addr%d + %d]%s)", stypeprefix, prefix, cname, src->DimIndirect.Index, src->Indirect.Index, src->Register.Index, swizzle);
+               } else
+                  snprintf(srcs[i], 255, "%s(%s%suboarr[addr%d].ubocontents[%d]%s)", stypeprefix, prefix, cname, src->DimIndirect.Index, src->Register.Index, swizzle);
+            } else {
+               if (ctx->info.dimension_indirect_files & (1 << TGSI_FILE_CONSTANT)) {
+                  if (src->Register.Indirect) {
+                     snprintf(srcs[i], 255, "%s(%s%suboarr[%d].ubocontents[addr%d + %d]%s)", stypeprefix, prefix, cname, dim, src->Indirect.Index, src->Register.Index, swizzle);
+                  } else
+                     snprintf(srcs[i], 255, "%s(%s%suboarr[%d].ubocontents[%d]%s)", stypeprefix, prefix, cname, dim, src->Register.Index, swizzle);
+               } else {
+                  if (src->Register.Indirect) {
+                     snprintf(srcs[i], 255, "%s(%s%subo%dcontents[addr0 + %d]%s)", stypeprefix, prefix, cname, dim, src->Register.Index, swizzle);
+                  } else
+                     snprintf(srcs[i], 255, "%s(%s%subo%dcontents[%d]%s)", stypeprefix, prefix, cname, dim, src->Register.Index, swizzle);
+               }
+            }
          } else {
             const char *csp;
             ctx->has_ints = true;
@@ -1888,7 +1973,17 @@ iter_instruction(struct tgsi_iterate_context *iter,
          }
       } else if (src->Register.File == TGSI_FILE_SAMPLER) {
          const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
-         snprintf(srcs[i], 255, "%ssamp%d%s", cname, src->Register.Index, swizzle);
+         if (ctx->info.indirect_files & (1 << TGSI_FILE_SAMPLER)) {
+            int arr_idx = lookup_sampler_array(ctx, src->Register.Index);
+            if (src->Register.Indirect) {
+
+               snprintf(srcs[i], 255, "%ssamp%d[addr%d+%d]%s", cname, arr_idx, src->Indirect.Index, src->Register.Index - ctx->sampler_arrays[arr_idx].first, swizzle);
+            } else {
+               snprintf(srcs[i], 255, "%ssamp%d[%d]%s", cname, arr_idx, src->Register.Index - ctx->sampler_arrays[arr_idx].first, swizzle);
+            }
+         } else {
+            snprintf(srcs[i], 255, "%ssamp%d%s", cname, src->Register.Index, swizzle);
+         }
          sreg_index = src->Register.Index;
       } else if (src->Register.File == TGSI_FILE_IMMEDIATE) {
          if (src->Register.Index >= ARRAY_SIZE(ctx->imm)) {
@@ -2325,11 +2420,11 @@ iter_instruction(struct tgsi_iterate_context *iter,
       EMIT_BUF_WITH_RET(ctx, "return;\n");
       break;
    case TGSI_OPCODE_ARL:
-      snprintf(buf, 255, "addr0 = int(floor(%s)%s);\n", srcs[0], writemask);
+      snprintf(buf, 255, "%s = int(floor(%s)%s);\n", dsts[0], srcs[0], writemask);
       EMIT_BUF_WITH_RET(ctx, buf);
       break;
    case TGSI_OPCODE_UARL:
-      snprintf(buf, 255, "addr0 = int(%s);\n", srcs[0]);
+      snprintf(buf, 255, "%s = int(%s);\n", dsts[0], srcs[0]);
       EMIT_BUF_WITH_RET(ctx, buf);
       break;
    case TGSI_OPCODE_XPD:
@@ -2597,6 +2692,15 @@ static const char *get_aux_string(struct vrend_shader_cfg *cfg, bool centroid)
    return centroid ? "centroid " : "";
 }
 
+static const char get_return_type_prefix(enum tgsi_return_type type)
+{
+   if (type == TGSI_RETURN_TYPE_SINT)
+      return 'i';
+   if (type == TGSI_RETURN_TYPE_UINT)
+      return 'u';
+   return ' ';
+}
+
 static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
 {
    int i;
@@ -2855,26 +2959,48 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
       }
    }
    if (ctx->num_ubo) {
-      for (i = 0; i < ctx->num_ubo; i++) {
-         const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
-         snprintf(buf, 255, "uniform %subo%d { vec4 %subo%dcontents[%d]; };\n", cname, ctx->ubo_idx[i], cname, ctx->ubo_idx[i], ctx->ubo_sizes[i]);
+      const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
+
+      if (ctx->info.dimension_indirect_files & (1 << TGSI_FILE_CONSTANT)) {
+         ctx->glsl_ver_required = 150;
+         snprintf(buf, 255, "uniform %subo { vec4 ubocontents[%d]; } %suboarr[%d];\n", cname, ctx->ubo_sizes[0], cname, ctx->num_ubo);
          STRCAT_WITH_RET(glsl_hdr, buf);
+      } else {
+         for (i = 0; i < ctx->num_ubo; i++) {
+            snprintf(buf, 255, "uniform %subo%d { vec4 %subo%dcontents[%d]; };\n", cname, ctx->ubo_idx[i], cname, ctx->ubo_idx[i], ctx->ubo_sizes[i]);
+            STRCAT_WITH_RET(glsl_hdr, buf);
+         }
       }
    }
-   for (i = 0; i < 32; i++) {
-      int is_shad = 0;
-      const char *stc;
-      char ptc;
 
-      if ((ctx->samplers_used & (1 << i)) == 0)
-         continue;
+   if (ctx->info.indirect_files & (1 << TGSI_FILE_SAMPLER)) {
+      for (i = 0; i < ctx->num_sampler_arrays; i++) {
+         int is_shad = 0;
+         const char *stc;
+         stc = vrend_shader_samplertypeconv(ctx->sampler_arrays[i].sview_type, &is_shad);
+         if (!stc)
+            continue;
+         snprintf(buf, 255, "uniform %csampler%s %ssamp%d[%d];\n",
+                  get_return_type_prefix(ctx->sampler_arrays[i].sview_rtype),
+                  stc, sname, ctx->sampler_arrays[i].idx,
+                  ctx->sampler_arrays[i].last - ctx->sampler_arrays[i].first);
+         STRCAT_WITH_RET(glsl_hdr, buf);
+      }
+   } else {
+      nsamp = util_last_bit(ctx->samplers_used);
+      for (i = 0; i < nsamp; i++) {
+         int is_shad = 0;
+         const char *stc;
+         char ptc;
 
-      ptc = vrend_shader_samplerreturnconv(ctx->samplers[i].tgsi_sampler_return);
-      stc = vrend_shader_samplertypeconv(ctx->samplers[i].tgsi_sampler_type, &is_shad);
+         if ((ctx->samplers_used & (1 << i)) == 0)
+            continue;
 
-      if (stc) {
          const char *sname;
          const char *precision;
+
+         ptc = vrend_shader_samplerreturnconv(ctx->samplers[i].tgsi_sampler_return);
+         stc = vrend_shader_samplertypeconv(ctx->samplers[i].tgsi_sampler_type, &is_shad);
 
          sname = tgsi_proc_to_prefix(ctx->prog_type);
 
@@ -2979,7 +3105,9 @@ char *vrend_convert_shader(struct vrend_shader_cfg *cfg,
    ctx.key = key;
    ctx.cfg = cfg;
    ctx.prog_type = -1;
-
+   ctx.num_sampler_arrays = 0;
+   ctx.sampler_arrays = NULL;
+   ctx.last_sampler_array_idx = -1;
    tgsi_scan_shader(tokens, &ctx.info);
    /* if we are in core profile mode we should use GLSL 1.40 */
    if (cfg->use_core_profile && cfg->glsl_version >= 140)
@@ -2992,6 +3120,12 @@ char *vrend_convert_shader(struct vrend_shader_cfg *cfg,
          goto fail;
    } else
       ctx.so_names = NULL;
+
+   if (ctx.info.dimension_indirect_files & (1 << TGSI_FILE_CONSTANT))
+      ctx.glsl_ver_required = 150;
+
+   if (ctx.info.indirect_files & (1 << TGSI_FILE_SAMPLER))
+      ctx.uses_gpu_shader5 = true;
 
    ctx.glsl_main = malloc(4096);
    if (!ctx.glsl_main)
@@ -3040,6 +3174,7 @@ char *vrend_convert_shader(struct vrend_shader_cfg *cfg,
    sinfo->num_consts = ctx.num_consts;
    sinfo->num_ubos = ctx.num_ubo;
    memcpy(sinfo->ubo_idx, ctx.ubo_idx, ctx.num_ubo * sizeof(*ctx.ubo_idx));
+   sinfo->ubo_indirect = ctx.info.dimension_indirect_files & (1 << TGSI_FILE_CONSTANT);
    sinfo->num_inputs = ctx.num_inputs;
    sinfo->num_interps = ctx.num_interps;
    sinfo->num_outputs = ctx.num_outputs;
@@ -3048,6 +3183,8 @@ char *vrend_convert_shader(struct vrend_shader_cfg *cfg,
    sinfo->gs_out_prim = ctx.gs_out_prim;
    sinfo->so_names = ctx.so_names;
    sinfo->attrib_input_mask = ctx.attrib_input_mask;
+   sinfo->sampler_arrays = ctx.sampler_arrays;
+   sinfo->num_sampler_arrays = ctx.num_sampler_arrays;
    return glsl_final;
  fail:
    free(ctx.glsl_main);

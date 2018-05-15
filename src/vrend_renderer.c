@@ -627,6 +627,7 @@ static void vrend_destroy_shader_selector(struct vrend_shader_selector *sel)
    free(sel->tmp_buf);
    free(sel->sinfo.so_names);
    free(sel->sinfo.interpinfo);
+   free(sel->sinfo.sampler_arrays);
    free(sel->tokens);
    free(sel);
 }
@@ -871,7 +872,7 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
                                                               struct vrend_shader *gs)
 {
    struct vrend_linked_shader_program *sprog = CALLOC_STRUCT(vrend_linked_shader_program);
-   char name[32];
+   char name[64];
    int i;
    GLuint prog_id;
    GLint lret;
@@ -994,7 +995,11 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
             index = 0;
             while(mask) {
                i = u_bit_scan(&mask);
-               snprintf(name, 32, "%ssamp%d", prefix, i);
+               if (sprog->ss[id]->sel->sinfo.num_sampler_arrays) {
+                  int arr_idx = shader_lookup_sampler_array(&sprog->ss[id]->sel->sinfo, i);
+                  snprintf(name, 32, "%ssamp%d[%d]", prefix, arr_idx, i - sprog->ss[id]->sel->sinfo.sampler_arrays[arr_idx].first);
+               } else
+                  snprintf(name, 32, "%ssamp%d", prefix, i);
                sprog->samp_locs[id][index] = glGetUniformLocation(prog_id, name);
                if (sprog->ss[id]->sel->sinfo.shadow_samp_mask & (1 << i)) {
                   snprintf(name, 32, "%sshadmask%d", prefix, i);
@@ -1048,7 +1053,11 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
          sprog->ubo_locs[id] = calloc(sprog->ss[id]->sel->sinfo.num_ubos, sizeof(uint32_t));
          for (i = 0; i < sprog->ss[id]->sel->sinfo.num_ubos; i++) {
             int ubo_idx = sprog->ss[id]->sel->sinfo.ubo_idx[i];
-            snprintf(name, 32, "%subo%d", prefix, ubo_idx);
+            if (sprog->ss[id]->sel->sinfo.ubo_indirect)
+               snprintf(name, 32, "%subo[%d]", prefix, ubo_idx - 1);
+            else
+               snprintf(name, 32, "%subo%d", prefix, ubo_idx);
+
             sprog->ubo_locs[id][i] = glGetUniformBlockIndex(prog_id, name);
          }
       } else
