@@ -1511,13 +1511,16 @@ static int translate_tex(struct dump_ctx *ctx,
             return false;
          }
       } else if (inst->TexOffsets[0].File == TGSI_FILE_TEMPORARY) {
+         struct vrend_temp_range *range = find_temp_range(ctx, inst->TexOffsets[0].Index);
+         int idx = inst->TexOffsets[0].Index - range->first;
          switch (inst->Texture.Texture) {
          case TGSI_TEXTURE_1D:
          case TGSI_TEXTURE_1D_ARRAY:
          case TGSI_TEXTURE_SHADOW1D:
          case TGSI_TEXTURE_SHADOW1D_ARRAY:
-            snprintf(offbuf, 120, ", int(floatBitsToInt(temps[%d].%c))",
-                     inst->TexOffsets[0].Index, get_swiz_char(inst->TexOffsets[0].SwizzleX));
+            snprintf(offbuf, 120, ", int(floatBitsToInt(temp%d[%d].%c))",
+                     range->first, idx,
+                     get_swiz_char(inst->TexOffsets[0].SwizzleX));
             break;
          case TGSI_TEXTURE_RECT:
          case TGSI_TEXTURE_SHADOWRECT:
@@ -1525,15 +1528,20 @@ static int translate_tex(struct dump_ctx *ctx,
          case TGSI_TEXTURE_2D_ARRAY:
          case TGSI_TEXTURE_SHADOW2D:
          case TGSI_TEXTURE_SHADOW2D_ARRAY:
-            snprintf(offbuf, 120, ", ivec2(floatBitsToInt(temps[%d].%c), floatBitsToInt(temps[%d].%c))",
-                     inst->TexOffsets[0].Index, get_swiz_char(inst->TexOffsets[0].SwizzleX),
-                     inst->TexOffsets[0].Index, get_swiz_char(inst->TexOffsets[0].SwizzleY));
+            snprintf(offbuf, 120, ", ivec2(floatBitsToInt(temp%d[%d].%c), floatBitsToInt(temp%d[%d].%c))",
+                     range->first, idx,
+                     get_swiz_char(inst->TexOffsets[0].SwizzleX),
+                     range->first, idx,
+                     get_swiz_char(inst->TexOffsets[0].SwizzleY));
             break;
          case TGSI_TEXTURE_3D:
-            snprintf(offbuf, 120, ", ivec2(floatBitsToInt(temps[%d].%c), floatBitsToInt(temps[%d].%c), floatBitsToInt(temps[%d].%c)",
-                     inst->TexOffsets[0].Index, get_swiz_char(inst->TexOffsets[0].SwizzleX),
-                     inst->TexOffsets[0].Index, get_swiz_char(inst->TexOffsets[0].SwizzleY),
-                     inst->TexOffsets[0].Index, get_swiz_char(inst->TexOffsets[0].SwizzleZ));
+            snprintf(offbuf, 120, ", ivec2(floatBitsToInt(temp%d[%d].%c), floatBitsToInt(temp%d[%d].%c), floatBitsToInt(temp%d[%d].%c)",
+                     range->first, idx,
+                     get_swiz_char(inst->TexOffsets[0].SwizzleX),
+                     range->first, idx,
+                     get_swiz_char(inst->TexOffsets[0].SwizzleY),
+                     range->first, idx,
+                     get_swiz_char(inst->TexOffsets[0].SwizzleZ));
                      break;
          default:
             fprintf(stderr, "unhandled texture: %x\n", inst->Texture.Texture);
