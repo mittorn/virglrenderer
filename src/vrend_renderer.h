@@ -313,7 +313,8 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
 
 GLint64 vrend_renderer_get_timestamp(void);
 
-void vrend_build_format_list(void);
+void vrend_build_format_list_common(void);
+void vrend_build_format_list_gl(void);
 void vrend_build_format_list_gles(void);
 
 int vrend_renderer_resource_attach_iov(int res_handle, struct iovec *iov,

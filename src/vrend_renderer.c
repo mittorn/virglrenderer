@@ -4276,10 +4276,12 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
       glDisable(GL_DEBUG_OUTPUT);
    }
 
+   vrend_build_format_list_common();
+
    if (vrend_state.use_gles) {
       vrend_build_format_list_gles();
    } else {
-      vrend_build_format_list();
+      vrend_build_format_list_gl();
    }
 
    /* disable for format testing */

@@ -47,8 +47,8 @@ static struct vrend_format_table base_rgba_formats[] =
 
     { VIRGL_FORMAT_A8B8G8R8_UNORM, GL_RGBA8, GL_ABGR_EXT, GL_UNSIGNED_BYTE, NO_SWIZZLE },
 
-    { VIRGL_FORMAT_B4G4R4A4_UNORM, GL_RGBA4, GL_BGRA, GL_UNSIGNED_SHORT_4_4_4_4_REV, NO_SWIZZLE },
     { VIRGL_FORMAT_B4G4R4X4_UNORM, GL_RGBA4, GL_BGRA, GL_UNSIGNED_SHORT_4_4_4_4_REV, RGB1_SWIZZLE },
+    { VIRGL_FORMAT_A4B4G4R4_UNORM, GL_RGBA4, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, NO_SWIZZLE },
     { VIRGL_FORMAT_B5G5R5X1_UNORM, GL_RGB5_A1, GL_BGRA, GL_UNSIGNED_SHORT_1_5_5_5_REV, RGB1_SWIZZLE },
     { VIRGL_FORMAT_B5G5R5A1_UNORM, GL_RGB5_A1, GL_BGRA, GL_UNSIGNED_SHORT_1_5_5_5_REV, NO_SWIZZLE },
 
@@ -58,6 +58,11 @@ static struct vrend_format_table base_rgba_formats[] =
     { VIRGL_FORMAT_R16G16B16X16_UNORM, GL_RGBA16, GL_RGBA, GL_UNSIGNED_SHORT, RGB1_SWIZZLE },
 
     { VIRGL_FORMAT_R16G16B16A16_UNORM, GL_RGBA16, GL_RGBA, GL_UNSIGNED_SHORT, NO_SWIZZLE },
+  };
+
+static struct vrend_format_table gl_base_rgba_formats[] =
+  {
+    { VIRGL_FORMAT_B4G4R4A4_UNORM, GL_RGBA4, GL_BGRA, GL_UNSIGNED_SHORT_4_4_4_4_REV, NO_SWIZZLE },
   };
 
 static struct vrend_format_table base_depth_formats[] =
@@ -352,7 +357,7 @@ static void vrend_add_formats(struct vrend_format_table *table, int num_entries)
 
 #define add_formats(x) vrend_add_formats((x), ARRAY_SIZE((x)))
 
-void vrend_build_format_list(void)
+void vrend_build_format_list_common(void)
 {
   add_formats(base_rgba_formats);
   add_formats(base_depth_formats);
@@ -394,10 +399,18 @@ void vrend_build_format_list(void)
   add_formats(bptc_formats);
 }
 
+
+void vrend_build_format_list_gl(void)
+{
+  /* We don't want VIRGL_FORMAT_B4G4R4A4_UNORM to be supported on GLES because
+   * it's not as well supported as VIRGL_FORMAT_A4B4G4R4_UNORM in some
+   * operations.
+   */
+  add_formats(gl_base_rgba_formats);
+}
+
 void vrend_build_format_list_gles(void)
 {
-  vrend_build_format_list();
-
   /* The BGR[A|X] formats is required but OpenGL ES does not
    * support rendering to it. Try to use GL_BGRA_EXT from the
    * GL_EXT_texture_format_BGRA8888 extension. But the
