@@ -7038,7 +7038,7 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
    glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, (GLint*)&caps->v2.uniform_buffer_offset_alignment);
 
    if (gl_ver >= 43) {
-      glGetIntegerv(GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT, (GLint*)&caps->v2.texture_buffer_offset_alignment);
+      caps->v2.texture_buffer_offset_alignment = 0;
       glGetIntegerv(GL_SHADER_STORAGE_BUFFER_OFFSET_ALIGNMENT, (GLint*)&caps->v2.shader_buffer_offset_alignment);
    }
 
