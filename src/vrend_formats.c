@@ -286,7 +286,7 @@ static void vrend_add_formats(struct vrend_format_table *table, int num_entries)
 
     glTexImage2D(GL_TEXTURE_2D, 0, table[i].internalformat, 32, 32, 0, table[i].glformat, table[i].gltype, NULL);
     status = glGetError();
-    if (status == GL_INVALID_VALUE) {
+    if (status == GL_INVALID_VALUE || status == GL_INVALID_ENUM) {
       struct vrend_format_table *entry = NULL;
       uint8_t swizzle[4];
       binding = VREND_BIND_SAMPLER | VREND_BIND_RENDER | VREND_BIND_NEED_SWIZZLE;
