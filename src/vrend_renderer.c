@@ -4553,6 +4553,14 @@ static int check_resource_valid(struct vrend_renderer_resource_create_args *args
    }
    return 0;
 }
+
+static void vrend_create_buffer(struct vrend_resource *gr, uint32_t width)
+{
+   glGenBuffersARB(1, &gr->id);
+   glBindBufferARB(gr->target, gr->id);
+   glBufferData(gr->target, width, NULL, GL_STREAM_DRAW);
+}
+
 int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *args, struct iovec *iov, uint32_t num_iovs)
 {
    struct vrend_resource *gr;
@@ -4593,29 +4601,19 @@ int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *a
       }
    } else if (args->bind == VREND_RES_BIND_INDEX_BUFFER) {
       gr->target = GL_ELEMENT_ARRAY_BUFFER_ARB;
-      glGenBuffersARB(1, &gr->id);
-      glBindBufferARB(gr->target, gr->id);
-      glBufferData(gr->target, args->width, NULL, GL_STREAM_DRAW);
+      vrend_create_buffer(gr, args->width);
    } else if (args->bind == VREND_RES_BIND_STREAM_OUTPUT) {
       gr->target = GL_TRANSFORM_FEEDBACK_BUFFER;
-      glGenBuffersARB(1, &gr->id);
-      glBindBuffer(gr->target, gr->id);
-      glBufferData(gr->target, args->width, NULL, GL_STREAM_DRAW);
+      vrend_create_buffer(gr, args->width);
    } else if (args->bind == VREND_RES_BIND_VERTEX_BUFFER) {
       gr->target = GL_ARRAY_BUFFER_ARB;
-      glGenBuffersARB(1, &gr->id);
-      glBindBufferARB(gr->target, gr->id);
-      glBufferData(gr->target, args->width, NULL, GL_STREAM_DRAW);
+      vrend_create_buffer(gr, args->width);
    } else if (args->bind == VREND_RES_BIND_CONSTANT_BUFFER) {
       gr->target = GL_UNIFORM_BUFFER;
-      glGenBuffersARB(1, &gr->id);
-      glBindBufferARB(gr->target, gr->id);
-      glBufferData(gr->target, args->width, NULL, GL_STREAM_DRAW);
+      vrend_create_buffer(gr, args->width);
    } else if (args->target == PIPE_BUFFER && args->bind == 0) {
       gr->target = GL_ARRAY_BUFFER_ARB;
-      glGenBuffersARB(1, &gr->id);
-      glBindBufferARB(gr->target, gr->id);
-      glBufferData(gr->target, args->width, NULL, GL_STREAM_DRAW);
+      vrend_create_buffer(gr, args->width);
    } else if (args->target == PIPE_BUFFER && (args->bind & VREND_RES_BIND_SAMPLER_VIEW)) {
       GLenum internalformat;
 
@@ -4630,19 +4628,16 @@ int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *a
       /* need to check GL version here */
       if (vrend_state.have_arb_or_gles_ext_texture_buffer) {
          gr->target = GL_TEXTURE_BUFFER;
-         glGenBuffersARB(1, &gr->id);
-         glBindBufferARB(gr->target, gr->id);
+         vrend_create_buffer(gr, args->width);
+
          glGenTextures(1, &gr->tbo_tex_id);
-         glBufferData(gr->target, args->width, NULL, GL_STREAM_DRAW);
 
          glBindTexture(gr->target, gr->tbo_tex_id);
          internalformat = tex_conv_table[args->format].internalformat;
          glTexBuffer(gr->target, internalformat, gr->id);
       } else {
          gr->target = GL_PIXEL_PACK_BUFFER_ARB;
-         glGenBuffersARB(1, &gr->id);
-         glBindBufferARB(gr->target, gr->id);
-         glBufferData(gr->target, args->width, NULL, GL_STREAM_DRAW);
+         vrend_create_buffer(gr, args->width);
       }
    } else {
       struct vrend_texture *gt = (struct vrend_texture *)gr;
