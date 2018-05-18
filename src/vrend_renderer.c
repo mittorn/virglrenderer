@@ -5422,7 +5422,7 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
       drivers out there, or we mess up the format somewhere, we warn here. */
    if (vrend_state.use_gles) {
       GLint imp;
-      if (type != GL_UNSIGNED_BYTE && format != GL_UNSIGNED_INT &&
+      if (type != GL_UNSIGNED_BYTE && type != GL_UNSIGNED_INT &&
           type != GL_INT && type != GL_FLOAT) {
          glGetIntegerv(GL_IMPLEMENTATION_COLOR_READ_TYPE, &imp);
          if (imp != type) {
