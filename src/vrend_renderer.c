@@ -116,6 +116,7 @@ struct global_renderer_state {
    bool have_tf2;
    bool have_stencil_texturing;
    bool have_sample_shading;
+   bool have_texture_buffer_range;
 
    /* these appeared broken on at least one driver */
    bool use_explicit_locations;
@@ -2091,7 +2092,16 @@ void vrend_set_single_sampler_view(struct vrend_context *ctx,
 
          glBindTexture(GL_TEXTURE_BUFFER, view->texture->tbo_tex_id);
          internalformat = tex_conv_table[view->format].internalformat;
-         glTexBuffer(GL_TEXTURE_BUFFER, internalformat, view->texture->id);
+         if (vrend_state.have_texture_buffer_range) {
+            unsigned offset = view->val0;
+            unsigned size = view->val1 - view->val0 + 1;
+            int blsize = util_format_get_blocksize(view->format);
+
+            offset *= blsize;
+            size *= blsize;
+            glTexBufferRange(GL_TEXTURE_BUFFER, internalformat, view->texture->id, offset, size);
+         } else
+            glTexBuffer(GL_TEXTURE_BUFFER, internalformat, view->texture->id);
       }
    }
 
@@ -4239,6 +4249,9 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
 
    if (gl_ver >= 40 || epoxy_has_gl_extension("GL_ARB_sample_shading"))
       vrend_state.have_sample_shading = true;
+
+   if (gl_ver >= 43 || epoxy_has_gl_extension("GL_ARB_texture_buffer_range"))
+      vrend_state.have_texture_buffer_range = true;
 
    /* callbacks for when we are cleaning up the object table */
    vrend_resource_set_destroy_callback(vrend_destroy_resource_object);
@@ -7030,7 +7043,7 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
    glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, (GLint*)&caps->v2.uniform_buffer_offset_alignment);
 
    if (gl_ver >= 43) {
-      caps->v2.texture_buffer_offset_alignment = 0;
+      glGetIntegerv(GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT, (GLint*)&caps->v2.texture_buffer_offset_alignment);
       glGetIntegerv(GL_SHADER_STORAGE_BUFFER_OFFSET_ALIGNMENT, (GLint*)&caps->v2.shader_buffer_offset_alignment);
    }
 
