@@ -2029,7 +2029,7 @@ void vrend_set_single_sampler_view(struct vrend_context *ctx,
       if (!tex) {
          return;
       }
-      if (view->texture->target != GL_TEXTURE_BUFFER) {
+      if (!view->texture->is_buffer) {
          glBindTexture(view->texture->target, view->texture->id);
 
          if (util_format_is_depth_or_stencil(view->format)) {
@@ -2085,6 +2085,9 @@ void vrend_set_single_sampler_view(struct vrend_context *ctx,
          }
       } else {
          GLenum internalformat;
+
+         if (!view->texture->tbo_tex_id)
+            glGenTextures(1, &view->texture->tbo_tex_id);
 
          glBindTexture(GL_TEXTURE_BUFFER, view->texture->tbo_tex_id);
          internalformat = tex_conv_table[view->format].internalformat;
@@ -2841,13 +2844,15 @@ static void vrend_draw_bind_samplers(struct vrend_context *ctx)
          glActiveTexture(GL_TEXTURE0 + sampler_id);
          if (texture) {
             int id;
+            GLenum target = texture->target;
 
-            if (texture->target == GL_TEXTURE_BUFFER)
+            if (texture->is_buffer) {
                id = texture->tbo_tex_id;
-            else
+               target = GL_TEXTURE_BUFFER;
+            } else
                id = texture->id;
 
-            glBindTexture(texture->target, id);
+            glBindTexture(target, id);
             if (ctx->sub->views[shader_type].old_ids[i] != id || ctx->sub->sampler_state_dirty) {
                vrend_apply_sampler_state(ctx, texture, shader_type, i, sampler_id, ctx->sub->views[shader_type].views[i]->srgb_decode);
                ctx->sub->views[shader_type].old_ids[i] = id;
@@ -3890,7 +3895,7 @@ static void vrend_apply_sampler_state(struct vrend_context *ctx,
       return;
    }
 
-   if (target == GL_TEXTURE_BUFFER) {
+   if (tex->base.is_buffer) {
       tex->state = *state;
       return;
    }
@@ -4559,6 +4564,7 @@ static void vrend_create_buffer(struct vrend_resource *gr, uint32_t width)
    glGenBuffersARB(1, &gr->id);
    glBindBufferARB(gr->target, gr->id);
    glBufferData(gr->target, width, NULL, GL_STREAM_DRAW);
+   gr->is_buffer = true;
 }
 
 int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *args, struct iovec *iov, uint32_t num_iovs)
@@ -4615,8 +4621,6 @@ int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *a
       gr->target = GL_ARRAY_BUFFER_ARB;
       vrend_create_buffer(gr, args->width);
    } else if (args->target == PIPE_BUFFER && (args->bind & VREND_RES_BIND_SAMPLER_VIEW)) {
-      GLenum internalformat;
-
       /*
        * On Desktop we use GL_ARB_texture_buffer_object on GLES we use
        * GL_EXT_texture_buffer (it is in the ANDRIOD extension pack).
@@ -4628,17 +4632,10 @@ int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *a
       /* need to check GL version here */
       if (vrend_state.have_arb_or_gles_ext_texture_buffer) {
          gr->target = GL_TEXTURE_BUFFER;
-         vrend_create_buffer(gr, args->width);
-
-         glGenTextures(1, &gr->tbo_tex_id);
-
-         glBindTexture(gr->target, gr->tbo_tex_id);
-         internalformat = tex_conv_table[args->format].internalformat;
-         glTexBuffer(gr->target, internalformat, gr->id);
       } else {
          gr->target = GL_PIXEL_PACK_BUFFER_ARB;
-         vrend_create_buffer(gr, args->width);
       }
+      vrend_create_buffer(gr, args->width);
    } else {
       struct vrend_texture *gt = (struct vrend_texture *)gr;
       GLenum internalformat, glformat, gltype;
@@ -4764,7 +4761,7 @@ void vrend_renderer_resource_destroy(struct vrend_resource *res, bool remove)
           res->target == GL_TEXTURE_BUFFER||
           res->target == GL_TRANSFORM_FEEDBACK_BUFFER) {
          glDeleteBuffers(1, &res->id);
-         if (res->target == GL_TEXTURE_BUFFER)
+         if (res->tbo_tex_id)
             glDeleteTextures(1, &res->tbo_tex_id);
       } else
          glDeleteTextures(1, &res->id);

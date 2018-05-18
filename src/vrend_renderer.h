@@ -54,6 +54,7 @@ struct vrend_resource {
 
    GLuint tbo_tex_id;/* tbos have two ids to track */
    bool y_0_top;
+   bool is_buffer;
 
    GLuint handle;
 
