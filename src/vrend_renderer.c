@@ -6959,7 +6959,8 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
         caps->v1.bset.has_cull = 1;
    }
 
-   if (epoxy_has_gl_extension("GL_EXT_texture_mirror_clamp")) {
+   if (epoxy_has_gl_extension("GL_EXT_texture_mirror_clamp") ||
+       epoxy_has_gl_extension("GL_ARB_texture_mirror_clamp_to_edge")) {
       caps->v1.bset.mirror_clamp = true;
    }
 
