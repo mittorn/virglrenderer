@@ -2996,6 +2996,8 @@ void vrend_draw_vbo(struct vrend_context *ctx,
          same_prog = false;
       if (ctx->sub->shaders[PIPE_SHADER_GEOMETRY] && ctx->sub->shaders[PIPE_SHADER_GEOMETRY]->current->id != (GLuint)ctx->sub->prog_ids[PIPE_SHADER_GEOMETRY])
          same_prog = false;
+      if (ctx->sub->prog && ctx->sub->prog->dual_src_linked != dual_src)
+         same_prog = false;
 
       if (!same_prog) {
          prog = lookup_shader_program(ctx, ctx->sub->shaders[PIPE_SHADER_VERTEX]->current->id, ctx->sub->shaders[PIPE_SHADER_FRAGMENT]->current->id, ctx->sub->shaders[PIPE_SHADER_GEOMETRY] ? ctx->sub->shaders[PIPE_SHADER_GEOMETRY]->current->id : 0, dual_src);
@@ -3460,6 +3462,7 @@ void vrend_object_bind_blend(struct vrend_context *ctx,
       return;
    }
 
+   ctx->sub->shader_dirty = true;
    ctx->sub->blend_state = *state;
 
    vrend_hw_emit_blend(ctx, &ctx->sub->blend_state);
