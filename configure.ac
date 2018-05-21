@@ -28,6 +28,11 @@ AC_SYS_LARGEFILE
 AC_CHECK_PROGS([PYTHON], [python2 python python3])
 AX_CODE_COVERAGE
 
+AX_CHECK_COMPILE_FLAG([-Wall],                                 [CFLAGS="$CFLAGS -Wall"])
+AX_CHECK_COMPILE_FLAG([-Werror=implicit-function-declaration], [CFLAGS="$CFLAGS -Werror=implicit-function-declaration"])
+AX_CHECK_COMPILE_FLAG([-Werror=missing-prototypes],            [CFLAGS="$CFLAGS -Werror=missing-prototypes"])
+AX_CHECK_COMPILE_FLAG([-Wmissing-prototypes],                  [CFLAGS="$CFLAGS -Wmissing-prototypes"])
+
 AC_MSG_CHECKING([for native Win32])
 case "$host_os" in
      *mingw*|*cygwin*)
