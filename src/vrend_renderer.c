@@ -452,7 +452,7 @@ bool vrend_format_is_emulated_alpha(enum virgl_formats format)
            format == VIRGL_FORMAT_A16_UNORM);
 }
 
-bool vrend_format_needs_swizzle(enum virgl_formats format)
+static bool vrend_format_needs_swizzle(enum virgl_formats format)
 {
    return tex_conv_table[format].flags & VREND_BIND_NEED_SWIZZLE;
 }
@@ -6616,8 +6616,8 @@ static void vrender_get_glsl_version(int *glsl_version)
  * Does all of the common caps setting,
  * if it dedects a early out returns true.
  */
-bool vrend_renderer_fill_caps_common(uint32_t set, uint32_t version,
-                                     union virgl_caps *caps)
+static bool vrend_renderer_fill_caps_common(uint32_t set, uint32_t version,
+					    union virgl_caps *caps)
 {
    int i, gl_ver;
    GLint max;
@@ -6726,8 +6726,8 @@ bool vrend_renderer_fill_caps_common(uint32_t set, uint32_t version,
    return false;
 }
 
-void vrend_renderer_fill_caps_gles(uint32_t set, uint32_t version,
-                                   union virgl_caps *caps)
+static void vrend_renderer_fill_caps_gles(uint32_t set, uint32_t version,
+					  union virgl_caps *caps)
 {
    GLint max;
    GLfloat range[2];
