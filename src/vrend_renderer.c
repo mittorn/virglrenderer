@@ -6537,16 +6537,16 @@ void vrend_render_condition(struct vrend_context *ctx,
 
    switch (mode) {
    case PIPE_RENDER_COND_WAIT:
-      glmode = GL_QUERY_WAIT;
+      glmode = condition ? GL_QUERY_WAIT_INVERTED : GL_QUERY_WAIT;
       break;
    case PIPE_RENDER_COND_NO_WAIT:
-      glmode = GL_QUERY_NO_WAIT;
+      glmode = condition ? GL_QUERY_NO_WAIT_INVERTED : GL_QUERY_NO_WAIT;
       break;
    case PIPE_RENDER_COND_BY_REGION_WAIT:
-      glmode = GL_QUERY_BY_REGION_WAIT;
+      glmode = condition ? GL_QUERY_BY_REGION_WAIT_INVERTED : GL_QUERY_BY_REGION_WAIT;
       break;
    case PIPE_RENDER_COND_BY_REGION_NO_WAIT:
-      glmode = GL_QUERY_BY_REGION_NO_WAIT;
+      glmode = condition ? GL_QUERY_BY_REGION_NO_WAIT_INVERTED : GL_QUERY_BY_REGION_NO_WAIT;
       break;
    default:
       fprintf(stderr, "unhandled condition %x\n", mode);
@@ -6954,9 +6954,12 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
 
    if (gl_ver >= 45) {
      caps->v1.bset.has_cull = 1;
+     caps->v1.bset.conditional_render_inverted = 1;
    } else {
      if (epoxy_has_gl_extension("GL_ARB_cull_distance"))
         caps->v1.bset.has_cull = 1;
+     if (epoxy_has_gl_extension("GL_ARB_conditional_render_inverted"))
+	caps->v1.bset.conditional_render_inverted = 1;
    }
 
    if (epoxy_has_gl_extension("GL_EXT_texture_mirror_clamp") ||
