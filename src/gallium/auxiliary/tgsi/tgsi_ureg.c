@@ -1043,8 +1043,6 @@ ureg_insn(struct ureg_program *ureg,
    struct ureg_emit_insn_result insn;
    unsigned i;
    boolean saturate;
-   boolean negate = FALSE;
-   unsigned swizzle[4] = { 0 };
 
    if (nr_dst && ureg_dst_is_empty(dst[0])) {
       return;
@@ -1081,8 +1079,6 @@ ureg_tex_insn(struct ureg_program *ureg,
    struct ureg_emit_insn_result insn;
    unsigned i;
    boolean saturate;
-   boolean negate = FALSE;
-   unsigned swizzle[4] = { 0 };
 
    if (nr_dst && ureg_dst_is_empty(dst[0])) {
       return;
