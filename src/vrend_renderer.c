@@ -6425,6 +6425,13 @@ int vrend_create_query(struct vrend_context *ctx, uint32_t handle,
    case PIPE_QUERY_OCCLUSION_PREDICATE_CONSERVATIVE:
       q->gltype = GL_ANY_SAMPLES_PASSED_CONSERVATIVE;
       break;
+   case PIPE_QUERY_SO_OVERFLOW_PREDICATE:
+      q->gltype = GL_TRANSFORM_FEEDBACK_STREAM_OVERFLOW_ARB;
+      break;
+   case PIPE_QUERY_SO_OVERFLOW_ANY_PREDICATE:
+      q->gltype = GL_TRANSFORM_FEEDBACK_OVERFLOW_ARB;
+      break;
+      break;
    default:
       fprintf(stderr,"unknown query object received %d\n", q->type);
       break;
@@ -6975,9 +6982,12 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
 
    if (gl_ver >= 46) {
      caps->v1.bset.polygon_offset_clamp = 1;
+     caps->v1.bset.transform_feedback_overflow_query = 1;
    } else {
      if (epoxy_has_gl_extension("GL_ARB_polygon_offset_clamp"))
        caps->v1.bset.polygon_offset_clamp = 1;
+     if (epoxy_has_gl_extension("GL_ARB_transform_feedback_overflow_query"))
+       caps->v1.bset.transform_feedback_overflow_query = 1;
    }
 
    if (epoxy_has_gl_extension("GL_EXT_texture_mirror_clamp") ||

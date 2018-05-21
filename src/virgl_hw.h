@@ -241,6 +241,7 @@ struct virgl_caps_bool_set1 {
         unsigned conditional_render_inverted:1;
         unsigned derivative_control:1;
         unsigned polygon_offset_clamp:1;
+        unsigned transform_feedback_overflow_query:1;
 };
 
 /* endless expansion capabilites - current gallium has 252 formats */
