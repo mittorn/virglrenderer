@@ -158,6 +158,7 @@ struct dump_ctx {
    bool uses_sample_shading;
    bool uses_gpu_shader5;
    bool write_mul_temp;
+   bool derivative_control;
 };
 
 static inline const char *tgsi_proc_to_prefix(int shader_type)
@@ -2198,6 +2199,16 @@ iter_instruction(struct tgsi_iterate_context *iter,
       emit_op1("dFdy");
       EMIT_BUF_WITH_RET(ctx, buf);
       break;
+   case TGSI_OPCODE_DDX_FINE:
+      ctx->derivative_control = true;
+      emit_op1("dFdxFine");
+      EMIT_BUF_WITH_RET(ctx, buf);
+      break;
+   case TGSI_OPCODE_DDY_FINE:
+      ctx->derivative_control = true;
+      emit_op1("dFdyFine");
+      EMIT_BUF_WITH_RET(ctx, buf);
+      break;
    case TGSI_OPCODE_RCP:
       snprintf(buf, 255, "%s = %s(1.0/(%s));\n", dsts[0], dstconv, srcs[0]);
       EMIT_BUF_WITH_RET(ctx, buf);
@@ -2626,6 +2637,8 @@ static char *emit_header(struct dump_ctx *ctx, char *glsl_hdr)
          STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_gpu_shader5 : require\n");
       if (ctx->num_cull_dist_prop || ctx->key->prev_stage_num_cull_out)
          STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_cull_distance : require\n");
+      if (ctx->derivative_control)
+         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_derivative_control : require\n");
    }
    return glsl_hdr;
 }

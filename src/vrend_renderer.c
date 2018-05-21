@@ -6955,11 +6955,14 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
    if (gl_ver >= 45) {
      caps->v1.bset.has_cull = 1;
      caps->v1.bset.conditional_render_inverted = 1;
+     caps->v1.bset.derivative_control = 1;
    } else {
      if (epoxy_has_gl_extension("GL_ARB_cull_distance"))
         caps->v1.bset.has_cull = 1;
      if (epoxy_has_gl_extension("GL_ARB_conditional_render_inverted"))
 	caps->v1.bset.conditional_render_inverted = 1;
+     if (epoxy_has_gl_extension("GL_ARB_derivative_control"))
+	caps->v1.bset.derivative_control = 1;
    }
 
    if (epoxy_has_gl_extension("GL_EXT_texture_mirror_clamp") ||
