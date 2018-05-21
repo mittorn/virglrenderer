@@ -6823,7 +6823,7 @@ static void vrend_renderer_fill_caps_gles(uint32_t set, uint32_t version,
    caps->v2.max_smooth_line_width = 0.0f;
 
    glGetFloatv(GL_MAX_TEXTURE_LOD_BIAS, &caps->v2.max_texture_lod_bias);
-   glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, &caps->v2.max_vertex_attribs);
+   glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, (GLint*)&caps->v2.max_vertex_attribs);
    glGetIntegerv(GL_MAX_VERTEX_OUTPUT_COMPONENTS, &max);
    caps->v2.max_vertex_outputs = max / 4;
 
@@ -6839,10 +6839,10 @@ static void vrend_renderer_fill_caps_gles(uint32_t set, uint32_t version,
    glGetIntegerv(GL_MIN_PROGRAM_TEXEL_OFFSET, &caps->v2.min_texel_offset);
    glGetIntegerv(GL_MAX_PROGRAM_TEXEL_OFFSET, &caps->v2.max_texel_offset);
 
-   glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &caps->v2.uniform_buffer_offset_alignment);
+   glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, (GLint*)&caps->v2.uniform_buffer_offset_alignment);
 
    if (gles_ver >= 31)
-      glGetIntegerv(GL_SHADER_STORAGE_BUFFER_OFFSET_ALIGNMENT, &caps->v2.shader_buffer_offset_alignment);
+      glGetIntegerv(GL_SHADER_STORAGE_BUFFER_OFFSET_ALIGNMENT, (GLint*)&caps->v2.shader_buffer_offset_alignment);
 
    /* Not available on GLES */
    caps->v2.texture_buffer_offset_alignment = 0;
@@ -7019,13 +7019,13 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
    caps->v2.max_smooth_line_width = range[1];
 
    glGetFloatv(GL_MAX_TEXTURE_LOD_BIAS, &caps->v2.max_texture_lod_bias);
-   glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, &caps->v2.max_vertex_attribs);
+   glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, (GLint*)&caps->v2.max_vertex_attribs);
    glGetIntegerv(GL_MAX_VERTEX_OUTPUT_COMPONENTS, &max);
    caps->v2.max_vertex_outputs = max / 4;
 
    if (gl_ver >= 32) {
-      glGetIntegerv(GL_MAX_GEOMETRY_OUTPUT_VERTICES, &caps->v2.max_geom_output_vertices);
-      glGetIntegerv(GL_MAX_GEOMETRY_TOTAL_OUTPUT_COMPONENTS, &caps->v2.max_geom_total_output_components);
+      glGetIntegerv(GL_MAX_GEOMETRY_OUTPUT_VERTICES, (GLint*)&caps->v2.max_geom_output_vertices);
+      glGetIntegerv(GL_MAX_GEOMETRY_TOTAL_OUTPUT_COMPONENTS, (GLint*)&caps->v2.max_geom_total_output_components);
    }
    caps->v2.max_shader_patch_varyings = 0; // until we do tess.
 
@@ -7036,11 +7036,11 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
    glGetIntegerv(GL_MIN_PROGRAM_TEXEL_OFFSET, &caps->v2.min_texel_offset);
    glGetIntegerv(GL_MAX_PROGRAM_TEXEL_OFFSET, &caps->v2.max_texel_offset);
 
-   glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &caps->v2.uniform_buffer_offset_alignment);
+   glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, (GLint*)&caps->v2.uniform_buffer_offset_alignment);
 
    if (gl_ver >= 43) {
-      glGetIntegerv(GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT, &caps->v2.texture_buffer_offset_alignment);
-      glGetIntegerv(GL_SHADER_STORAGE_BUFFER_OFFSET_ALIGNMENT, &caps->v2.shader_buffer_offset_alignment);
+      glGetIntegerv(GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT, (GLint*)&caps->v2.texture_buffer_offset_alignment);
+      glGetIntegerv(GL_SHADER_STORAGE_BUFFER_OFFSET_ALIGNMENT, (GLint*)&caps->v2.shader_buffer_offset_alignment);
    }
 
    caps->v2.tgsi_invariant = 1;
