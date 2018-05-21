@@ -528,7 +528,7 @@ static void __report_gles_warn(const char *fname, struct vrend_context *ctx, enu
 {
    int id = ctx ? ctx->ctx_id : -1;
    const char *name = ctx ? ctx->debug_name : "NO_CONTEXT";
-   fprintf(stderr,"%s: gles violation reported %d \"%s\" %s %d\n", fname, id, ctx->debug_name, vrend_gles_warn_strings[error], value);
+   fprintf(stderr,"%s: gles violation reported %d \"%s\" %s %d\n", fname, id, name, vrend_gles_warn_strings[error], value);
 }
 #define report_gles_warn(ctx, error, value) __report_gles_warn(__func__, ctx, error, value)
 
@@ -536,7 +536,7 @@ static void __report_gles_missing_func(const char *fname, struct vrend_context *
 {
    int id = ctx ? ctx->ctx_id : -1;
    const char *name = ctx ? ctx->debug_name : "NO_CONTEXT";
-   fprintf(stderr,"%s: gles violation reported %d \"%s\" %s is missing\n", fname, id, ctx->debug_name, missf);
+   fprintf(stderr,"%s: gles violation reported %d \"%s\" %s is missing\n", fname, id, name, missf);
 }
 #define report_gles_missing_func(ctx, missf) __report_gles_missing_func(__func__, ctx, missf)
 
