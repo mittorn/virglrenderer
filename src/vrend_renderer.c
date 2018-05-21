@@ -117,6 +117,7 @@ struct global_renderer_state {
    bool have_stencil_texturing;
    bool have_sample_shading;
    bool have_texture_buffer_range;
+   bool have_polygon_offset_clamp;
 
    /* these appeared broken on at least one driver */
    bool use_explicit_locations;
@@ -3698,7 +3699,11 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
          glProvokingVertexEXT(GL_LAST_VERTEX_CONVENTION_EXT);
       }
    }
-   glPolygonOffset(state->offset_scale, state->offset_units);
+
+   if (!vrend_state.use_gles && vrend_state.have_polygon_offset_clamp)
+       glPolygonOffsetClampEXT(state->offset_scale, state->offset_units, state->offset_clamp);
+   else
+       glPolygonOffset(state->offset_scale, state->offset_units);
 
    if (vrend_state.use_core_profile == false) {
       if (state->poly_stipple_enable)
@@ -4252,6 +4257,9 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
 
    if (gl_ver >= 43 || epoxy_has_gl_extension("GL_ARB_texture_buffer_range"))
       vrend_state.have_texture_buffer_range = true;
+
+   if (gl_ver >= 46 || epoxy_has_gl_extension("GL_ARB_polygon_offset_clamp"))
+      vrend_state.have_polygon_offset_clamp = true;
 
    /* callbacks for when we are cleaning up the object table */
    vrend_resource_set_destroy_callback(vrend_destroy_resource_object);
@@ -6963,6 +6971,13 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
 	caps->v1.bset.conditional_render_inverted = 1;
      if (epoxy_has_gl_extension("GL_ARB_derivative_control"))
 	caps->v1.bset.derivative_control = 1;
+   }
+
+   if (gl_ver >= 46) {
+     caps->v1.bset.polygon_offset_clamp = 1;
+   } else {
+     if (epoxy_has_gl_extension("GL_ARB_polygon_offset_clamp"))
+       caps->v1.bset.polygon_offset_clamp = 1;
    }
 
    if (epoxy_has_gl_extension("GL_EXT_texture_mirror_clamp") ||
