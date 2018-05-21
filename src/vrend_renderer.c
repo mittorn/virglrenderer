@@ -6851,7 +6851,6 @@ static void vrend_renderer_fill_caps_gles(uint32_t set, uint32_t version,
 void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
                               union virgl_caps *caps)
 {
-   int i;
    GLint max;
    GLfloat range[2];
    int gl_ver = epoxy_gl_version();
