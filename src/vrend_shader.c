@@ -1842,7 +1842,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
       const struct tgsi_full_src_register *src = &inst->Src[i];
       char swizzle[8] = {0};
       char prefix[6] = {0};
-      char arrayname[9] = {0};
+      char arrayname[16] = {0};
       int swz_idx = 0, pre_idx = 0;
       boolean isabsolute = src->Register.Absolute;
 
