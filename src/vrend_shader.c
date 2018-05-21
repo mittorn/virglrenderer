@@ -994,7 +994,7 @@ static int emit_cbuf_writes(struct dump_ctx *ctx)
    int i;
    char *sret;
 
-   for (i = 1; i < 8; i++) {
+   for (i = ctx->num_outputs; i < 8; i++) {
       snprintf(buf, 255, "fsout_c%d = fsout_c0;\n", i);
       sret = add_str_to_glsl_main(ctx, buf);
       if (!sret)
