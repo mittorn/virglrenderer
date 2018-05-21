@@ -270,7 +270,7 @@ static int add_sampler_array(struct dump_ctx *ctx, int first, int last, int svie
    return idx;
 }
 
-int lookup_sampler_array(struct dump_ctx *ctx, int index)
+static int lookup_sampler_array(struct dump_ctx *ctx, int index)
 {
    int i;
    for (i = 0; i < ctx->num_sampler_arrays; i++) {
@@ -2630,7 +2630,7 @@ static char *emit_header(struct dump_ctx *ctx, char *glsl_hdr)
    return glsl_hdr;
 }
 
-char vrend_shader_samplerreturnconv(enum tgsi_return_type type)
+static char vrend_shader_samplerreturnconv(enum tgsi_return_type type)
 {
    switch (type) {
    case TGSI_RETURN_TYPE_SINT:
