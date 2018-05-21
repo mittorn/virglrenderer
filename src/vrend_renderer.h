@@ -324,6 +324,10 @@ int vrend_begin_query(struct vrend_context *ctx, uint32_t handle);
 int vrend_end_query(struct vrend_context *ctx, uint32_t handle);
 void vrend_get_query_result(struct vrend_context *ctx, uint32_t handle,
                             uint32_t wait);
+void vrend_get_query_result_qbo(struct vrend_context *ctx, uint32_t handle,
+                                uint32_t qbo_handle,
+                                uint32_t wait, uint32_t result_type, uint32_t offset,
+                                int32_t index);
 void vrend_render_condition(struct vrend_context *ctx,
                             uint32_t handle,
                             bool condtion,

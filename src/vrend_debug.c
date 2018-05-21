@@ -70,7 +70,8 @@ static const char *command_names[VIRGL_MAX_COMMANDS] = {
    "SET_FRAMEBUFFER_STATE_NO_ATTACH",
    "TEXTURE_BARRIER",
    "SET_ATOMIC_BUFFERS",
-   "SET_DEBUG_FLAGS"
+   "SET_DEBUG_FLAGS",
+   "GET_QBO_RESULT"
 };
 
 static const char *object_type_names[VIRGL_MAX_OBJECTS] = {

@@ -369,6 +369,7 @@ enum pipe_flush_flags {
 #define PIPE_BIND_SHADER_RESOURCE      (1 << 19) /* set_shader_resources */
 #define PIPE_BIND_COMPUTE_RESOURCE     (1 << 20) /* set_compute_resources */
 #define PIPE_BIND_COMMAND_ARGS_BUFFER  (1 << 21) /* pipe_draw_info.indirect */
+#define PIPE_BIND_QUERY_BUFFER         (1 << 22) /* get_query_result_resource */
 
 /* The first two flags above were previously part of the amorphous
  * TEXTURE_USAGE, most of which are now descriptions of the ways a
@@ -770,6 +771,14 @@ union pipe_query_result
 
    /* PIPE_QUERY_PIPELINE_STATISTICS */
    struct pipe_query_data_pipeline_statistics pipeline_statistics;
+};
+
+enum pipe_query_value_type
+{
+   PIPE_QUERY_TYPE_I32,
+   PIPE_QUERY_TYPE_U32,
+   PIPE_QUERY_TYPE_I64,
+   PIPE_QUERY_TYPE_U64,
 };
 
 union pipe_color_union

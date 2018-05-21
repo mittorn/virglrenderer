@@ -1041,6 +1041,22 @@ static int vrend_decode_get_query_result(struct vrend_decode_ctx *ctx, int lengt
    return 0;
 }
 
+static int vrend_decode_get_query_result_qbo(struct vrend_decode_ctx *ctx, int length)
+{
+   if (length != VIRGL_QUERY_RESULT_QBO_SIZE)
+      return EINVAL;
+
+   uint32_t handle = get_buf_entry(ctx, VIRGL_QUERY_RESULT_QBO_HANDLE);
+   uint32_t qbo_handle = get_buf_entry(ctx, VIRGL_QUERY_RESULT_QBO_QBO_HANDLE);
+   uint32_t wait = get_buf_entry(ctx, VIRGL_QUERY_RESULT_QBO_WAIT);
+   uint32_t result_type = get_buf_entry(ctx, VIRGL_QUERY_RESULT_QBO_RESULT_TYPE);
+   uint32_t offset = get_buf_entry(ctx, VIRGL_QUERY_RESULT_QBO_OFFSET);
+   int32_t index = get_buf_entry(ctx, VIRGL_QUERY_RESULT_QBO_INDEX);
+
+   vrend_get_query_result_qbo(ctx->grctx, handle, qbo_handle, wait, result_type, offset, index);
+   return 0;
+}
+
 static int vrend_decode_set_render_condition(struct vrend_decode_ctx *ctx, int length)
 {
    if (length != VIRGL_RENDER_CONDITION_SIZE)
@@ -1521,6 +1537,9 @@ int vrend_decode_block(uint32_t ctx_id, uint32_t *block, int ndw)
          break;
       case VIRGL_CCMD_SET_DEBUG_FLAGS:
          ret = vrend_decode_set_debug_mask(gdctx, len);
+         break;
+      case VIRGL_CCMD_GET_QUERY_RESULT_QBO:
+         ret = vrend_decode_get_query_result_qbo(gdctx, len);
          break;
       default:
          ret = EINVAL;

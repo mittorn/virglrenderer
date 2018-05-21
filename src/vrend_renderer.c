@@ -120,6 +120,7 @@ enum features_id
    feat_nv_conditional_render,
    feat_nv_prim_restart,
    feat_polygon_offset_clamp,
+   feat_qbo,
    feat_robust_buffer_access,
    feat_sample_mask,
    feat_sample_shading,
@@ -194,6 +195,7 @@ static const  struct {
    FEAT(nv_conditional_render, UNAVAIL, UNAVAIL,  "GL_NV_conditional_render" ),
    FEAT(nv_prim_restart, UNAVAIL, UNAVAIL,  "GL_NV_primitive_restart" ),
    FEAT(polygon_offset_clamp, 46, UNAVAIL,  "GL_ARB_polygon_offset_clamp" ),
+   FEAT(qbo, 44, UNAVAIL, "GL_ARB_query_buffer_object" ),
    FEAT(robust_buffer_access, 43, UNAVAIL,  "GL_ARB_robust_buffer_access_behavior", "GL_KHR_robust_buffer_access_behavior" ),
    FEAT(sample_mask, 32, 31,  "GL_ARB_texture_multisample" ),
    FEAT(sample_shading, 40, 32,  "GL_ARB_sample_shading", "GL_OES_sample_shading" ),
@@ -2761,6 +2763,8 @@ void vrend_memory_barrier(UNUSED struct vrend_context *ctx,
          if (has_feature(feat_ssbo_barrier))
             gl_barrier |= GL_SHADER_STORAGE_BARRIER_BIT;
       }
+      if (has_feature(feat_qbo) && (flags & PIPE_BARRIER_QUERY_BUFFER))
+         gl_barrier |= GL_QUERY_BUFFER_BARRIER_BIT;
    }
    glMemoryBarrier(gl_barrier);
 }
@@ -5619,10 +5623,13 @@ static int check_resource_valid(struct vrend_renderer_resource_create_args *args
        args->bind == VIRGL_BIND_STREAM_OUTPUT ||
        args->bind == VIRGL_BIND_VERTEX_BUFFER ||
        args->bind == VIRGL_BIND_CONSTANT_BUFFER ||
+       args->bind == VIRGL_BIND_QUERY_BUFFER ||
        args->bind == VIRGL_BIND_SHADER_BUFFER) {
       if (args->target != PIPE_BUFFER)
          return -1;
       if (args->height != 1 || args->depth != 1)
+         return -1;
+      if (args->bind == VIRGL_BIND_QUERY_BUFFER && !has_feature(feat_qbo))
          return -1;
    } else {
       if (!((args->bind & VIRGL_BIND_SAMPLER_VIEW) ||
@@ -5862,6 +5869,9 @@ int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *a
       vrend_create_buffer(gr, args->width);
    } else if (args->bind == VIRGL_BIND_CONSTANT_BUFFER) {
       gr->target = GL_UNIFORM_BUFFER;
+      vrend_create_buffer(gr, args->width);
+   } else if (args->bind == VIRGL_BIND_QUERY_BUFFER) {
+      gr->target = GL_QUERY_BUFFER;
       vrend_create_buffer(gr, args->width);
    } else if (args->target == PIPE_BUFFER && (args->bind == 0 || args->bind == VIRGL_BIND_SHADER_BUFFER)) {
       gr->target = GL_ARRAY_BUFFER_ARB;
@@ -6165,6 +6175,7 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
        res->target == GL_ELEMENT_ARRAY_BUFFER_ARB ||
        res->target == GL_ARRAY_BUFFER_ARB ||
        res->target == GL_TEXTURE_BUFFER ||
+       res->target == GL_QUERY_BUFFER ||
        res->target == GL_UNIFORM_BUFFER ||
        res->target == GL_PIXEL_PACK_BUFFER ||
        res->target == GL_PIXEL_UNPACK_BUFFER) {
@@ -6675,6 +6686,7 @@ static int vrend_renderer_transfer_send_iov(struct vrend_context *ctx,
        res->target == GL_TRANSFORM_FEEDBACK_BUFFER ||
        res->target == GL_TEXTURE_BUFFER ||
        res->target == GL_UNIFORM_BUFFER ||
+       res->target == GL_QUERY_BUFFER ||
        res->target == GL_PIXEL_PACK_BUFFER ||
        res->target == GL_PIXEL_UNPACK_BUFFER) {
       uint32_t send_size = info->box->width * util_format_get_blocksize(res->base.format);
@@ -7896,6 +7908,54 @@ void vrend_get_query_result(struct vrend_context *ctx, uint32_t handle,
       list_addtail(&q->waiting_queries, &vrend_state.waiting_query_list);
 }
 
+#define BUFFER_OFFSET(i) ((void *)((char *)NULL + i))
+void vrend_get_query_result_qbo(struct vrend_context *ctx, uint32_t handle,
+                                uint32_t qbo_handle,
+                                uint32_t wait, uint32_t result_type, uint32_t offset,
+                                int32_t index)
+{
+  struct vrend_query *q;
+  struct vrend_resource *res;
+
+  if (!has_feature(feat_qbo))
+     return;
+
+  q = vrend_object_lookup(ctx->sub->object_hash, handle, VIRGL_OBJECT_QUERY);
+  if (!q)
+     return;
+
+  res = vrend_renderer_ctx_res_lookup(ctx, qbo_handle);
+  if (!res) {
+     report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, qbo_handle);
+     return;
+  }
+
+  glBindBuffer(GL_QUERY_BUFFER, res->id);
+  GLenum qtype;
+
+  if (index == -1)
+     qtype = GL_QUERY_RESULT_AVAILABLE;
+  else
+     qtype = wait ? GL_QUERY_RESULT : GL_QUERY_RESULT_NO_WAIT;
+
+  switch ((enum pipe_query_value_type)result_type) {
+  case PIPE_QUERY_TYPE_I32:
+     glGetQueryObjectiv(q->id, qtype, BUFFER_OFFSET(offset));
+     break;
+  case PIPE_QUERY_TYPE_U32:
+     glGetQueryObjectuiv(q->id, qtype, BUFFER_OFFSET(offset));
+     break;
+  case PIPE_QUERY_TYPE_I64:
+     glGetQueryObjecti64v(q->id, qtype, BUFFER_OFFSET(offset));
+     break;
+  case PIPE_QUERY_TYPE_U64:
+     glGetQueryObjectui64v(q->id, qtype, BUFFER_OFFSET(offset));
+     break;
+  }
+
+  glBindBuffer(GL_QUERY_BUFFER, 0);
+}
+
 static void vrend_pause_render_condition(struct vrend_context *ctx, bool pause)
 {
    if (pause) {
@@ -8461,6 +8521,7 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
 
    if (has_feature(feat_texture_barrier))
       caps->v2.capability_bits |= VIRGL_CAP_TEXTURE_BARRIER;
+
    /* always enable this since it doesn't require an ext to pass tests */
    caps->v2.capability_bits |= VIRGL_CAP_TGSI_COMPONENTS;
 
@@ -8475,6 +8536,8 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
    /* always enable, only indicates that the CMD is supported */
    caps->v2.capability_bits |= VIRGL_CAP_GUEST_MAY_INIT_LOG;
 
+   if (has_feature(feat_qbo))
+      caps->v2.capability_bits |= VIRGL_CAP_QBO;
 }
 
 void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
