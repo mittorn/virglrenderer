@@ -3374,10 +3374,12 @@ static void vrend_hw_emit_blend(struct vrend_context *ctx, struct pipe_blend_sta
       else
          glDisable(GL_SAMPLE_ALPHA_TO_COVERAGE);
 
-      if (state->alpha_to_one)
-         glEnable(GL_SAMPLE_ALPHA_TO_ONE);
-      else
-         glDisable(GL_SAMPLE_ALPHA_TO_ONE);
+      if (!vrend_state.use_gles) {
+         if (state->alpha_to_one)
+            glEnable(GL_SAMPLE_ALPHA_TO_ONE);
+         else
+            glDisable(GL_SAMPLE_ALPHA_TO_ONE);
+      }
    }
 
    if (state->dither)
@@ -3817,13 +3819,19 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
    }
 
    if (vrend_state.have_multisample) {
-      if (state->multisample) {
-         glEnable(GL_MULTISAMPLE);
+      if (state->multisample)
          glEnable(GL_SAMPLE_MASK);
-      } else {
-         glDisable(GL_MULTISAMPLE);
+      else
          glDisable(GL_SAMPLE_MASK);
+
+      /* GLES doesn't have GL_MULTISAMPLE */
+      if (!vrend_state.use_gles) {
+         if (state->multisample)
+            glEnable(GL_MULTISAMPLE);
+         else
+            glDisable(GL_MULTISAMPLE);
       }
+
       if (vrend_state.have_sample_shading) {
          if (state->force_persample_interp)
             glEnable(GL_SAMPLE_SHADING);
@@ -4248,7 +4256,9 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
 
    if (epoxy_has_gl_extension("GL_ARB_stencil_texturing"))
       vrend_state.have_stencil_texturing = true;
-   if (epoxy_has_gl_extension("GL_EXT_framebuffer_multisample") && epoxy_has_gl_extension("GL_ARB_texture_multisample")) {
+   if ((gles && gl_ver >= 30) ||
+       (epoxy_has_gl_extension("GL_EXT_framebuffer_multisample") &&
+        epoxy_has_gl_extension("GL_ARB_texture_multisample"))) {
       vrend_state.have_multisample = true;
       if (epoxy_has_gl_extension("GL_EXT_framebuffer_multisample_blit_scaled"))
          vrend_state.have_ms_scaled_blit = true;
