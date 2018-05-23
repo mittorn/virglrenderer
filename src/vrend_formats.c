@@ -231,13 +231,17 @@ static struct vrend_format_table rgtc_formats[] = {
 };
 
 static struct vrend_format_table srgb_formats[] = {
-  { VIRGL_FORMAT_B8G8R8X8_SRGB, GL_SRGB8_ALPHA8, GL_BGRA, GL_UNSIGNED_BYTE, RGB1_SWIZZLE },
-  { VIRGL_FORMAT_B8G8R8A8_SRGB, GL_SRGB8_ALPHA8, GL_BGRA, GL_UNSIGNED_BYTE, NO_SWIZZLE },
   { VIRGL_FORMAT_R8G8B8X8_SRGB, GL_SRGB8_ALPHA8, GL_RGBA, GL_UNSIGNED_BYTE, RGB1_SWIZZLE },
   { VIRGL_FORMAT_R8G8B8A8_SRGB, GL_SRGB8_ALPHA8, GL_RGBA, GL_UNSIGNED_BYTE, NO_SWIZZLE },
 
   { VIRGL_FORMAT_L8_SRGB, GL_SR8_EXT, GL_RED, GL_UNSIGNED_BYTE, RRR1_SWIZZLE },
   { VIRGL_FORMAT_L8A8_SRGB, GL_SRG8_EXT, GL_RG, GL_UNSIGNED_BYTE, RRRG_SWIZZLE },
+};
+
+static struct vrend_format_table gl_srgb_formats[] =
+{
+  { VIRGL_FORMAT_B8G8R8X8_SRGB, GL_SRGB8_ALPHA8, GL_BGRA, GL_UNSIGNED_BYTE, RGB1_SWIZZLE },
+  { VIRGL_FORMAT_B8G8R8A8_SRGB, GL_SRGB8_ALPHA8, GL_BGRA, GL_UNSIGNED_BYTE, NO_SWIZZLE },
 };
 
 static struct vrend_format_table bit10_formats[] = {
@@ -402,11 +406,11 @@ void vrend_build_format_list_common(void)
 
 void vrend_build_format_list_gl(void)
 {
-  /* We don't want VIRGL_FORMAT_B4G4R4A4_UNORM to be supported on GLES because
-   * it's not as well supported as VIRGL_FORMAT_A4B4G4R4_UNORM in some
-   * operations.
+  /* GL_BGRA formats aren't as well supported in GLES as in GL, specially in
+   * transfer operations. So we only register support for it in GL.
    */
   add_formats(gl_base_rgba_formats);
+  add_formats(gl_srgb_formats);
 }
 
 void vrend_build_format_list_gles(void)
