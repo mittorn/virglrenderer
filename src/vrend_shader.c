@@ -153,7 +153,6 @@ struct dump_ctx {
    bool has_clipvertex;
    bool has_clipvertex_so;
    bool has_viewport_idx;
-   bool has_frag_viewport_idx;
    bool vs_has_pervertex;
    bool uses_sample_shading;
    bool uses_gpu_shader5;
@@ -400,7 +399,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
             ctx->inputs[i].override_no_wm = true;
             name_prefix = "gl_ViewportIndex";
             if (ctx->glsl_ver_required >= 140)
-               ctx->has_frag_viewport_idx = true;
+               ctx->uses_layer = true;
             break;
          }
       case TGSI_SEMANTIC_LAYER:
@@ -2625,8 +2624,6 @@ static char *emit_header(struct dump_ctx *ctx, char *glsl_hdr)
          STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_texture_gather : require\n");
       if (ctx->has_viewport_idx)
          STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_viewport_array : require\n");
-      if (ctx->has_frag_viewport_idx)
-         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_fragment_layer_viewport : require\n");
       if (ctx->uses_stencil_export)
          STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_shader_stencil_export : require\n");
       if (ctx->uses_layer)
