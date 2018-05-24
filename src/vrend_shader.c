@@ -124,7 +124,6 @@ struct dump_ctx {
    struct vrend_shader_sampler samplers[32];
    uint32_t samplers_used;
    bool sviews_used;
-
    struct vrend_sampler_array *sampler_arrays;
    int num_sampler_arrays;
    int last_sampler_array_idx;
@@ -139,19 +138,13 @@ struct dump_ctx {
    int ubo_sizes[32];
    int num_address;
 
+   uint32_t shader_req_bits;
+
    struct pipe_stream_output_info *so;
    char **so_names;
    bool write_so_outputs[PIPE_MAX_SO_OUTPUTS];
-   bool uses_cube_array;
-   bool uses_sampler_ms;
    bool uses_sampler_buf;
-   bool uses_sampler_rect;
-   bool uses_lodq;
-   bool uses_txq_levels;
-   bool uses_tg4;
-   bool uses_layer;
    bool write_all_cbufs;
-   bool uses_stencil_export;
    uint32_t shadow_samp_mask;
 
    int fs_coord_origin, fs_pixel_center;
@@ -168,17 +161,11 @@ struct dump_ctx {
    /* only used when cull is enabled */
    uint8_t num_cull_dist_prop, num_clip_dist_prop;
    bool front_face_emitted;
-   bool has_ints;
-   bool has_instanceid;
 
    bool has_clipvertex;
    bool has_clipvertex_so;
-   bool has_viewport_idx;
    bool vs_has_pervertex;
-   bool uses_sample_shading;
-   bool uses_gpu_shader5;
    bool write_mul_temp;
-   bool derivative_control;
 };
 
 static const struct vrend_shader_table shader_req_table[] = {
@@ -420,7 +407,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
             ctx->inputs[i].glsl_predefined_no_emit = true;
             ctx->inputs[i].glsl_no_index = true;
             ctx->inputs[i].override_no_wm = true;
-            ctx->has_ints = true;
+            ctx->shader_req_bits |= SHADER_REQ_INTS;
             break;
          } else if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
             name_prefix = "gl_PrimitiveID";
@@ -437,7 +424,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
             ctx->inputs[i].override_no_wm = true;
             name_prefix = "gl_ViewportIndex";
             if (ctx->glsl_ver_required >= 140)
-               ctx->uses_layer = true;
+               ctx->shader_req_bits |= SHADER_REQ_LAYER;
             break;
          }
       case TGSI_SEMANTIC_LAYER:
@@ -447,7 +434,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
             ctx->inputs[i].glsl_no_index = true;
             ctx->inputs[i].is_int = true;
             ctx->inputs[i].override_no_wm = true;
-            ctx->uses_layer = true;
+            ctx->shader_req_bits |= SHADER_REQ_LAYER;
             break;
          }
       case TGSI_SEMANTIC_PSIZE:
@@ -591,8 +578,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
             ctx->outputs[i].glsl_no_index = true;
             ctx->outputs[i].override_no_wm = true;
             ctx->outputs[i].is_int = true;
-            ctx->has_ints = true;
-            ctx->uses_stencil_export = true;
+            ctx->shader_req_bits |= (SHADER_REQ_INTS | SHADER_REQ_STENCIL_EXPORT);
          }
          break;
       case TGSI_SEMANTIC_CLIPDIST:
@@ -618,9 +604,8 @@ iter_declaration(struct tgsi_iterate_context *iter,
             ctx->outputs[i].glsl_no_index = true;
             ctx->outputs[i].override_no_wm = true;
             ctx->outputs[i].is_int = true;
-            ctx->has_ints = true;
+            ctx->shader_req_bits |= (SHADER_REQ_INTS | SHADER_REQ_SAMPLE_SHADING);
             name_prefix = "gl_SampleMask";
-            ctx->uses_sample_shading = true;
             break;
          }
          break;
@@ -690,7 +675,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
             ctx->outputs[i].is_int = true;
             name_prefix = "gl_ViewportIndex";
             if (ctx->glsl_ver_required >= 140)
-               ctx->has_viewport_idx = true;
+               ctx->shader_req_bits |= SHADER_REQ_VIEWPORT_IDX;
             break;
          }
       case TGSI_SEMANTIC_GENERIC:
@@ -794,29 +779,25 @@ iter_declaration(struct tgsi_iterate_context *iter,
       ctx->system_values[i].first = decl->Range.First;
       if (decl->Semantic.Name == TGSI_SEMANTIC_INSTANCEID) {
          name_prefix = "gl_InstanceID";
-         ctx->has_instanceid = true;
+         ctx->shader_req_bits |= SHADER_REQ_INSTANCE_ID;
       } else if (decl->Semantic.Name == TGSI_SEMANTIC_VERTEXID) {
          name_prefix = "gl_VertexID";
-         ctx->has_ints = true;
+         ctx->shader_req_bits |= SHADER_REQ_INTS;
       } else if (decl->Semantic.Name == TGSI_SEMANTIC_SAMPLEID) {
          name_prefix = "gl_SampleID";
-         ctx->uses_sample_shading = true;
-         ctx->has_ints = true;
+         ctx->shader_req_bits |= (SHADER_REQ_SAMPLE_SHADING | SHADER_REQ_INTS);
       } else if (decl->Semantic.Name == TGSI_SEMANTIC_SAMPLEPOS) {
          name_prefix = "gl_SamplePosition";
-         ctx->uses_sample_shading = true;
+         ctx->shader_req_bits |= SHADER_REQ_SAMPLE_SHADING;
       } else if (decl->Semantic.Name == TGSI_SEMANTIC_INVOCATIONID) {
          name_prefix = "gl_InvocationID";
-         ctx->has_ints = true;
-         ctx->uses_gpu_shader5 = true;
+         ctx->shader_req_bits |= (SHADER_REQ_INTS | SHADER_REQ_GPU_SHADER5);
       } else if (decl->Semantic.Name == TGSI_SEMANTIC_SAMPLEMASK) {
          name_prefix = "gl_SampleMaskIn[0]";
-         ctx->has_ints = true;
-         ctx->uses_gpu_shader5 = true;
+         ctx->shader_req_bits |= (SHADER_REQ_INTS | SHADER_REQ_GPU_SHADER5);
       } else if (decl->Semantic.Name == TGSI_SEMANTIC_PRIMID) {
          name_prefix = "gl_PrimitiveID";
-         ctx->has_ints = true;
-         ctx->uses_gpu_shader5 = true;
+         ctx->shader_req_bits |= (SHADER_REQ_INTS | SHADER_REQ_GPU_SHADER5);
       } else {
          fprintf(stderr, "unsupported system value %d\n", decl->Semantic.Name);
          name_prefix = "unknown";
@@ -895,10 +876,10 @@ iter_immediate(
       if (imm->Immediate.DataType == TGSI_IMM_FLOAT32) {
          ctx->imm[first].val[i].f = imm->u[i].Float;
       } else if (imm->Immediate.DataType == TGSI_IMM_UINT32) {
-         ctx->has_ints = true;
+         ctx->shader_req_bits |= SHADER_REQ_INTS;
          ctx->imm[first].val[i].ui  = imm->u[i].Uint;
       } else if (imm->Immediate.DataType == TGSI_IMM_INT32) {
-         ctx->has_ints = true;
+         ctx->shader_req_bits |= SHADER_REQ_INTS;
          ctx->imm[first].val[i].i = imm->u[i].Int;
       }
    }
@@ -1053,7 +1034,7 @@ static int prepare_so_movs(struct dump_ctx *ctx)
 
       ctx->outputs[ctx->so->output[i].register_index].stream = ctx->so->output[i].stream;
       if (ctx->prog_type == TGSI_PROCESSOR_GEOMETRY && ctx->so->output[i].stream)
-         ctx->uses_gpu_shader5 = true;
+         ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
 
       ctx->write_so_outputs[i] = false;
    }
@@ -1300,11 +1281,11 @@ static int translate_tex(struct dump_ctx *ctx,
    case TGSI_TEXTURE_SHADOWCUBE_ARRAY:
       is_shad = true;
    case TGSI_TEXTURE_CUBE_ARRAY:
-      ctx->uses_cube_array = true;
+      ctx->shader_req_bits |= SHADER_REQ_CUBE_ARRAY;
       break;
    case TGSI_TEXTURE_2D_MSAA:
    case TGSI_TEXTURE_2D_ARRAY_MSAA:
-      ctx->uses_sampler_ms = true;
+      ctx->shader_req_bits |= SHADER_REQ_SAMPLER_MS;
       break;
    case TGSI_TEXTURE_BUFFER:
       ctx->uses_sampler_buf = true;
@@ -1312,7 +1293,7 @@ static int translate_tex(struct dump_ctx *ctx,
    case TGSI_TEXTURE_SHADOWRECT:
       is_shad = true;
    case TGSI_TEXTURE_RECT:
-      ctx->uses_sampler_rect = true;
+      ctx->shader_req_bits |= SHADER_REQ_SAMPLER_RECT;
       break;
    case TGSI_TEXTURE_SHADOW1D:
    case TGSI_TEXTURE_SHADOW2D:
@@ -1327,13 +1308,13 @@ static int translate_tex(struct dump_ctx *ctx,
    }
 
    if (ctx->cfg->glsl_version >= 140)
-      if (ctx->uses_sampler_rect || ctx->uses_sampler_buf)
+      if ((ctx->shader_req_bits & SHADER_REQ_SAMPLER_RECT) || ctx->uses_sampler_buf)
          ctx->glsl_ver_required = 140;
 
    sampler_index = 1;
 
    if (inst->Instruction.Opcode == TGSI_OPCODE_LODQ)
-      ctx->uses_lodq = true;
+      ctx->shader_req_bits |= SHADER_REQ_LODQ;
 
    if (inst->Instruction.Opcode == TGSI_OPCODE_TXQ) {
       /* no lod parameter for txq for these */
@@ -1351,7 +1332,7 @@ static int translate_tex(struct dump_ctx *ctx,
              inst->Texture.Texture != TGSI_TEXTURE_RECT &&
              inst->Texture.Texture != TGSI_TEXTURE_2D_MSAA &&
              inst->Texture.Texture != TGSI_TEXTURE_2D_ARRAY_MSAA) {
-            ctx->uses_txq_levels = true;
+            ctx->shader_req_bits |= SHADER_REQ_TXQ_LEVELS;
             if (inst->Dst[0].Register.WriteMask & 0x7)
                twm = ".w";
             snprintf(buf, 255, "%s%s = %s(textureQueryLevels(%s));\n", dsts[0], twm, dtypeprefix, srcs[sampler_index]);
@@ -1510,12 +1491,12 @@ static int translate_tex(struct dump_ctx *ctx,
       sampler_index = 3;
    } else if (inst->Instruction.Opcode == TGSI_OPCODE_TG4) {
       sampler_index = 2;
-      ctx->uses_tg4 = true;
-      if (inst->Texture.NumOffsets > 1 || is_shad || ctx->uses_sampler_rect)
-         ctx->uses_gpu_shader5 = true;
+      ctx->shader_req_bits |= SHADER_REQ_TG4;
+      if (inst->Texture.NumOffsets > 1 || is_shad || (ctx->shader_req_bits & SHADER_REQ_SAMPLER_RECT))
+         ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
       if (inst->Texture.NumOffsets == 1) {
          if (inst->TexOffsets[0].File != TGSI_FILE_IMMEDIATE)
-            ctx->uses_gpu_shader5 = true;
+            ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
       }
       if (is_shad) {
          if (inst->Texture.Texture == TGSI_TEXTURE_SHADOWCUBE ||
@@ -1654,7 +1635,7 @@ static int translate_tex(struct dump_ctx *ctx,
    }
    if (inst->Instruction.Opcode == TGSI_OPCODE_TXF) {
       snprintf(buf, 255, "%s = %s(%s(texelFetch%s(%s, %s(%s%s)%s%s)%s));\n", dsts[0], dstconv, dtypeprefix, tex_ext, srcs[sampler_index], txfi, srcs[0], twm, bias, offbuf, dst0_override_no_wm ? "" : writemask);
-   } else if (ctx->cfg->glsl_version < 140 && ctx->uses_sampler_rect) {
+   } else if (ctx->cfg->glsl_version < 140 && (ctx->shader_req_bits & SHADER_REQ_SAMPLER_RECT)) {
       /* rect is special in GLSL 1.30 */
       if (inst->Texture.Texture == TGSI_TEXTURE_RECT)
          snprintf(buf, 255, "%s = texture2DRect(%s, %s.xy)%s;\n", dsts[0], srcs[sampler_index], srcs[0], writemask);
@@ -1752,7 +1733,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
       ctx->prog_type = iter->processor.Processor;
    if (dtype == TGSI_TYPE_SIGNED || dtype == TGSI_TYPE_UNSIGNED ||
        stype == TGSI_TYPE_SIGNED || stype == TGSI_TYPE_UNSIGNED)
-      ctx->has_ints = true;
+      ctx->shader_req_bits |= SHADER_REQ_INTS;
 
    if (inst->Instruction.Opcode == TGSI_OPCODE_TXQ) {
       dtypeprefix = "intBitsToFloat";
@@ -1973,7 +1954,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
             dim = src->Dimension.Index;
             if (src->Dimension.Indirect) {
                assert(src->DimIndirect.File == TGSI_FILE_ADDRESS);
-               ctx->uses_gpu_shader5 = true;
+               ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
                if (src->Register.Indirect) {
                   assert(src->Indirect.File == TGSI_FILE_ADDRESS);
                   snprintf(srcs[i], 255, "%s(%s%suboarr[addr%d].ubocontents[addr%d + %d]%s)", stypeprefix, prefix, cname, src->DimIndirect.Index, src->Indirect.Index, src->Register.Index, swizzle);
@@ -1994,7 +1975,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
             }
          } else {
             const char *csp;
-            ctx->has_ints = true;
+            ctx->shader_req_bits |= SHADER_REQ_INTS;
             if (inst->Instruction.Opcode == TGSI_OPCODE_INTERP_SAMPLE && i == 1)
                csp = "ivec4";
             else if (stype == TGSI_TYPE_FLOAT || stype == TGSI_TYPE_UNTYPED)
@@ -2072,14 +2053,14 @@ iter_instruction(struct tgsi_iterate_context *iter,
             if (inst->Instruction.Opcode == TGSI_OPCODE_TG4 && i == 1 && j == 0) {
                if (imd->val[idx].ui > 0) {
                   tg4_has_component = true;
-                  ctx->uses_gpu_shader5 = true;
+                  ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
                }
             }
 
             switch (imd->type) {
             case TGSI_IMM_FLOAT32:
                if (isinf(imd->val[idx].f) || isnan(imd->val[idx].f)) {
-                  ctx->has_ints = true;
+                  ctx->shader_req_bits |= SHADER_REQ_INTS;
                   snprintf(temp, 48, "uintBitsToFloat(%uU)", imd->val[idx].ui);
                } else
                   snprintf(temp, 25, "%.8g", imd->val[idx].f);
@@ -2237,12 +2218,12 @@ iter_instruction(struct tgsi_iterate_context *iter,
       EMIT_BUF_WITH_RET(ctx, buf);
       break;
    case TGSI_OPCODE_DDX_FINE:
-      ctx->derivative_control = true;
+      ctx->shader_req_bits |= SHADER_REQ_DERIVATIVE_CONTROL;
       emit_op1("dFdxFine");
       EMIT_BUF_WITH_RET(ctx, buf);
       break;
    case TGSI_OPCODE_DDY_FINE:
-      ctx->derivative_control = true;
+      ctx->shader_req_bits |= SHADER_REQ_DERIVATIVE_CONTROL;
       emit_op1("dFdyFine");
       EMIT_BUF_WITH_RET(ctx, buf);
       break;
@@ -2505,7 +2486,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
       if (ret)
          return FALSE;
       if (imd->val[inst->Src[0].Register.SwizzleX].ui > 0) {
-         ctx->uses_gpu_shader5 = true;
+         ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
          snprintf(buf, 255, "EmitStreamVertex(%d);\n", imd->val[inst->Src[0].Register.SwizzleX].ui);
       } else
          snprintf(buf, 255, "EmitVertex();\n");
@@ -2515,7 +2496,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
    case TGSI_OPCODE_ENDPRIM: {
       struct immed *imd = &ctx->imm[(inst->Src[0].Register.Index)];
       if (imd->val[inst->Src[0].Register.SwizzleX].ui > 0) {
-         ctx->uses_gpu_shader5 = true;
+         ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
          snprintf(buf, 255, "EndStreamPrimitive(%d);\n", imd->val[inst->Src[0].Register.SwizzleX].ui);
       } else
          snprintf(buf, 255, "EndPrimitive();\n");
@@ -2525,24 +2506,24 @@ iter_instruction(struct tgsi_iterate_context *iter,
    case TGSI_OPCODE_INTERP_CENTROID:
       snprintf(buf, 255, "%s = %s(%s(vec4(interpolateAtCentroid(%s))%s));\n", dsts[0], dstconv, dtypeprefix, srcs[0], src_swizzle0);
       EMIT_BUF_WITH_RET(ctx, buf);
-      ctx->uses_gpu_shader5 = true;
+      ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
       break;
    case TGSI_OPCODE_INTERP_SAMPLE:
       snprintf(buf, 255, "%s = %s(%s(vec4(interpolateAtSample(%s, %s.x))%s));\n", dsts[0], dstconv, dtypeprefix, srcs[0], srcs[1], src_swizzle0);
       EMIT_BUF_WITH_RET(ctx, buf);
-      ctx->uses_gpu_shader5 = true;
+      ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
       break;
    case TGSI_OPCODE_INTERP_OFFSET:
       snprintf(buf, 255, "%s = %s(%s(vec4(interpolateAtOffset(%s, %s.xy))%s));\n", dsts[0], dstconv, dtypeprefix, srcs[0], srcs[1], src_swizzle0);
       EMIT_BUF_WITH_RET(ctx, buf);
-      ctx->uses_gpu_shader5 = true;
+      ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
       break;
    case TGSI_OPCODE_UMUL_HI:
       snprintf(buf, 255, "umulExtended(%s, %s, umul_temp, mul_temp);\n", srcs[0], srcs[1]);
       EMIT_BUF_WITH_RET(ctx, buf);
       snprintf(buf, 255, "%s = %s(%s(umul_temp));\n", dsts[0], dstconv, dtypeprefix);
       EMIT_BUF_WITH_RET(ctx, buf);
-      ctx->uses_gpu_shader5 = true;
+      ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
       ctx->write_mul_temp = true;
       break;
    case TGSI_OPCODE_IMUL_HI:
@@ -2550,45 +2531,45 @@ iter_instruction(struct tgsi_iterate_context *iter,
       EMIT_BUF_WITH_RET(ctx, buf);
       snprintf(buf, 255, "%s = %s(%s(imul_temp));\n", dsts[0], dstconv, dtypeprefix);
       EMIT_BUF_WITH_RET(ctx, buf);
-      ctx->uses_gpu_shader5 = true;
+      ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
       ctx->write_mul_temp = true;
       break;
 
    case TGSI_OPCODE_IBFE:
       snprintf(buf, 255, "%s = %s(%s(bitfieldExtract(%s, int(%s.x), int(%s.x))));\n", dsts[0], dstconv, dtypeprefix, srcs[0], srcs[1], srcs[2]);
       EMIT_BUF_WITH_RET(ctx, buf);
-      ctx->uses_gpu_shader5 = true;
+      ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
       break;
    case TGSI_OPCODE_UBFE:
       snprintf(buf, 255, "%s = %s(%s(bitfieldExtract(%s, int(%s.x), int(%s.x))));\n", dsts[0], dstconv, dtypeprefix, srcs[0], srcs[1], srcs[2]);
       EMIT_BUF_WITH_RET(ctx, buf);
-      ctx->uses_gpu_shader5 = true;
+      ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
       break;
    case TGSI_OPCODE_BFI:
       snprintf(buf, 255, "%s = %s(uintBitsToFloat(bitfieldInsert(%s, %s, int(%s), int(%s))));\n", dsts[0], dstconv, srcs[0], srcs[1], srcs[2], srcs[3]);
       EMIT_BUF_WITH_RET(ctx, buf);
-      ctx->uses_gpu_shader5 = true;
+      ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
       break;
    case TGSI_OPCODE_BREV:
       snprintf(buf, 255, "%s = %s(%s(bitfieldReverse(%s)));\n", dsts[0], dstconv, dtypeprefix, srcs[0]);
       EMIT_BUF_WITH_RET(ctx, buf);
-      ctx->uses_gpu_shader5 = true;
+      ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
       break;
    case TGSI_OPCODE_POPC:
       snprintf(buf, 255, "%s = %s(%s(bitCount(%s)));\n", dsts[0], dstconv, dtypeprefix, srcs[0]);
       EMIT_BUF_WITH_RET(ctx, buf);
-      ctx->uses_gpu_shader5 = true;
+      ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
       break;
    case TGSI_OPCODE_LSB:
       snprintf(buf, 255, "%s = %s(%s(findLSB(%s)));\n", dsts[0], dstconv, dtypeprefix, srcs[0]);
       EMIT_BUF_WITH_RET(ctx, buf);
-      ctx->uses_gpu_shader5 = true;
+      ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
       break;
    case TGSI_OPCODE_IMSB:
    case TGSI_OPCODE_UMSB:
       snprintf(buf, 255, "%s = %s(%s(findMSB(%s)));\n", dsts[0], dstconv, dtypeprefix, srcs[0]);
       EMIT_BUF_WITH_RET(ctx, buf);
-      ctx->uses_gpu_shader5 = true;
+      ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
       break;
    case TGSI_OPCODE_BARRIER:
       snprintf(buf, 255, "barrier();\n");
@@ -2632,49 +2613,36 @@ static char *emit_header(struct dump_ctx *ctx, char *glsl_hdr)
       STRCAT_WITH_RET(glsl_hdr, "precision highp float;\n");
       STRCAT_WITH_RET(glsl_hdr, "precision highp int;\n");
    } else {
+      char buf[128];
       if (ctx->prog_type == TGSI_PROCESSOR_GEOMETRY || ctx->glsl_ver_required == 150)
          STRCAT_WITH_RET(glsl_hdr, "#version 150\n");
       else if (ctx->glsl_ver_required == 140)
          STRCAT_WITH_RET(glsl_hdr, "#version 140\n");
       else
          STRCAT_WITH_RET(glsl_hdr, "#version 130\n");
+
       if (ctx->prog_type == TGSI_PROCESSOR_VERTEX && ctx->cfg->use_explicit_locations)
          STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_explicit_attrib_location : require\n");
       if (ctx->prog_type == TGSI_PROCESSOR_FRAGMENT && fs_emit_layout(ctx))
          STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_fragment_coord_conventions : require\n");
-      if (ctx->glsl_ver_required < 140 && ctx->uses_sampler_rect)
-         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_texture_rectangle : require\n");
-      if (ctx->uses_cube_array)
-         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_texture_cube_map_array : require\n");
-      if (ctx->has_ints)
-         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_shader_bit_encoding : require\n");
-      if (ctx->uses_sampler_ms)
-         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_texture_multisample : require\n");
-      if (ctx->has_instanceid)
-         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_draw_instanced : require\n");
+
       if (ctx->num_ubo)
          STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_uniform_buffer_object : require\n");
-      if (ctx->uses_lodq)
-         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_texture_query_lod : require\n");
-      if (ctx->uses_txq_levels)
-         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_texture_query_levels : require\n");
-      if (ctx->uses_tg4)
-         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_texture_gather : require\n");
-      if (ctx->has_viewport_idx)
-         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_viewport_array : require\n");
-      if (ctx->uses_stencil_export)
-         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_shader_stencil_export : require\n");
-      if (ctx->uses_layer)
-         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_fragment_layer_viewport : require\n");
-      if (ctx->uses_sample_shading)
-         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_sample_shading : require\n");
-      if (ctx->uses_gpu_shader5)
-         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_gpu_shader5 : require\n");
+
       if (ctx->num_cull_dist_prop || ctx->key->prev_stage_num_cull_out)
          STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_cull_distance : require\n");
-      if (ctx->derivative_control)
-         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_derivative_control : require\n");
+
+      for (uint32_t i = 0; i < ARRAY_SIZE(shader_req_table); i++) {
+         if (shader_req_table[i].key == SHADER_REQ_SAMPLER_RECT && ctx->glsl_ver_required >= 140)
+            continue;
+
+         if (ctx->shader_req_bits & shader_req_table[i].key) {
+            snprintf(buf, 128, "#extension %s : require\n", shader_req_table[i].string);
+            STRCAT_WITH_RET(glsl_hdr, buf);
+         }
+      }
    }
+
    return glsl_hdr;
 }
 
@@ -3173,7 +3141,7 @@ char *vrend_convert_shader(struct vrend_shader_cfg *cfg,
       ctx.glsl_ver_required = 150;
 
    if (ctx.info.indirect_files & (1 << TGSI_FILE_SAMPLER))
-      ctx.uses_gpu_shader5 = true;
+      ctx.shader_req_bits |= SHADER_REQ_GPU_SHADER5;
 
    ctx.glsl_main = malloc(4096);
    if (!ctx.glsl_main)
