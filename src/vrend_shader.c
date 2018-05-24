@@ -40,6 +40,22 @@ extern int vrend_dump_shaders;
 #define INTERP_PREFIX "                           "
 #define INVARI_PREFIX "invariant"
 
+#define SHADER_REQ_NONE 0
+#define SHADER_REQ_SAMPLER_RECT       (1 << 0)
+#define SHADER_REQ_CUBE_ARRAY         (1 << 1)
+#define SHADER_REQ_INTS               (1 << 2)
+#define SHADER_REQ_SAMPLER_MS         (1 << 3)
+#define SHADER_REQ_INSTANCE_ID        (1 << 4)
+#define SHADER_REQ_LODQ               (1 << 5)
+#define SHADER_REQ_TXQ_LEVELS         (1 << 6)
+#define SHADER_REQ_TG4                (1 << 7)
+#define SHADER_REQ_VIEWPORT_IDX       (1 << 8)
+#define SHADER_REQ_STENCIL_EXPORT     (1 << 9)
+#define SHADER_REQ_LAYER              (1 << 10)
+#define SHADER_REQ_SAMPLE_SHADING     (1 << 11)
+#define SHADER_REQ_GPU_SHADER5        (1 << 12)
+#define SHADER_REQ_DERIVATIVE_CONTROL (1 << 13)
+
 struct vrend_shader_io {
    unsigned                name;
    unsigned                gpr;
@@ -61,6 +77,11 @@ struct vrend_shader_io {
 struct vrend_shader_sampler {
    int tgsi_sampler_type;
    enum tgsi_return_type tgsi_sampler_return;
+};
+
+struct vrend_shader_table {
+   uint32_t key;
+   const char *string;
 };
 
 #define MAX_IMMEDIATE 1024
@@ -158,6 +179,23 @@ struct dump_ctx {
    bool uses_gpu_shader5;
    bool write_mul_temp;
    bool derivative_control;
+};
+
+static const struct vrend_shader_table shader_req_table[] = {
+    { SHADER_REQ_SAMPLER_RECT, "GL_ARB_texture_rectangle" },
+    { SHADER_REQ_CUBE_ARRAY, "GL_ARB_texture_cube_map_array" },
+    { SHADER_REQ_INTS, "GL_ARB_shader_bit_encoding" },
+    { SHADER_REQ_SAMPLER_MS, "GL_ARB_texture_multisample" },
+    { SHADER_REQ_INSTANCE_ID, "GL_ARB_draw_instanced" },
+    { SHADER_REQ_LODQ, "GL_ARB_texture_query_lod" },
+    { SHADER_REQ_TXQ_LEVELS, "GL_ARB_texture_query_levels" },
+    { SHADER_REQ_TG4, "GL_ARB_texture_gather" },
+    { SHADER_REQ_VIEWPORT_IDX, "GL_ARB_viewport_array" },
+    { SHADER_REQ_STENCIL_EXPORT, "GL_ARB_shader_stencil_export" },
+    { SHADER_REQ_LAYER, "GL_ARB_fragment_layer_viewport" },
+    { SHADER_REQ_SAMPLE_SHADING, "GL_ARB_sample_shading" },
+    { SHADER_REQ_GPU_SHADER5, "GL_ARB_gpu_shader5" },
+    { SHADER_REQ_DERIVATIVE_CONTROL, "GL_ARB_derivative_control" },
 };
 
 static inline const char *tgsi_proc_to_prefix(int shader_type)
