@@ -235,6 +235,12 @@ static inline bool fs_emit_layout(struct dump_ctx *ctx)
    return false;
 }
 
+static void require_glsl_ver(struct dump_ctx *ctx, int glsl_ver)
+{
+   if (glsl_ver > ctx->glsl_ver_required)
+      ctx->glsl_ver_required = glsl_ver;
+}
+
 static char *strcat_realloc(char *str, const char *catstr)
 {
    char *new = realloc(str, strlen(str) + strlen(catstr) + 1);
@@ -413,7 +419,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
             name_prefix = "gl_PrimitiveID";
             ctx->inputs[i].glsl_predefined_no_emit = true;
             ctx->inputs[i].glsl_no_index = true;
-            ctx->glsl_ver_required = 150;
+            require_glsl_ver(ctx, 150);
             break;
          }
       case TGSI_SEMANTIC_VIEWPORT_INDEX:
@@ -588,7 +594,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
          ctx->num_clip_dist += 4;
          if (iter->processor.Processor == TGSI_PROCESSOR_VERTEX &&
              ctx->key->gs_present)
-            ctx->glsl_ver_required = 150;
+            require_glsl_ver(ctx, 150);
          break;
       case TGSI_SEMANTIC_CLIPVERTEX:
          name_prefix = "gl_ClipVertex";
@@ -1309,7 +1315,7 @@ static int translate_tex(struct dump_ctx *ctx,
 
    if (ctx->cfg->glsl_version >= 140)
       if ((ctx->shader_req_bits & SHADER_REQ_SAMPLER_RECT) || ctx->uses_sampler_buf)
-         ctx->glsl_ver_required = 140;
+         require_glsl_ver(ctx, 140);
 
    sampler_index = 1;
 
@@ -2596,7 +2602,7 @@ prolog(struct tgsi_iterate_context *iter)
 
    if (iter->processor.Processor == TGSI_PROCESSOR_VERTEX &&
        ctx->key->gs_present)
-      ctx->glsl_ver_required = 150;
+      require_glsl_ver(ctx, 150);
 
    return TRUE;
 }
@@ -2978,7 +2984,7 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
       const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
 
       if (ctx->info.dimension_indirect_files & (1 << TGSI_FILE_CONSTANT)) {
-         ctx->glsl_ver_required = 150;
+         require_glsl_ver(ctx, 150);
          snprintf(buf, 255, "uniform %subo { vec4 ubocontents[%d]; } %suboarr[%d];\n", cname, ctx->ubo_sizes[0], cname, ctx->num_ubo);
          STRCAT_WITH_RET(glsl_hdr, buf);
       } else {
@@ -3127,7 +3133,7 @@ char *vrend_convert_shader(struct vrend_shader_cfg *cfg,
    tgsi_scan_shader(tokens, &ctx.info);
    /* if we are in core profile mode we should use GLSL 1.40 */
    if (cfg->use_core_profile && cfg->glsl_version >= 140)
-      ctx.glsl_ver_required = 140;
+      require_glsl_ver(&ctx, 140);
 
    if (sinfo->so_info.num_outputs) {
       ctx.so = &sinfo->so_info;
@@ -3138,7 +3144,7 @@ char *vrend_convert_shader(struct vrend_shader_cfg *cfg,
       ctx.so_names = NULL;
 
    if (ctx.info.dimension_indirect_files & (1 << TGSI_FILE_CONSTANT))
-      ctx.glsl_ver_required = 150;
+      require_glsl_ver(&ctx, 150);
 
    if (ctx.info.indirect_files & (1 << TGSI_FILE_SAMPLER))
       ctx.shader_req_bits |= SHADER_REQ_GPU_SHADER5;
