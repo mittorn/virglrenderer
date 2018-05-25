@@ -35,11 +35,6 @@
    "#version 300 es\n"                          \
    "precision mediump float;\n"                 \
 
-#define OUTFRAG_GLES                            \
-   "out vec4 FragColor;\n"                      \
-   "#define gl_FragColor FragColor\n"
-
-
 #define VS_PASSTHROUGH_BODY                     \
    "in vec4 arg0;\n"                            \
    "in vec4 arg1;\n"                            \
@@ -55,15 +50,17 @@
 
 #define FS_TEXFETCH_COL_BODY                    \
    "%s"                                         \
-   "uniform sampler%s samp;\n"                  \
+   "#define cvec4 %s\n"                         \
+   "uniform mediump %csampler%s samp;\n"        \
    "in vec4 tc;\n"                              \
+   "out cvec4 FragColor;\n"                     \
    "void main() {\n"                            \
-   "   vec4 texel = texture(samp, tc%s);\n"     \
-   "   gl_FragColor = vec4(%s);\n" \
+   "   cvec4 texel = texture(samp, tc%s);\n"    \
+   "   FragColor = cvec4(%s);\n"                \
    "}\n"
 
 #define FS_TEXFETCH_COL_GL HEADER_GL FS_TEXFETCH_COL_BODY
-#define FS_TEXFETCH_COL_GLES HEADER_GLES OUTFRAG_GLES FS_TEXFETCH_COL_BODY
+#define FS_TEXFETCH_COL_GLES HEADER_GLES FS_TEXFETCH_COL_BODY
 
 #define FS_TEXFETCH_DS_BODY                             \
    "uniform sampler%s samp;\n"                          \

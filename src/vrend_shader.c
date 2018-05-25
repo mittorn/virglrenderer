@@ -2736,7 +2736,7 @@ static char *emit_header(struct dump_ctx *ctx, char *glsl_hdr)
    return glsl_hdr;
 }
 
-static char vrend_shader_samplerreturnconv(enum tgsi_return_type type)
+char vrend_shader_samplerreturnconv(enum tgsi_return_type type)
 {
    switch (type) {
    case TGSI_RETURN_TYPE_SINT:

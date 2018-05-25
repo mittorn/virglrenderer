@@ -144,8 +144,28 @@ static void create_dest_swizzle_snippet(const uint8_t swizzle[4],
    }
 }
 
+static const char *vec4_type_for_tgsi_ret(enum tgsi_return_type tgsi_ret)
+{
+   switch (tgsi_ret) {
+   case TGSI_RETURN_TYPE_SINT: return "ivec4";
+   case TGSI_RETURN_TYPE_UINT: return "uvec4";
+   default: return "vec4";
+   }
+}
+
+static enum tgsi_return_type tgsi_ret_for_format(enum virgl_formats format)
+{
+   if (util_format_is_pure_uint(format))
+      return TGSI_RETURN_TYPE_UINT;
+   else if (util_format_is_pure_sint(format))
+      return TGSI_RETURN_TYPE_SINT;
+
+   return TGSI_RETURN_TYPE_UNORM;
+}
+
 static GLuint blit_build_frag_tex_col(struct vrend_blitter_ctx *blit_ctx,
                                       int tgsi_tex_target,
+                                      enum tgsi_return_type tgsi_ret,
                                       const uint8_t swizzle[4])
 {
    GLuint fs_id;
@@ -192,7 +212,9 @@ static GLuint blit_build_frag_tex_col(struct vrend_blitter_ctx *blit_ctx,
       create_dest_swizzle_snippet(swizzle, dest_swizzle_snippet);
 
    snprintf(shader_buf, 4096, blit_ctx->use_gles ? FS_TEXFETCH_COL_GLES : FS_TEXFETCH_COL_GL,
-            ext_str, vrend_shader_samplertypeconv(tgsi_tex_target, &is_shad), twm,
+            ext_str, vec4_type_for_tgsi_ret(tgsi_ret),
+            vrend_shader_samplerreturnconv(tgsi_ret),
+            vrend_shader_samplertypeconv(tgsi_tex_target, &is_shad), twm,
             dest_swizzle_snippet);
 
    fs_id = glCreateShader(GL_FRAGMENT_SHADER);
@@ -315,21 +337,26 @@ static GLuint blit_get_frag_tex_writedepth(struct vrend_blitter_ctx *blit_ctx, i
    }
 }
 
-static GLuint blit_get_frag_tex_col(struct vrend_blitter_ctx *blit_ctx, int pipe_tex_target, unsigned nr_samples, const struct vrend_format_table *entry)
+static GLuint blit_get_frag_tex_col(struct vrend_blitter_ctx *blit_ctx,
+                                    int pipe_tex_target,
+                                    unsigned nr_samples,
+                                    const struct vrend_format_table *src_entry,
+                                    const struct vrend_format_table *dst_entry)
 {
    assert(pipe_tex_target < PIPE_MAX_TEXTURE_TYPES);
 
    if (nr_samples > 1) {
       return 0;
-   } else if (entry->flags & VREND_BIND_NEED_SWIZZLE) {
+   } else if (dst_entry->flags & VREND_BIND_NEED_SWIZZLE) {
       GLuint *shader = &blit_ctx->fs_texfetch_col_swizzle;
       if (shader) {
           glDeleteShader(*shader);
       }
 
      unsigned tgsi_tex = util_pipe_tex_to_tgsi_tex(pipe_tex_target, 0);
+     enum tgsi_return_type tgsi_ret = tgsi_ret_for_format(src_entry->format);
 
-     *shader = blit_build_frag_tex_col(blit_ctx, tgsi_tex, entry->swizzle);
+     *shader = blit_build_frag_tex_col(blit_ctx, tgsi_tex, tgsi_ret, dst_entry->swizzle);
 
       return *shader;
    } else {
@@ -337,8 +364,9 @@ static GLuint blit_get_frag_tex_col(struct vrend_blitter_ctx *blit_ctx, int pipe
 
       if (!*shader) {
          unsigned tgsi_tex = util_pipe_tex_to_tgsi_tex(pipe_tex_target, 0);
+         enum tgsi_return_type tgsi_ret = tgsi_ret_for_format(src_entry->format);
 
-         *shader = blit_build_frag_tex_col(blit_ctx, tgsi_tex, NULL);
+         *shader = blit_build_frag_tex_col(blit_ctx, tgsi_tex, tgsi_ret, NULL);
       }
       return *shader;
    }
@@ -660,10 +688,14 @@ void vrend_renderer_blit_gl(struct vrend_context *ctx,
    prog_id = glCreateProgram();
    glAttachShader(prog_id, blit_ctx->vs);
 
-   if (blit_depth || blit_stencil)
-      fs_id = blit_get_frag_tex_writedepth(blit_ctx, src_res->base.target, src_res->base.nr_samples);
-   else
-      fs_id = blit_get_frag_tex_col(blit_ctx, src_res->base.target, src_res->base.nr_samples, dst_entry);
+   if (blit_depth || blit_stencil) {
+      fs_id = blit_get_frag_tex_writedepth(blit_ctx, src_res->base.target,
+                                           src_res->base.nr_samples);
+   } else {
+      fs_id = blit_get_frag_tex_col(blit_ctx, src_res->base.target,
+                                    src_res->base.nr_samples,
+                                    src_entry, dst_entry);
+   }
    glAttachShader(prog_id, fs_id);
 
    glLinkProgram(prog_id);

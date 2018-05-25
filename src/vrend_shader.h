@@ -26,6 +26,7 @@
 #define VREND_SHADER_H
 
 #include "pipe/p_state.h"
+#include "pipe/p_shader_tokens.h"
 
 /* need to store patching info for interpolation */
 struct vrend_interp_info {
@@ -105,6 +106,7 @@ char *vrend_convert_shader(struct vrend_shader_cfg *cfg,
                            struct vrend_shader_key *key,
                            struct vrend_shader_info *sinfo);
 const char *vrend_shader_samplertypeconv(int sampler_type, int *is_shad);
+char vrend_shader_samplerreturnconv(enum tgsi_return_type type);
 
 int shader_lookup_sampler_array(struct vrend_shader_info *sinfo, int index);
 #endif
