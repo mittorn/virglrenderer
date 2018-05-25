@@ -227,6 +227,54 @@ static GLuint blit_build_frag_tex_col(struct vrend_blitter_ctx *blit_ctx,
    return fs_id;
 }
 
+static GLuint blit_build_frag_tex_col_msaa(struct vrend_blitter_ctx *blit_ctx,
+                                           int tgsi_tex_target,
+                                           enum tgsi_return_type tgsi_ret,
+                                           const uint8_t swizzle[4],
+                                           int nr_samples)
+{
+   GLuint fs_id;
+   char shader_buf[4096];
+   int is_shad;
+   const char *twm;
+   const char *ivec;
+   char dest_swizzle_snippet[DEST_SWIZZLE_SNIPPET_SIZE] = "texel";
+   const char *ext_str = blit_ctx->use_gles ? "" :
+                         "#extension GL_ARB_texture_multisample : enable\n";
+
+   switch (tgsi_tex_target) {
+   case TGSI_TEXTURE_2D_MSAA:
+      twm = ".xy";
+      ivec = "ivec2";
+      break;
+   case TGSI_TEXTURE_2D_ARRAY_MSAA:
+      twm = ".xyz";
+      ivec = "ivec3";
+      break;
+   default:
+      return 0;
+   }
+
+   if (swizzle)
+      create_dest_swizzle_snippet(swizzle, dest_swizzle_snippet);
+
+   snprintf(shader_buf, 4096,
+            blit_ctx->use_gles ? FS_TEXFETCH_COL_MSAA_GLES : FS_TEXFETCH_COL_MSAA_GL,
+            ext_str, vec4_type_for_tgsi_ret(tgsi_ret),
+            vrend_shader_samplerreturnconv(tgsi_ret),
+            vrend_shader_samplertypeconv(tgsi_tex_target, &is_shad),
+            nr_samples, ivec, twm, dest_swizzle_snippet);
+
+   fs_id = glCreateShader(GL_FRAGMENT_SHADER);
+
+   if (!build_and_check(fs_id, shader_buf)) {
+      glDeleteShader(fs_id);
+      return 0;
+   }
+
+   return fs_id;
+}
+
 static GLuint blit_build_frag_tex_writedepth(struct vrend_blitter_ctx *blit_ctx, int tgsi_tex_target)
 {
    GLuint fs_id;
@@ -345,18 +393,26 @@ static GLuint blit_get_frag_tex_col(struct vrend_blitter_ctx *blit_ctx,
 {
    assert(pipe_tex_target < PIPE_MAX_TEXTURE_TYPES);
 
-   if (nr_samples > 1) {
-      return 0;
-   } else if (dst_entry->flags & VREND_BIND_NEED_SWIZZLE) {
+   bool needs_swizzle = dst_entry->flags & VREND_BIND_NEED_SWIZZLE;
+
+   if (needs_swizzle || nr_samples > 1) {
+      const uint8_t *swizzle = needs_swizzle ? dst_entry->swizzle : NULL;
       GLuint *shader = &blit_ctx->fs_texfetch_col_swizzle;
       if (shader) {
-          glDeleteShader(*shader);
+         glDeleteShader(*shader);
       }
 
-     unsigned tgsi_tex = util_pipe_tex_to_tgsi_tex(pipe_tex_target, 0);
-     enum tgsi_return_type tgsi_ret = tgsi_ret_for_format(src_entry->format);
+      unsigned tgsi_tex = util_pipe_tex_to_tgsi_tex(pipe_tex_target, nr_samples);
+      enum tgsi_return_type tgsi_ret = tgsi_ret_for_format(src_entry->format);
 
-     *shader = blit_build_frag_tex_col(blit_ctx, tgsi_tex, tgsi_ret, dst_entry->swizzle);
+      if (nr_samples > 1) {
+         // Integer textures are resolved using just one sample
+         int msaa_samples = tgsi_ret == TGSI_RETURN_TYPE_UNORM ? nr_samples : 1;
+         *shader = blit_build_frag_tex_col_msaa(blit_ctx, tgsi_tex, tgsi_ret,
+                                                swizzle, msaa_samples);
+      } else {
+         *shader = blit_build_frag_tex_col(blit_ctx, tgsi_tex, tgsi_ret, swizzle);
+      }
 
       return *shader;
    } else {

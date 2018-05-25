@@ -32,7 +32,7 @@
 
 #define HEADER_GLES                             \
    "// Blitter\n"                               \
-   "#version 300 es\n"                          \
+   "#version 310 es\n"                          \
    "precision mediump float;\n"                 \
 
 #define VS_PASSTHROUGH_BODY                     \
@@ -61,6 +61,25 @@
 
 #define FS_TEXFETCH_COL_GL HEADER_GL FS_TEXFETCH_COL_BODY
 #define FS_TEXFETCH_COL_GLES HEADER_GLES FS_TEXFETCH_COL_BODY
+
+
+#define FS_TEXFETCH_COL_MSAA_BODY                       \
+   "%s"                                                 \
+   "#define cvec4 %s\n"                                 \
+   "uniform mediump %csampler%s samp;\n"                \
+   "in vec4 tc;\n"                                      \
+   "out cvec4 FragColor;\n"                             \
+   "void main() {\n"                                    \
+   "   const int num_samples = %d;\n"                   \
+   "   cvec4 texel = cvec4(0);\n"                       \
+   "   for (int i = 0; i < num_samples; ++i) \n"        \
+   "      texel += texelFetch(samp, %s(tc%s), i);\n"    \
+   "   texel = texel / cvec4(num_samples);\n"           \
+   "   FragColor = cvec4(%s);\n"                        \
+   "}\n"
+
+#define FS_TEXFETCH_COL_MSAA_GL HEADER_GL FS_TEXFETCH_COL_MSAA_BODY
+#define FS_TEXFETCH_COL_MSAA_GLES HEADER_GLES FS_TEXFETCH_COL_MSAA_BODY
 
 #define FS_TEXFETCH_DS_BODY                             \
    "uniform sampler%s samp;\n"                          \
