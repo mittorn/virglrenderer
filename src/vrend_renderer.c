@@ -543,17 +543,6 @@ static void __report_gles_missing_func(const char *fname, struct vrend_context *
 }
 #define report_gles_missing_func(ctx, missf) __report_gles_missing_func(__func__, ctx, missf)
 
-
-static inline bool should_invert_viewport(struct vrend_context *ctx)
-{
-   /* if we have a negative viewport then gallium wanted to invert it,
-      however since we are rendering to GL FBOs we need to invert it
-      again unless we are rendering upside down already
-      - confused?
-      so if gallium asks for a negative viewport */
-   return !(ctx->sub->viewport_is_negative ^ ctx->sub->inverted_fbo_content);
-}
-
 static void vrend_destroy_surface(struct vrend_surface *surf)
 {
    vrend_resource_reference(&surf->texture, NULL);
