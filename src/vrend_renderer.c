@@ -112,7 +112,7 @@ struct global_renderer_state {
    bool have_nv_prim_restart;
    bool have_gl_prim_restart;
    bool have_bit_encoding;
-   bool have_vertex_attrib_binding;
+   bool have_gles31_vertex_attrib_binding;
    bool have_tf2;
    bool have_stencil_texturing;
    bool have_sample_shading;
@@ -932,7 +932,7 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
    } else
       sprog->dual_src_linked = false;
 
-   if (vrend_state.have_vertex_attrib_binding) {
+   if (vrend_state.have_gles31_vertex_attrib_binding) {
       uint32_t mask = vs->sel->sinfo.attrib_input_mask;
       while (mask) {
          i = u_bit_scan(&mask);
@@ -1035,7 +1035,7 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
          sprog->const_locs[id] = NULL;
    }
 
-   if (!vrend_state.have_vertex_attrib_binding) {
+   if (!vrend_state.have_gles31_vertex_attrib_binding) {
       if (vs->sel->sinfo.num_inputs) {
          sprog->attrib_locs = calloc(vs->sel->sinfo.num_inputs, sizeof(uint32_t));
          if (sprog->attrib_locs) {
@@ -1224,7 +1224,7 @@ static void vrend_destroy_vertex_elements_object(void *obj_ptr)
 {
    struct vrend_vertex_element_array *v = obj_ptr;
 
-   if (vrend_state.have_vertex_attrib_binding) {
+   if (vrend_state.have_gles31_vertex_attrib_binding) {
       glDeleteVertexArrays(1, &v->id);
    }
    FREE(v);
@@ -1837,7 +1837,7 @@ int vrend_create_vertex_elements_state(struct vrend_context *ctx,
          v->elements[i].nr_chan = desc->nr_channels;
    }
 
-   if (vrend_state.have_vertex_attrib_binding) {
+   if (vrend_state.have_gles31_vertex_attrib_binding) {
       glGenVertexArrays(1, &v->id);
       glBindVertexArray(v->id);
       for (i = 0; i < num_elements; i++) {
@@ -2715,7 +2715,7 @@ static void vrend_draw_bind_vertex_legacy(struct vrend_context *ctx,
          continue;
       }
 
-      if (vrend_state.use_explicit_locations || vrend_state.have_vertex_attrib_binding) {
+      if (vrend_state.use_explicit_locations || vrend_state.have_gles31_vertex_attrib_binding) {
          loc = i;
       } else {
          if (ctx->sub->prog->attrib_locs) {
@@ -3064,7 +3064,7 @@ void vrend_draw_vbo(struct vrend_context *ctx,
       }
    }
 
-   if (vrend_state.have_vertex_attrib_binding)
+   if (vrend_state.have_gles31_vertex_attrib_binding)
       vrend_draw_bind_vertex_binding(ctx, ctx->sub->ve);
    else
       vrend_draw_bind_vertex_legacy(ctx, ctx->sub->ve);
@@ -4229,8 +4229,9 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
 
    if (epoxy_has_gl_extension("GL_MESA_pack_invert"))
       vrend_state.have_mesa_invert = true;
-   if (gl_ver >= 43 || epoxy_has_gl_extension("GL_ARB_vertex_attrib_binding"))
-      vrend_state.have_vertex_attrib_binding = true;
+   if (gl_ver >= 43 ||  (gles && gl_ver >= 31) ||
+       epoxy_has_gl_extension("GL_ARB_vertex_attrib_binding"))
+      vrend_state.have_gles31_vertex_attrib_binding = true;
    if (gl_ver >= 33 || epoxy_has_gl_extension("GL_ARB_sampler_objects"))
       vrend_state.have_samplers = true;
    if (gl_ver >= 33 || epoxy_has_gl_extension("GL_ARB_shader_bit_encoding"))
@@ -4339,7 +4340,7 @@ static void vrend_destroy_sub_context(struct vrend_sub_context *sub)
 
    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-   if (!vrend_state.have_vertex_attrib_binding) {
+   if (!vrend_state.have_gles31_vertex_attrib_binding) {
       while (sub->enabled_attribs_bitmask) {
          i = u_bit_scan(&sub->enabled_attribs_bitmask);
 
@@ -7327,7 +7328,7 @@ void vrend_renderer_create_sub_ctx(struct vrend_context *ctx, int sub_ctx_id)
 
    sub->sub_ctx_id = sub_ctx_id;
 
-   if (!vrend_state.have_vertex_attrib_binding) {
+   if (!vrend_state.have_gles31_vertex_attrib_binding) {
       glGenVertexArrays(1, &sub->vaoid);
       glBindVertexArray(sub->vaoid);
    }
