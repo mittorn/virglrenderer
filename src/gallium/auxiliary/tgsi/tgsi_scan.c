@@ -209,7 +209,7 @@ tgsi_scan_shader(const struct tgsi_token *tokens,
                /* MSAA samplers */
                if (src->Register.File == TGSI_FILE_SAMPLER) {
                   assert(fullinst->Instruction.Texture);
-                  assert(src->Register.Index < Elements(info->is_msaa_sampler));
+                  assert((unsigned)src->Register.Index < Elements(info->is_msaa_sampler));
 
                   if (fullinst->Instruction.Texture &&
                       (fullinst->Texture.Texture == TGSI_TEXTURE_2D_MSAA ||
