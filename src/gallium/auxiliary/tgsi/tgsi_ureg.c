@@ -593,7 +593,7 @@ ureg_DECL_predicate(struct ureg_program *ureg)
 /* Allocate a new sampler.
  */
 struct ureg_src ureg_DECL_sampler( struct ureg_program *ureg,
-                                   unsigned nr )
+                                   int nr )
 {
    unsigned i;
 
@@ -916,6 +916,10 @@ static void validate( unsigned opcode,
       assert(nr_dst == info->num_dst);
       assert(nr_src == info->num_src);
    }
+#else
+   (void)opcode;
+   (void)nr_dst;
+   (void)nr_src;
 #endif
 }
 
@@ -1338,7 +1342,7 @@ static void emit_decls( struct ureg_program *ureg )
    unsigned i;
 
    for (i = 0; i < ARRAY_SIZE(ureg->properties); i++)
-      if (ureg->properties[i] != ~0)
+      if (ureg->properties[i] != ~0u)
          emit_property(ureg, i, ureg->properties[i]);
 
    if (ureg->processor == TGSI_PROCESSOR_VERTEX) {
@@ -1590,7 +1594,7 @@ void ureg_free_tokens( const struct tgsi_token *tokens )
 
 struct ureg_program *ureg_create( unsigned processor )
 {
-   int i;
+   unsigned i;
    struct ureg_program *ureg = CALLOC_STRUCT( ureg_program );
    if (ureg == NULL)
       goto no_ureg;

@@ -288,8 +288,8 @@ ureg_DECL_predicate(struct ureg_program *);
  * up state for in the context.
  */
 struct ureg_src
-ureg_DECL_sampler( struct ureg_program *,
-                   unsigned index );
+ureg_DECL_sampler(struct ureg_program *,
+                   int index );
 
 struct ureg_src
 ureg_DECL_sampler_view(struct ureg_program *,
