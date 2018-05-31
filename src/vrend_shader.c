@@ -1871,69 +1871,37 @@ get_destination_info(struct dump_ctx *ctx,
    return 0;
 }
 
-
-static boolean
-iter_instruction(struct tgsi_iterate_context *iter,
-                 struct tgsi_full_instruction *inst)
+static int
+get_source_info(struct dump_ctx *ctx,
+                const struct tgsi_full_instruction *inst,
+                enum vrend_type_qualifier *svec4, int *sreg_index,
+                char srcs[3][255], char src_swizzle0[10],
+                bool *tg4_has_component, bool *override_no_wm)
 {
-   struct dump_ctx *ctx = (struct dump_ctx *)iter;
-   char srcs[4][255], dsts[3][255], buf[512];
-   uint instno = ctx->instno++;
-   int i;
-   int j;
-   int sreg_index = 0;
-   char writemask[6] = {0};
-   enum tgsi_opcode_type stype = tgsi_opcode_infer_src_type(inst->Instruction.Opcode);
    bool stprefix = false;
-   bool override_no_wm[4];
-   bool dst_override_no_wm[2];
-   char *sret;
-   char src_swizzle0[10];
-   int ret;
-   bool tg4_has_component = false;
 
-   enum vrend_type_qualifier dtypeprefix, stypeprefix, dstconv, udstconv, svec4;
-   dtypeprefix = stypeprefix = dstconv = udstconv = TYPE_CONVERSION_NONE;
-   svec4 = VEC4;
+   enum vrend_type_qualifier stypeprefix = TYPE_CONVERSION_NONE;
+   enum tgsi_opcode_type stype = tgsi_opcode_infer_src_type(inst->Instruction.Opcode);
 
-   if (ctx->prog_type == -1)
-      ctx->prog_type = iter->processor.Processor;
    if (stype == TGSI_TYPE_SIGNED || stype == TGSI_TYPE_UNSIGNED)
       ctx->shader_req_bits |= SHADER_REQ_INTS;
 
    switch (stype) {
    case TGSI_TYPE_UNSIGNED:
       stypeprefix = FLOAT_BITS_TO_UINT;
-      svec4 = UVEC4;
+      *svec4 = UVEC4;
       stprefix = true;
       break;
    case TGSI_TYPE_SIGNED:
       stypeprefix = FLOAT_BITS_TO_INT;
-      svec4 = IVEC4;
+      *svec4 = IVEC4;
       stprefix = true;
       break;
    default:
       break;
    }
 
-   if (instno == 0) {
-      sret = add_str_to_glsl_main(ctx, "void main(void)\n{\n");
-      if (!sret)
-         return FALSE;
-      if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
-         ret = emit_color_select(ctx);
-         if (ret)
-            return FALSE;
-      }
-      if (ctx->so)
-         prepare_so_movs(ctx);
-   }
-
-   ret = get_destination_info(ctx, inst, &dtypeprefix, &dstconv, &udstconv, dst_override_no_wm, dsts, writemask);
-   if (ret)
-      return FALSE;
-
-   for (i = 0; i < inst->Instruction.NumSrcRegs; i++) {
+   for (uint32_t i = 0; i < inst->Instruction.NumSrcRegs; i++) {
       const struct tgsi_full_src_register *src = &inst->Src[i];
       char swizzle[8] = {0};
       char prefix[6] = {0};
@@ -1969,7 +1937,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
          swizzle[swz_idx++] = get_swiz_char(src->Register.SwizzleW);
       }
       if (src->Register.File == TGSI_FILE_INPUT) {
-         for (j = 0; j < ctx->num_inputs; j++)
+         for (uint32_t j = 0; j < ctx->num_inputs; j++)
             if (ctx->inputs[j].first == src->Register.Index) {
                if (ctx->key->color_two_side && ctx->inputs[j].name == TGSI_SEMANTIC_COLOR)
                   snprintf(srcs[i], 255, "%s(%s%s%d%s%s)", get_string(stypeprefix), prefix, "realcolor", ctx->inputs[j].sid, arrayname, swizzle);
@@ -2077,7 +2045,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
          } else {
             snprintf(srcs[i], 255, "%ssamp%d%s", cname, src->Register.Index, swizzle);
          }
-         sreg_index = src->Register.Index;
+         *sreg_index = src->Register.Index;
       } else if (src->Register.File == TGSI_FILE_IMMEDIATE) {
          if (src->Register.Index >= ARRAY_SIZE(ctx->imm)) {
             fprintf(stderr, "Immediate exceeded, max is %lu\n", ARRAY_SIZE(ctx->imm));
@@ -2114,7 +2082,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
 
          /* build up a vec4 of immediates */
          snprintf(srcs[i], 255, "%s(%s%s(", get_string(imm_stypeprefix), prefix, get_string(vtype));
-         for (j = 0; j < 4; j++) {
+         for (uint32_t j = 0; j < 4; j++) {
             if (j == 0)
                idx = src->Register.SwizzleX;
             else if (j == 1)
@@ -2126,7 +2094,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
 
             if (inst->Instruction.Opcode == TGSI_OPCODE_TG4 && i == 1 && j == 0) {
                if (imd->val[idx].ui > 0) {
-                  tg4_has_component = true;
+                  *tg4_has_component = true;
                   ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
                }
             }
@@ -2158,7 +2126,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
             }
          }
       } else if (src->Register.File == TGSI_FILE_SYSTEM_VALUE) {
-         for (j = 0; j < ctx->num_system_values; j++)
+         for (uint32_t j = 0; j < ctx->num_system_values; j++)
             if (ctx->system_values[j].first == src->Register.Index) {
                if (ctx->system_values[j].name == TGSI_SEMANTIC_VERTEXID ||
                    ctx->system_values[j].name == TGSI_SEMANTIC_INSTANCEID ||
@@ -2178,6 +2146,54 @@ iter_instruction(struct tgsi_iterate_context *iter,
             }
       }
    }
+
+   return 0;
+}
+
+static boolean
+iter_instruction(struct tgsi_iterate_context *iter,
+                 struct tgsi_full_instruction *inst)
+{
+   struct dump_ctx *ctx = (struct dump_ctx *)iter;
+   char srcs[4][255], dsts[3][255], buf[512];
+   uint instno = ctx->instno++;
+   int sreg_index = 0;
+   char writemask[6] = {0};
+   bool override_no_wm[3];
+   bool dst_override_no_wm[2];
+   char *sret;
+   int ret;
+   char src_swizzle0[10];
+   bool tg4_has_component = false;
+
+   enum vrend_type_qualifier dtypeprefix, dstconv, udstconv, svec4;
+   dtypeprefix = dstconv = udstconv = TYPE_CONVERSION_NONE;
+   svec4 = VEC4;
+
+   if (ctx->prog_type == -1)
+      ctx->prog_type = iter->processor.Processor;
+
+   if (instno == 0) {
+      sret = add_str_to_glsl_main(ctx, "void main(void)\n{\n");
+      if (!sret)
+         return FALSE;
+      if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
+         ret = emit_color_select(ctx);
+         if (ret)
+            return FALSE;
+      }
+      if (ctx->so)
+         prepare_so_movs(ctx);
+   }
+
+   ret = get_destination_info(ctx, inst, &dtypeprefix, &dstconv, &udstconv, dst_override_no_wm, dsts, writemask);
+   if (ret)
+      return FALSE;
+
+   ret = get_source_info(ctx, inst, &svec4, &sreg_index, srcs, src_swizzle0, &tg4_has_component, override_no_wm);
+   if (ret)
+      return FALSE;
+
    switch (inst->Instruction.Opcode) {
    case TGSI_OPCODE_SQRT:
       snprintf(buf, 255, "%s = sqrt(vec4(%s))%s;\n", dsts[0], srcs[0], writemask);
