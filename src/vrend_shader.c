@@ -185,6 +185,57 @@ static const struct vrend_shader_table shader_req_table[] = {
     { SHADER_REQ_DERIVATIVE_CONTROL, "GL_ARB_derivative_control" },
 };
 
+enum vrend_type_qualifier {
+   TYPE_CONVERSION_NONE = 0,
+   FLOAT = 1,
+   VEC2 = 2,
+   VEC3 = 3,
+   VEC4 = 4,
+   INT = 5,
+   IVEC2 = 6,
+   IVEC3 = 7,
+   IVEC4 = 8,
+   UINT = 9,
+   UVEC2 = 10,
+   UVEC3 = 11,
+   UVEC4 = 12,
+   FLOAT_BITS_TO_UINT = 13,
+   UINT_BITS_TO_FLOAT = 14,
+   FLOAT_BITS_TO_INT = 15,
+   INT_BITS_TO_FLOAT = 16,
+};
+
+static const struct vrend_shader_table conversion_table[] =
+{
+   {TYPE_CONVERSION_NONE, ""},
+   {FLOAT, "float"},
+   {VEC2, "vec2"},
+   {VEC3, "vec3"},
+   {VEC4, "vec4"},
+   {INT, "int"},
+   {IVEC2, "ivec2"},
+   {IVEC3, "ivec3"},
+   {IVEC4, "ivec4"},
+   {UINT, "uint"},
+   {UVEC2, "uvec2"},
+   {UVEC3, "uvec3"},
+   {UVEC4, "uvec4"},
+   {FLOAT_BITS_TO_UINT, "floatBitsToUint"},
+   {UINT_BITS_TO_FLOAT, "uintBitsToFloat"},
+   {FLOAT_BITS_TO_INT, "floatBitsToInt"},
+   {INT_BITS_TO_FLOAT, "intBitsToFloat"},
+};
+
+static inline const char *get_string(enum vrend_type_qualifier key)
+{
+   if (key >= ARRAY_SIZE(conversion_table)) {
+      printf("Unable to find the correct conversion\n");
+      return conversion_table[TYPE_CONVERSION_NONE].string;
+   }
+
+   return conversion_table[key].string;
+}
+
 static inline const char *tgsi_proc_to_prefix(int shader_type)
 {
    switch (shader_type) {
