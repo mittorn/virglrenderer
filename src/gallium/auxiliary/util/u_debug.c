@@ -434,7 +434,9 @@ const char *u_prim_name( unsigned prim )
 int fl_indent = 0;
 const char* fl_function[1024];
 
-int debug_funclog_enter(const char* f, const int line, const char* file)
+int
+debug_funclog_enter(const char* f, UNUSED const int line,
+                    UNUSED const char* file)
 {
    int i;
 
@@ -448,14 +450,18 @@ int debug_funclog_enter(const char* f, const int line, const char* file)
    return 0;
 }
 
-void debug_funclog_exit(const char* f, const int line, const char* file)
+void
+debug_funclog_exit(const char* f, UNUSED const int line,
+                   UNUSED const char* file)
 {
    --fl_indent;
    assert(fl_indent >= 0);
    assert(fl_function[fl_indent] == f);
 }
 
-void debug_funclog_enter_exit(const char* f, const int line, const char* file)
+void
+debug_funclog_enter_exit(const char* f, UNUSED const int line,
+                         UNUSED const char* file)
 {
    int i;
    for (i = 0; i < fl_indent; i++)
