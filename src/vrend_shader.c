@@ -1718,12 +1718,12 @@ static int translate_tex(struct dump_ctx *ctx,
 static void
 create_swizzled_clipdist(struct dump_ctx *ctx,
                          char *result,
-			 const struct tgsi_full_src_register *src,
-			 int input_idx,
-			 bool gl_in,
-			 const char *stypeprefix,
-			 const char *prefix,
-			 const char *arrayname)
+                         const struct tgsi_full_src_register *src,
+                         int input_idx,
+                         bool gl_in,
+                         const char *stypeprefix,
+                         const char *prefix,
+                         const char *arrayname)
 {
    char clipdistvec[4][64] = {};
    int idx;
@@ -1797,74 +1797,74 @@ get_destination_info(struct dump_ctx *ctx,
       dst_reg = &inst->Dst[i];
       dst_override_no_wm[i] = false;
       if (dst_reg->Register.WriteMask != TGSI_WRITEMASK_XYZW) {
-	 int wm_idx = 0;
-	 writemask[wm_idx++] = '.';
-	 if (dst_reg->Register.WriteMask & 0x1)
-	    writemask[wm_idx++] = 'x';
-	 if (dst_reg->Register.WriteMask & 0x2)
-	    writemask[wm_idx++] = 'y';
-	 if (dst_reg->Register.WriteMask & 0x4)
-	    writemask[wm_idx++] = 'z';
-	 if (dst_reg->Register.WriteMask & 0x8)
-	    writemask[wm_idx++] = 'w';
+         int wm_idx = 0;
+         writemask[wm_idx++] = '.';
+         if (dst_reg->Register.WriteMask & 0x1)
+            writemask[wm_idx++] = 'x';
+         if (dst_reg->Register.WriteMask & 0x2)
+            writemask[wm_idx++] = 'y';
+         if (dst_reg->Register.WriteMask & 0x4)
+            writemask[wm_idx++] = 'z';
+         if (dst_reg->Register.WriteMask & 0x8)
+            writemask[wm_idx++] = 'w';
 
-	 *dstconv = FLOAT + wm_idx - 2;
-	 *udstconv = UINT + wm_idx - 2;
+         *dstconv = FLOAT + wm_idx - 2;
+         *udstconv = UINT + wm_idx - 2;
       } else {
-	 *dstconv = VEC4;
-	 *udstconv = UVEC4;
+         *dstconv = VEC4;
+         *udstconv = UVEC4;
       }
 
       if (dst_reg->Register.File == TGSI_FILE_OUTPUT) {
-	 for (uint32_t j = 0; j < ctx->num_outputs; j++) {
-	    if (ctx->outputs[j].first == dst_reg->Register.Index) {
-	       if (ctx->glsl_ver_required >= 140 && ctx->outputs[j].name == TGSI_SEMANTIC_CLIPVERTEX) {
-		  snprintf(dsts[i], 255, "clipv_tmp");
-	       } else if (ctx->outputs[j].name == TGSI_SEMANTIC_CLIPDIST) {
-		  snprintf(dsts[i], 255, "clip_dist_temp[%d]", ctx->outputs[j].sid);
-	       } else if (ctx->outputs[j].name == TGSI_SEMANTIC_SAMPLEMASK) {
-		  int idx;
-		  switch (dst_reg->Register.WriteMask) {
-		  case 0x1: idx = 0; break;
-		  case 0x2: idx = 1; break;
-		  case 0x4: idx = 2; break;
-		  case 0x8: idx = 3; break;
-		  default:
-		     idx = 0;
-		     break;
-		  }
-		  snprintf(dsts[i], 255, "%s[%d]", ctx->outputs[j].glsl_name, idx);
-		  if (ctx->outputs[j].is_int) {
-		     *dtypeprefix = FLOAT_BITS_TO_INT;
-		     *dstconv = INT;
-		  }
-	       } else {
-		  snprintf(dsts[i], 255, "%s%s", ctx->outputs[j].glsl_name, ctx->outputs[j].override_no_wm ? "" : writemask);
-		  dst_override_no_wm[i] = ctx->outputs[j].override_no_wm;
-		  if (ctx->outputs[j].is_int) {
-		     if (*dtypeprefix == TYPE_CONVERSION_NONE)
-			*dtypeprefix = FLOAT_BITS_TO_INT;
-		     *dstconv = INT;
-		  }
-		  if (ctx->outputs[j].name == TGSI_SEMANTIC_PSIZE) {
-		     *dstconv = FLOAT;
-		     break;
-		  }
-	       }
-	    }
-	 }
+         for (uint32_t j = 0; j < ctx->num_outputs; j++) {
+            if (ctx->outputs[j].first == dst_reg->Register.Index) {
+               if (ctx->glsl_ver_required >= 140 && ctx->outputs[j].name == TGSI_SEMANTIC_CLIPVERTEX) {
+                  snprintf(dsts[i], 255, "clipv_tmp");
+               } else if (ctx->outputs[j].name == TGSI_SEMANTIC_CLIPDIST) {
+                  snprintf(dsts[i], 255, "clip_dist_temp[%d]", ctx->outputs[j].sid);
+               } else if (ctx->outputs[j].name == TGSI_SEMANTIC_SAMPLEMASK) {
+                  int idx;
+                  switch (dst_reg->Register.WriteMask) {
+                  case 0x1: idx = 0; break;
+                  case 0x2: idx = 1; break;
+                  case 0x4: idx = 2; break;
+                  case 0x8: idx = 3; break;
+                  default:
+                     idx = 0;
+                     break;
+                  }
+                  snprintf(dsts[i], 255, "%s[%d]", ctx->outputs[j].glsl_name, idx);
+                  if (ctx->outputs[j].is_int) {
+                     *dtypeprefix = FLOAT_BITS_TO_INT;
+                     *dstconv = INT;
+                  }
+               } else {
+                  snprintf(dsts[i], 255, "%s%s", ctx->outputs[j].glsl_name, ctx->outputs[j].override_no_wm ? "" : writemask);
+                  dst_override_no_wm[i] = ctx->outputs[j].override_no_wm;
+                  if (ctx->outputs[j].is_int) {
+                     if (*dtypeprefix == TYPE_CONVERSION_NONE)
+                        *dtypeprefix = FLOAT_BITS_TO_INT;
+                     *dstconv = INT;
+                  }
+                  if (ctx->outputs[j].name == TGSI_SEMANTIC_PSIZE) {
+                     *dstconv = FLOAT;
+                     break;
+                  }
+               }
+            }
+         }
       }
       else if (dst_reg->Register.File == TGSI_FILE_TEMPORARY) {
-	 struct vrend_temp_range *range = find_temp_range(ctx, dst_reg->Register.Index);
-	 if (!range)
-	    return FALSE;
-	 if (dst_reg->Register.Indirect) {
-	    snprintf(dsts[i], 255, "temp%d[addr0 + %d]%s", range->first, dst_reg->Register.Index - range->first, writemask);
-	 } else
-	    snprintf(dsts[i], 255, "temp%d[%d]%s", range->first, dst_reg->Register.Index - range->first, writemask);
+         struct vrend_temp_range *range = find_temp_range(ctx, dst_reg->Register.Index);
+         if (!range)
+            return FALSE;
+         if (dst_reg->Register.Indirect) {
+            snprintf(dsts[i], 255, "temp%d[addr0 + %d]%s", range->first, dst_reg->Register.Index - range->first, writemask);
+         } else
+            snprintf(dsts[i], 255, "temp%d[%d]%s", range->first, dst_reg->Register.Index - range->first, writemask);
       }
       else if (dst_reg->Register.File == TGSI_FILE_ADDRESS) {
-	 snprintf(dsts[i], 255, "addr%d", dst_reg->Register.Index);
+         snprintf(dsts[i], 255, "addr%d", dst_reg->Register.Index);
       }
    }
 
