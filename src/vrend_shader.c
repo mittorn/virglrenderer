@@ -1248,9 +1248,9 @@ static int emit_clip_dist_movs(struct dump_ctx *ctx)
 
 #define emit_arit_op2(op) snprintf(buf, 255, "%s = %s(%s((%s %s %s))%s);\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0], op, srcs[1], writemask)
 #define emit_op1(op) snprintf(buf, 255, "%s = %s(%s(%s(%s))%s);\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), op, srcs[0], writemask)
-#define emit_compare(op) snprintf(buf, 255, "%s = %s(%s((%s(%s(%s), %s(%s))))%s);\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), op, get_string(svec4), srcs[0], get_string(svec4), srcs[1], writemask)
+#define emit_compare(op) snprintf(buf, 255, "%s = %s(%s((%s(%s(%s), %s(%s))))%s);\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), op, get_string(sinfo.svec4), srcs[0], get_string(sinfo.svec4), srcs[1], writemask)
 
-#define emit_ucompare(op) snprintf(buf, 255, "%s = %s(uintBitsToFloat(%s(%s(%s(%s), %s(%s))%s) * %s(0xffffffff)));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.udstconv), op, get_string(svec4), srcs[0], get_string(svec4), srcs[1], writemask, get_string(dinfo.udstconv))
+#define emit_ucompare(op) snprintf(buf, 255, "%s = %s(uintBitsToFloat(%s(%s(%s(%s), %s(%s))%s) * %s(0xffffffff)));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.udstconv), op, get_string(sinfo.svec4), srcs[0], get_string(sinfo.svec4), srcs[1], writemask, get_string(dinfo.udstconv))
 
 static int emit_buf(struct dump_ctx *ctx, const char *buf)
 {
@@ -1952,12 +1952,18 @@ get_destination_info(struct dump_ctx *ctx,
    return 0;
 }
 
+struct source_info {
+   enum vrend_type_qualifier svec4;
+   int sreg_index;
+   bool tg4_has_component;
+   bool override_no_wm[3];
+};
+
 static int
 get_source_info(struct dump_ctx *ctx,
                 const struct tgsi_full_instruction *inst,
-                enum vrend_type_qualifier *svec4, int *sreg_index,
-                char srcs[3][255], char src_swizzle0[10],
-                bool *tg4_has_component, bool *override_no_wm)
+                struct source_info *sinfo,
+                char srcs[3][255], char src_swizzle0[10])
 {
    bool stprefix = false;
 
@@ -1970,12 +1976,12 @@ get_source_info(struct dump_ctx *ctx,
    switch (stype) {
    case TGSI_TYPE_UNSIGNED:
       stypeprefix = FLOAT_BITS_TO_UINT;
-      *svec4 = UVEC4;
+      sinfo->svec4 = UVEC4;
       stprefix = true;
       break;
    case TGSI_TYPE_SIGNED:
       stypeprefix = FLOAT_BITS_TO_INT;
-      *svec4 = IVEC4;
+      sinfo->svec4 = IVEC4;
       stprefix = true;
       break;
    default:
@@ -1990,7 +1996,7 @@ get_source_info(struct dump_ctx *ctx,
       int swz_idx = 0, pre_idx = 0;
       boolean isabsolute = src->Register.Absolute;
 
-      override_no_wm[i] = false;
+      sinfo->override_no_wm[i] = false;
       if (isabsolute)
          swizzle[swz_idx++] = ')';
 
@@ -2054,7 +2060,7 @@ get_source_info(struct dump_ctx *ctx,
                   snprintf(srcs[0], 255, "%s", ctx->inputs[j].glsl_name);
                   snprintf(src_swizzle0, 10, "%s", swizzle);
                }
-               override_no_wm[i] = ctx->inputs[j].override_no_wm;
+               sinfo->override_no_wm[i] = ctx->inputs[j].override_no_wm;
                break;
             }
       }
@@ -2126,7 +2132,7 @@ get_source_info(struct dump_ctx *ctx,
          } else {
             snprintf(srcs[i], 255, "%ssamp%d%s", cname, src->Register.Index, swizzle);
          }
-         *sreg_index = src->Register.Index;
+         sinfo->sreg_index = src->Register.Index;
       } else if (src->Register.File == TGSI_FILE_IMMEDIATE) {
          if (src->Register.Index >= ARRAY_SIZE(ctx->imm)) {
             fprintf(stderr, "Immediate exceeded, max is %lu\n", ARRAY_SIZE(ctx->imm));
@@ -2175,7 +2181,7 @@ get_source_info(struct dump_ctx *ctx,
 
             if (inst->Instruction.Opcode == TGSI_OPCODE_TG4 && i == 1 && j == 0) {
                if (imd->val[idx].ui > 0) {
-                  *tg4_has_component = true;
+                  sinfo->tg4_has_component = true;
                   ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
                }
             }
@@ -2222,7 +2228,7 @@ get_source_info(struct dump_ctx *ctx,
                            ctx->system_values[j].glsl_name, get_swiz_char(src->Register.SwizzleW));
                } else
                   snprintf(srcs[i], 255, "%s%s", prefix, ctx->system_values[j].glsl_name);
-               override_no_wm[i] = ctx->system_values[j].override_no_wm;
+               sinfo->override_no_wm[i] = ctx->system_values[j].override_no_wm;
                break;
             }
       }
@@ -2237,18 +2243,15 @@ iter_instruction(struct tgsi_iterate_context *iter,
 {
    struct dump_ctx *ctx = (struct dump_ctx *)iter;
    struct dest_info dinfo = { 0 };
+   struct source_info sinfo = { 0 };
    char srcs[4][255], dsts[3][255], buf[512];
    uint instno = ctx->instno++;
-   int sreg_index = 0;
    char writemask[6] = {0};
-   bool override_no_wm[3];
    char *sret;
    int ret;
    char src_swizzle0[10];
-   bool tg4_has_component = false;
 
-   enum vrend_type_qualifier svec4;
-   svec4 = VEC4;
+   sinfo.svec4 = VEC4;
 
    if (ctx->prog_type == -1)
       ctx->prog_type = iter->processor.Processor;
@@ -2270,7 +2273,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
    if (ret)
       return FALSE;
 
-   ret = get_source_info(ctx, inst, &svec4, &sreg_index, srcs, src_swizzle0, &tg4_has_component, override_no_wm);
+   ret = get_source_info(ctx, inst, &sinfo, srcs, src_swizzle0);
    if (ret)
       return FALSE;
 
@@ -2434,7 +2437,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
       EMIT_BUF_WITH_RET(ctx, buf);
       break;
    case TGSI_OPCODE_MOV:
-      snprintf(buf, 255, "%s = %s(%s(%s%s));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0], override_no_wm[0] ? "" : writemask);
+      snprintf(buf, 255, "%s = %s(%s(%s%s));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0], sinfo.override_no_wm[0] ? "" : writemask);
       EMIT_BUF_WITH_RET(ctx, buf);
       break;
    case TGSI_OPCODE_ADD:
@@ -2517,12 +2520,12 @@ iter_instruction(struct tgsi_iterate_context *iter,
    case TGSI_OPCODE_TG4:
    case TGSI_OPCODE_TXP:
    case TGSI_OPCODE_LODQ:
-      ret = translate_tex(ctx, inst, sreg_index, srcs, dsts, writemask, get_string(dinfo.dstconv), dinfo.dst_override_no_wm[0], tg4_has_component);
+      ret = translate_tex(ctx, inst, sinfo.sreg_index, srcs, dsts, writemask, get_string(dinfo.dstconv), dinfo.dst_override_no_wm[0], sinfo.tg4_has_component);
       if (ret)
          return FALSE;
       break;
    case TGSI_OPCODE_TXQ:
-      ret = emit_txq(ctx, inst, sreg_index, srcs, dsts, writemask);
+      ret = emit_txq(ctx, inst, sinfo.sreg_index, srcs, dsts, writemask);
       if (ret)
          return FALSE;
       break;
