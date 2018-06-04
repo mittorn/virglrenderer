@@ -286,6 +286,47 @@ static inline bool fs_emit_layout(struct dump_ctx *ctx)
    return false;
 }
 
+static const char *get_stage_input_name_prefix(struct dump_ctx *ctx, int processor)
+{
+   const char *name_prefix;
+   switch (processor) {
+   case TGSI_PROCESSOR_FRAGMENT:
+      if (ctx->key->gs_present)
+         name_prefix = "gso";
+      else
+         name_prefix = "vso";
+      break;
+   case TGSI_PROCESSOR_GEOMETRY:
+      name_prefix = "vso";
+      break;
+   case TGSI_PROCESSOR_VERTEX:
+   default:
+      name_prefix = "in";
+      break;
+   }
+   return name_prefix;
+}
+
+static const char *get_stage_output_name_prefix(int processor)
+{
+   const char *name_prefix;
+   switch (processor) {
+   case TGSI_PROCESSOR_FRAGMENT:
+      name_prefix = "fsout";
+      break;
+   case TGSI_PROCESSOR_GEOMETRY:
+      name_prefix = "gso";
+      break;
+   case TGSI_PROCESSOR_VERTEX:
+      name_prefix = "vso";
+      break;
+   default:
+      name_prefix = "out";
+      break;
+   }
+   return name_prefix;
+}
+
 static void require_glsl_ver(struct dump_ctx *ctx, int glsl_ver)
 {
    if (glsl_ver > ctx->glsl_ver_required)
@@ -557,21 +598,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
             }
          }
       default:
-         switch (iter->processor.Processor) {
-         case TGSI_PROCESSOR_FRAGMENT:
-            if (ctx->key->gs_present)
-               name_prefix = "gso";
-            else
-               name_prefix = "vso";
-            break;
-         case TGSI_PROCESSOR_GEOMETRY:
-            name_prefix = "vso";
-            break;
-         case TGSI_PROCESSOR_VERTEX:
-         default:
-            name_prefix = "in";
-            break;
-         }
+         name_prefix = get_stage_input_name_prefix(ctx, iter->processor.Processor);
          break;
       }
 
@@ -740,20 +767,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
             if (ctx->outputs[i].name == TGSI_SEMANTIC_GENERIC)
                color_offset = -1;
       default:
-         switch (iter->processor.Processor) {
-         case TGSI_PROCESSOR_FRAGMENT:
-            name_prefix = "fsout";
-            break;
-         case TGSI_PROCESSOR_GEOMETRY:
-            name_prefix = "gso";
-            break;
-         case TGSI_PROCESSOR_VERTEX:
-            name_prefix = "vso";
-            break;
-         default:
-            name_prefix = "out";
-            break;
-         }
+         name_prefix = get_stage_output_name_prefix(iter->processor.Processor);
          break;
       }
 
