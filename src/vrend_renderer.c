@@ -7081,7 +7081,7 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
       glGetIntegerv(GL_SHADER_STORAGE_BUFFER_OFFSET_ALIGNMENT, (GLint*)&caps->v2.shader_buffer_offset_alignment);
    }
 
-   caps->v2.tgsi_invariant = 1;
+   caps->v2.capability_bits |= VIRGL_CAP_TGSI_INVARIANT;
 }
 
 GLint64 vrend_renderer_get_timestamp(void)

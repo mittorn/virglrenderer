@@ -211,6 +211,10 @@ enum virgl_formats {
    VIRGL_FORMAT_MAX,
 };
 
+/* These are used by the capability_bits field in virgl_caps_v2. */
+#define VIRGL_CAP_NONE 0
+#define VIRGL_CAP_TGSI_INVARIANT       (1 << 0)
+
 struct virgl_caps_bool_set1 {
         unsigned indep_blend_enable:1;
         unsigned indep_blend_func:1;
@@ -298,8 +302,8 @@ struct virgl_caps_v2 {
         int32_t max_texture_gather_offset;
         uint32_t texture_buffer_offset_alignment;
         uint32_t uniform_buffer_offset_alignment;
-        uint32_t tgsi_invariant;
         uint32_t shader_buffer_offset_alignment;
+        uint32_t capability_bits;
 };
 
 union virgl_caps {
