@@ -1427,6 +1427,47 @@ static int emit_txq(struct dump_ctx *ctx,
    return 0;
 }
 
+static const char *get_tex_inst_ext(struct tgsi_full_instruction *inst)
+{
+   const char *tex_ext = "";
+   if (inst->Instruction.Opcode == TGSI_OPCODE_LODQ) {
+      tex_ext = "QueryLOD";
+   } else if (inst->Instruction.Opcode == TGSI_OPCODE_TXP) {
+      if (inst->Texture.Texture == TGSI_TEXTURE_CUBE ||
+          inst->Texture.Texture == TGSI_TEXTURE_2D_ARRAY ||
+          inst->Texture.Texture == TGSI_TEXTURE_1D_ARRAY)
+         tex_ext = "";
+      else if (inst->Texture.NumOffsets == 1)
+         tex_ext = "ProjOffset";
+      else
+         tex_ext = "Proj";
+   } else if (inst->Instruction.Opcode == TGSI_OPCODE_TXL ||
+              inst->Instruction.Opcode == TGSI_OPCODE_TXL2) {
+      if (inst->Texture.NumOffsets == 1)
+         tex_ext = "LodOffset";
+      else
+         tex_ext = "Lod";
+   } else if (inst->Instruction.Opcode == TGSI_OPCODE_TXD) {
+      if (inst->Texture.NumOffsets == 1)
+         tex_ext = "GradOffset";
+      else
+         tex_ext = "Grad";
+   } else if (inst->Instruction.Opcode == TGSI_OPCODE_TG4) {
+      if (inst->Texture.NumOffsets == 4)
+         tex_ext = "GatherOffsets";
+      else if (inst->Texture.NumOffsets == 1)
+         tex_ext = "GatherOffset";
+      else
+         tex_ext = "Gather";
+   } else {
+      if (inst->Texture.NumOffsets == 1)
+         tex_ext = "Offset";
+      else
+         tex_ext = "";
+   }
+   return tex_ext;
+}
+
 static int translate_tex(struct dump_ctx *ctx,
                          struct tgsi_full_instruction *inst,
                          int sreg_index,
@@ -1616,38 +1657,7 @@ static int translate_tex(struct dump_ctx *ctx,
    } else
       bias[0] = 0;
 
-   if (inst->Instruction.Opcode == TGSI_OPCODE_LODQ) {
-      tex_ext = "QueryLOD";
-   } else if (inst->Instruction.Opcode == TGSI_OPCODE_TXP) {
-      if (inst->Texture.Texture == TGSI_TEXTURE_CUBE || inst->Texture.Texture == TGSI_TEXTURE_2D_ARRAY || inst->Texture.Texture == TGSI_TEXTURE_1D_ARRAY)
-         tex_ext = "";
-      else if (inst->Texture.NumOffsets == 1)
-         tex_ext = "ProjOffset";
-      else
-         tex_ext = "Proj";
-   } else if (inst->Instruction.Opcode == TGSI_OPCODE_TXL || inst->Instruction.Opcode == TGSI_OPCODE_TXL2) {
-      if (inst->Texture.NumOffsets == 1)
-         tex_ext = "LodOffset";
-      else
-         tex_ext = "Lod";
-   } else if (inst->Instruction.Opcode == TGSI_OPCODE_TXD) {
-      if (inst->Texture.NumOffsets == 1)
-         tex_ext = "GradOffset";
-      else
-         tex_ext = "Grad";
-   } else if (inst->Instruction.Opcode == TGSI_OPCODE_TG4) {
-      if (inst->Texture.NumOffsets == 4)
-         tex_ext = "GatherOffsets";
-      else if (inst->Texture.NumOffsets == 1)
-         tex_ext = "GatherOffset";
-      else
-         tex_ext = "Gather";
-   } else {
-      if (inst->Texture.NumOffsets == 1)
-         tex_ext = "Offset";
-      else
-         tex_ext = "";
-   }
+   tex_ext = get_tex_inst_ext(inst);
 
    if (inst->Texture.NumOffsets == 1) {
       if (inst->TexOffsets[0].Index >= ARRAY_SIZE(ctx->imm)) {
