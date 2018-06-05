@@ -4610,7 +4610,7 @@ static void vrend_create_buffer(struct vrend_resource *gr, uint32_t width)
 int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *args, struct iovec *iov, uint32_t num_iovs)
 {
    struct vrend_resource *gr;
-   int level;
+   uint32_t level;
    int ret;
 
    ret = check_resource_valid(args);
@@ -4894,7 +4894,7 @@ static void read_transfer_data(struct pipe_resource *res,
    uint32_t send_size = util_format_get_nblocks(res->format, box->width,
                                               box->height) * blsize * box->depth;
    uint32_t bwx = util_format_get_nblocksx(res->format, box->width) * blsize;
-   uint32_t bh = util_format_get_nblocksy(res->format, box->height);
+   int32_t bh = util_format_get_nblocksy(res->format, box->height);
    int d, h;
 
    if ((send_size == size || bh == 1) && !invert && box->depth == 1)
@@ -4937,7 +4937,7 @@ static void write_transfer_data(struct pipe_resource *res,
    uint32_t send_size = util_format_get_nblocks(res->format, box->width,
                                                 box->height) * blsize * box->depth;
    uint32_t bwx = util_format_get_nblocksx(res->format, box->width) * blsize;
-   uint32_t bh = util_format_get_nblocksy(res->format, box->height);
+   int32_t bh = util_format_get_nblocksy(res->format, box->height);
    int d, h;
    uint32_t stride = dst_stride ? dst_stride : util_format_get_nblocksx(res->format, u_minify(res->width0, level)) * blsize;
 
@@ -5000,11 +5000,11 @@ static bool check_transfer_bounds(struct vrend_resource *res,
       if (info->box->z + info->box->depth > ldepth)
          return false;
    } else {
-      if (info->box->depth > res->base.array_size)
+      if (info->box->depth > (int)res->base.array_size)
          return false;
-      if (info->box->z > res->base.array_size)
+      if (info->box->z > (int)res->base.array_size)
          return false;
-      if (info->box->z + info->box->depth > res->base.array_size)
+      if (info->box->z + info->box->depth > (int)res->base.array_size)
          return false;
    }
 
