@@ -5913,7 +5913,8 @@ static void vrend_resource_copy_fallback(struct vrend_context *ctx,
 
    slice_offset = 0;
    for (i = 0; i < cube_slice; i++) {
-      GLenum ctarget = src_res->target == GL_TEXTURE_CUBE_MAP ? GL_TEXTURE_CUBE_MAP_POSITIVE_X + i : src_res->target;
+      GLenum ctarget = src_res->target == GL_TEXTURE_CUBE_MAP ?
+                          (GLenum)(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i) : src_res->target;
       if (compressed) {
          if (vrend_state.have_arb_robustness)
             glGetnCompressedTexImageARB(ctarget, src_level, transfer_size, tptr + slice_offset);
@@ -5954,7 +5955,8 @@ static void vrend_resource_copy_fallback(struct vrend_context *ctx,
    cube_slice = (src_res->target == GL_TEXTURE_CUBE_MAP) ? src_box->z + src_box->depth : cube_slice;
    i = (src_res->target == GL_TEXTURE_CUBE_MAP) ? src_box->z : 0;
    for (; i < cube_slice; i++) {
-      GLenum ctarget = dst_res->target == GL_TEXTURE_CUBE_MAP ? GL_TEXTURE_CUBE_MAP_POSITIVE_X + i : dst_res->target;
+      GLenum ctarget = dst_res->target == GL_TEXTURE_CUBE_MAP ?
+                          (GLenum)(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i) : dst_res->target;
       if (compressed) {
          if (ctarget == GL_TEXTURE_1D) {
             glCompressedTexSubImage1D(ctarget, dst_level, dstx,
@@ -6415,7 +6417,7 @@ uint32_t vrend_renderer_object_insert(struct vrend_context *ctx, void *data,
 
 int vrend_create_query(struct vrend_context *ctx, uint32_t handle,
                        uint32_t query_type, uint32_t query_index,
-                       uint32_t res_handle, uint32_t offset)
+                       uint32_t res_handle, UNUSED uint32_t offset)
 {
    struct vrend_query *q;
    struct vrend_resource *res;
@@ -6539,7 +6541,7 @@ void vrend_end_query(struct vrend_context *ctx, uint32_t handle)
 }
 
 void vrend_get_query_result(struct vrend_context *ctx, uint32_t handle,
-                            uint32_t wait)
+                            UNUSED uint32_t wait)
 {
    struct vrend_query *q;
    bool ret;
@@ -6670,7 +6672,7 @@ static void vrender_get_glsl_version(int *glsl_version)
  * Does all of the common caps setting,
  * if it dedects a early out returns true.
  */
-static bool vrend_renderer_fill_caps_common(uint32_t set, uint32_t version,
+static bool vrend_renderer_fill_caps_common(uint32_t set, UNUSED uint32_t version,
 					    union virgl_caps *caps)
 {
    int i, gl_ver;
@@ -6780,7 +6782,7 @@ static bool vrend_renderer_fill_caps_common(uint32_t set, uint32_t version,
    return false;
 }
 
-static void vrend_renderer_fill_caps_gles(uint32_t set, uint32_t version,
+static void vrend_renderer_fill_caps_gles(uint32_t set, UNUSED uint32_t version,
 					  union virgl_caps *caps)
 {
    GLint max;
@@ -7130,7 +7132,7 @@ void *vrend_renderer_get_cursor_contents(uint32_t res_handle, uint32_t *width, u
    int blsize;
    char *data, *data2;
    int size;
-   int h;
+   uint h;
 
    res = vrend_resource_lookup(res_handle, 0);
    if (!res)
