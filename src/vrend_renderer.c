@@ -1590,7 +1590,7 @@ void vrend_set_framebuffer_state(struct vrend_context *ctx,
                                  uint32_t zsurf_handle)
 {
    struct vrend_surface *surf, *zsurf;
-   uint i;
+   int i;
    int old_num;
    GLenum status;
    GLint new_height = -1;
@@ -1616,7 +1616,7 @@ void vrend_set_framebuffer_state(struct vrend_context *ctx,
    ctx->sub->nr_cbufs = nr_cbufs;
    ctx->sub->old_nr_cbufs = old_num;
 
-   for (i = 0; i < nr_cbufs; i++) {
+   for (i = 0; i < (int)nr_cbufs; i++) {
       if (surf_handle[i] != 0) {
          surf = vrend_object_lookup(ctx->sub->object_hash, surf_handle[i], VIRGL_OBJECT_SURFACE);
          if (!surf) {
@@ -1696,7 +1696,7 @@ void vrend_set_viewport_states(struct vrend_context *ctx,
    GLsizei width, height;
    GLclampd near_val, far_val;
    bool viewport_is_negative = (state[0].scale[1] < 0) ? true : false;
-   int i, idx;
+   uint i, idx;
 
    if (num_viewports > PIPE_MAX_VIEWPORTS ||
        start_slot > (PIPE_MAX_VIEWPORTS - num_viewports)) {
@@ -1764,7 +1764,7 @@ int vrend_create_vertex_elements_state(struct vrend_context *ctx,
    struct vrend_vertex_element_array *v;
    const struct util_format_description *desc;
    GLenum type;
-   int i;
+   uint i;
    uint32_t ret_handle;
 
    if (num_elements > PIPE_MAX_ATTRIBS)
@@ -1884,12 +1884,12 @@ void vrend_bind_vertex_elements_state(struct vrend_context *ctx,
 
 void vrend_set_constants(struct vrend_context *ctx,
                          uint32_t shader,
-                         uint32_t index,
+                         UNUSED uint32_t index,
                          uint32_t num_constant,
                          float *data)
 {
    struct vrend_constants *consts;
-   int i;
+   uint i;
 
    consts = &ctx->sub->consts[shader];
    ctx->sub->const_dirty[shader] = true;
@@ -2115,12 +2115,13 @@ void vrend_set_num_sampler_views(struct vrend_context *ctx,
                                  uint32_t start_slot,
                                  int num_sampler_views)
 {
-   if (start_slot + num_sampler_views < ctx->sub->views[shader_type].num_views) {
-      int i;
-      for (i = start_slot + num_sampler_views; i < ctx->sub->views[shader_type].num_views; i++)
-         vrend_sampler_view_reference(&ctx->sub->views[shader_type].views[i], NULL);
-   }
-   ctx->sub->views[shader_type].num_views = start_slot + num_sampler_views;
+   int last_slot = start_slot + num_sampler_views;
+   int i;
+
+   for (i = last_slot; i < ctx->sub->views[shader_type].num_views; i++)
+      vrend_sampler_view_reference(&ctx->sub->views[shader_type].views[i], NULL);
+
+   ctx->sub->views[shader_type].num_views = last_slot;
 }
 
 static void vrend_destroy_shader_object(void *obj_ptr)
