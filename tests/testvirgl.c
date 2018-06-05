@@ -95,9 +95,9 @@ static struct myinfo_struct mystruct;
 static struct virgl_renderer_callbacks test_cbs;
 
 static uint32_t testvirgl_last_fence;
-static void testvirgl_write_fence(void *cookie, uint32_t fence)
+static void testvirgl_write_fence(UNUSED void *cookie, uint32_t fence)
 {
-    testvirgl_last_fence = fence;
+   testvirgl_last_fence = fence;
 }
 
 uint32_t testvirgl_get_last_fence(void)
@@ -269,7 +269,7 @@ int testvirgl_create_backed_simple_buffer(struct virgl_resource *res,
 
 static void *get_caps(void)
 {
-    uint32_t max_ver, max_size, glsl_level;
+    uint32_t max_ver, max_size;
     void *caps;
 
     virgl_renderer_get_cap_set(1, &max_ver, &max_size);
