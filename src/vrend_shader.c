@@ -1469,10 +1469,6 @@ static int translate_tex(struct dump_ctx *ctx,
    if (inst->Instruction.Opcode == TGSI_OPCODE_LODQ)
       ctx->shader_req_bits |= SHADER_REQ_LODQ;
 
-   if (inst->Instruction.Opcode == TGSI_OPCODE_TXQ) {
-      return emit_txq(ctx, inst, sreg_index, srcs, dsts, writemask);
-   }
-
    switch (inst->Texture.Texture) {
    case TGSI_TEXTURE_1D:
    case TGSI_TEXTURE_BUFFER:
@@ -2475,9 +2471,13 @@ iter_instruction(struct tgsi_iterate_context *iter,
    case TGSI_OPCODE_TXF:
    case TGSI_OPCODE_TG4:
    case TGSI_OPCODE_TXP:
-   case TGSI_OPCODE_TXQ:
    case TGSI_OPCODE_LODQ:
       ret = translate_tex(ctx, inst, sreg_index, srcs, dsts, writemask, get_string(dstconv), dst_override_no_wm[0], tg4_has_component);
+      if (ret)
+         return FALSE;
+      break;
+   case TGSI_OPCODE_TXQ:
+      ret = emit_txq(ctx, inst, sreg_index, srcs, dsts, writemask);
       if (ret)
          return FALSE;
       break;
