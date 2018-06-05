@@ -34,12 +34,13 @@
 #include "vtest.h"
 #include "vtest_protocol.h"
 #include "util.h"
+#include "util/u_debug.h"
 
 static int ctx_id = 1;
 static int fence_id = 1;
 
 static int last_fence;
-static void vtest_write_fence(void *cookie, uint32_t fence_id_in)
+static void vtest_write_fence(UNUSED void *cookie, uint32_t fence_id_in)
 {
   last_fence = fence_id_in;
 }
@@ -133,7 +134,7 @@ int vtest_create_renderer(int in_fd, int out_fd, uint32_t length)
       return -1;
 
     ret = vtest_block_read(renderer.in_fd, vtestname, length);
-    if (ret != length) {
+    if (ret != (int)length) {
        ret = -1;
        goto end;
     }
@@ -240,7 +241,7 @@ int vtest_submit_cmd(uint32_t length_dw)
 	return -1;
 
     ret = vtest_block_read(renderer.in_fd, cbuf, length_dw * 4);
-    if (ret != length_dw * 4) {
+    if (ret != (int)length_dw * 4) {
        free(cbuf);
        return -1;
     }
@@ -267,7 +268,7 @@ int vtest_submit_cmd(uint32_t length_dw)
   } while(0)
 
 
-int vtest_transfer_get(uint32_t length_dw)
+int vtest_transfer_get(UNUSED uint32_t length_dw)
 {
     uint32_t thdr_buf[VCMD_TRANSFER_HDR_SIZE];
     int ret;
@@ -306,7 +307,7 @@ int vtest_transfer_get(uint32_t length_dw)
     return ret < 0 ? ret : 0;
 }
 
-int vtest_transfer_put(uint32_t length_dw)
+int vtest_transfer_put(UNUSED uint32_t length_dw)
 {
     uint32_t thdr_buf[VCMD_TRANSFER_HDR_SIZE];
     int ret;
