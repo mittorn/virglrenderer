@@ -1497,7 +1497,7 @@ static int translate_tex(struct dump_ctx *ctx,
                          bool dst0_override_no_wm,
                          bool tg4_has_component)
 {
-   const char *txfi;
+   enum vrend_type_qualifier txfi = TYPE_CONVERSION_NONE;
    unsigned twm = TGSI_WRITEMASK_NONE, gwm = TGSI_WRITEMASK_NONE;
    enum vrend_type_qualifier dtypeprefix = TYPE_CONVERSION_NONE;
    bool is_shad = false;
@@ -1537,11 +1537,11 @@ static int translate_tex(struct dump_ctx *ctx,
          twm = TGSI_WRITEMASK_NONE;
       else
          twm = TGSI_WRITEMASK_X;
-      txfi = "int";
+      txfi = INT;
       break;
    case TGSI_TEXTURE_1D_ARRAY:
       twm = TGSI_WRITEMASK_XY;
-      txfi = "ivec2";
+      txfi = IVEC2;
       break;
    case TGSI_TEXTURE_2D:
    case TGSI_TEXTURE_RECT:
@@ -1549,7 +1549,7 @@ static int translate_tex(struct dump_ctx *ctx,
          twm = TGSI_WRITEMASK_NONE;
       else
          twm = TGSI_WRITEMASK_XY;
-      txfi = "ivec2";
+      txfi = IVEC2;
       break;
    case TGSI_TEXTURE_SHADOW1D:
    case TGSI_TEXTURE_SHADOW2D:
@@ -1562,20 +1562,20 @@ static int translate_tex(struct dump_ctx *ctx,
          twm = TGSI_WRITEMASK_XY;
       else
          twm = TGSI_WRITEMASK_XYZ;
-      txfi = "ivec3";
+      txfi = IVEC3;
       break;
    case TGSI_TEXTURE_CUBE:
    case TGSI_TEXTURE_2D_ARRAY:
       twm = TGSI_WRITEMASK_XYZ;
-      txfi = "ivec3";
+      txfi = IVEC3;
       break;
    case TGSI_TEXTURE_2D_MSAA:
       twm = TGSI_WRITEMASK_XY;
-      txfi = "ivec2";
+      txfi = IVEC2;
       break;
    case TGSI_TEXTURE_2D_ARRAY_MSAA:
       twm = TGSI_WRITEMASK_XYZ;
-      txfi = "ivec3";
+      txfi = IVEC3;
       break;
 
    case TGSI_TEXTURE_SHADOWCUBE:
@@ -1589,7 +1589,7 @@ static int translate_tex(struct dump_ctx *ctx,
          twm = TGSI_WRITEMASK_XYZ;
       else
          twm = TGSI_WRITEMASK_NONE;
-      txfi = "";
+      txfi = TYPE_CONVERSION_NONE;
       break;
    }
 
@@ -1756,7 +1756,7 @@ static int translate_tex(struct dump_ctx *ctx,
       }
    }
    if (inst->Instruction.Opcode == TGSI_OPCODE_TXF) {
-      snprintf(buf, 255, "%s = %s(%s(texelFetch%s(%s, %s(%s%s)%s%s)%s));\n", dsts[0], dstconv, get_string(dtypeprefix), tex_ext, srcs[sampler_index], txfi, srcs[0], get_wm_string(twm), bias, offbuf, dst0_override_no_wm ? "" : writemask);
+      snprintf(buf, 255, "%s = %s(%s(texelFetch%s(%s, %s(%s%s)%s%s)%s));\n", dsts[0], dstconv, get_string(dtypeprefix), tex_ext, srcs[sampler_index], get_string(txfi), srcs[0], get_wm_string(twm), bias, offbuf, dst0_override_no_wm ? "" : writemask);
    } else if (ctx->cfg->glsl_version < 140 && (ctx->shader_req_bits & SHADER_REQ_SAMPLER_RECT)) {
       /* rect is special in GLSL 1.30 */
       if (inst->Texture.Texture == TGSI_TEXTURE_RECT)
