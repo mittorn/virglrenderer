@@ -814,9 +814,8 @@ static void set_stream_out_varyings(int prog_id, struct vrend_shader_info *sinfo
 {
    struct pipe_stream_output_info *so = &sinfo->so_info;
    char *varyings[PIPE_MAX_SHADER_OUTPUTS*2];
-   unsigned i;
    int j;
-   int n_outputs = 0;
+   uint i, n_outputs = 0;
    int last_buffer = 0;
    char *start_skip;
    int buf_offset = 0;
@@ -1500,7 +1499,7 @@ void vrend_fb_bind_texture(struct vrend_resource *res,
 static void vrend_hw_set_zsurf_texture(struct vrend_context *ctx)
 {
    struct vrend_resource *tex;
-   int first_layer, last_layer;
+   uint32_t first_layer, last_layer;
    if (!ctx->sub->zsurf) {
       glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_STENCIL_ATTACHMENT,
                                 GL_TEXTURE_2D, 0, 0);
@@ -1528,8 +1527,8 @@ static void vrend_hw_set_color_surface(struct vrend_context *ctx, int index)
       glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, attachment,
                                 GL_TEXTURE_2D, 0, 0);
    } else {
-      int first_layer = ctx->sub->surf[index]->val1 & 0xffff;
-      int last_layer = (ctx->sub->surf[index]->val1 >> 16) & 0xffff;
+      uint32_t first_layer = ctx->sub->surf[index]->val1 & 0xffff;
+      uint32_t last_layer = (ctx->sub->surf[index]->val1 >> 16) & 0xffff;
       tex = ctx->sub->surf[index]->texture;
 
 
@@ -1591,7 +1590,7 @@ void vrend_set_framebuffer_state(struct vrend_context *ctx,
                                  uint32_t zsurf_handle)
 {
    struct vrend_surface *surf, *zsurf;
-   int i;
+   uint i;
    int old_num;
    GLenum status;
    GLint new_height = -1;
@@ -1665,7 +1664,7 @@ void vrend_set_framebuffer_state(struct vrend_context *ctx,
    }
 
    if (new_height != -1) {
-      if (ctx->sub->fb_height != new_height || ctx->sub->inverted_fbo_content != new_ibf) {
+      if (ctx->sub->fb_height != (uint32_t)new_height || ctx->sub->inverted_fbo_content != new_ibf) {
          ctx->sub->fb_height = new_height;
          ctx->sub->inverted_fbo_content = new_ibf;
          ctx->sub->scissor_state_dirty = (1 << 0);
