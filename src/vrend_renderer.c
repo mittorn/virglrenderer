@@ -618,7 +618,7 @@ static void vrend_shader_destroy(struct vrend_shader *shader)
 static void vrend_destroy_shader_selector(struct vrend_shader_selector *sel)
 {
    struct vrend_shader *p = sel->current, *c;
-   int i;
+   unsigned i;
    while (p) {
       c = p->next_variant;
       vrend_shader_destroy(p);
@@ -765,7 +765,7 @@ static void vrend_stencil_test_enable(struct vrend_context *ctx, bool stencil_te
 
 static void dump_stream_out(struct pipe_stream_output_info *so)
 {
-   int i;
+   unsigned i;
    if (!so)
       return;
    printf("streamout: %d\n", so->num_outputs);
@@ -814,7 +814,8 @@ static void set_stream_out_varyings(int prog_id, struct vrend_shader_info *sinfo
 {
    struct pipe_stream_output_info *so = &sinfo->so_info;
    char *varyings[PIPE_MAX_SHADER_OUTPUTS*2];
-   int i, j;
+   unsigned i;
+   int j;
    int n_outputs = 0;
    int last_buffer = 0;
    char *start_skip;
@@ -1126,7 +1127,7 @@ static void vrend_free_programs(struct vrend_sub_context *sub)
 
 static void vrend_destroy_streamout_object(struct vrend_streamout_object *obj)
 {
-   int i;
+   unsigned i;
    list_del(&obj->head);
    for (i = 0; i < obj->num_targets; i++)
       vrend_so_target_reference(&obj->so_targets[i], NULL);
@@ -1194,7 +1195,7 @@ static void vrend_destroy_so_target_object(void *obj_ptr)
    struct vrend_sub_context *sub_ctx = target->sub_ctx;
    struct vrend_streamout_object *obj, *tmp;
    bool found;
-   int i;
+   unsigned i;
 
    LIST_FOR_EACH_ENTRY_SAFE(obj, tmp, &sub_ctx->streamout_list, head) {
       found = false;
