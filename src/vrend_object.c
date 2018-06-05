@@ -125,7 +125,8 @@ void vrend_object_fini_resource_table(void)
 
 uint32_t
 vrend_object_insert_nofree(struct util_hash_table *handle_hash,
-                           void *data, uint32_t length, uint32_t handle, enum virgl_object_type type, bool free_data)
+                           void *data, UNUSED uint32_t length, uint32_t handle,
+                           enum virgl_object_type type, bool free_data)
 {
    struct vrend_object *obj = CALLOC_STRUCT(vrend_object);
 
@@ -149,10 +150,9 @@ vrend_object_insert(struct util_hash_table *handle_hash,
 
 void
 vrend_object_remove(struct util_hash_table *handle_hash,
-                    uint32_t handle, enum virgl_object_type type)
+                    uint32_t handle, UNUSED enum virgl_object_type type)
 {
    util_hash_table_remove(handle_hash, intptr_to_pointer(handle));
-
 }
 
 void *vrend_object_lookup(struct util_hash_table *handle_hash,
@@ -192,7 +192,7 @@ void vrend_resource_remove(uint32_t handle)
    util_hash_table_remove(res_hash, intptr_to_pointer(handle));
 }
 
-void *vrend_resource_lookup(uint32_t handle, uint32_t ctx_id)
+void *vrend_resource_lookup(uint32_t handle, UNUSED uint32_t ctx_id)
 {
    struct vrend_object *obj;
    obj = util_hash_table_get(res_hash, intptr_to_pointer(handle));
