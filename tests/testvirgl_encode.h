@@ -46,6 +46,13 @@ static inline void virgl_encoder_write_qword(struct virgl_cmd_buf *state,
    state->cdw += 2;
 }
 
+static inline void virgl_encoder_write_double(struct virgl_cmd_buf *state,
+                                              double qword)
+{
+   memcpy(state->buf + state->cdw, &qword, sizeof(double));
+   state->cdw += 2;
+}
+
 static inline void virgl_encoder_write_block(struct virgl_cmd_buf *state,
 					    const uint8_t *ptr, uint32_t len)
 {
