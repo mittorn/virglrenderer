@@ -66,7 +66,8 @@ static int vrend_decode_create_shader(struct vrend_decode_ctx *ctx,
                                       uint16_t length)
 {
    struct pipe_stream_output_info so_info;
-   int i, ret;
+   uint i;
+   int ret;
    uint32_t shader_offset;
    unsigned num_tokens, num_so_outputs, offlen;
    uint8_t *shd_text;
@@ -131,7 +132,7 @@ static int vrend_decode_set_framebuffer_state(struct vrend_decode_ctx *ctx, int 
    if (length < 2)
       return EINVAL;
 
-   uint32_t nr_cbufs = get_buf_entry(ctx, VIRGL_SET_FRAMEBUFFER_STATE_NR_CBUFS);
+   int32_t nr_cbufs = get_buf_entry(ctx, VIRGL_SET_FRAMEBUFFER_STATE_NR_CBUFS);
    uint32_t zsurf_handle = get_buf_entry(ctx, VIRGL_SET_FRAMEBUFFER_STATE_NR_ZSURF_HANDLE);
    uint32_t surf_handle[8];
    int i;
@@ -177,7 +178,7 @@ static float uif(unsigned int ui)
 static int vrend_decode_set_viewport_state(struct vrend_decode_ctx *ctx, int length)
 {
    struct pipe_viewport_state vps[PIPE_MAX_VIEWPORTS];
-   int i, v;
+   uint i, v;
    uint32_t num_viewports, start_slot;
    if (length < 1)
       return EINVAL;
@@ -281,7 +282,8 @@ static int vrend_decode_set_sampler_views(struct vrend_decode_ctx *ctx, uint16_t
 {
    int num_samps;
    int i;
-   uint32_t shader_type, start_slot;
+   uint32_t shader_type;
+   int32_t start_slot;
 
    if (length < 2)
       return EINVAL;
@@ -793,7 +795,8 @@ static int vrend_decode_set_scissor_state(struct vrend_decode_ctx *ctx, int leng
 {
    struct pipe_scissor_state ss[PIPE_MAX_VIEWPORTS];
    uint32_t temp;
-   uint32_t num_scissor, start_slot;
+   int32_t num_scissor;
+   uint32_t start_slot;
    int s;
    if (length < 1)
       return EINVAL;
@@ -1053,7 +1056,7 @@ static int vrend_decode_set_streamout_targets(struct vrend_decode_ctx *ctx,
    uint32_t handles[16];
    uint32_t num_handles = length - 1;
    uint32_t append_bitmask;
-   int i;
+   uint i;
 
    if (length < 1)
       return EINVAL;
