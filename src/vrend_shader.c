@@ -1487,6 +1487,77 @@ static const char *get_tex_inst_ext(struct tgsi_full_instruction *inst)
    return tex_ext;
 }
 
+static bool fill_offset_buffer(struct dump_ctx *ctx,
+                               struct tgsi_full_instruction *inst,
+                               char *offbuf)
+{
+   if (inst->TexOffsets[0].File == TGSI_FILE_IMMEDIATE) {
+      struct immed *imd = &ctx->imm[inst->TexOffsets[0].Index];
+      switch (inst->Texture.Texture) {
+      case TGSI_TEXTURE_1D:
+      case TGSI_TEXTURE_1D_ARRAY:
+      case TGSI_TEXTURE_SHADOW1D:
+      case TGSI_TEXTURE_SHADOW1D_ARRAY:
+         snprintf(offbuf, 25, ", int(%d)", imd->val[inst->TexOffsets[0].SwizzleX].i);
+         break;
+      case TGSI_TEXTURE_RECT:
+      case TGSI_TEXTURE_SHADOWRECT:
+      case TGSI_TEXTURE_2D:
+      case TGSI_TEXTURE_2D_ARRAY:
+      case TGSI_TEXTURE_SHADOW2D:
+      case TGSI_TEXTURE_SHADOW2D_ARRAY:
+         snprintf(offbuf, 25, ", ivec2(%d, %d)", imd->val[inst->TexOffsets[0].SwizzleX].i, imd->val[inst->TexOffsets[0].SwizzleY].i);
+         break;
+      case TGSI_TEXTURE_3D:
+         snprintf(offbuf, 25, ", ivec3(%d, %d, %d)", imd->val[inst->TexOffsets[0].SwizzleX].i, imd->val[inst->TexOffsets[0].SwizzleY].i,
+                  imd->val[inst->TexOffsets[0].SwizzleZ].i);
+         break;
+      default:
+         fprintf(stderr, "unhandled texture: %x\n", inst->Texture.Texture);
+         return false;
+      }
+   } else if (inst->TexOffsets[0].File == TGSI_FILE_TEMPORARY) {
+      struct vrend_temp_range *range = find_temp_range(ctx, inst->TexOffsets[0].Index);
+      int idx = inst->TexOffsets[0].Index - range->first;
+      switch (inst->Texture.Texture) {
+      case TGSI_TEXTURE_1D:
+      case TGSI_TEXTURE_1D_ARRAY:
+      case TGSI_TEXTURE_SHADOW1D:
+      case TGSI_TEXTURE_SHADOW1D_ARRAY:
+         snprintf(offbuf, 120, ", int(floatBitsToInt(temp%d[%d].%c))",
+                  range->first, idx,
+                  get_swiz_char(inst->TexOffsets[0].SwizzleX));
+         break;
+      case TGSI_TEXTURE_RECT:
+      case TGSI_TEXTURE_SHADOWRECT:
+      case TGSI_TEXTURE_2D:
+      case TGSI_TEXTURE_2D_ARRAY:
+      case TGSI_TEXTURE_SHADOW2D:
+         case TGSI_TEXTURE_SHADOW2D_ARRAY:
+         snprintf(offbuf, 120, ", ivec2(floatBitsToInt(temp%d[%d].%c), floatBitsToInt(temp%d[%d].%c))",
+                  range->first, idx,
+                  get_swiz_char(inst->TexOffsets[0].SwizzleX),
+                  range->first, idx,
+                  get_swiz_char(inst->TexOffsets[0].SwizzleY));
+            break;
+      case TGSI_TEXTURE_3D:
+         snprintf(offbuf, 120, ", ivec2(floatBitsToInt(temp%d[%d].%c), floatBitsToInt(temp%d[%d].%c), floatBitsToInt(temp%d[%d].%c)",
+                  range->first, idx,
+                  get_swiz_char(inst->TexOffsets[0].SwizzleX),
+                  range->first, idx,
+                  get_swiz_char(inst->TexOffsets[0].SwizzleY),
+                  range->first, idx,
+                  get_swiz_char(inst->TexOffsets[0].SwizzleZ));
+         break;
+      default:
+         fprintf(stderr, "unhandled texture: %x\n", inst->Texture.Texture);
+         return false;
+         break;
+      }
+   }
+   return true;
+}
+
 static int translate_tex(struct dump_ctx *ctx,
                          struct tgsi_full_instruction *inst,
                          int sreg_index,
@@ -1684,70 +1755,10 @@ static int translate_tex(struct dump_ctx *ctx,
          fprintf(stderr, "Immediate exceeded, max is %lu\n", ARRAY_SIZE(ctx->imm));
          return false;
       }
-      if (inst->TexOffsets[0].File == TGSI_FILE_IMMEDIATE) {
-         struct immed *imd = &ctx->imm[inst->TexOffsets[0].Index];
-         switch (inst->Texture.Texture) {
-         case TGSI_TEXTURE_1D:
-         case TGSI_TEXTURE_1D_ARRAY:
-         case TGSI_TEXTURE_SHADOW1D:
-         case TGSI_TEXTURE_SHADOW1D_ARRAY:
-            snprintf(offbuf, 25, ", int(%d)", imd->val[inst->TexOffsets[0].SwizzleX].i);
-            break;
-         case TGSI_TEXTURE_RECT:
-         case TGSI_TEXTURE_SHADOWRECT:
-         case TGSI_TEXTURE_2D:
-         case TGSI_TEXTURE_2D_ARRAY:
-         case TGSI_TEXTURE_SHADOW2D:
-         case TGSI_TEXTURE_SHADOW2D_ARRAY:
-            snprintf(offbuf, 25, ", ivec2(%d, %d)", imd->val[inst->TexOffsets[0].SwizzleX].i, imd->val[inst->TexOffsets[0].SwizzleY].i);
-            break;
-         case TGSI_TEXTURE_3D:
-            snprintf(offbuf, 25, ", ivec3(%d, %d, %d)", imd->val[inst->TexOffsets[0].SwizzleX].i, imd->val[inst->TexOffsets[0].SwizzleY].i,
-                     imd->val[inst->TexOffsets[0].SwizzleZ].i);
-            break;
-         default:
-            fprintf(stderr, "unhandled texture: %x\n", inst->Texture.Texture);
-            return false;
-         }
-      } else if (inst->TexOffsets[0].File == TGSI_FILE_TEMPORARY) {
-         struct vrend_temp_range *range = find_temp_range(ctx, inst->TexOffsets[0].Index);
-         int idx = inst->TexOffsets[0].Index - range->first;
-         switch (inst->Texture.Texture) {
-         case TGSI_TEXTURE_1D:
-         case TGSI_TEXTURE_1D_ARRAY:
-         case TGSI_TEXTURE_SHADOW1D:
-         case TGSI_TEXTURE_SHADOW1D_ARRAY:
-            snprintf(offbuf, 120, ", int(floatBitsToInt(temp%d[%d].%c))",
-                     range->first, idx,
-                     get_swiz_char(inst->TexOffsets[0].SwizzleX));
-            break;
-         case TGSI_TEXTURE_RECT:
-         case TGSI_TEXTURE_SHADOWRECT:
-         case TGSI_TEXTURE_2D:
-         case TGSI_TEXTURE_2D_ARRAY:
-         case TGSI_TEXTURE_SHADOW2D:
-         case TGSI_TEXTURE_SHADOW2D_ARRAY:
-            snprintf(offbuf, 120, ", ivec2(floatBitsToInt(temp%d[%d].%c), floatBitsToInt(temp%d[%d].%c))",
-                     range->first, idx,
-                     get_swiz_char(inst->TexOffsets[0].SwizzleX),
-                     range->first, idx,
-                     get_swiz_char(inst->TexOffsets[0].SwizzleY));
-            break;
-         case TGSI_TEXTURE_3D:
-            snprintf(offbuf, 120, ", ivec2(floatBitsToInt(temp%d[%d].%c), floatBitsToInt(temp%d[%d].%c), floatBitsToInt(temp%d[%d].%c)",
-                     range->first, idx,
-                     get_swiz_char(inst->TexOffsets[0].SwizzleX),
-                     range->first, idx,
-                     get_swiz_char(inst->TexOffsets[0].SwizzleY),
-                     range->first, idx,
-                     get_swiz_char(inst->TexOffsets[0].SwizzleZ));
-                     break;
-         default:
-            fprintf(stderr, "unhandled texture: %x\n", inst->Texture.Texture);
-            return false;
-            break;
-         }
-      }
+
+      if (!fill_offset_buffer(ctx, inst, offbuf))
+         return false;
+
       if (inst->Instruction.Opcode == TGSI_OPCODE_TXL || inst->Instruction.Opcode == TGSI_OPCODE_TXL2 || inst->Instruction.Opcode == TGSI_OPCODE_TXD || (inst->Instruction.Opcode == TGSI_OPCODE_TG4 && is_shad)) {
          char tmp[128];
          strcpy(tmp, offbuf);
