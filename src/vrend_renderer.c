@@ -154,7 +154,7 @@ struct vrend_linked_shader_program {
    GLuint *shadow_samp_mask_locs[PIPE_SHADER_TYPES];
    GLuint *shadow_samp_add_locs[PIPE_SHADER_TYPES];
 
-   GLuint *const_locs[PIPE_SHADER_TYPES];
+   GLint *const_locs[PIPE_SHADER_TYPES];
 
    GLuint *attrib_locs;
    uint32_t shadow_samp_mask[PIPE_SHADER_TYPES];
@@ -3152,13 +3152,13 @@ void vrend_draw_vbo(struct vrend_context *ctx,
       else if (info->index_bias) {
          if (info->instance_count > 1)
             glDrawElementsInstancedBaseVertex(mode, info->count, elsz, (void *)(unsigned long)ctx->sub->ib.offset, info->instance_count, info->index_bias);
-         else if (info->min_index != 0 || info->max_index != -1)
+         else if (info->min_index != 0 || info->max_index != (unsigned)-1)
             glDrawRangeElementsBaseVertex(mode, info->min_index, info->max_index, info->count, elsz, (void *)(unsigned long)ctx->sub->ib.offset, info->index_bias);
          else
             glDrawElementsBaseVertex(mode, info->count, elsz, (void *)(unsigned long)ctx->sub->ib.offset, info->index_bias);
       } else if (info->instance_count > 1) {
          glDrawElementsInstancedARB(mode, info->count, elsz, (void *)(unsigned long)ctx->sub->ib.offset, info->instance_count);
-      } else if (info->min_index != 0 || info->max_index != -1)
+      } else if (info->min_index != 0 || info->max_index != (unsigned)-1)
          glDrawRangeElements(mode, info->min_index, info->max_index, info->count, elsz, (void *)(unsigned long)ctx->sub->ib.offset);
       else
          glDrawElements(mode, info->count, elsz, (void *)(unsigned long)ctx->sub->ib.offset);
@@ -3871,7 +3871,7 @@ void vrend_bind_sampler_states(struct vrend_context *ctx,
                                uint32_t num_states,
                                uint32_t *handles)
 {
-   int i;
+   uint32_t i;
    struct vrend_sampler_state *state;
 
    if (shader_type >= PIPE_SHADER_TYPES) {
@@ -4083,10 +4083,11 @@ static void wait_sync(struct vrend_fence *fence)
    }
 }
 
-static int thread_sync(void *arg)
+static int thread_sync(UNUSED void *arg)
 {
    virgl_gl_context gl_context = vrend_state.sync_context;
    struct vrend_fence *fence, *stor;
+
 
    pipe_mutex_lock(vrend_state.fence_mutex);
    vrend_clicbs->make_current(0, gl_context);
@@ -4158,9 +4159,9 @@ static void vrend_renderer_use_threaded_sync(void)
 }
 #endif
 
-static void vrend_debug_cb(GLenum source, GLenum type, GLuint id,
-                           GLenum severity, GLsizei length,
-                           const GLchar* message, const void* userParam)
+static void vrend_debug_cb(UNUSED GLenum source, GLenum type, UNUSED GLuint id,
+                           UNUSED GLenum severity, UNUSED GLsizei length,
+                           UNUSED const GLchar* message, UNUSED const void* userParam)
 {
    if (type != GL_DEBUG_TYPE_ERROR) {
       return;
