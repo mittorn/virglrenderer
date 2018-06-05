@@ -1295,9 +1295,65 @@ static int handle_fragment_proc_exit(struct dump_ctx *ctx)
     return TRUE;
 }
 
+static bool set_texture_reqs(struct dump_ctx *ctx,
+			     struct tgsi_full_instruction *inst,
+			     int sreg_index,
+			     bool *is_shad)
+{
+   if (sreg_index >= ARRAY_SIZE(ctx->samplers)) {
+      fprintf(stderr, "Sampler view exceeded, max is %lu\n", ARRAY_SIZE(ctx->samplers));
+      return false;
+   }
+   ctx->samplers[sreg_index].tgsi_sampler_type = inst->Texture.Texture;
+
+   switch (inst->Texture.Texture) {
+   case TGSI_TEXTURE_1D:
+   case TGSI_TEXTURE_2D:
+   case TGSI_TEXTURE_3D:
+   case TGSI_TEXTURE_CUBE:
+   case TGSI_TEXTURE_1D_ARRAY:
+   case TGSI_TEXTURE_2D_ARRAY:
+      break;
+   case TGSI_TEXTURE_SHADOWCUBE_ARRAY:
+      *is_shad = true;
+   case TGSI_TEXTURE_CUBE_ARRAY:
+      ctx->shader_req_bits |= SHADER_REQ_CUBE_ARRAY;
+      break;
+   case TGSI_TEXTURE_2D_MSAA:
+   case TGSI_TEXTURE_2D_ARRAY_MSAA:
+      ctx->shader_req_bits |= SHADER_REQ_SAMPLER_MS;
+      break;
+   case TGSI_TEXTURE_BUFFER:
+      ctx->uses_sampler_buf = true;
+      break;
+   case TGSI_TEXTURE_SHADOWRECT:
+      *is_shad = true;
+   case TGSI_TEXTURE_RECT:
+      ctx->shader_req_bits |= SHADER_REQ_SAMPLER_RECT;
+      break;
+   case TGSI_TEXTURE_SHADOW1D:
+   case TGSI_TEXTURE_SHADOW2D:
+   case TGSI_TEXTURE_SHADOWCUBE:
+   case TGSI_TEXTURE_SHADOW1D_ARRAY:
+   case TGSI_TEXTURE_SHADOW2D_ARRAY:
+      *is_shad = true;
+      break;
+   default:
+      fprintf(stderr, "unhandled texture: %x\n", inst->Texture.Texture);
+      return false;
+   }
+
+   if (ctx->cfg->glsl_version >= 140)
+      if ((ctx->shader_req_bits & SHADER_REQ_SAMPLER_RECT) || ctx->uses_sampler_buf)
+         require_glsl_ver(ctx, 140);
+
+   return true;
+}
+
 /* size queries are pretty much separate */
 static int emit_txq(struct dump_ctx *ctx,
                     struct tgsi_full_instruction *inst,
+                    int sreg_index,
                     char srcs[4][255],
                     char dsts[3][255],
                     const char *writemask)
@@ -1306,7 +1362,12 @@ static int emit_txq(struct dump_ctx *ctx,
    char bias[128] = {0};
    char buf[512];
    const int sampler_index = 1;
+   bool is_shad;
    enum vrend_type_qualifier dtypeprefix = INT_BITS_TO_FLOAT;
+
+   if (set_texture_reqs(ctx, inst, sreg_index, &is_shad) == false)
+      return FALSE;
+
    /* no lod parameter for txq for these */
    if (inst->Texture.Texture != TGSI_TEXTURE_RECT &&
        inst->Texture.Texture != TGSI_TEXTURE_SHADOWRECT &&
@@ -1385,12 +1446,8 @@ static int translate_tex(struct dump_ctx *ctx,
    int sampler_index;
    const char *tex_ext;
 
-   if (sreg_index >= ARRAY_SIZE(ctx->samplers)) {
-      fprintf(stderr, "Sampler view exceeded, max is %lu\n", ARRAY_SIZE(ctx->samplers));
+   if (set_texture_reqs(ctx, inst, sreg_index, &is_shad) == false)
       return FALSE;
-   }
-
-   ctx->samplers[sreg_index].tgsi_sampler_type = inst->Texture.Texture;
 
    switch (ctx->samplers[sreg_index].tgsi_sampler_return) {
    case TGSI_RETURN_TYPE_SINT:
@@ -1407,54 +1464,13 @@ static int translate_tex(struct dump_ctx *ctx,
       break;
    }
 
-   switch (inst->Texture.Texture) {
-   case TGSI_TEXTURE_1D:
-   case TGSI_TEXTURE_2D:
-   case TGSI_TEXTURE_3D:
-   case TGSI_TEXTURE_CUBE:
-   case TGSI_TEXTURE_1D_ARRAY:
-   case TGSI_TEXTURE_2D_ARRAY:
-      break;
-   case TGSI_TEXTURE_SHADOWCUBE_ARRAY:
-      is_shad = true;
-   case TGSI_TEXTURE_CUBE_ARRAY:
-      ctx->shader_req_bits |= SHADER_REQ_CUBE_ARRAY;
-      break;
-   case TGSI_TEXTURE_2D_MSAA:
-   case TGSI_TEXTURE_2D_ARRAY_MSAA:
-      ctx->shader_req_bits |= SHADER_REQ_SAMPLER_MS;
-      break;
-   case TGSI_TEXTURE_BUFFER:
-      ctx->uses_sampler_buf = true;
-      break;
-   case TGSI_TEXTURE_SHADOWRECT:
-      is_shad = true;
-   case TGSI_TEXTURE_RECT:
-      ctx->shader_req_bits |= SHADER_REQ_SAMPLER_RECT;
-      break;
-   case TGSI_TEXTURE_SHADOW1D:
-   case TGSI_TEXTURE_SHADOW2D:
-   case TGSI_TEXTURE_SHADOWCUBE:
-   case TGSI_TEXTURE_SHADOW1D_ARRAY:
-   case TGSI_TEXTURE_SHADOW2D_ARRAY:
-      is_shad = true;
-      break;
-   default:
-      fprintf(stderr, "unhandled texture: %x\n", inst->Texture.Texture);
-      return false;
-   }
-
-   if (ctx->cfg->glsl_version >= 140)
-      if ((ctx->shader_req_bits & SHADER_REQ_SAMPLER_RECT) || ctx->uses_sampler_buf)
-         require_glsl_ver(ctx, 140);
-
    sampler_index = 1;
 
    if (inst->Instruction.Opcode == TGSI_OPCODE_LODQ)
       ctx->shader_req_bits |= SHADER_REQ_LODQ;
 
    if (inst->Instruction.Opcode == TGSI_OPCODE_TXQ) {
-      return emit_txq(ctx, inst, srcs, dsts, writemask);
+      return emit_txq(ctx, inst, sreg_index, srcs, dsts, writemask);
    }
 
    switch (inst->Texture.Texture) {
