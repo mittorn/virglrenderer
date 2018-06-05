@@ -43,6 +43,13 @@
 #  include <unistd.h> /* getpid() */
 #endif
 
+#ifdef __GNUC__
+#define UNUSED __attribute__((unused))
+#define MAYBE_UNUSED __attribute__((unused))
+#else
+#define UNUSED
+#define MAYBE_UNUSED
+#endif
 
 #ifdef  __cplusplus
 extern "C" {
