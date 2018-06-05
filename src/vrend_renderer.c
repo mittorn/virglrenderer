@@ -5164,7 +5164,7 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
       if ((!vrend_state.use_core_profile) && (res->y_0_top)) {
          GLuint buffers;
 
-         if (res->readback_fb_id == 0 || res->readback_fb_level != info->level) {
+         if (res->readback_fb_id == 0 || (int)res->readback_fb_level != info->level) {
             GLuint fb_id;
             if (res->readback_fb_id)
                glDeleteFramebuffers(1, &res->readback_fb_id);
@@ -5186,7 +5186,7 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
          vrend_alpha_test_enable(ctx, false);
          vrend_stencil_test_enable(ctx, false);
          glPixelZoom(1.0f, res->y_0_top ? -1.0f : 1.0f);
-         glWindowPos2i(info->box->x, res->y_0_top ? res->base.height0 - info->box->y : info->box->y);
+         glWindowPos2i(info->box->x, res->y_0_top ? (int)res->base.height0 - info->box->y : info->box->y);
          glDrawPixels(info->box->width, info->box->height, glformat, gltype,
                       data);
       } else {
@@ -5205,7 +5205,7 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
          }
 
          x = info->box->x;
-         y = invert ? res->base.height0 - info->box->y - info->box->height : info->box->y;
+         y = invert ? (int)res->base.height0 - info->box->y - info->box->height : info->box->y;
 
          if (res->base.format == (enum pipe_format)VIRGL_FORMAT_Z24X8_UNORM) {
             /* we get values from the guest as 24-bit scaled integers
@@ -5413,7 +5413,8 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
       data = myptr;
    }
 
-   if (res->readback_fb_id == 0 || res->readback_fb_level != info->level || res->readback_fb_z != info->box->z) {
+   if (res->readback_fb_id == 0 || (int)res->readback_fb_level != info->level ||
+       (int)res->readback_fb_z != info->box->z) {
 
       if (res->readback_fb_id)
          glDeleteFramebuffers(1, &res->readback_fb_id);
@@ -5482,13 +5483,13 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
       if (type != GL_UNSIGNED_BYTE && type != GL_UNSIGNED_INT &&
           type != GL_INT && type != GL_FLOAT) {
          glGetIntegerv(GL_IMPLEMENTATION_COLOR_READ_TYPE, &imp);
-         if (imp != type) {
+         if (imp != (GLint)type) {
             fprintf(stderr, "GL_IMPLEMENTATION_COLOR_READ_TYPE is not expected native type 0x%x != imp 0x%x\n", type, imp);
          }
       }
       if (format != GL_RGBA && format != GL_RGBA_INTEGER) {
          glGetIntegerv(GL_IMPLEMENTATION_COLOR_READ_FORMAT, &imp);
-         if (imp != format) {
+         if (imp != (GLint)format) {
             fprintf(stderr, "GL_IMPLEMENTATION_COLOR_READ_FORMAT is not expected native format 0x%x != imp 0x%x\n", format, imp);
          }
       }
@@ -5521,15 +5522,15 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
    return 0;
 }
 
-static int vrend_transfer_send_readonly(struct vrend_context *ctx,
+static int vrend_transfer_send_readonly(UNUSED struct vrend_context *ctx,
                                         struct vrend_resource *res,
                                         struct iovec *iov, int num_iovs,
-                                        const struct vrend_transfer_info *info)
+                                        UNUSED const struct vrend_transfer_info *info)
 {
    bool same_iov = true;
-   int i;
+   uint i;
 
-   if (res->num_iovs == num_iovs) {
+   if (res->num_iovs == (uint32_t)num_iovs) {
       for (i = 0; i < res->num_iovs; i++) {
          if (res->iov[i].iov_len != iov[i].iov_len ||
              res->iov[i].iov_base != iov[i].iov_base) {
