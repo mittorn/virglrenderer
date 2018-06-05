@@ -7302,6 +7302,7 @@ void vrend_renderer_create_sub_ctx(struct vrend_context *ctx, int sub_ctx_id)
 {
    struct vrend_sub_context *sub;
    struct virgl_gl_ctx_param ctx_params;
+   GLuint i;
 
    LIST_FOR_EACH_ENTRY(sub, &ctx->sub_ctxs, head) {
       if (sub->sub_ctx_id == sub_ctx_id) {
@@ -7327,6 +7328,11 @@ void vrend_renderer_create_sub_ctx(struct vrend_context *ctx, int sub_ctx_id)
    }
 
    sub->sub_ctx_id = sub_ctx_id;
+
+   /* initialize the depth far_val to 1 */
+   for (i = 0; i < PIPE_MAX_VIEWPORTS; i++) {
+      sub->vps[i].far_val = 1.0;
+   }
 
    if (!vrend_state.have_gles31_vertex_attrib_binding) {
       glGenVertexArrays(1, &sub->vaoid);
