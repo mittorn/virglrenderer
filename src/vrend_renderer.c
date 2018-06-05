@@ -5660,7 +5660,7 @@ int vrend_renderer_transfer_iov(const struct vrend_transfer_info *info,
 
 int vrend_transfer_inline_write(struct vrend_context *ctx,
                                 struct vrend_transfer_info *info,
-                                unsigned usage)
+                                UNUSED unsigned usage)
 {
    struct vrend_resource *res;
 
@@ -5708,7 +5708,7 @@ void vrend_set_scissor_state(struct vrend_context *ctx,
                              uint32_t num_scissor,
                              struct pipe_scissor_state *ss)
 {
-   int i, idx;
+   uint i, idx;
 
    if (start_slot > PIPE_MAX_VIEWPORTS ||
        num_scissor > (PIPE_MAX_VIEWPORTS - start_slot)) {
@@ -5772,14 +5772,14 @@ void vrend_set_clip_state(struct vrend_context *ctx, struct pipe_clip_state *ucp
    }
 }
 
-void vrend_set_sample_mask(struct vrend_context *ctx, unsigned sample_mask)
+void vrend_set_sample_mask(UNUSED struct vrend_context *ctx, unsigned sample_mask)
 {
    glSampleMaski(0, sample_mask);
 }
 
-static void vrend_hw_emit_streamout_targets(struct vrend_context *ctx, struct vrend_streamout_object *so_obj)
+static void vrend_hw_emit_streamout_targets(UNUSED struct vrend_context *ctx, struct vrend_streamout_object *so_obj)
 {
-   int i;
+   uint i;
 
    for (i = 0; i < so_obj->num_targets; i++) {
       if (so_obj->so_targets[i]->buffer_offset || so_obj->so_targets[i]->buffer_size < so_obj->so_targets[i]->buffer->base.width0)
@@ -5790,12 +5790,12 @@ static void vrend_hw_emit_streamout_targets(struct vrend_context *ctx, struct vr
 }
 
 void vrend_set_streamout_targets(struct vrend_context *ctx,
-                                 uint32_t append_bitmask,
+                                 UNUSED uint32_t append_bitmask,
                                  uint32_t num_targets,
                                  uint32_t *handles)
 {
    struct vrend_so_target *target;
-   int i;
+   uint i;
 
    if (num_targets) {
       bool found = false;
@@ -5841,13 +5841,12 @@ void vrend_set_streamout_targets(struct vrend_context *ctx,
    }
 }
 
-static void vrend_resource_buffer_copy(struct vrend_context *ctx,
+static void vrend_resource_buffer_copy(UNUSED struct vrend_context *ctx,
                                        struct vrend_resource *src_res,
                                        struct vrend_resource *dst_res,
                                        uint32_t dstx, uint32_t srcx,
                                        uint32_t width)
 {
-
    glBindBuffer(GL_COPY_READ_BUFFER, src_res->id);
    glBindBuffer(GL_COPY_WRITE_BUFFER, dst_res->id);
 
