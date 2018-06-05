@@ -285,7 +285,8 @@ START_TEST(virgl_test_transfer_1d)
     unsigned char data[50*4];
     struct iovec iov = { .iov_base = data, .iov_len = sizeof(data) };
     int niovs = 1;
-    int ret, i;
+    int ret;
+    unsigned i;
     struct virgl_box box;
 
     /* init and create simple 2D resource */
