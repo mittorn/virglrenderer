@@ -275,7 +275,7 @@ int virgl_egl_make_context_current(struct virgl_egl *ve, virgl_renderer_gl_conte
                          eglctx);
 }
 
-virgl_renderer_gl_context virgl_egl_get_current_context(struct virgl_egl *ve)
+virgl_renderer_gl_context virgl_egl_get_current_context(UNUSED struct virgl_egl *ve)
 {
    EGLContext eglctx = eglGetCurrentContext();
    return (virgl_renderer_gl_context)eglctx;
