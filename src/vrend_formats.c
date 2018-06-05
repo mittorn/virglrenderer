@@ -32,6 +32,21 @@
 #define RRR1_SWIZZLE { PIPE_SWIZZLE_RED, PIPE_SWIZZLE_RED, PIPE_SWIZZLE_RED, PIPE_SWIZZLE_ONE }
 #define RGB1_SWIZZLE { PIPE_SWIZZLE_RED, PIPE_SWIZZLE_GREEN, PIPE_SWIZZLE_BLUE, PIPE_SWIZZLE_ONE }
 
+#ifdef __GNUC__
+/* The warning missing-field-initializers is misleading: If at least one field
+ * is initialized, then the un-initialized fields will be filled with zero.
+ * Silencing the warning by manually adding the zeros that the compiler will add
+ * anyway doesn't improve the code, and initializing the files by using a named
+ * notation will make it worse, because then he remaining fields truely be
+ * un-initialized.
+ */
+#ifdef __clang__
+#pragma clang diagnostic ignored "-Wmissing-field-initializers"
+#else
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+#endif
+#endif
+
 /* fill the format table */
 static struct vrend_format_table base_rgba_formats[] =
   {
