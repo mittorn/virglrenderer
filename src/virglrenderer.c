@@ -269,7 +269,7 @@ void virgl_renderer_poll(void)
    vrend_renderer_check_fences();
 }
 
-void virgl_renderer_cleanup(void *cookie)
+void virgl_renderer_cleanup(UNUSED void *cookie)
 {
    vrend_renderer_fini();
 #ifdef HAVE_EPOXY_EGL_H
