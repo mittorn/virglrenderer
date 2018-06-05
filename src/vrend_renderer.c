@@ -162,7 +162,7 @@ struct vrend_linked_shader_program {
    GLuint *ubo_locs[PIPE_SHADER_TYPES];
    GLuint vs_ws_adjust_loc;
 
-   GLuint fs_stipple_loc;
+   GLint fs_stipple_loc;
 
    GLuint clip_locs[8];
 };
@@ -2265,7 +2265,7 @@ static int vrend_shader_select(struct vrend_context *ctx,
    return 0;
 }
 
-static void *vrend_create_shader_state(struct vrend_context *ctx,
+static void *vrend_create_shader_state(UNUSED struct vrend_context *ctx,
                                        const struct pipe_stream_output_info *so_info,
                                        unsigned pipe_shader_type)
 {
@@ -2699,7 +2699,7 @@ static void vrend_draw_bind_vertex_legacy(struct vrend_context *ctx,
    num_enable = va->count;
    enable_bitmask = 0;
    disable_bitmask = ~((1ull << num_enable) - 1);
-   for (i = 0; i < va->count; i++) {
+   for (i = 0; i < (int)va->count; i++) {
       struct vrend_vertex_element *ve = &va->elements[i];
       int vbo_index = ve->base.vertex_buffer_index;
       struct vrend_resource *res;
@@ -2856,7 +2856,7 @@ static void vrend_draw_bind_samplers(struct vrend_context *ctx)
 
          glActiveTexture(GL_TEXTURE0 + sampler_id);
          if (texture) {
-            int id;
+            GLuint id;
             GLenum target = texture->target;
 
             if (texture->is_buffer) {
@@ -2947,7 +2947,7 @@ void vrend_draw_vbo(struct vrend_context *ctx,
 {
    int i;
    bool new_program = false;
-   uint32_t shader_type;
+   int32_t shader_type;
    struct vrend_resource *indirect_res = NULL;
 
    if (ctx->in_error)
@@ -3001,11 +3001,11 @@ void vrend_draw_vbo(struct vrend_context *ctx,
          return;
       }
       same_prog = true;
-      if (ctx->sub->shaders[PIPE_SHADER_VERTEX]->current->id != ctx->sub->prog_ids[PIPE_SHADER_VERTEX])
+      if (ctx->sub->shaders[PIPE_SHADER_VERTEX]->current->id != (GLuint)ctx->sub->prog_ids[PIPE_SHADER_VERTEX])
          same_prog = false;
-      if (ctx->sub->shaders[PIPE_SHADER_FRAGMENT]->current->id != ctx->sub->prog_ids[PIPE_SHADER_FRAGMENT])
+      if (ctx->sub->shaders[PIPE_SHADER_FRAGMENT]->current->id != (GLuint)ctx->sub->prog_ids[PIPE_SHADER_FRAGMENT])
          same_prog = false;
-      if (ctx->sub->shaders[PIPE_SHADER_GEOMETRY] && ctx->sub->shaders[PIPE_SHADER_GEOMETRY]->current->id != ctx->sub->prog_ids[PIPE_SHADER_GEOMETRY])
+      if (ctx->sub->shaders[PIPE_SHADER_GEOMETRY] && ctx->sub->shaders[PIPE_SHADER_GEOMETRY]->current->id != (GLuint)ctx->sub->prog_ids[PIPE_SHADER_GEOMETRY])
          same_prog = false;
 
       if (!same_prog) {
