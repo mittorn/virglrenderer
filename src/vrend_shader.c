@@ -1295,6 +1295,76 @@ static int handle_fragment_proc_exit(struct dump_ctx *ctx)
     return TRUE;
 }
 
+/* size queries are pretty much separate */
+static int emit_txq(struct dump_ctx *ctx,
+                    struct tgsi_full_instruction *inst,
+                    char srcs[4][255],
+                    char dsts[3][255],
+                    const char *dtypeprefix,
+                    const char *writemask)
+{
+   const char *twm = "";
+   char bias[128] = {0};
+   char buf[512];
+   const int sampler_index = 1;
+   /* no lod parameter for txq for these */
+   if (inst->Texture.Texture != TGSI_TEXTURE_RECT &&
+       inst->Texture.Texture != TGSI_TEXTURE_SHADOWRECT &&
+       inst->Texture.Texture != TGSI_TEXTURE_BUFFER &&
+       inst->Texture.Texture != TGSI_TEXTURE_2D_MSAA &&
+       inst->Texture.Texture != TGSI_TEXTURE_2D_ARRAY_MSAA)
+      snprintf(bias, 128, ", int(%s.w)", srcs[0]);
+
+   /* need to emit a textureQueryLevels */
+   if (inst->Dst[0].Register.WriteMask & 0x8) {
+
+      if (inst->Texture.Texture != TGSI_TEXTURE_BUFFER &&
+          inst->Texture.Texture != TGSI_TEXTURE_RECT &&
+          inst->Texture.Texture != TGSI_TEXTURE_2D_MSAA &&
+          inst->Texture.Texture != TGSI_TEXTURE_2D_ARRAY_MSAA) {
+         ctx->shader_req_bits |= SHADER_REQ_TXQ_LEVELS;
+         if (inst->Dst[0].Register.WriteMask & 0x7)
+            twm = ".w";
+         snprintf(buf, 255, "%s%s = %s(textureQueryLevels(%s));\n", dsts[0], twm, dtypeprefix, srcs[sampler_index]);
+         EMIT_BUF_WITH_RET(ctx, buf);
+      }
+
+      if (inst->Dst[0].Register.WriteMask & 0x7) {
+         switch (inst->Texture.Texture) {
+         case TGSI_TEXTURE_1D:
+         case TGSI_TEXTURE_BUFFER:
+         case TGSI_TEXTURE_SHADOW1D:
+            twm = ".x";
+            break;
+         case TGSI_TEXTURE_1D_ARRAY:
+         case TGSI_TEXTURE_SHADOW1D_ARRAY:
+         case TGSI_TEXTURE_2D:
+         case TGSI_TEXTURE_SHADOW2D:
+         case TGSI_TEXTURE_RECT:
+         case TGSI_TEXTURE_SHADOWRECT:
+         case TGSI_TEXTURE_CUBE:
+         case TGSI_TEXTURE_SHADOWCUBE:
+         case TGSI_TEXTURE_2D_MSAA:
+            twm = ".xy";
+            break;
+         case TGSI_TEXTURE_3D:
+         case TGSI_TEXTURE_2D_ARRAY:
+         case TGSI_TEXTURE_SHADOW2D_ARRAY:
+         case TGSI_TEXTURE_SHADOWCUBE_ARRAY:
+         case TGSI_TEXTURE_CUBE_ARRAY:
+         case TGSI_TEXTURE_2D_ARRAY_MSAA:
+            twm = ".xyz";
+            break;
+         }
+      }
+   }
+
+   if (inst->Dst[0].Register.WriteMask & 0x7) {
+      snprintf(buf, 255, "%s%s = %s(textureSize(%s%s))%s;\n", dsts[0], twm, dtypeprefix, srcs[sampler_index], bias, util_bitcount(inst->Dst[0].Register.WriteMask) > 1 ? writemask : "");
+      EMIT_BUF_WITH_RET(ctx, buf);
+   }
+   return 0;
+}
 
 static int translate_tex(struct dump_ctx *ctx,
                          struct tgsi_full_instruction *inst,
@@ -1388,64 +1458,7 @@ static int translate_tex(struct dump_ctx *ctx,
       ctx->shader_req_bits |= SHADER_REQ_LODQ;
 
    if (inst->Instruction.Opcode == TGSI_OPCODE_TXQ) {
-      /* no lod parameter for txq for these */
-      if (inst->Texture.Texture != TGSI_TEXTURE_RECT &&
-          inst->Texture.Texture != TGSI_TEXTURE_SHADOWRECT &&
-          inst->Texture.Texture != TGSI_TEXTURE_BUFFER &&
-          inst->Texture.Texture != TGSI_TEXTURE_2D_MSAA &&
-          inst->Texture.Texture != TGSI_TEXTURE_2D_ARRAY_MSAA)
-         snprintf(bias, 128, ", int(%s.w)", srcs[0]);
-
-      /* need to emit a textureQueryLevels */
-      if (inst->Dst[0].Register.WriteMask & 0x8) {
-
-         if (inst->Texture.Texture != TGSI_TEXTURE_BUFFER &&
-             inst->Texture.Texture != TGSI_TEXTURE_RECT &&
-             inst->Texture.Texture != TGSI_TEXTURE_2D_MSAA &&
-             inst->Texture.Texture != TGSI_TEXTURE_2D_ARRAY_MSAA) {
-            ctx->shader_req_bits |= SHADER_REQ_TXQ_LEVELS;
-            if (inst->Dst[0].Register.WriteMask & 0x7)
-               twm = ".w";
-            snprintf(buf, 255, "%s%s = %s(textureQueryLevels(%s));\n", dsts[0], twm, dtypeprefix, srcs[sampler_index]);
-            EMIT_BUF_WITH_RET(ctx, buf);
-         }
-
-         if (inst->Dst[0].Register.WriteMask & 0x7) {
-            switch (inst->Texture.Texture) {
-            case TGSI_TEXTURE_1D:
-            case TGSI_TEXTURE_BUFFER:
-            case TGSI_TEXTURE_SHADOW1D:
-               twm = ".x";
-               break;
-            case TGSI_TEXTURE_1D_ARRAY:
-            case TGSI_TEXTURE_SHADOW1D_ARRAY:
-            case TGSI_TEXTURE_2D:
-            case TGSI_TEXTURE_SHADOW2D:
-            case TGSI_TEXTURE_RECT:
-            case TGSI_TEXTURE_SHADOWRECT:
-            case TGSI_TEXTURE_CUBE:
-            case TGSI_TEXTURE_SHADOWCUBE:
-            case TGSI_TEXTURE_2D_MSAA:
-               twm = ".xy";
-               break;
-            case TGSI_TEXTURE_3D:
-            case TGSI_TEXTURE_2D_ARRAY:
-            case TGSI_TEXTURE_SHADOW2D_ARRAY:
-            case TGSI_TEXTURE_SHADOWCUBE_ARRAY:
-            case TGSI_TEXTURE_CUBE_ARRAY:
-            case TGSI_TEXTURE_2D_ARRAY_MSAA:
-               twm = ".xyz";
-               break;
-            }
-         }
-      }
-
-      if (inst->Dst[0].Register.WriteMask & 0x7) {
-         snprintf(buf, 255, "%s%s = %s(textureSize(%s%s))%s;\n", dsts[0], twm, dtypeprefix, srcs[sampler_index], bias, util_bitcount(inst->Dst[0].Register.WriteMask) > 1 ? writemask : "");
-         EMIT_BUF_WITH_RET(ctx, buf);
-      }
-
-      return 0;
+      return emit_txq(ctx, inst, srcs, dsts, dtypeprefix, writemask);
    }
 
    switch (inst->Texture.Texture) {
