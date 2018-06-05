@@ -1377,7 +1377,7 @@ static int translate_tex(struct dump_ctx *ctx,
                          bool tg4_has_component)
 {
    const char *twm = "", *gwm = NULL, *txfi;
-   const char *dtypeprefix = "";
+   enum vrend_type_qualifier dtypeprefix = TYPE_CONVERSION_NONE;
    bool is_shad = false;
    char buf[512];
    char offbuf[128] = {0};
@@ -1396,12 +1396,12 @@ static int translate_tex(struct dump_ctx *ctx,
    case TGSI_RETURN_TYPE_SINT:
       /* if dstconv isn't an int */
       if (strcmp(dstconv, "int"))
-         dtypeprefix = "intBitsToFloat";
+         dtypeprefix = INT_BITS_TO_FLOAT;
       break;
    case TGSI_RETURN_TYPE_UINT:
       /* if dstconv isn't an int */
       if (strcmp(dstconv, "int"))
-         dtypeprefix = "uintBitsToFloat";
+         dtypeprefix = UINT_BITS_TO_FLOAT;
       break;
    default:
       break;
@@ -1714,7 +1714,7 @@ static int translate_tex(struct dump_ctx *ctx,
       }
    }
    if (inst->Instruction.Opcode == TGSI_OPCODE_TXF) {
-      snprintf(buf, 255, "%s = %s(%s(texelFetch%s(%s, %s(%s%s)%s%s)%s));\n", dsts[0], dstconv, dtypeprefix, tex_ext, srcs[sampler_index], txfi, srcs[0], twm, bias, offbuf, dst0_override_no_wm ? "" : writemask);
+      snprintf(buf, 255, "%s = %s(%s(texelFetch%s(%s, %s(%s%s)%s%s)%s));\n", dsts[0], dstconv, get_string(dtypeprefix), tex_ext, srcs[sampler_index], txfi, srcs[0], twm, bias, offbuf, dst0_override_no_wm ? "" : writemask);
    } else if (ctx->cfg->glsl_version < 140 && (ctx->shader_req_bits & SHADER_REQ_SAMPLER_RECT)) {
       /* rect is special in GLSL 1.30 */
       if (inst->Texture.Texture == TGSI_TEXTURE_RECT)
@@ -1724,15 +1724,15 @@ static int translate_tex(struct dump_ctx *ctx,
    } else if (is_shad && inst->Instruction.Opcode != TGSI_OPCODE_TG4) { /* TGSI returns 1.0 in alpha */
       const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
       const struct tgsi_full_src_register *src = &inst->Src[sampler_index];
-      snprintf(buf, 255, "%s = %s(%s(vec4(vec4(texture%s(%s, %s%s%s%s)) * %sshadmask%d + %sshadadd%d)%s));\n", dsts[0], dstconv, dtypeprefix, tex_ext, srcs[sampler_index], srcs[0], twm, offbuf, bias, cname, src->Register.Index, cname, src->Register.Index, writemask);
+      snprintf(buf, 255, "%s = %s(%s(vec4(vec4(texture%s(%s, %s%s%s%s)) * %sshadmask%d + %sshadadd%d)%s));\n", dsts[0], dstconv, get_string(dtypeprefix), tex_ext, srcs[sampler_index], srcs[0], twm, offbuf, bias, cname, src->Register.Index, cname, src->Register.Index, writemask);
    } else {
       /* OpenGL ES do not support 1D texture
        * so we use a 2D texture with a parameter set to 0.5
        */
       if (ctx->cfg->use_gles && inst->Texture.Texture == TGSI_TEXTURE_1D) {
-         snprintf(buf, 255, "%s = %s(%s(texture2D(%s, vec2(%s%s%s%s, 0.5))%s));\n", dsts[0], dstconv, dtypeprefix, srcs[sampler_index], srcs[0], twm, offbuf, bias, dst0_override_no_wm ? "" : writemask);
+         snprintf(buf, 255, "%s = %s(%s(texture2D(%s, vec2(%s%s%s%s, 0.5))%s));\n", dsts[0], dstconv, get_string(dtypeprefix), srcs[sampler_index], srcs[0], twm, offbuf, bias, dst0_override_no_wm ? "" : writemask);
       } else {
-         snprintf(buf, 255, "%s = %s(%s(texture%s(%s, %s%s%s%s)%s));\n", dsts[0], dstconv, dtypeprefix, tex_ext, srcs[sampler_index], srcs[0], twm, offbuf, bias, dst0_override_no_wm ? "" : writemask);
+         snprintf(buf, 255, "%s = %s(%s(texture%s(%s, %s%s%s%s)%s));\n", dsts[0], dstconv, get_string(dtypeprefix), tex_ext, srcs[sampler_index], srcs[0], twm, offbuf, bias, dst0_override_no_wm ? "" : writemask);
       }
    }
    return emit_buf(ctx, buf);
