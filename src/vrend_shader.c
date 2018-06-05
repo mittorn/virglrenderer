@@ -1300,13 +1300,13 @@ static int emit_txq(struct dump_ctx *ctx,
                     struct tgsi_full_instruction *inst,
                     char srcs[4][255],
                     char dsts[3][255],
-                    const char *dtypeprefix,
                     const char *writemask)
 {
    const char *twm = "";
    char bias[128] = {0};
    char buf[512];
    const int sampler_index = 1;
+   enum vrend_type_qualifier dtypeprefix = INT_BITS_TO_FLOAT;
    /* no lod parameter for txq for these */
    if (inst->Texture.Texture != TGSI_TEXTURE_RECT &&
        inst->Texture.Texture != TGSI_TEXTURE_SHADOWRECT &&
@@ -1325,7 +1325,7 @@ static int emit_txq(struct dump_ctx *ctx,
          ctx->shader_req_bits |= SHADER_REQ_TXQ_LEVELS;
          if (inst->Dst[0].Register.WriteMask & 0x7)
             twm = ".w";
-         snprintf(buf, 255, "%s%s = %s(textureQueryLevels(%s));\n", dsts[0], twm, dtypeprefix, srcs[sampler_index]);
+         snprintf(buf, 255, "%s%s = %s(textureQueryLevels(%s));\n", dsts[0], twm, get_string(dtypeprefix), srcs[sampler_index]);
          EMIT_BUF_WITH_RET(ctx, buf);
       }
 
@@ -1360,7 +1360,7 @@ static int emit_txq(struct dump_ctx *ctx,
    }
 
    if (inst->Dst[0].Register.WriteMask & 0x7) {
-      snprintf(buf, 255, "%s%s = %s(textureSize(%s%s))%s;\n", dsts[0], twm, dtypeprefix, srcs[sampler_index], bias, util_bitcount(inst->Dst[0].Register.WriteMask) > 1 ? writemask : "");
+      snprintf(buf, 255, "%s%s = %s(textureSize(%s%s))%s;\n", dsts[0], twm, get_string(dtypeprefix), srcs[sampler_index], bias, util_bitcount(inst->Dst[0].Register.WriteMask) > 1 ? writemask : "");
       EMIT_BUF_WITH_RET(ctx, buf);
    }
    return 0;
@@ -1392,23 +1392,19 @@ static int translate_tex(struct dump_ctx *ctx,
 
    ctx->samplers[sreg_index].tgsi_sampler_type = inst->Texture.Texture;
 
-   if (inst->Instruction.Opcode == TGSI_OPCODE_TXQ) {
-      dtypeprefix = "intBitsToFloat";
-   } else {
-      switch (ctx->samplers[sreg_index].tgsi_sampler_return) {
-      case TGSI_RETURN_TYPE_SINT:
-         /* if dstconv isn't an int */
-         if (strcmp(dstconv, "int"))
-            dtypeprefix = "intBitsToFloat";
-         break;
-      case TGSI_RETURN_TYPE_UINT:
-         /* if dstconv isn't an int */
-         if (strcmp(dstconv, "int"))
-            dtypeprefix = "uintBitsToFloat";
-         break;
-      default:
-         break;
-      }
+   switch (ctx->samplers[sreg_index].tgsi_sampler_return) {
+   case TGSI_RETURN_TYPE_SINT:
+      /* if dstconv isn't an int */
+      if (strcmp(dstconv, "int"))
+         dtypeprefix = "intBitsToFloat";
+      break;
+   case TGSI_RETURN_TYPE_UINT:
+      /* if dstconv isn't an int */
+      if (strcmp(dstconv, "int"))
+         dtypeprefix = "uintBitsToFloat";
+      break;
+   default:
+      break;
    }
 
    switch (inst->Texture.Texture) {
@@ -1458,7 +1454,7 @@ static int translate_tex(struct dump_ctx *ctx,
       ctx->shader_req_bits |= SHADER_REQ_LODQ;
 
    if (inst->Instruction.Opcode == TGSI_OPCODE_TXQ) {
-      return emit_txq(ctx, inst, srcs, dsts, dtypeprefix, writemask);
+      return emit_txq(ctx, inst, srcs, dsts, writemask);
    }
 
    switch (inst->Texture.Texture) {
