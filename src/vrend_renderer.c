@@ -118,6 +118,7 @@ struct global_renderer_state {
    bool have_sample_shading;
    bool have_texture_buffer_range;
    bool have_polygon_offset_clamp;
+   bool have_texture_storage;
 
    /* these appeared broken on at least one driver */
    bool use_explicit_locations;
@@ -4259,6 +4260,9 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
    if (gl_ver >= 43 || epoxy_has_gl_extension("GL_ARB_texture_buffer_range"))
       vrend_state.have_texture_buffer_range = true;
 
+   if (gl_ver >= 42 || epoxy_has_gl_extension("GL_ARB_texture_storage"))
+      vrend_state.have_texture_storage = true;
+
    if (gl_ver >= 46 || epoxy_has_gl_extension("GL_ARB_polygon_offset_clamp"))
       vrend_state.have_polygon_offset_clamp = true;
 
@@ -4697,7 +4701,7 @@ int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *a
       }
 
       if (args->nr_samples > 1) {
-         if (vrend_state.use_gles) {
+         if (vrend_state.use_gles || vrend_state.have_texture_storage) {
             if (gr->target == GL_TEXTURE_2D_MULTISAMPLE) {
                glTexStorage2DMultisample(gr->target, args->nr_samples,
                                        internalformat, args->width, args->height,
@@ -4721,42 +4725,61 @@ int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *a
 
       } else if (gr->target == GL_TEXTURE_CUBE_MAP) {
          int i;
-         for (i = 0; i < 6; i++) {
-            GLenum ctarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X + i;
-            for (level = 0; level <= args->last_level; level++) {
-               unsigned mwidth = u_minify(args->width, level);
-               unsigned mheight = u_minify(args->height, level);
-               glTexImage2D(ctarget, level, internalformat, mwidth, mheight, 0, glformat,
-                            gltype, NULL);
-            }
-         }
+	 if (vrend_state.have_texture_storage)
+	    glTexStorage2D(GL_TEXTURE_CUBE_MAP, args->last_level + 1, internalformat, args->width, args->height);
+	 else {
+	    for (i = 0; i < 6; i++) {
+	       GLenum ctarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X + i;
+	       for (level = 0; level <= args->last_level; level++) {
+		  unsigned mwidth = u_minify(args->width, level);
+		  unsigned mheight = u_minify(args->height, level);
+
+		  glTexImage2D(ctarget, level, internalformat, mwidth, mheight, 0, glformat,
+			       gltype, NULL);
+	       }
+	    }
+	 }
       } else if (gr->target == GL_TEXTURE_3D ||
                  gr->target == GL_TEXTURE_2D_ARRAY ||
                  gr->target == GL_TEXTURE_CUBE_MAP_ARRAY) {
-         for (level = 0; level <= args->last_level; level++) {
-            unsigned depth_param = (gr->target == GL_TEXTURE_2D_ARRAY || gr->target == GL_TEXTURE_CUBE_MAP_ARRAY) ? args->array_size : u_minify(args->depth, level);
-            unsigned mwidth = u_minify(args->width, level);
-            unsigned mheight = u_minify(args->height, level);
-            glTexImage3D(gr->target, level, internalformat, mwidth, mheight, depth_param, 0,
-                         glformat,
-                         gltype, NULL);
-         }
+	 if (vrend_state.have_texture_storage) {
+	    unsigned depth_param = (gr->target == GL_TEXTURE_2D_ARRAY || gr->target == GL_TEXTURE_CUBE_MAP_ARRAY) ? args->array_size : args->depth;
+	    glTexStorage3D(gr->target, args->last_level + 1, internalformat, args->width, args->height, depth_param);
+	 } else {
+	    for (level = 0; level <= args->last_level; level++) {
+	       unsigned depth_param = (gr->target == GL_TEXTURE_2D_ARRAY || gr->target == GL_TEXTURE_CUBE_MAP_ARRAY) ? args->array_size : u_minify(args->depth, level);
+	       unsigned mwidth = u_minify(args->width, level);
+	       unsigned mheight = u_minify(args->height, level);
+	       glTexImage3D(gr->target, level, internalformat, mwidth, mheight, depth_param, 0,
+			    glformat,
+			    gltype, NULL);
+	    }
+	 }
       } else if (gr->target == GL_TEXTURE_1D && vrend_state.use_gles) {
          report_gles_missing_func(NULL, "glTexImage1D");
       } else if (gr->target == GL_TEXTURE_1D) {
-         for (level = 0; level <= args->last_level; level++) {
-            unsigned mwidth = u_minify(args->width, level);
-            glTexImage1D(gr->target, level, internalformat, mwidth, 0,
-                         glformat,
-                         gltype, NULL);
-         }
+	 if (vrend_state.have_texture_storage) {
+	    glTexStorage1D(gr->target, args->last_level + 1, internalformat, args->width);
+	 } else {
+	    for (level = 0; level <= args->last_level; level++) {
+	       unsigned mwidth = u_minify(args->width, level);
+	       glTexImage1D(gr->target, level, internalformat, mwidth, 0,
+			    glformat,
+			    gltype, NULL);
+	    }
+	 }
       } else {
-         for (level = 0; level <= args->last_level; level++) {
-            unsigned mwidth = u_minify(args->width, level);
-            unsigned mheight = u_minify(args->height, level);
-            glTexImage2D(gr->target, level, internalformat, mwidth, gr->target == GL_TEXTURE_1D_ARRAY ? args->array_size : mheight, 0, glformat,
-                         gltype, NULL);
-         }
+	 if (vrend_state.have_texture_storage)
+	    glTexStorage2D(gr->target, args->last_level + 1, internalformat, args->width,
+			   gr->target == GL_TEXTURE_1D_ARRAY ? args->array_size : args->height);
+	 else {
+	    for (level = 0; level <= args->last_level; level++) {
+	       unsigned mwidth = u_minify(args->width, level);
+	       unsigned mheight = u_minify(args->height, level);
+	       glTexImage2D(gr->target, level, internalformat, mwidth, gr->target == GL_TEXTURE_1D_ARRAY ? args->array_size : mheight, 0, glformat,
+			    gltype, NULL);
+	    }
+	 }
       }
 
       gt->state.max_lod = -1;
