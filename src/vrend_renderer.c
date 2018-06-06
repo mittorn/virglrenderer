@@ -2966,11 +2966,7 @@ static void vrend_draw_bind_samplers_shader(struct vrend_context *ctx,
 {
    int index = 0;
    for (int i = 0; i < ctx->sub->views[shader_type].num_views; i++) {
-      struct vrend_resource *texture = NULL;
-
-      if (ctx->sub->views[shader_type].views[i]) {
-         texture = ctx->sub->views[shader_type].views[i]->texture;
-      }
+      struct vrend_sampler_view *tview = ctx->sub->views[shader_type].views[i];
 
       if (!(ctx->sub->prog->samplers_used_mask[shader_type] & (1 << i)))
          continue;
@@ -2979,7 +2975,6 @@ static void vrend_draw_bind_samplers_shader(struct vrend_context *ctx,
          glUniform1i(ctx->sub->prog->samp_locs[shader_type][index], *sampler_id);
 
       if (ctx->sub->prog->shadow_samp_mask[shader_type] & (1 << i)) {
-         struct vrend_sampler_view *tview = ctx->sub->views[shader_type].views[i];
          glUniform4f(ctx->sub->prog->shadow_samp_mask_locs[shader_type][index],
                      (tview->gl_swizzle_r == GL_ZERO || tview->gl_swizzle_r == GL_ONE) ? 0.0 : 1.0,
                      (tview->gl_swizzle_g == GL_ZERO || tview->gl_swizzle_g == GL_ONE) ? 0.0 : 1.0,
@@ -2993,8 +2988,9 @@ static void vrend_draw_bind_samplers_shader(struct vrend_context *ctx,
       }
 
       glActiveTexture(GL_TEXTURE0 + *sampler_id);
-      if (texture) {
+      if (tview->texture) {
          GLuint id;
+         struct vrend_resource *texture = tview->texture;
          GLenum target = texture->target;
 
          if (texture->is_buffer) {
@@ -3005,7 +3001,7 @@ static void vrend_draw_bind_samplers_shader(struct vrend_context *ctx,
 
          glBindTexture(target, id);
          if (ctx->sub->views[shader_type].old_ids[i] != id || ctx->sub->sampler_state_dirty) {
-            vrend_apply_sampler_state(ctx, texture, shader_type, i, *sampler_id, ctx->sub->views[shader_type].views[i]->srgb_decode);
+            vrend_apply_sampler_state(ctx, texture, shader_type, i, *sampler_id, tview->srgb_decode);
             ctx->sub->views[shader_type].old_ids[i] = id;
          }
          if (ctx->sub->rs_state.point_quad_rasterization) {
