@@ -1436,7 +1436,7 @@ int vrend_create_sampler_view(struct vrend_context *ctx,
          view->srgb_decode = GL_SKIP_DECODE_EXT;
    }
 
-   if (!(util_format_has_alpha(format) || util_format_is_depth_or_stencil(format))) {
+   if (!(util_format_has_alpha(view->format) || util_format_is_depth_or_stencil(view->format))) {
       if (swizzle[0] == PIPE_SWIZZLE_ALPHA)
           swizzle[0] = PIPE_SWIZZLE_ONE;
       if (swizzle[1] == PIPE_SWIZZLE_ALPHA)
@@ -1447,15 +1447,15 @@ int vrend_create_sampler_view(struct vrend_context *ctx,
           swizzle[3] = PIPE_SWIZZLE_ONE;
    }
 
-   if (tex_conv_table[format].flags & VREND_BIND_NEED_SWIZZLE) {
+   if (tex_conv_table[view->format].flags & VREND_BIND_NEED_SWIZZLE) {
       if (swizzle[0] <= PIPE_SWIZZLE_ALPHA)
-         swizzle[0] = tex_conv_table[format].swizzle[swizzle[0]];
+         swizzle[0] = tex_conv_table[view->format].swizzle[swizzle[0]];
       if (swizzle[1] <= PIPE_SWIZZLE_ALPHA)
-         swizzle[1] = tex_conv_table[format].swizzle[swizzle[1]];
+         swizzle[1] = tex_conv_table[view->format].swizzle[swizzle[1]];
       if (swizzle[2] <= PIPE_SWIZZLE_ALPHA)
-         swizzle[2] = tex_conv_table[format].swizzle[swizzle[2]];
+         swizzle[2] = tex_conv_table[view->format].swizzle[swizzle[2]];
       if (swizzle[3] <= PIPE_SWIZZLE_ALPHA)
-         swizzle[3] = tex_conv_table[format].swizzle[swizzle[3]];
+         swizzle[3] = tex_conv_table[view->format].swizzle[swizzle[3]];
    }
 
    view->gl_swizzle_r = to_gl_swizzle(swizzle[0]);
