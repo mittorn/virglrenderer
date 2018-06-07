@@ -118,6 +118,7 @@ struct global_renderer_state {
    bool have_polygon_offset_clamp;
    bool have_texture_storage;
    bool have_tessellation;
+   bool have_texture_view;
 
    /* these appeared broken on at least one driver */
    bool use_explicit_locations;
@@ -230,6 +231,7 @@ struct vrend_sampler_view {
    struct pipe_reference reference;
    GLuint id;
    GLuint format;
+   GLenum target;
    GLuint val0, val1;
    GLuint gl_swizzle_r;
    GLuint gl_swizzle_g;
@@ -424,6 +426,8 @@ static void vrend_apply_sampler_state(struct vrend_context *ctx,
                                       struct vrend_resource *res,
                                       uint32_t shader_type,
                                       int id, int sampler_id, uint32_t srgb_decode);
+static GLenum tgsitargettogltarget(const enum pipe_texture_target target, int nr_samples);
+
 void vrend_update_stencil_state(struct vrend_context *ctx);
 
 static struct vrend_format_table tex_conv_table[VIRGL_FORMAT_MAX];
@@ -547,6 +551,8 @@ static void __report_gles_missing_func(const char *fname, struct vrend_context *
 
 static void vrend_destroy_surface(struct vrend_surface *surf)
 {
+   if (surf->id != surf->texture->id)
+      glDeleteTextures(1, &surf->id);
    vrend_resource_reference(&surf->texture, NULL);
    free(surf);
 }
@@ -563,6 +569,8 @@ vrend_surface_reference(struct vrend_surface **ptr, struct vrend_surface *surf)
 
 static void vrend_destroy_sampler_view(struct vrend_sampler_view *samp)
 {
+   if (samp->texture->id != samp->id)
+      glDeleteTextures(1, &samp->id);
    vrend_resource_reference(&samp->texture, NULL);
    free(samp);
 }
@@ -1212,6 +1220,31 @@ int vrend_create_surface(struct vrend_context *ctx,
    surf->format = format;
    surf->val0 = val0;
    surf->val1 = val1;
+   surf->id = res->id;
+
+   if (vrend_state.have_texture_view && !res->is_buffer) {
+      /* We don't need texture views for buffer objects.
+       * Otherwise we only need a texture view if the
+       * a) formats differ between the surface and base texture
+       * b) we need to map a sub range > 1 layer to a surface,
+       * GL can make a single layer fine without a view, and it
+       * can map the whole texure fine. In those cases we don't
+       * create a texture view.
+       */
+      int first_layer = surf->val1 & 0xffff;
+      int last_layer = (surf->val1 >> 16) & 0xffff;
+
+      if ((first_layer != last_layer &&
+           (first_layer != 0 || (last_layer != util_max_layer(&res->base, surf->val0)))) ||
+          surf->format != res->base.format) {
+         GLenum internalformat = tex_conv_table[surf->format].internalformat;
+         glGenTextures(1, &surf->id);
+         glTextureView(surf->id, res->target, res->id, internalformat,
+                       0, res->base.last_level + 1,
+                       first_layer, last_layer - first_layer + 1);
+      }
+   }
+
    pipe_reference_init(&surf->reference, 1);
 
    vrend_resource_reference(&surf->texture, res);
@@ -1416,7 +1449,8 @@ int vrend_create_sampler_view(struct vrend_context *ctx,
       return ENOMEM;
 
    pipe_reference_init(&view->reference, 1);
-   view->format = format;
+   view->format = format & 0xffffff;
+   view->target = tgsitargettogltarget((format >> 24) & 0xff, res->base.nr_samples);
    view->val0 = val0;
    view->val1 = val1;
    view->cur_base = -1;
@@ -1429,6 +1463,49 @@ int vrend_create_sampler_view(struct vrend_context *ctx,
 
    vrend_resource_reference(&view->texture, res);
 
+   view->id = view->texture->id;
+   if (!view->target)
+      view->target = view->texture->target;
+
+   if (vrend_state.have_texture_view && !view->texture->is_buffer)  {
+      enum pipe_format format;
+      bool needs_view = false;
+
+      /*
+       * Need to use a texture view if the gallium
+       * view target is different than the underlying
+       * texture target.
+       */
+      if (view->target != view->texture->target)
+         needs_view = true;
+
+      /*
+       * If the formats are different and this isn't
+       * a DS texture a view is required.
+       * DS are special as they use different gallium
+       * formats for DS views into a combined resource.
+       * GL texture views can't be use for this, stencil
+       * texturing is used instead. For DS formats
+       * aways program the underlying DS format as a
+       * view could be required for layers.
+       */
+      format = view->format;
+      if (util_format_is_depth_or_stencil(view->texture->base.format))
+         format = view->texture->base.format;
+      else if (view->format != view->texture->base.format)
+         needs_view = true;
+      if (needs_view) {
+        glGenTextures(1, &view->id);
+        GLenum internalformat = tex_conv_table[format].internalformat;
+        unsigned base_layer = view->val0 & 0xffff;
+        unsigned max_layer = (view->val0 >> 16) & 0xffff;
+        view->cur_base = view->val1 & 0xff;
+        view->cur_max = (view->val1 >> 8) & 0xff;
+        glTextureView(view->id, view->target, view->texture->id, internalformat,
+                      view->cur_base, (view->cur_max - view->cur_base) + 1,
+                      base_layer, max_layer - base_layer + 1);
+     }
+   }
    view->srgb_decode = GL_DECODE_EXT;
    if (view->format != view->texture->base.format) {
       if (util_format_is_srgb(view->texture->base.format) &&
@@ -1567,8 +1644,8 @@ static void vrend_hw_set_zsurf_texture(struct vrend_context *ctx)
       if (!surf->texture)
          return;
 
-      vrend_fb_bind_texture(surf->texture, 0, surf->val0,
-                            first_layer != last_layer ? 0xffffffff : first_layer);
+      vrend_fb_bind_texture_id(surf->texture, surf->id, 0, surf->val0,
+			       first_layer != last_layer ? 0xffffffff : first_layer);
    }
 }
 
@@ -1585,8 +1662,8 @@ static void vrend_hw_set_color_surface(struct vrend_context *ctx, int index)
       uint32_t first_layer = ctx->sub->surf[index]->val1 & 0xffff;
       uint32_t last_layer = (ctx->sub->surf[index]->val1 >> 16) & 0xffff;
 
-      vrend_fb_bind_texture(surf->texture, index, surf->val0,
-                            first_layer != last_layer ? 0xffffffff : first_layer);
+      vrend_fb_bind_texture_id(surf->texture, surf->id, index, surf->val0,
+                               first_layer != last_layer ? 0xffffffff : first_layer);
    }
 }
 
@@ -2084,7 +2161,7 @@ void vrend_set_single_sampler_view(struct vrend_context *ctx,
          return;
       }
       if (!view->texture->is_buffer) {
-         glBindTexture(view->texture->target, view->texture->id);
+         glBindTexture(view->target, view->id);
 
          if (util_format_is_depth_or_stencil(view->format)) {
             if (vrend_state.use_core_profile == false) {
@@ -2985,13 +3062,13 @@ static void vrend_draw_bind_samplers_shader(struct vrend_context *ctx,
       if (tview->texture) {
          GLuint id;
          struct vrend_resource *texture = tview->texture;
-         GLenum target = texture->target;
+         GLenum target = tview->target;
 
          if (texture->is_buffer) {
             id = texture->tbo_tex_id;
             target = GL_TEXTURE_BUFFER;
          } else
-            id = texture->id;
+            id = tview->id;
 
          glBindTexture(target, id);
          if (ctx->sub->views[shader_type].old_ids[i] != id || ctx->sub->sampler_state_dirty) {
@@ -4443,6 +4520,9 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
 
    if (gl_ver >= 42 || epoxy_has_gl_extension("GL_ARB_texture_storage"))
       vrend_state.have_texture_storage = true;
+
+   if (gl_ver >= 43 || epoxy_has_gl_extension("GL_ARB_texture_view"))
+      vrend_state.have_texture_view = true;
 
    if (gl_ver >= 46 || epoxy_has_gl_extension("GL_ARB_polygon_offset_clamp"))
       vrend_state.have_polygon_offset_clamp = true;
