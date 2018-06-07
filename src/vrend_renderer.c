@@ -1555,30 +1555,28 @@ void vrend_fb_bind_texture(struct vrend_resource *res,
 
 static void vrend_hw_set_zsurf_texture(struct vrend_context *ctx)
 {
-   struct vrend_resource *tex;
-   uint32_t first_layer, last_layer;
-   if (!ctx->sub->zsurf) {
+   struct vrend_surface *surf = ctx->sub->zsurf;
+
+   if (!surf) {
       glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_STENCIL_ATTACHMENT,
                                 GL_TEXTURE_2D, 0, 0);
-      return;
+   } else {
+      uint32_t first_layer = surf->val1 & 0xffff;
+      uint32_t last_layer = (surf->val1 >> 16) & 0xffff;
 
+      if (!surf->texture)
+         return;
+
+      vrend_fb_bind_texture(surf->texture, 0, surf->val0,
+                            first_layer != last_layer ? 0xffffffff : first_layer);
    }
-   tex = ctx->sub->zsurf->texture;
-   if (!tex)
-      return;
-
-   first_layer = ctx->sub->zsurf->val1 & 0xffff;
-   last_layer = (ctx->sub->zsurf->val1 >> 16) & 0xffff;
-
-   vrend_fb_bind_texture(tex, 0, ctx->sub->zsurf->val0,
-                         first_layer != last_layer ? 0xffffffff : first_layer);
 }
 
 static void vrend_hw_set_color_surface(struct vrend_context *ctx, int index)
 {
-   struct vrend_resource *tex;
+   struct vrend_surface *surf = ctx->sub->surf[index];
 
-   if (!ctx->sub->surf[index]) {
+   if (!surf) {
       GLenum attachment = GL_COLOR_ATTACHMENT0 + index;
 
       glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, attachment,
@@ -1586,14 +1584,10 @@ static void vrend_hw_set_color_surface(struct vrend_context *ctx, int index)
    } else {
       uint32_t first_layer = ctx->sub->surf[index]->val1 & 0xffff;
       uint32_t last_layer = (ctx->sub->surf[index]->val1 >> 16) & 0xffff;
-      tex = ctx->sub->surf[index]->texture;
 
-
-      vrend_fb_bind_texture(tex, index, ctx->sub->surf[index]->val0,
+      vrend_fb_bind_texture(surf->texture, index, surf->val0,
                             first_layer != last_layer ? 0xffffffff : first_layer);
    }
-
-
 }
 
 static void vrend_hw_emit_framebuffer_state(struct vrend_context *ctx)
