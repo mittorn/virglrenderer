@@ -214,6 +214,7 @@ enum virgl_formats {
 /* These are used by the capability_bits field in virgl_caps_v2. */
 #define VIRGL_CAP_NONE 0
 #define VIRGL_CAP_TGSI_INVARIANT       (1 << 0)
+#define VIRGL_CAP_TEXTURE_VIEW         (1 << 1)
 
 struct virgl_caps_bool_set1 {
         unsigned indep_blend_enable:1;

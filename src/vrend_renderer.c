@@ -7541,6 +7541,9 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
    }
 
    caps->v2.capability_bits |= VIRGL_CAP_TGSI_INVARIANT;
+
+   if (gl_ver >= 43 || epoxy_has_gl_extension("GL_ARB_texture_view"))
+      caps->v2.capability_bits |= VIRGL_CAP_TEXTURE_VIEW;
 }
 
 GLint64 vrend_renderer_get_timestamp(void)
