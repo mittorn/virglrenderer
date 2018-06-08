@@ -628,7 +628,9 @@ iter_declaration(struct tgsi_iterate_context *iter,
          }
          /* fallthrough */
       case TGSI_SEMANTIC_CLIPDIST:
-         if (iter->processor.Processor == TGSI_PROCESSOR_GEOMETRY) {
+         if (iter->processor.Processor == TGSI_PROCESSOR_GEOMETRY ||
+             iter->processor.Processor == TGSI_PROCESSOR_TESS_CTRL ||
+             iter->processor.Processor == TGSI_PROCESSOR_TESS_EVAL) {
             name_prefix = "gl_ClipDistance";
             ctx->inputs[i].glsl_predefined_no_emit = true;
             ctx->inputs[i].glsl_no_index = true;
@@ -763,8 +765,10 @@ iter_declaration(struct tgsi_iterate_context *iter,
          ctx->outputs[i].glsl_no_index = true;
          ctx->num_clip_dist += 4;
          if (iter->processor.Processor == TGSI_PROCESSOR_VERTEX &&
-             ctx->key->gs_present)
+             (ctx->key->gs_present || ctx->key->tcs_present))
             require_glsl_ver(ctx, 150);
+         if (iter->processor.Processor == TGSI_PROCESSOR_TESS_CTRL)
+            ctx->outputs[i].glsl_gl_block = true;
          break;
       case TGSI_SEMANTIC_CLIPVERTEX:
          name_prefix = "gl_ClipVertex";
@@ -1306,9 +1310,13 @@ static int emit_clip_dist_movs(struct dump_ctx *ctx)
    char *sret;
    bool has_prop = (ctx->num_clip_dist_prop + ctx->num_cull_dist_prop) > 0;
    int ndists;
+   const char *prefix="";
+
+   if (ctx->prog_type == PIPE_SHADER_TESS_CTRL)
+      prefix = "gl_out[gl_InvocationID].";
    if (ctx->num_clip_dist == 0 && ctx->key->clip_plane_enable) {
       for (i = 0; i < 8; i++) {
-         snprintf(buf, 255, "gl_ClipDistance[%d] = dot(%s, clipp[%d]);\n", i, ctx->has_clipvertex ? "clipv_tmp" : "gl_Position", i);
+         snprintf(buf, 255, "%sgl_ClipDistance[%d] = dot(%s, clipp[%d]);\n", prefix, i, ctx->has_clipvertex ? "clipv_tmp" : "gl_Position", i);
          sret = add_str_to_glsl_main(ctx, buf);
          if (!sret)
             return ENOMEM;
@@ -1336,7 +1344,7 @@ static int emit_clip_dist_movs(struct dump_ctx *ctx)
             is_cull = true;
       }
       const char *clip_cull = is_cull ? "Cull" : "Clip";
-      snprintf(buf, 255, "gl_%sDistance[%d] = clip_dist_temp[%d].%c;\n", clip_cull,
+      snprintf(buf, 255, "%sgl_%sDistance[%d] = clip_dist_temp[%d].%c;\n", prefix, clip_cull,
                is_cull ? i - ctx->num_clip_dist_prop : i, clipidx, wm);
       sret = add_str_to_glsl_main(ctx, buf);
       if (!sret)
@@ -2826,6 +2834,13 @@ iter_instruction(struct tgsi_iterate_context *iter,
          if (handle_vertex_proc_exit(ctx) == FALSE)
             return FALSE;
       } else if (iter->processor.Processor == TGSI_PROCESSOR_TESS_CTRL) {
+         ret = emit_clip_dist_movs(ctx);
+         if (ret)
+            return FALSE;
+      } else if (iter->processor.Processor == TGSI_PROCESSOR_TESS_EVAL) {
+         ret = emit_clip_dist_movs(ctx);
+         if (ret)
+            return FALSE;
          if (!ctx->key->gs_present) {
             ret = emit_prescale(ctx);
             if (ret)
@@ -3352,6 +3367,30 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
       }
       if (ctx->key->prev_stage_num_cull_out) {
          snprintf(buf, 255, "in float gl_CullDistance[%d];\n", ctx->key->prev_stage_num_cull_out);
+         STRCAT_WITH_RET(glsl_hdr, buf);
+      }
+   }
+
+   if (ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL || ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL) {
+      if (ctx->num_in_clip_dist || ctx->key->prev_stage_pervertex_out) {
+         int clip_dist, cull_dist;
+         char clip_var[64] = {}, cull_var[64] = {};
+
+         clip_dist = ctx->key->prev_stage_num_clip_out ? ctx->key->prev_stage_num_clip_out : ctx->num_in_clip_dist;
+         cull_dist = ctx->key->prev_stage_num_cull_out;
+
+         if (clip_dist)
+            snprintf(clip_var, 64, "float gl_ClipDistance[%d];\n", clip_dist);
+         if (cull_dist)
+            snprintf(cull_var, 64, "float gl_CullDistance[%d];\n", cull_dist);
+
+         snprintf(buf, 255, "in gl_PerVertex {\n vec4 gl_Position;\n float gl_PointSize; \n %s%s} gl_in[];\n", clip_var, cull_var);
+         STRCAT_WITH_RET(glsl_hdr, buf);
+      }
+      if (ctx->num_clip_dist) {
+         snprintf(buf, 255, "out gl_PerVertex {\n vec4 gl_Position;\n float gl_PointSize;\n float gl_ClipDistance[%d];\n} gl_out[];\n", ctx->num_clip_dist ? ctx->num_clip_dist : 8);
+         STRCAT_WITH_RET(glsl_hdr, buf);
+         snprintf(buf, 255, "vec4 clip_dist_temp[2];\n");
          STRCAT_WITH_RET(glsl_hdr, buf);
       }
    }
