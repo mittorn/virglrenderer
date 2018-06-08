@@ -68,7 +68,7 @@ struct vrend_shader_io {
    bool                    invariant;
    bool glsl_predefined_no_emit;
    bool glsl_no_index;
-   bool glsl_gl_in;
+   bool glsl_gl_block;
    bool override_no_wm;
    bool is_int;
    char glsl_name[64];
@@ -470,7 +470,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
       ctx->inputs[i].glsl_predefined_no_emit = false;
       ctx->inputs[i].glsl_no_index = false;
       ctx->inputs[i].override_no_wm = false;
-      ctx->inputs[i].glsl_gl_in = false;
+      ctx->inputs[i].glsl_gl_block = false;
 
       switch (ctx->inputs[i].name) {
       case TGSI_SEMANTIC_COLOR:
@@ -569,7 +569,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
             ctx->inputs[i].glsl_predefined_no_emit = true;
             ctx->inputs[i].glsl_no_index = true;
             ctx->inputs[i].override_no_wm = true;
-            ctx->inputs[i].glsl_gl_in = true;
+            ctx->inputs[i].glsl_gl_block = true;
             break;
          }
          /* fallthrough */
@@ -578,7 +578,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
             name_prefix = "gl_ClipDistance";
             ctx->inputs[i].glsl_predefined_no_emit = true;
             ctx->inputs[i].glsl_no_index = true;
-            ctx->inputs[i].glsl_gl_in = true;
+            ctx->inputs[i].glsl_gl_block = true;
             ctx->num_in_clip_dist += 4;
             break;
          } else if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
@@ -594,7 +594,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
             name_prefix = "gl_Position";
             ctx->inputs[i].glsl_predefined_no_emit = true;
             ctx->inputs[i].glsl_no_index = true;
-            ctx->inputs[i].glsl_gl_in = true;
+            ctx->inputs[i].glsl_gl_block = true;
             break;
          } else if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
             name_prefix = "gl_FragCoord";
@@ -2094,7 +2094,7 @@ get_source_info(struct dump_ctx *ctx,
             if (ctx->inputs[j].first == src->Register.Index) {
                if (ctx->key->color_two_side && ctx->inputs[j].name == TGSI_SEMANTIC_COLOR)
                   snprintf(srcs[i], 255, "%s(%s%s%d%s%s)", get_string(stypeprefix), prefix, "realcolor", ctx->inputs[j].sid, arrayname, swizzle);
-               else if (ctx->inputs[j].glsl_gl_in) {
+               else if (ctx->inputs[j].glsl_gl_block) {
                   /* GS input clipdist requires a conversion */
                   if (ctx->inputs[j].name == TGSI_SEMANTIC_CLIPDIST) {
                      create_swizzled_clipdist(ctx, srcs[i], src, j, true, get_string(stypeprefix), prefix, arrayname);
