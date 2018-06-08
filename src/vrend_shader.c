@@ -3049,6 +3049,9 @@ iter_instruction(struct tgsi_iterate_context *iter,
          if (ret)
             return FALSE;
       } else if (iter->processor.Processor == TGSI_PROCESSOR_TESS_EVAL) {
+	 if (ctx->so && !ctx->key->gs_present)
+            if (emit_so_movs(ctx))
+               return FALSE;
          ret = emit_clip_dist_movs(ctx);
          if (ret)
             return FALSE;
@@ -3674,7 +3677,9 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
             snprintf(outtype, 6, "float");
          else
             snprintf(outtype, 6, "vec%d", ctx->so->output[i].num_components);
-         if (ctx->so->output[i].stream && ctx->prog_type == TGSI_PROCESSOR_GEOMETRY)
+	 if (ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL)
+            snprintf(buf, 255, "out %s tfout%d[];\n", outtype, i);
+         else if (ctx->so->output[i].stream && ctx->prog_type == TGSI_PROCESSOR_GEOMETRY)
             snprintf(buf, 255, "layout (stream=%d) out %s tfout%d;\n", ctx->so->output[i].stream, outtype, i);
          else
             snprintf(buf, 255, "out %s tfout%d;\n", outtype, i);

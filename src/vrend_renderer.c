@@ -927,7 +927,8 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
       if (gs->id > 0)
          glAttachShader(prog_id, gs->id);
       set_stream_out_varyings(prog_id, &gs->sel->sinfo);
-   }
+   } else if (tes)
+      set_stream_out_varyings(prog_id, &tes->sel->sinfo);
    else
       set_stream_out_varyings(prog_id, &vs->sel->sinfo);
    glAttachShader(prog_id, fs->id);
@@ -2773,6 +2774,22 @@ static GLenum get_gs_xfb_mode(GLenum mode)
    }
 }
 
+static GLenum get_tess_xfb_mode(int mode, bool is_point_mode)
+{
+   if (is_point_mode)
+       return GL_POINTS;
+   switch (mode) {
+   case GL_QUADS:
+   case GL_TRIANGLES:
+      return GL_TRIANGLES;
+   case GL_LINES:
+      return GL_LINES;
+   default:
+      fprintf(stderr, "illegal gs transform feedback mode %d\n", mode);
+      return GL_POINTS;
+   }
+}
+
 static GLenum get_xfb_mode(GLenum mode)
 {
    switch (mode) {
@@ -3225,6 +3242,9 @@ void vrend_draw_vbo(struct vrend_context *ctx,
       if (ctx->sub->current_so->xfb_state == XFB_STATE_STARTED_NEED_BEGIN) {
          if (ctx->sub->shaders[PIPE_SHADER_GEOMETRY])
             glBeginTransformFeedback(get_gs_xfb_mode(ctx->sub->shaders[PIPE_SHADER_GEOMETRY]->sinfo.gs_out_prim));
+	 else if (ctx->sub->shaders[PIPE_SHADER_TESS_EVAL])
+            glBeginTransformFeedback(get_tess_xfb_mode(ctx->sub->shaders[PIPE_SHADER_TESS_EVAL]->sinfo.tes_prim,
+						       ctx->sub->shaders[PIPE_SHADER_TESS_EVAL]->sinfo.tes_point_mode));
          else
             glBeginTransformFeedback(get_xfb_mode(info->mode));
          ctx->sub->current_so->xfb_state = XFB_STATE_STARTED;
