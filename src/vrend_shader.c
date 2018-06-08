@@ -674,6 +674,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
             break;
          }
          /* fallthrough */
+      case TGSI_SEMANTIC_PATCH:
       case TGSI_SEMANTIC_GENERIC:
          if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
             if (ctx->key->coord_replace & (1 << ctx->inputs[i].sid)) {
@@ -701,6 +702,8 @@ iter_declaration(struct tgsi_iterate_context *iter,
             snprintf(ctx->inputs[i].glsl_name, 64, "%s_c%d", name_prefix, ctx->inputs[i].sid);
          else if (ctx->inputs[i].name == TGSI_SEMANTIC_GENERIC)
             snprintf(ctx->inputs[i].glsl_name, 64, "%s_g%d", name_prefix, ctx->inputs[i].sid);
+         else if (ctx->inputs[i].name == TGSI_SEMANTIC_PATCH)
+            snprintf(ctx->inputs[i].glsl_name, 64, "%s_p%d", name_prefix, ctx->inputs[i].sid);
          else
             snprintf(ctx->inputs[i].glsl_name, 64, "%s_%d", name_prefix, ctx->inputs[i].first);
       }
@@ -867,6 +870,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
             if (ctx->outputs[i].name == TGSI_SEMANTIC_GENERIC)
                color_offset = -1;
          /* fallthrough */
+      case TGSI_SEMANTIC_PATCH:
       default:
          name_prefix = get_stage_output_name_prefix(iter->processor.Processor);
          break;
@@ -881,6 +885,8 @@ iter_declaration(struct tgsi_iterate_context *iter,
             snprintf(ctx->outputs[i].glsl_name, 64, "%s_c%d", name_prefix, ctx->outputs[i].sid);
          else if (ctx->outputs[i].name == TGSI_SEMANTIC_BCOLOR)
             snprintf(ctx->outputs[i].glsl_name, 64, "%s_bc%d", name_prefix, ctx->outputs[i].sid);
+         else if (ctx->outputs[i].name == TGSI_SEMANTIC_PATCH)
+            snprintf(ctx->outputs[i].glsl_name, 64, "%s_p%d", name_prefix, ctx->outputs[i].sid);
          else if (ctx->outputs[i].name == TGSI_SEMANTIC_GENERIC)
             snprintf(ctx->outputs[i].glsl_name, 64, "%s_g%d", name_prefix, ctx->outputs[i].sid);
          else
@@ -3199,7 +3205,9 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
             snprintf(buf, 255, "layout(location=%d) ", ctx->inputs[i].first);
             STRCAT_WITH_RET(glsl_hdr, buf);
          }
-         if (ctx->prog_type == TGSI_PROCESSOR_FRAGMENT &&
+         if (ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL && ctx->inputs[i].name == TGSI_SEMANTIC_PATCH)
+            prefix = "patch ";
+         else if (ctx->prog_type == TGSI_PROCESSOR_FRAGMENT &&
              (ctx->inputs[i].name == TGSI_SEMANTIC_GENERIC ||
               ctx->inputs[i].name == TGSI_SEMANTIC_COLOR)) {
             prefix = get_interp_string(ctx->cfg, ctx->inputs[i].interpolate, ctx->key->flatshade);
@@ -3211,6 +3219,9 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
 
          if (ctx->prog_type == TGSI_PROCESSOR_GEOMETRY) {
             snprintf(postfix, 8, "[%d]", gs_input_prim_to_size(ctx->gs_in_prim));
+         } else if (ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL ||
+                    (ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL && ctx->inputs[i].name != TGSI_SEMANTIC_PATCH)) {
+            snprintf(postfix, 8, "[]");
          } else
             postfix[0] = 0;
          snprintf(buf, 255, "%s%sin vec4 %s%s;\n", prefix, auxprefix, ctx->inputs[i].glsl_name, postfix);
@@ -3253,7 +3264,12 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
             } else
                prefix = "";
             /* ugly leave spaces to patch interp in later */
-            if (ctx->prog_type == TGSI_PROCESSOR_GEOMETRY && ctx->outputs[i].stream)
+            if (ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL) {
+               if (ctx->outputs[i].name == TGSI_SEMANTIC_PATCH)
+                  snprintf(buf, 255, "patch out vec4 %s;\n", ctx->outputs[i].glsl_name);
+               else
+                  snprintf(buf, 255, "%sout vec4 %s[];\n", prefix, ctx->outputs[i].glsl_name);
+            } else if (ctx->prog_type == TGSI_PROCESSOR_GEOMETRY && ctx->outputs[i].stream)
                snprintf(buf, 255, "layout (stream = %d) %s%sout vec4 %s;\n", ctx->outputs[i].stream, prefix, ctx->outputs[i].invariant ? "invariant " : "", ctx->outputs[i].glsl_name);
             else
                snprintf(buf, 255, "%s%sout vec4 %s;\n", prefix, ctx->outputs[i].invariant ? "invariant " : "", ctx->outputs[i].glsl_name);
