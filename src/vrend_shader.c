@@ -3158,10 +3158,13 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
       }
    }
 
-   if (ctx->prog_type == TGSI_PROCESSOR_VERTEX) {
+   if (ctx->prog_type == TGSI_PROCESSOR_VERTEX ||
+       ctx->prog_type == TGSI_PROCESSOR_GEOMETRY) {
       snprintf(buf, 255, "uniform float winsys_adjust_y;\n");
       STRCAT_WITH_RET(glsl_hdr, buf);
+   }
 
+   if (ctx->prog_type == TGSI_PROCESSOR_VERTEX) {
       if (ctx->has_clipvertex) {
          snprintf(buf, 255, "%svec4 clipv_tmp;\n", ctx->has_clipvertex_so ? "out " : "");
          STRCAT_WITH_RET(glsl_hdr, buf);
@@ -3199,8 +3202,6 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
    }
 
    if (ctx->prog_type == TGSI_PROCESSOR_GEOMETRY) {
-      snprintf(buf, 255, "uniform float winsys_adjust_y;\n");
-      STRCAT_WITH_RET(glsl_hdr, buf);
       if (ctx->num_in_clip_dist || ctx->key->clip_plane_enable || ctx->key->prev_stage_pervertex_out) {
          int clip_dist, cull_dist;
          char clip_var[64] = {}, cull_var[64] = {};
