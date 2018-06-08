@@ -53,6 +53,10 @@ struct vrend_shader_info {
    int num_ubos;
    int ubo_idx[32];
    bool ubo_indirect;
+   uint8_t num_indirect_generic_outputs;
+   uint8_t num_indirect_patch_outputs;
+   uint8_t num_indirect_generic_inputs;
+   uint8_t num_indirect_patch_inputs;
    int num_ucp;
    int glsl_ver;
    bool has_pervertex_out;
@@ -90,6 +94,10 @@ struct vrend_shader_key {
    uint8_t prev_stage_num_cull_out;
    float alpha_ref_val;
    uint32_t cbufs_are_a8_bitmask;
+   uint8_t num_indirect_generic_outputs;
+   uint8_t num_indirect_patch_outputs;
+   uint8_t num_indirect_generic_inputs;
+   uint8_t num_indirect_patch_inputs;
 };
 
 struct vrend_shader_cfg {
