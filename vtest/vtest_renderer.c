@@ -154,6 +154,37 @@ void vtest_destroy_renderer(void)
   renderer.out_fd = -1;
 }
 
+int vtest_send_caps2(void)
+{
+    uint32_t hdr_buf[2];
+    void *caps_buf;
+    int ret;
+    uint32_t max_ver, max_size;
+
+    virgl_renderer_get_cap_set(2, &max_ver, &max_size);
+
+    if (max_size == 0)
+	return -1;
+    caps_buf = malloc(max_size);
+    if (!caps_buf)
+	return -1;
+
+    virgl_renderer_fill_caps(2, 1, caps_buf);
+
+    hdr_buf[0] = max_size + 1;
+    hdr_buf[1] = 2;
+    ret = vtest_block_write(renderer.out_fd, hdr_buf, 8);
+    if (ret < 0)
+	goto end;
+    vtest_block_write(renderer.out_fd, caps_buf, max_size);
+    if (ret < 0)
+	goto end;
+
+end:
+    free(caps_buf);
+    return 0;
+}
+
 int vtest_send_caps(void)
 {
     uint32_t  max_ver, max_size;

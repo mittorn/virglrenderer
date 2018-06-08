@@ -129,6 +129,9 @@ again:
         vtest_renderer_create_fence();
 	ret = vtest_resource_busy_wait();
 	break;
+      case VCMD_GET_CAPS2:
+	ret = vtest_send_caps2();
+	break;
       default:
 	break;
       }
