@@ -60,6 +60,8 @@ struct vrend_shader_info {
    uint8_t num_cull_out;
    uint32_t shadow_samp_mask;
    int gs_out_prim;
+   int tes_prim;
+   bool tes_point_mode;
    uint32_t attrib_input_mask;
 
    struct vrend_sampler_array *sampler_arrays;

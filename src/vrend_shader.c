@@ -167,6 +167,12 @@ struct dump_ctx {
    bool has_clipvertex_so;
    bool vs_has_pervertex;
    bool write_mul_temp;
+
+   int tcs_vertices_out;
+   int tes_prim_mode;
+   int tes_spacing;
+   int tes_vertex_order;
+   int tes_point_mode;
 };
 
 static const struct vrend_shader_table shader_req_table[] = {
@@ -287,6 +293,29 @@ static inline const char *prim_to_name(int prim)
    case PIPE_PRIM_QUADS: return "quads";
    default: return "UNKNOWN";
    };
+}
+
+static inline const char *prim_to_tes_name(int prim)
+{
+   switch (prim) {
+   case PIPE_PRIM_QUADS: return "quads";
+   case PIPE_PRIM_TRIANGLES: return "triangles";
+   case PIPE_PRIM_LINES: return "isolines";
+   default: return "UNKNOWN";
+   }
+}
+
+static const char *get_spacing_string(int spacing)
+{
+   switch (spacing) {
+   case PIPE_TESS_SPACING_FRACTIONAL_ODD:
+      return "fractional_odd_spacing";
+   case PIPE_TESS_SPACING_FRACTIONAL_EVEN:
+      return "fractional_even_spacing";
+   case PIPE_TESS_SPACING_EQUAL:
+   default:
+      return "equal_spacing";
+   }
 }
 
 static inline int gs_input_prim_to_size(int prim)
@@ -985,6 +1014,26 @@ iter_property(struct tgsi_iterate_context *iter,
 
    if (prop->Property.PropertyName == TGSI_PROPERTY_NUM_CULLDIST_ENABLED) {
       ctx->num_cull_dist_prop = prop->u[0].Data;
+   }
+
+   if (prop->Property.PropertyName == TGSI_PROPERTY_TCS_VERTICES_OUT) {
+      ctx->tcs_vertices_out = prop->u[0].Data;
+   }
+
+   if (prop->Property.PropertyName == TGSI_PROPERTY_TES_PRIM_MODE) {
+      ctx->tes_prim_mode = prop->u[0].Data;
+   }
+
+   if (prop->Property.PropertyName == TGSI_PROPERTY_TES_SPACING) {
+      ctx->tes_spacing = prop->u[0].Data;
+   }
+
+   if (prop->Property.PropertyName == TGSI_PROPERTY_TES_VERTEX_ORDER_CW) {
+      ctx->tes_vertex_order = prop->u[0].Data;
+   }
+
+   if (prop->Property.PropertyName == TGSI_PROPERTY_TES_POINT_MODE) {
+      ctx->tes_point_mode = prop->u[0].Data;
    }
    return TRUE;
 }
@@ -3146,6 +3195,19 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
          STRCAT_WITH_RET(glsl_hdr, buf);
       }
    }
+   if (ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL) {
+      snprintf(buf, 255, "layout(vertices = %d) out;\n", ctx->tcs_vertices_out);
+      STRCAT_WITH_RET(glsl_hdr, buf);
+   }
+   if (ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL) {
+      snprintf(buf, 255, "layout(%s, %s, %s%s) in;\n",
+               prim_to_tes_name(ctx->tes_prim_mode),
+               get_spacing_string(ctx->tes_spacing),
+               ctx->tes_vertex_order ? "cw" : "ccw",
+               ctx->tes_point_mode ? ", point_mode" : "");
+      STRCAT_WITH_RET(glsl_hdr, buf);
+   }
+
    if (ctx->write_all_cbufs) {
       for (i = 0; i < 8; i++) {
          if (ctx->cfg->use_gles)
@@ -3567,6 +3629,8 @@ char *vrend_convert_shader(struct vrend_shader_cfg *cfg,
    sinfo->shadow_samp_mask = ctx.shadow_samp_mask;
    sinfo->glsl_ver = ctx.glsl_ver_required;
    sinfo->gs_out_prim = ctx.gs_out_prim;
+   sinfo->tes_prim = ctx.tes_prim_mode;
+   sinfo->tes_point_mode = ctx.tes_point_mode;
    sinfo->so_names = ctx.so_names;
    sinfo->attrib_input_mask = ctx.attrib_input_mask;
    sinfo->sampler_arrays = ctx.sampler_arrays;
