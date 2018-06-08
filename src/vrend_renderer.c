@@ -119,6 +119,7 @@ struct global_renderer_state {
    bool have_texture_buffer_range;
    bool have_polygon_offset_clamp;
    bool have_texture_storage;
+   bool have_tessellation;
 
    /* these appeared broken on at least one driver */
    bool use_explicit_locations;
@@ -4278,6 +4279,9 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
 
    if (gl_ver >= 40 || epoxy_has_gl_extension("GL_ARB_sample_shading"))
       vrend_state.have_sample_shading = true;
+
+   if (gl_ver >= 40 || epoxy_has_gl_extension("GL_ARB_tessellation_shader"))
+      vrend_state.have_tessellation = true;
 
    if (gl_ver >= 43 || epoxy_has_gl_extension("GL_ARB_texture_buffer_range"))
       vrend_state.have_texture_buffer_range = true;
