@@ -60,7 +60,16 @@ static int use_context = CONTEXT_NONE;
 
 int virgl_renderer_resource_create(struct virgl_renderer_resource_create_args *args, struct iovec *iov, uint32_t num_iovs)
 {
-   return vrend_renderer_resource_create((struct vrend_renderer_resource_create_args *)args, iov, num_iovs);
+   return vrend_renderer_resource_create((struct vrend_renderer_resource_create_args *)args, iov, num_iovs, NULL);
+}
+
+int virgl_renderer_resource_import_eglimage(struct virgl_renderer_resource_create_args *args, void *image)
+{
+#ifdef HAVE_EPOXY_EGL_H
+   return vrend_renderer_resource_create((struct vrend_renderer_resource_create_args *)args, 0, 0, image);
+#else
+   return EINVAL;
+#endif
 }
 
 void virgl_renderer_resource_unref(uint32_t res_handle)

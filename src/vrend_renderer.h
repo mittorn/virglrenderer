@@ -164,7 +164,7 @@ struct vrend_renderer_resource_create_args {
    uint32_t flags;
 };
 
-int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *args, struct iovec *iov, uint32_t num_iovs);
+int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *args, struct iovec *iov, uint32_t num_iovs, void *image_eos);
 
 void vrend_renderer_resource_unref(uint32_t handle);
 

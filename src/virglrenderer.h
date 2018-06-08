@@ -104,6 +104,7 @@ struct virgl_renderer_resource_create_args {
 /* new API */
 
 VIRGL_EXPORT int virgl_renderer_resource_create(struct virgl_renderer_resource_create_args *args, struct iovec *iov, uint32_t num_iovs);
+VIRGL_EXPORT int virgl_renderer_resource_import_eglimage(struct virgl_renderer_resource_create_args *args, void *image);
 VIRGL_EXPORT void virgl_renderer_resource_unref(uint32_t res_handle);
 
 VIRGL_EXPORT int virgl_renderer_context_create(uint32_t handle, uint32_t nlen, const char *name);

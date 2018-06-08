@@ -4790,7 +4790,8 @@ vrend_renderer_resource_copy_args(struct vrend_renderer_resource_create_args *ar
    gr->base.array_size = args->array_size;
 }
 
-static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr)
+static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
+                                                    void *image_oes)
 {
    uint level;
    GLenum internalformat, glformat, gltype;
@@ -4832,7 +4833,15 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr)
       return EINVAL;
    }
 
-   if (pr->nr_samples > 1) {
+   if (image_oes) {
+      if (epoxy_has_gl_extension("GL_OES_EGL_image_external")) {
+         glEGLImageTargetTexture2DOES(gr->target, (GLeglImageOES) image_oes);
+      } else {
+         fprintf(stderr, "missing GL_OES_EGL_image_external extension\n");
+	 FREE(gr);
+	 return EINVAL;
+      }
+   } else if (pr->nr_samples > 1) {
       if (vrend_state.use_gles) {
          if (gr->target == GL_TEXTURE_2D_MULTISAMPLE) {
             glTexStorage2DMultisample(gr->target, pr->nr_samples,
@@ -4919,7 +4928,7 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr)
    return 0;
 }
 
-int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *args, struct iovec *iov, uint32_t num_iovs)
+int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *args, struct iovec *iov, uint32_t num_iovs, void *image_oes)
 {
    struct vrend_resource *gr;
    int ret;
@@ -4980,7 +4989,7 @@ int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *a
       }
       vrend_create_buffer(gr, args->width);
    } else {
-      int r = vrend_renderer_resource_allocate_texture(gr);
+      int r = vrend_renderer_resource_allocate_texture(gr, image_oes);
       if (r)
          return r;
    }
@@ -6396,7 +6405,7 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
       args.array_size = src_res->base.array_size;
       intermediate_copy = (struct vrend_resource *)CALLOC_STRUCT(vrend_texture);
       vrend_renderer_resource_copy_args(&args, intermediate_copy);
-      vrend_renderer_resource_allocate_texture(intermediate_copy);
+      vrend_renderer_resource_allocate_texture(intermediate_copy, NULL);
 
       glGenFramebuffers(1, &intermediate_fbo);
    } else {
