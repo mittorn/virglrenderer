@@ -865,6 +865,24 @@ iter_declaration(struct tgsi_iterate_context *iter,
             break;
          }
          /* fallthrough */
+      case TGSI_SEMANTIC_TESSOUTER:
+         if (iter->processor.Processor == TGSI_PROCESSOR_TESS_CTRL) {
+            ctx->outputs[i].glsl_predefined_no_emit = true;
+            ctx->outputs[i].glsl_no_index = true;
+            ctx->outputs[i].override_no_wm = true;
+            name_prefix = "gl_TessLevelOuter";
+            break;
+         }
+         /* fallthrough */
+      case TGSI_SEMANTIC_TESSINNER:
+         if (iter->processor.Processor == TGSI_PROCESSOR_TESS_CTRL) {
+            ctx->outputs[i].glsl_predefined_no_emit = true;
+            ctx->outputs[i].glsl_no_index = true;
+            ctx->outputs[i].override_no_wm = true;
+            name_prefix = "gl_TessLevelInner";
+            break;
+         }
+         /* fallthrough */
       case TGSI_SEMANTIC_GENERIC:
          if (iter->processor.Processor == TGSI_PROCESSOR_VERTEX)
             if (ctx->outputs[i].name == TGSI_SEMANTIC_GENERIC)
@@ -976,6 +994,16 @@ iter_declaration(struct tgsi_iterate_context *iter,
       } else if (decl->Semantic.Name == TGSI_SEMANTIC_PRIMID) {
          name_prefix = "gl_PrimitiveID";
          ctx->shader_req_bits |= (SHADER_REQ_INTS | SHADER_REQ_GPU_SHADER5);
+      } else if (decl->Semantic.Name == TGSI_SEMANTIC_TESSCOORD) {
+         name_prefix = "gl_TessCoord";
+         ctx->system_values[i].override_no_wm = false;
+      } else if (decl->Semantic.Name == TGSI_SEMANTIC_VERTICESIN) {
+         ctx->shader_req_bits |= SHADER_REQ_INTS;
+         name_prefix = "gl_PatchVerticesIn";
+      } else if (decl->Semantic.Name == TGSI_SEMANTIC_TESSOUTER) {
+         name_prefix = "gl_TessLevelOuter";
+      } else if (decl->Semantic.Name == TGSI_SEMANTIC_TESSINNER) {
+         name_prefix = "gl_TessLevelInner";
       } else {
          fprintf(stderr, "unsupported system value %d\n", decl->Semantic.Name);
          name_prefix = "unknown";
@@ -2047,7 +2075,9 @@ get_destination_info(struct dump_ctx *ctx,
                   snprintf(dsts[i], 255, "clipv_tmp");
                } else if (ctx->outputs[j].name == TGSI_SEMANTIC_CLIPDIST) {
                   snprintf(dsts[i], 255, "clip_dist_temp[%d]", ctx->outputs[j].sid);
-               } else if (ctx->outputs[j].name == TGSI_SEMANTIC_SAMPLEMASK) {
+               } else if (ctx->outputs[j].name == TGSI_SEMANTIC_TESSOUTER ||
+                          ctx->outputs[j].name == TGSI_SEMANTIC_TESSINNER ||
+                          ctx->outputs[j].name == TGSI_SEMANTIC_SAMPLEMASK) {
                   int idx;
                   switch (dst_reg->Register.WriteMask) {
                   case 0x1: idx = 0; break;
@@ -2385,10 +2415,21 @@ get_source_info(struct dump_ctx *ctx,
             if (ctx->system_values[j].first == src->Register.Index) {
                if (ctx->system_values[j].name == TGSI_SEMANTIC_VERTEXID ||
                    ctx->system_values[j].name == TGSI_SEMANTIC_INSTANCEID ||
+                   ctx->system_values[j].name == TGSI_SEMANTIC_PRIMID ||
+                   ctx->system_values[j].name == TGSI_SEMANTIC_VERTICESIN ||
                    ctx->system_values[j].name == TGSI_SEMANTIC_INVOCATIONID ||
                    ctx->system_values[j].name == TGSI_SEMANTIC_SAMPLEID)
                   snprintf(srcs[i], 255, "%s(vec4(intBitsToFloat(%s)))", get_string(stypeprefix), ctx->system_values[j].glsl_name);
-               else if (ctx->system_values[j].name == TGSI_SEMANTIC_SAMPLEPOS) {
+               else if (ctx->system_values[j].name == TGSI_SEMANTIC_TESSINNER ||
+                        ctx->system_values[j].name == TGSI_SEMANTIC_TESSOUTER) {
+                  snprintf(srcs[i], 255, "%s(vec4(%s[%d], %s[%d], %s[%d], %s[%d]))",
+                           prefix,
+                           ctx->system_values[j].glsl_name, src->Register.SwizzleX,
+                           ctx->system_values[j].glsl_name, src->Register.SwizzleY,
+                           ctx->system_values[j].glsl_name, src->Register.SwizzleZ,
+                           ctx->system_values[j].glsl_name, src->Register.SwizzleW);
+               } else if (ctx->system_values[j].name == TGSI_SEMANTIC_SAMPLEPOS ||
+                          ctx->system_values[j].name == TGSI_SEMANTIC_TESSCOORD) {
                   snprintf(srcs[i], 255, "vec4(%s.%c, %s.%c, %s.%c, %s.%c)",
                            ctx->system_values[j].glsl_name, get_swiz_char(src->Register.SwizzleX),
                            ctx->system_values[j].glsl_name, get_swiz_char(src->Register.SwizzleY),
