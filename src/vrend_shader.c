@@ -941,7 +941,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
       ctx->sviews_used = true;
       break;
    case TGSI_FILE_CONSTANT:
-      if (decl->Declaration.Dimension) {
+      if (decl->Declaration.Dimension && decl->Dim.Index2D != 0) {
          if (ctx->num_ubo >= ARRAY_SIZE(ctx->ubo_idx)) {
             fprintf(stderr, "Number of uniforms exceeded, max is %lu\n", ARRAY_SIZE(ctx->ubo_idx));
             return FALSE;
@@ -2270,7 +2270,7 @@ get_source_info(struct dump_ctx *ctx,
       } else if (src->Register.File == TGSI_FILE_CONSTANT) {
          const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
          int dim = 0;
-         if (src->Register.Dimension) {
+         if (src->Register.Dimension && src->Dimension.Index != 0) {
             dim = src->Dimension.Index;
             if (src->Dimension.Indirect) {
                assert(src->DimIndirect.File == TGSI_FILE_ADDRESS);
@@ -3299,7 +3299,12 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
                bcolor_emitted[ctx->outputs[i].sid] = true;
          }
          if (!ctx->outputs[i].glsl_predefined_no_emit) {
-            if ((ctx->prog_type == TGSI_PROCESSOR_VERTEX || ctx->prog_type == TGSI_PROCESSOR_GEOMETRY) && (ctx->outputs[i].name == TGSI_SEMANTIC_GENERIC || ctx->outputs[i].name == TGSI_SEMANTIC_COLOR || ctx->outputs[i].name == TGSI_SEMANTIC_BCOLOR)) {
+            if ((ctx->prog_type == TGSI_PROCESSOR_VERTEX ||
+                 ctx->prog_type == TGSI_PROCESSOR_GEOMETRY ||
+                 ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL) &&
+                (ctx->outputs[i].name == TGSI_SEMANTIC_GENERIC ||
+                 ctx->outputs[i].name == TGSI_SEMANTIC_COLOR ||
+                 ctx->outputs[i].name == TGSI_SEMANTIC_BCOLOR)) {
                ctx->num_interps++;
                prefix = INTERP_PREFIX;
             } else
