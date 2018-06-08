@@ -2261,8 +2261,22 @@ get_source_info(struct dump_ctx *ctx,
                sinfo->override_no_wm[i] = ctx->inputs[j].override_no_wm;
                break;
             }
-      }
-      else if (src->Register.File == TGSI_FILE_TEMPORARY) {
+      } else if (src->Register.File == TGSI_FILE_OUTPUT) {
+         for (uint32_t j = 0; j < ctx->num_outputs; j++) {
+            if (ctx->outputs[j].first == src->Register.Index) {
+               enum vrend_type_qualifier srcstypeprefix = stypeprefix;
+               if (stype == TGSI_TYPE_UNSIGNED && ctx->outputs[j].is_int)
+                  srcstypeprefix = TYPE_CONVERSION_NONE;
+               if (ctx->outputs[j].glsl_gl_block) {
+                  if (ctx->outputs[j].name == TGSI_SEMANTIC_CLIPDIST) {
+		     snprintf(srcs[i], 255, "clip_dist_temp[%d]", ctx->outputs[j].sid);
+                  }
+               } else {
+                  snprintf(srcs[i], 255, "%s(%s%s%s%s)", get_string(srcstypeprefix), prefix, ctx->outputs[j].glsl_name, arrayname, ctx->outputs[j].is_int ? "" : swizzle);
+               }
+            }
+         }
+      } else if (src->Register.File == TGSI_FILE_TEMPORARY) {
          struct vrend_temp_range *range = find_temp_range(ctx, src->Register.Index);
          if (!range)
             return FALSE;
