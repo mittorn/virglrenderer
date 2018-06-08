@@ -616,7 +616,9 @@ iter_declaration(struct tgsi_iterate_context *iter,
          }
          /* fallthrough */
       case TGSI_SEMANTIC_PSIZE:
-         if (iter->processor.Processor == TGSI_PROCESSOR_GEOMETRY) {
+         if (iter->processor.Processor == TGSI_PROCESSOR_GEOMETRY ||
+             iter->processor.Processor == TGSI_PROCESSOR_TESS_CTRL ||
+             iter->processor.Processor == TGSI_PROCESSOR_TESS_EVAL) {
             name_prefix = "gl_PointSize";
             ctx->inputs[i].glsl_predefined_no_emit = true;
             ctx->inputs[i].glsl_no_index = true;
@@ -642,7 +644,9 @@ iter_declaration(struct tgsi_iterate_context *iter,
          }
          /* fallthrough */
       case TGSI_SEMANTIC_POSITION:
-         if (iter->processor.Processor == TGSI_PROCESSOR_GEOMETRY) {
+         if (iter->processor.Processor == TGSI_PROCESSOR_GEOMETRY ||
+             iter->processor.Processor == TGSI_PROCESSOR_TESS_CTRL ||
+             iter->processor.Processor == TGSI_PROCESSOR_TESS_EVAL) {
             name_prefix = "gl_Position";
             ctx->inputs[i].glsl_predefined_no_emit = true;
             ctx->inputs[i].glsl_no_index = true;
@@ -726,12 +730,16 @@ iter_declaration(struct tgsi_iterate_context *iter,
       switch (ctx->outputs[i].name) {
       case TGSI_SEMANTIC_POSITION:
          if (iter->processor.Processor == TGSI_PROCESSOR_VERTEX ||
-             iter->processor.Processor == TGSI_PROCESSOR_GEOMETRY) {
+             iter->processor.Processor == TGSI_PROCESSOR_GEOMETRY ||
+             iter->processor.Processor == TGSI_PROCESSOR_TESS_CTRL ||
+             iter->processor.Processor == TGSI_PROCESSOR_TESS_EVAL) {
             if (ctx->outputs[i].first > 0)
                fprintf(stderr,"Illegal position input\n");
             name_prefix = "gl_Position";
             ctx->outputs[i].glsl_predefined_no_emit = true;
             ctx->outputs[i].glsl_no_index = true;
+            if (iter->processor.Processor == TGSI_PROCESSOR_TESS_CTRL)
+               ctx->outputs[i].glsl_gl_block = true;
          } else if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
             name_prefix = "gl_FragDepth";
             ctx->outputs[i].glsl_predefined_no_emit = true;
@@ -805,17 +813,16 @@ iter_declaration(struct tgsi_iterate_context *iter,
          }
          /* fallthrough */
       case TGSI_SEMANTIC_PSIZE:
-         if (iter->processor.Processor == TGSI_PROCESSOR_VERTEX) {
+         if (iter->processor.Processor == TGSI_PROCESSOR_VERTEX ||
+             iter->processor.Processor == TGSI_PROCESSOR_GEOMETRY ||
+             iter->processor.Processor == TGSI_PROCESSOR_TESS_CTRL ||
+             iter->processor.Processor == TGSI_PROCESSOR_TESS_EVAL) {
             ctx->outputs[i].glsl_predefined_no_emit = true;
             ctx->outputs[i].glsl_no_index = true;
             ctx->outputs[i].override_no_wm = true;
             name_prefix = "gl_PointSize";
-            break;
-         } else if (iter->processor.Processor == TGSI_PROCESSOR_GEOMETRY) {
-            ctx->outputs[i].glsl_predefined_no_emit = true;
-            ctx->outputs[i].glsl_no_index = true;
-            ctx->outputs[i].override_no_wm = true;
-            name_prefix = "gl_PointSize";
+            if (iter->processor.Processor == TGSI_PROCESSOR_TESS_CTRL)
+               ctx->outputs[i].glsl_gl_block = true;
             break;
          }
          /* fallthrough */
@@ -3287,7 +3294,7 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
             snprintf(buf, 255, "uniform vec4 clipp[8];\n");
             STRCAT_WITH_RET(glsl_hdr, buf);
          }
-         if (ctx->key->gs_present) {
+         if (ctx->key->gs_present || ctx->key->tes_present) {
             ctx->vs_has_pervertex = true;
             snprintf(buf, 255, "out gl_PerVertex {\n vec4 gl_Position;\n float gl_PointSize;\n%s%s};\n", clip_buf, cull_buf);
             STRCAT_WITH_RET(glsl_hdr, buf);
