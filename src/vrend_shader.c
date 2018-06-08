@@ -267,6 +267,8 @@ static inline const char *tgsi_proc_to_prefix(int shader_type)
    case TGSI_PROCESSOR_VERTEX: return "vs";
    case TGSI_PROCESSOR_FRAGMENT: return "fs";
    case TGSI_PROCESSOR_GEOMETRY: return "gs";
+   case TGSI_PROCESSOR_TESS_CTRL: return "tc";
+   case TGSI_PROCESSOR_TESS_EVAL: return "te";
    default:
       return NULL;
    };
@@ -282,6 +284,7 @@ static inline const char *prim_to_name(int prim)
    case PIPE_PRIM_TRIANGLES: return "triangles";
    case PIPE_PRIM_TRIANGLE_STRIP: return "triangle_strip";
    case PIPE_PRIM_TRIANGLES_ADJACENCY: return "triangles_adjacency";
+   case PIPE_PRIM_QUADS: return "quads";
    default: return "UNKNOWN";
    };
 }
@@ -318,12 +321,26 @@ static const char *get_stage_input_name_prefix(struct dump_ctx *ctx, int process
    case TGSI_PROCESSOR_FRAGMENT:
       if (ctx->key->gs_present)
          name_prefix = "gso";
+      else if (ctx->key->tes_present)
+         name_prefix = "teo";
       else
          name_prefix = "vso";
       break;
    case TGSI_PROCESSOR_GEOMETRY:
-      name_prefix = "vso";
+      if (ctx->key->tes_present)
+         name_prefix = "teo";
+      else
+         name_prefix = "vso";
       break;
+   case TGSI_PROCESSOR_TESS_EVAL:
+      if (ctx->key->tcs_present)
+         name_prefix = "tco";
+      else
+         name_prefix = "vso";
+      break;
+   case TGSI_PROCESSOR_TESS_CTRL:
+       name_prefix = "vso";
+       break;
    case TGSI_PROCESSOR_VERTEX:
    default:
       name_prefix = "in";
@@ -344,6 +361,12 @@ static const char *get_stage_output_name_prefix(int processor)
       break;
    case TGSI_PROCESSOR_VERTEX:
       name_prefix = "vso";
+      break;
+   case TGSI_PROCESSOR_TESS_CTRL:
+      name_prefix = "tco";
+      break;
+   case TGSI_PROCESSOR_TESS_EVAL:
+      name_prefix = "teo";
       break;
    default:
       name_prefix = "out";
@@ -1293,7 +1316,7 @@ static int emit_buf(struct dump_ctx *ctx, const char *buf)
 
 static int handle_vertex_proc_exit(struct dump_ctx *ctx)
 {
-    if (ctx->so && !ctx->key->gs_present) {
+    if (ctx->so && !ctx->key->gs_present && !ctx->key->tes_present) {
        if (emit_so_movs(ctx))
           return FALSE;
     }
@@ -1301,7 +1324,7 @@ static int handle_vertex_proc_exit(struct dump_ctx *ctx)
     if (emit_clip_dist_movs(ctx))
        return FALSE;
 
-    if (!ctx->key->gs_present) {
+    if (!ctx->key->gs_present && !ctx->key->tes_present) {
        if (emit_prescale(ctx))
           return FALSE;
     }
@@ -2746,6 +2769,12 @@ iter_instruction(struct tgsi_iterate_context *iter,
       if (iter->processor.Processor == TGSI_PROCESSOR_VERTEX) {
          if (handle_vertex_proc_exit(ctx) == FALSE)
             return FALSE;
+      } else if (iter->processor.Processor == TGSI_PROCESSOR_TESS_CTRL) {
+         if (!ctx->key->gs_present) {
+            ret = emit_prescale(ctx);
+            if (ret)
+               return FALSE;
+         }
       } else if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
          if (handle_fragment_proc_exit(ctx) == FALSE)
             return FALSE;
@@ -2938,12 +2967,19 @@ static char *emit_header(struct dump_ctx *ctx, char *glsl_hdr)
       STRCAT_WITH_RET(glsl_hdr, "precision highp int;\n");
    } else {
       char buf[128];
-      if (ctx->prog_type == TGSI_PROCESSOR_GEOMETRY || ctx->glsl_ver_required == 150)
+      if (ctx->prog_type == TGSI_PROCESSOR_GEOMETRY ||
+          ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL ||
+          ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL ||
+          ctx->glsl_ver_required == 150)
          STRCAT_WITH_RET(glsl_hdr, "#version 150\n");
       else if (ctx->glsl_ver_required == 140)
          STRCAT_WITH_RET(glsl_hdr, "#version 140\n");
       else
          STRCAT_WITH_RET(glsl_hdr, "#version 130\n");
+
+      if (ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL ||
+          ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL)
+         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_tessellation_shader : require\n");
 
       if (ctx->prog_type == TGSI_PROCESSOR_VERTEX && ctx->cfg->use_explicit_locations)
          STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_explicit_attrib_location : require\n");
@@ -3159,7 +3195,8 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
    }
 
    if (ctx->prog_type == TGSI_PROCESSOR_VERTEX ||
-       ctx->prog_type == TGSI_PROCESSOR_GEOMETRY) {
+       ctx->prog_type == TGSI_PROCESSOR_GEOMETRY ||
+       ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL) {
       snprintf(buf, 255, "uniform float winsys_adjust_y;\n");
       STRCAT_WITH_RET(glsl_hdr, buf);
    }

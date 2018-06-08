@@ -80,6 +80,8 @@ struct vrend_shader_key {
    uint8_t alpha_test;
    uint8_t clip_plane_enable;
    bool gs_present;
+   bool tcs_present;
+   bool tes_present;
    bool flatshade;
    bool prev_stage_pervertex_out;
    uint8_t prev_stage_num_clip_out;

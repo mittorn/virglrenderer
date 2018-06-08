@@ -467,6 +467,8 @@ static inline const char *pipe_shader_to_prefix(int shader_type)
    case PIPE_SHADER_VERTEX: return "vs";
    case PIPE_SHADER_FRAGMENT: return "fs";
    case PIPE_SHADER_GEOMETRY: return "gs";
+   case PIPE_SHADER_TESS_CTRL: return "tc";
+   case PIPE_SHADER_TESS_EVAL: return "te";
    default:
       return NULL;
    };
@@ -2182,6 +2184,8 @@ static inline int conv_shader_type(int type)
    case PIPE_SHADER_VERTEX: return GL_VERTEX_SHADER;
    case PIPE_SHADER_FRAGMENT: return GL_FRAGMENT_SHADER;
    case PIPE_SHADER_GEOMETRY: return GL_GEOMETRY_SHADER;
+   case PIPE_SHADER_TESS_CTRL: return GL_TESS_CONTROL_SHADER;
+   case PIPE_SHADER_TESS_EVAL: return GL_TESS_EVALUATION_SHADER;
    default:
       return 0;
    };
