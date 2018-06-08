@@ -2094,8 +2094,17 @@ get_destination_info(struct dump_ctx *ctx,
                      dinfo->dstconv = INT;
                   }
                } else {
-                  snprintf(dsts[i], 255, "%s%s", ctx->outputs[j].glsl_name, ctx->outputs[j].override_no_wm ? "" : writemask);
-                  dinfo->dst_override_no_wm[i] = ctx->outputs[j].override_no_wm;
+                  if (ctx->outputs[j].glsl_gl_block) {
+                     snprintf(dsts[i], 255, "gl_out[%s].%s%s",
+                              ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL ? "gl_InvocationID" : "0",
+                              ctx->outputs[j].glsl_name,
+                              ctx->outputs[j].override_no_wm ? "" : writemask);
+                  } else if (ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL && ctx->outputs[j].name != TGSI_SEMANTIC_PATCH) {
+                     snprintf(dsts[i], 255, "%s[gl_InvocationID]%s", ctx->outputs[j].glsl_name, ctx->outputs[j].override_no_wm ? "" : writemask);
+                  } else {
+                     snprintf(dsts[i], 255, "%s%s", ctx->outputs[j].glsl_name, ctx->outputs[j].override_no_wm ? "" : writemask);
+                     dinfo->dst_override_no_wm[i] = ctx->outputs[j].override_no_wm;
+                  }
                   if (ctx->outputs[j].is_int) {
                      if (dinfo->dtypeprefix == TYPE_CONVERSION_NONE)
                         dinfo->dtypeprefix = FLOAT_BITS_TO_INT;
