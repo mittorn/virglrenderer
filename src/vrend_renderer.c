@@ -6912,6 +6912,8 @@ static bool vrend_renderer_fill_caps_common(uint32_t set, UNUSED uint32_t versio
          (1 << PIPE_PRIM_TRIANGLES_ADJACENCY) |
          (1 << PIPE_PRIM_TRIANGLE_STRIP_ADJACENCY);
    }
+   if (!vrend_state.use_gles && caps->v1.glsl_level >= 400)
+      caps->v1.prim_mask |= (1 << PIPE_PRIM_PATCHES);
 
 
    /* Common limits for all backends. */
@@ -7154,6 +7156,7 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
       caps->v1.bset.has_indirect_draw = 1;
       caps->v1.bset.has_sample_shading = 1;
       caps->v1.bset.has_fp64 = 1;
+      caps->v1.bset.has_tessellation_shaders = 1;
    } else {
       if (epoxy_has_gl_extension("GL_ARB_draw_buffers_blend"))
          caps->v1.bset.indep_blend_func = 1;
@@ -7169,6 +7172,8 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
       if (epoxy_has_gl_extension("GL_ARB_gpu_shader_fp64") &&
           epoxy_has_gl_extension("GL_ARB_gpu_shader5"))
          caps->v1.bset.has_fp64 = 1;
+      if (epoxy_has_gl_extension("GL_ARB_tessellation_shader"))
+         caps->v1.bset.has_tessellation_shaders = 1;
    }
 
    if (gl_ver >= 42) {
@@ -7277,7 +7282,12 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
       glGetIntegerv(GL_MAX_GEOMETRY_OUTPUT_VERTICES, (GLint*)&caps->v2.max_geom_output_vertices);
       glGetIntegerv(GL_MAX_GEOMETRY_TOTAL_OUTPUT_COMPONENTS, (GLint*)&caps->v2.max_geom_total_output_components);
    }
-   caps->v2.max_shader_patch_varyings = 0; // until we do tess.
+
+   if (epoxy_has_gl_extension("GL_ARB_tessellation_shader") || gl_ver >= 40) {
+      glGetIntegerv(GL_MAX_TESS_PATCH_COMPONENTS, &max);
+      caps->v2.max_shader_patch_varyings = max / 4;
+   } else
+      caps->v2.max_shader_patch_varyings = 0;
 
    if (epoxy_has_gl_extension("GL_ARB_texture_gather")) {
        glGetIntegerv(GL_MIN_PROGRAM_TEXTURE_GATHER_OFFSET, &caps->v2.min_texture_gather_offset);
