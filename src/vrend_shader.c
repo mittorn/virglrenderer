@@ -3027,12 +3027,12 @@ static const char *get_interp_string(struct vrend_shader_cfg *cfg, int interpola
    }
 }
 
-static const char *get_aux_string(struct vrend_shader_cfg *cfg, bool centroid)
+static const char *get_aux_string(bool centroid)
 {
    return centroid ? "centroid " : "";
 }
 
-static const char get_return_type_prefix(enum tgsi_return_type type)
+static char get_return_type_prefix(enum tgsi_return_type type)
 {
    if (type == TGSI_RETURN_TYPE_SINT)
       return 'i';
@@ -3097,7 +3097,7 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
             prefix = get_interp_string(ctx->cfg, ctx->inputs[i].interpolate, ctx->key->flatshade);
             if (!prefix)
                prefix = "";
-            auxprefix = get_aux_string(ctx->cfg, ctx->inputs[i].centroid);
+            auxprefix = get_aux_string(ctx->inputs[i].centroid);
             ctx->num_interps++;
          }
 
@@ -3579,7 +3579,7 @@ bool vrend_patch_vertex_shader_interpolants(struct vrend_shader_cfg *cfg, char *
       if (!pstring)
          continue;
 
-      auxstring = get_aux_string(cfg, fs_info->interpinfo[i].centroid);
+      auxstring = get_aux_string(fs_info->interpinfo[i].centroid);
 
       switch (fs_info->interpinfo[i].semantic_name) {
       case TGSI_SEMANTIC_COLOR:
