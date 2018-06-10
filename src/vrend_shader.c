@@ -539,6 +539,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
             require_glsl_ver(ctx, 150);
             break;
          }
+         /* fallthrough */
       case TGSI_SEMANTIC_VIEWPORT_INDEX:
          if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
             ctx->inputs[i].glsl_predefined_no_emit = true;
@@ -550,6 +551,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
                ctx->shader_req_bits |= SHADER_REQ_LAYER;
             break;
          }
+         /* fallthrough */
       case TGSI_SEMANTIC_LAYER:
          if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
             name_prefix = "gl_Layer";
@@ -560,6 +562,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
             ctx->shader_req_bits |= SHADER_REQ_LAYER;
             break;
          }
+         /* fallthrough */
       case TGSI_SEMANTIC_PSIZE:
          if (iter->processor.Processor == TGSI_PROCESSOR_GEOMETRY) {
             name_prefix = "gl_PointSize";
@@ -569,6 +572,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
             ctx->inputs[i].glsl_gl_in = true;
             break;
          }
+         /* fallthrough */
       case TGSI_SEMANTIC_CLIPDIST:
          if (iter->processor.Processor == TGSI_PROCESSOR_GEOMETRY) {
             name_prefix = "gl_ClipDistance";
@@ -584,6 +588,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
             ctx->num_in_clip_dist += 4;
             break;
          }
+         /* fallthrough */
       case TGSI_SEMANTIC_POSITION:
          if (iter->processor.Processor == TGSI_PROCESSOR_GEOMETRY) {
             name_prefix = "gl_Position";
@@ -597,7 +602,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
             ctx->inputs[i].glsl_no_index = true;
             break;
          }
-         /* fallthrough for vertex shader */
+         /* fallthrough */
       case TGSI_SEMANTIC_FACE:
          if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
             if (ctx->front_face_emitted) {
@@ -610,6 +615,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
             ctx->front_face_emitted = true;
             break;
          }
+         /* fallthrough */
       case TGSI_SEMANTIC_GENERIC:
          if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
             if (ctx->key->coord_replace & (1 << ctx->inputs[i].sid)) {
@@ -622,6 +628,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
                break;
             }
          }
+         /* fallthrough */
       default:
          name_prefix = get_stage_input_name_prefix(ctx, iter->processor.Processor);
          break;
@@ -730,7 +737,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
                name_prefix = "ex";
             break;
          }
-
+         /* fallthrough */
       case TGSI_SEMANTIC_BCOLOR:
          if (iter->processor.Processor == TGSI_PROCESSOR_VERTEX) {
             if (ctx->glsl_ver_required < 140) {
@@ -744,6 +751,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
                name_prefix = "ex";
             break;
          }
+         /* fallthrough */
       case TGSI_SEMANTIC_PSIZE:
          if (iter->processor.Processor == TGSI_PROCESSOR_VERTEX) {
             ctx->outputs[i].glsl_predefined_no_emit = true;
@@ -758,6 +766,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
             name_prefix = "gl_PointSize";
             break;
          }
+         /* fallthrough */
       case TGSI_SEMANTIC_LAYER:
          if (iter->processor.Processor == TGSI_PROCESSOR_GEOMETRY) {
             ctx->outputs[i].glsl_predefined_no_emit = true;
@@ -767,6 +776,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
             name_prefix = "gl_Layer";
             break;
          }
+         /* fallthrough */
       case TGSI_SEMANTIC_PRIMID:
          if (iter->processor.Processor == TGSI_PROCESSOR_GEOMETRY) {
             ctx->outputs[i].glsl_predefined_no_emit = true;
@@ -776,6 +786,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
             name_prefix = "gl_PrimitiveID";
             break;
          }
+         /* fallthrough */
       case TGSI_SEMANTIC_VIEWPORT_INDEX:
          if (iter->processor.Processor == TGSI_PROCESSOR_GEOMETRY) {
             ctx->outputs[i].glsl_predefined_no_emit = true;
@@ -787,10 +798,12 @@ iter_declaration(struct tgsi_iterate_context *iter,
                ctx->shader_req_bits |= SHADER_REQ_VIEWPORT_IDX;
             break;
          }
+         /* fallthrough */
       case TGSI_SEMANTIC_GENERIC:
          if (iter->processor.Processor == TGSI_PROCESSOR_VERTEX)
             if (ctx->outputs[i].name == TGSI_SEMANTIC_GENERIC)
                color_offset = -1;
+         /* fallthrough */
       default:
          name_prefix = get_stage_output_name_prefix(iter->processor.Processor);
          break;
@@ -1342,6 +1355,7 @@ static bool set_texture_reqs(struct dump_ctx *ctx,
       break;
    case TGSI_TEXTURE_SHADOWCUBE_ARRAY:
       *is_shad = true;
+      /* fallthrough */
    case TGSI_TEXTURE_CUBE_ARRAY:
       ctx->shader_req_bits |= SHADER_REQ_CUBE_ARRAY;
       break;
@@ -1354,6 +1368,7 @@ static bool set_texture_reqs(struct dump_ctx *ctx,
       break;
    case TGSI_TEXTURE_SHADOWRECT:
       *is_shad = true;
+      /* fallthrough */
    case TGSI_TEXTURE_RECT:
       ctx->shader_req_bits |= SHADER_REQ_SAMPLER_RECT;
       break;
@@ -3006,6 +3021,7 @@ static const char *get_interp_string(struct vrend_shader_cfg *cfg, int interpola
    case TGSI_INTERPOLATE_COLOR:
       if (flatshade)
          return "flat ";
+      /* fallthrough */
    default:
       return NULL;
    }
