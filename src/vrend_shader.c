@@ -63,7 +63,7 @@ struct vrend_shader_io {
    unsigned                done;
    int                        sid;
    unsigned                interpolate;
-   unsigned first;
+   int first;
    bool                 centroid;
    bool                    invariant;
    bool glsl_predefined_no_emit;
@@ -110,23 +110,23 @@ struct dump_ctx {
    char *glsl_main;
    uint instno;
 
-   int num_interps;
-   int num_inputs;
+   uint32_t num_interps;
+   uint32_t num_inputs;
    uint32_t attrib_input_mask;
    struct vrend_shader_io inputs[35];
-   int num_outputs;
+   uint32_t num_outputs;
    struct vrend_shader_io outputs[35];
-   int num_system_values;
+   uint32_t num_system_values;
    struct vrend_shader_io system_values[32];
 
-   int num_temp_ranges;
+   uint32_t num_temp_ranges;
    struct vrend_temp_range *temp_ranges;
 
    struct vrend_shader_sampler samplers[32];
    uint32_t samplers_used;
    bool sviews_used;
    struct vrend_sampler_array *sampler_arrays;
-   int num_sampler_arrays;
+   uint32_t num_sampler_arrays;
    int last_sampler_array_idx;
 
    int num_consts;
@@ -134,10 +134,10 @@ struct dump_ctx {
    struct immed imm[MAX_IMMEDIATE];
    unsigned fragcoord_input;
 
-   int num_ubo;
+   uint32_t num_ubo;
    int ubo_idx[32];
    int ubo_sizes[32];
-   int num_address;
+   uint32_t num_address;
 
    uint32_t shader_req_bits;
 
@@ -393,7 +393,7 @@ static int allocate_temp_range(struct dump_ctx *ctx, int first, int last,
 
 static struct vrend_temp_range *find_temp_range(struct dump_ctx *ctx, int index)
 {
-   int i;
+   uint32_t i;
    for (i = 0; i < ctx->num_temp_ranges; i++) {
       if (index >= ctx->temp_ranges[i].first &&
           index <= ctx->temp_ranges[i].last)
@@ -420,7 +420,7 @@ static int add_sampler_array(struct dump_ctx *ctx, int first, int last, int svie
 
 static int lookup_sampler_array(struct dump_ctx *ctx, int index)
 {
-   int i;
+   uint32_t i;
    for (i = 0; i < ctx->num_sampler_arrays; i++) {
       if (index >= ctx->sampler_arrays[i].first &&
           index <= ctx->sampler_arrays[i].last) {
@@ -973,7 +973,7 @@ iter_immediate(
 {
    struct dump_ctx *ctx = (struct dump_ctx *) iter;
    int i;
-   int first = ctx->num_imm;
+   uint32_t first = ctx->num_imm;
 
    if (first >= ARRAY_SIZE(ctx->imm)) {
       fprintf(stderr, "Number of immediates exceeded, max is: %lu\n", ARRAY_SIZE(ctx->imm));
@@ -1130,7 +1130,7 @@ static int emit_prescale(struct dump_ctx *ctx)
 
 static int prepare_so_movs(struct dump_ctx *ctx)
 {
-   int i;
+   uint32_t i;
    for (i = 0; i < ctx->so->num_outputs; i++) {
       ctx->write_so_outputs[i] = true;
       if (ctx->so->output[i].start_component != 0)
@@ -1154,7 +1154,7 @@ static int prepare_so_movs(struct dump_ctx *ctx)
 static int emit_so_movs(struct dump_ctx *ctx)
 {
    char buf[255];
-   int i, j;
+   uint32_t i, j;
    char outtype[15] = {0};
    char writemask[6];
    char *sret;
@@ -1336,7 +1336,7 @@ static int handle_fragment_proc_exit(struct dump_ctx *ctx)
 
 static bool set_texture_reqs(struct dump_ctx *ctx,
 			     struct tgsi_full_instruction *inst,
-			     int sreg_index,
+			     uint32_t sreg_index,
 			     bool *is_shad)
 {
    if (sreg_index >= ARRAY_SIZE(ctx->samplers)) {
@@ -1394,7 +1394,7 @@ static bool set_texture_reqs(struct dump_ctx *ctx,
 /* size queries are pretty much separate */
 static int emit_txq(struct dump_ctx *ctx,
                     struct tgsi_full_instruction *inst,
-                    int sreg_index,
+                    uint32_t sreg_index,
                     char srcs[4][255],
                     char dsts[3][255],
                     const char *writemask)
@@ -1582,7 +1582,7 @@ static bool fill_offset_buffer(struct dump_ctx *ctx,
 
 static int translate_tex(struct dump_ctx *ctx,
                          struct tgsi_full_instruction *inst,
-                         int sreg_index,
+                         uint32_t sreg_index,
                          char srcs[4][255],
                          char dsts[3][255],
                          const char *writemask,
@@ -1773,7 +1773,7 @@ static int translate_tex(struct dump_ctx *ctx,
    tex_ext = get_tex_inst_ext(inst);
 
    if (inst->Texture.NumOffsets == 1) {
-      if (inst->TexOffsets[0].Index >= ARRAY_SIZE(ctx->imm)) {
+      if (inst->TexOffsets[0].Index >= (int)ARRAY_SIZE(ctx->imm)) {
          fprintf(stderr, "Immediate exceeded, max is %lu\n", ARRAY_SIZE(ctx->imm));
          return false;
       }
@@ -2012,7 +2012,7 @@ get_destination_info(struct dump_ctx *ctx,
 
 struct source_info {
    enum vrend_type_qualifier svec4;
-   int sreg_index;
+   uint32_t sreg_index;
    bool tg4_has_component;
    bool override_no_wm[3];
 };
@@ -2200,7 +2200,7 @@ get_source_info(struct dump_ctx *ctx,
          }
          sinfo->sreg_index = src->Register.Index;
       } else if (src->Register.File == TGSI_FILE_IMMEDIATE) {
-         if (src->Register.Index >= ARRAY_SIZE(ctx->imm)) {
+         if (src->Register.Index >= (int)ARRAY_SIZE(ctx->imm)) {
             fprintf(stderr, "Immediate exceeded, max is %lu\n", ARRAY_SIZE(ctx->imm));
             return false;
          }
@@ -3043,12 +3043,12 @@ static const char get_return_type_prefix(enum tgsi_return_type type)
 
 static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
 {
-   int i;
+   uint32_t i;
    char buf[255];
    char postfix[8];
    const char *prefix = "", *auxprefix = "";
    bool fcolor_emitted[2], bcolor_emitted[2];
-   int nsamp;
+   uint32_t nsamp;
    const char *sname = tgsi_proc_to_prefix(ctx->prog_type);
    ctx->num_interps = 0;
 
@@ -3385,7 +3385,7 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
 
 static boolean fill_fragment_interpolants(struct dump_ctx *ctx, struct vrend_shader_info *sinfo)
 {
-   int i, index = 0;
+   uint32_t i, index = 0;
 
    for (i = 0; i < ctx->num_inputs; i++) {
       if (ctx->inputs[i].glsl_predefined_no_emit)
