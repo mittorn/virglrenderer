@@ -2889,6 +2889,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
       break;
    case TGSI_OPCODE_BARRIER:
       snprintf(buf, 255, "barrier();\n");
+      EMIT_BUF_WITH_RET(ctx, buf);
       break;
    default:
       fprintf(stderr,"failed to convert opcode %d\n", inst->Instruction.Opcode);
