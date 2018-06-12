@@ -337,6 +337,15 @@ int virgl_renderer_get_fd_for_texture(uint32_t tex_id, int *fd)
 #endif
 }
 
+int virgl_renderer_get_fd_for_texture2(uint32_t tex_id, int *fd, int *stride, int *offset)
+{
+#ifdef HAVE_EPOXY_EGL_H
+   return virgl_egl_get_fd_for_texture2(egl_info, tex_id, fd, stride, offset);
+#else
+   return -1;
+#endif
+}
+
 void virgl_renderer_reset(void)
 {
    vrend_renderer_reset();

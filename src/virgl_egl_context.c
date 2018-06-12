@@ -315,6 +315,29 @@ int virgl_egl_get_fourcc_for_texture(struct virgl_egl *ve, uint32_t tex_id, uint
    return ret;
 }
 
+int virgl_egl_get_fd_for_texture2(struct virgl_egl *ve, uint32_t tex_id, int *fd,
+                                  int *stride, int *offset)
+{
+   int ret = EINVAL;
+   EGLImageKHR image = eglCreateImageKHR(ve->egl_display, eglGetCurrentContext(),
+                                         EGL_GL_TEXTURE_2D_KHR,
+                                         (EGLClientBuffer)(unsigned long)tex_id, NULL);
+   if (!image)
+      return EINVAL;
+   if (!ve->have_mesa_dma_buf_img_export)
+      goto out_destroy;
+
+   if (!eglExportDMABUFImageMESA(ve->egl_display, image, fd,
+                                 stride, offset))
+      goto out_destroy;
+
+   ret = 0;
+
+out_destroy:
+   eglDestroyImageKHR(ve->egl_display, image);
+   return ret;
+}
+
 int virgl_egl_get_fd_for_texture(struct virgl_egl *ve, uint32_t tex_id, int *fd)
 {
    EGLImageKHR image;
