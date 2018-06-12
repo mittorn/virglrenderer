@@ -6273,6 +6273,9 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
    GLenum filter;
    int n_layers = 1, i;
    bool use_gl = false;
+   bool make_intermediate_copy = false;
+   GLuint intermediate_fbo = 0;
+   struct vrend_resource *intermediate_copy = 0;
 
    filter = convert_mag_filter(info->filter);
 
@@ -6359,6 +6362,51 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
    } else
       glDisable(GL_SCISSOR_TEST);
 
+   /* An GLES GL_INVALID_OPERATION is generated if one wants to blit from a
+    * multi-sample fbo to a non multi-sample fbo and the source and destination
+    * rectangles are not defined with the same (X0, Y0) and (X1, Y1) bounds.
+    *
+    * Since stencil data can only be written in a fragment shader when
+    * ARB_shader_stencil_export is available, the workaround using GL as given
+    * above is usually not available. Instead, to work around the blit
+    * limitations on GLES first copy the full frame to a non-multisample
+    * surface and then copy the according area to the final target surface.
+    */
+   if (vrend_state.use_gles &&
+       (info->mask & PIPE_MASK_ZS) &&
+       ((src_res->base.nr_samples > 1) &&
+        (src_res->base.nr_samples != dst_res->base.nr_samples)) &&
+        ((info->src.box.x != info->dst.box.x) ||
+         (src_y1 != dst_y1) ||
+         (info->src.box.width != info->dst.box.width) ||
+         (src_y2 != dst_y2))) {
+
+      make_intermediate_copy = true;
+
+      /* Create a texture that is the same like the src_res texture, but
+       * without multi-sample */
+      struct vrend_renderer_resource_create_args args;
+      memset(&args, 0, sizeof(struct vrend_renderer_resource_create_args));
+      args.width = src_res->base.width0;
+      args.height = src_res->base.height0;
+      args.depth = src_res->base.depth0;
+      args.format = src_res->base.format;
+      args.target = src_res->base.target;
+      args.last_level = src_res->base.last_level;
+      args.array_size = src_res->base.array_size;
+      intermediate_copy = (struct vrend_resource *)CALLOC_STRUCT(vrend_texture);
+      vrend_renderer_resource_copy_args(&args, intermediate_copy);
+      vrend_renderer_resource_allocate_texture(intermediate_copy);
+
+      glGenFramebuffers(1, &intermediate_fbo);
+   } else {
+      /* If no intermediate copy is needed make the variables point to the
+       * original source to simplify the code below.
+       */
+      intermediate_fbo = ctx->sub->blit_fb_ids[0];
+      intermediate_copy = src_res;
+   }
+
    glBindFramebuffer(GL_FRAMEBUFFER_EXT, ctx->sub->blit_fb_ids[0]);
    if (info->mask & PIPE_MASK_RGBA)
       glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_STENCIL_ATTACHMENT,
@@ -6377,16 +6425,28 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
       n_layers = info->dst.box.depth;
    for (i = 0; i < n_layers; i++) {
       glBindFramebuffer(GL_FRAMEBUFFER_EXT, ctx->sub->blit_fb_ids[0]);
-      glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_STENCIL_ATTACHMENT,
-                                GL_TEXTURE_2D, 0, 0);
       vrend_fb_bind_texture(src_res, 0, info->src.level, info->src.box.z + i);
 
-      glBindFramebuffer(GL_FRAMEBUFFER_EXT, ctx->sub->blit_fb_ids[1]);
+      if (make_intermediate_copy) {
+         int level_width = u_minify(src_res->base.width0, info->src.level);
+         int level_height = u_minify(src_res->base.width0, info->src.level);
+         glBindFramebuffer(GL_FRAMEBUFFER_EXT, intermediate_fbo);
+         glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0,
+                                   GL_TEXTURE_2D, 0, 0);
+         vrend_fb_bind_texture(intermediate_copy, 0, info->src.level, info->src.box.z + i);
 
+         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, intermediate_fbo);
+         glBindFramebuffer(GL_READ_FRAMEBUFFER, ctx->sub->blit_fb_ids[0]);
+         glBlitFramebuffer(0, 0, level_width, level_height,
+                           0, 0, level_width, level_height,
+                           glmask, filter);
+      }
+
+      glBindFramebuffer(GL_FRAMEBUFFER_EXT, ctx->sub->blit_fb_ids[1]);
       vrend_fb_bind_texture(dst_res, 0, info->dst.level, info->dst.box.z + i);
       glBindFramebuffer(GL_DRAW_FRAMEBUFFER, ctx->sub->blit_fb_ids[1]);
 
-      glBindFramebuffer(GL_READ_FRAMEBUFFER, ctx->sub->blit_fb_ids[0]);
+      glBindFramebuffer(GL_READ_FRAMEBUFFER, intermediate_fbo);
 
       glBlitFramebuffer(info->src.box.x,
                         src_y1,
@@ -6399,6 +6459,10 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
                         glmask, filter);
    }
 
+   if (make_intermediate_copy) {
+      vrend_renderer_resource_destroy(intermediate_copy, false);
+      glDeleteFramebuffers(1, &intermediate_fbo);
+   }
 }
 
 void vrend_renderer_blit(struct vrend_context *ctx,
