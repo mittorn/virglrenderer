@@ -4772,10 +4772,156 @@ static void vrend_create_buffer(struct vrend_resource *gr, uint32_t width)
    gr->is_buffer = true;
 }
 
+static inline void
+vrend_renderer_resource_copy_args(struct vrend_renderer_resource_create_args *args,
+                                  struct vrend_resource *gr)
+{
+   assert(gr);
+   assert(args);
+
+   gr->handle = args->handle;
+   gr->base.width0 = args->width;
+   gr->base.height0 = args->height;
+   gr->base.depth0 = args->depth;
+   gr->base.format = args->format;
+   gr->base.target = args->target;
+   gr->base.last_level = args->last_level;
+   gr->base.nr_samples = args->nr_samples;
+   gr->base.array_size = args->array_size;
+}
+
+static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr)
+{
+   uint level;
+   GLenum internalformat, glformat, gltype;
+   struct vrend_texture *gt = (struct vrend_texture *)gr;
+   struct pipe_resource *pr = &gr->base;
+   assert(pr->width0 > 0);
+
+   gr->target = tgsitargettogltarget(pr->target, pr->nr_samples);
+
+   /* ugly workaround for texture rectangle missing on GLES */
+   if (vrend_state.use_gles && gr->target == GL_TEXTURE_RECTANGLE_NV) {
+      /* for some guests this is the only usage of rect */
+      if (pr->width0 != 1 || pr->height0 != 1) {
+         report_gles_warn(NULL, GLES_WARN_TEXTURE_RECT, 0);
+      }
+      gr->target = GL_TEXTURE_2D;
+   }
+
+   /* fallback for 1D textures */
+   if (vrend_state.use_gles && gr->target == GL_TEXTURE_1D) {
+      gr->target = GL_TEXTURE_2D;
+   }
+
+   /* fallback for 1D array textures */
+   if (vrend_state.use_gles && gr->target == GL_TEXTURE_1D_ARRAY) {
+      gr->target = GL_TEXTURE_2D_ARRAY;
+   }
+
+   glGenTextures(1, &gr->id);
+   glBindTexture(gr->target, gr->id);
+
+   internalformat = tex_conv_table[pr->format].internalformat;
+   glformat = tex_conv_table[pr->format].glformat;
+   gltype = tex_conv_table[pr->format].gltype;
+
+   if (internalformat == 0) {
+      fprintf(stderr,"unknown format is %d\n", pr->format);
+      FREE(gt);
+      return EINVAL;
+   }
+
+   if (pr->nr_samples > 1) {
+      if (vrend_state.use_gles) {
+         if (gr->target == GL_TEXTURE_2D_MULTISAMPLE) {
+            glTexStorage2DMultisample(gr->target, pr->nr_samples,
+                                      internalformat, pr->width0, pr->height0,
+                                      GL_TRUE);
+         } else {
+            glTexStorage3DMultisample(gr->target, pr->nr_samples,
+                                      internalformat, pr->width0, pr->height0, pr->array_size,
+                                      GL_TRUE);
+         }
+      } else {
+         if (gr->target == GL_TEXTURE_2D_MULTISAMPLE) {
+            glTexImage2DMultisample(gr->target, pr->nr_samples,
+                                    internalformat, pr->width0, pr->height0,
+                                    GL_TRUE);
+         } else {
+            glTexImage3DMultisample(gr->target, pr->nr_samples,
+                                    internalformat, pr->width0, pr->height0, pr->array_size,
+                                    GL_TRUE);
+         }
+      }
+   } else if (gr->target == GL_TEXTURE_CUBE_MAP) {
+         int i;
+         if (vrend_state.have_texture_storage)
+            glTexStorage2D(GL_TEXTURE_CUBE_MAP, pr->last_level + 1, internalformat, pr->width0, pr->height0);
+         else {
+            for (i = 0; i < 6; i++) {
+               GLenum ctarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X + i;
+               for (level = 0; level <= pr->last_level; level++) {
+                  unsigned mwidth = u_minify(pr->width0, level);
+                  unsigned mheight = u_minify(pr->height0, level);
+
+                  glTexImage2D(ctarget, level, internalformat, mwidth, mheight, 0, glformat,
+                               gltype, NULL);
+               }
+            }
+         }
+   } else if (gr->target == GL_TEXTURE_3D ||
+              gr->target == GL_TEXTURE_2D_ARRAY ||
+              gr->target == GL_TEXTURE_CUBE_MAP_ARRAY) {
+      if (vrend_state.have_texture_storage) {
+         unsigned depth_param = (gr->target == GL_TEXTURE_2D_ARRAY || gr->target == GL_TEXTURE_CUBE_MAP_ARRAY) ?
+                                   pr->array_size : pr->depth0;
+         glTexStorage3D(gr->target, pr->last_level + 1, internalformat, pr->width0, pr->height0, depth_param);
+      } else {
+         for (level = 0; level <= pr->last_level; level++) {
+            unsigned depth_param = (gr->target == GL_TEXTURE_2D_ARRAY || gr->target == GL_TEXTURE_CUBE_MAP_ARRAY) ?
+                                      pr->array_size : u_minify(pr->depth0, level);
+            unsigned mwidth = u_minify(pr->width0, level);
+            unsigned mheight = u_minify(pr->height0, level);
+            glTexImage3D(gr->target, level, internalformat, mwidth, mheight,
+                         depth_param, 0, glformat, gltype, NULL);
+         }
+      }
+   } else if (gr->target == GL_TEXTURE_1D && vrend_state.use_gles) {
+      report_gles_missing_func(NULL, "glTexImage1D");
+   } else if (gr->target == GL_TEXTURE_1D) {
+      if (vrend_state.have_texture_storage) {
+         glTexStorage1D(gr->target, pr->last_level + 1, internalformat, pr->width0);
+      } else {
+         for (level = 0; level <= pr->last_level; level++) {
+            unsigned mwidth = u_minify(pr->width0, level);
+            glTexImage1D(gr->target, level, internalformat, mwidth, 0,
+                         glformat, gltype, NULL);
+         }
+      }
+   } else {
+      if (vrend_state.have_texture_storage)
+         glTexStorage2D(gr->target, pr->last_level + 1, internalformat, pr->width0,
+                        gr->target == GL_TEXTURE_1D_ARRAY ? pr->array_size : pr->height0);
+      else {
+         for (level = 0; level <= pr->last_level; level++) {
+            unsigned mwidth = u_minify(pr->width0, level);
+            unsigned mheight = u_minify(pr->height0, level);
+            glTexImage2D(gr->target, level, internalformat, mwidth,
+                         gr->target == GL_TEXTURE_1D_ARRAY ? pr->array_size : mheight,
+                         0, glformat, gltype, NULL);
+         }
+      }
+   }
+
+   gt->state.max_lod = -1;
+   gt->cur_swizzle_r = gt->cur_swizzle_g = gt->cur_swizzle_b = gt->cur_swizzle_a = -1;
+   return 0;
+}
+
 int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *args, struct iovec *iov, uint32_t num_iovs)
 {
    struct vrend_resource *gr;
-   uint32_t level;
    int ret;
 
    ret = check_resource_valid(args);
@@ -4786,17 +4932,9 @@ int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *a
    if (!gr)
       return ENOMEM;
 
-   gr->handle = args->handle;
+   vrend_renderer_resource_copy_args(args, gr);
    gr->iov = iov;
    gr->num_iovs = num_iovs;
-   gr->base.width0 = args->width;
-   gr->base.height0 = args->height;
-   gr->base.depth0 = args->depth;
-   gr->base.format = args->format;
-   gr->base.target = args->target;
-   gr->base.last_level = args->last_level;
-   gr->base.nr_samples = args->nr_samples;
-   gr->base.array_size = args->array_size;
 
    if (args->flags & VIRGL_RESOURCE_Y_0_TOP)
       gr->y_0_top = true;
@@ -4842,125 +4980,9 @@ int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *a
       }
       vrend_create_buffer(gr, args->width);
    } else {
-      struct vrend_texture *gt = (struct vrend_texture *)gr;
-      GLenum internalformat, glformat, gltype;
-      gr->target = tgsitargettogltarget(args->target, args->nr_samples);
-
-      /* ugly workaround for texture rectangle missing on GLES */
-      if (vrend_state.use_gles && gr->target == GL_TEXTURE_RECTANGLE_NV) {
-         /* for some guests this is the only usage of rect */
-         if (args->width != 1 || args->height != 1) {
-            report_gles_warn(NULL, GLES_WARN_TEXTURE_RECT, 0);
-         }
-         gr->target = GL_TEXTURE_2D;
-      }
-
-      /* fallback for 1D textures */
-      if (vrend_state.use_gles && gr->target == GL_TEXTURE_1D) {
-         gr->target = GL_TEXTURE_2D;
-      }
-
-      /* fallback for 1D array textures */
-      if (vrend_state.use_gles && gr->target == GL_TEXTURE_1D_ARRAY) {
-         gr->target = GL_TEXTURE_2D_ARRAY;
-      }
-
-      glGenTextures(1, &gr->id);
-      glBindTexture(gr->target, gr->id);
-
-      internalformat = tex_conv_table[args->format].internalformat;
-      glformat = tex_conv_table[args->format].glformat;
-      gltype = tex_conv_table[args->format].gltype;
-      if (internalformat == 0) {
-         fprintf(stderr,"unknown format is %d\n", args->format);
-         FREE(gr);
-         return EINVAL;
-      }
-
-      if (args->nr_samples > 1) {
-         if (vrend_state.use_gles || vrend_state.have_texture_storage) {
-            if (gr->target == GL_TEXTURE_2D_MULTISAMPLE) {
-               glTexStorage2DMultisample(gr->target, args->nr_samples,
-                                       internalformat, args->width, args->height,
-                                       GL_TRUE);
-            } else {
-               glTexStorage3DMultisample(gr->target, args->nr_samples,
-                                       internalformat, args->width, args->height, args->array_size,
-                                       GL_TRUE);
-            }
-         } else {
-            if (gr->target == GL_TEXTURE_2D_MULTISAMPLE) {
-               glTexImage2DMultisample(gr->target, args->nr_samples,
-                                       internalformat, args->width, args->height,
-                                       GL_TRUE);
-            } else {
-               glTexImage3DMultisample(gr->target, args->nr_samples,
-                                       internalformat, args->width, args->height, args->array_size,
-                                       GL_TRUE);
-            }
-         }
-
-      } else if (gr->target == GL_TEXTURE_CUBE_MAP) {
-         int i;
-	 if (vrend_state.have_texture_storage)
-	    glTexStorage2D(GL_TEXTURE_CUBE_MAP, args->last_level + 1, internalformat, args->width, args->height);
-	 else {
-	    for (i = 0; i < 6; i++) {
-	       GLenum ctarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X + i;
-	       for (level = 0; level <= args->last_level; level++) {
-		  unsigned mwidth = u_minify(args->width, level);
-		  unsigned mheight = u_minify(args->height, level);
-
-		  glTexImage2D(ctarget, level, internalformat, mwidth, mheight, 0, glformat,
-			       gltype, NULL);
-	       }
-	    }
-	 }
-      } else if (gr->target == GL_TEXTURE_3D ||
-                 gr->target == GL_TEXTURE_2D_ARRAY ||
-                 gr->target == GL_TEXTURE_CUBE_MAP_ARRAY) {
-	 if (vrend_state.have_texture_storage) {
-	    unsigned depth_param = (gr->target == GL_TEXTURE_2D_ARRAY || gr->target == GL_TEXTURE_CUBE_MAP_ARRAY) ? args->array_size : args->depth;
-	    glTexStorage3D(gr->target, args->last_level + 1, internalformat, args->width, args->height, depth_param);
-	 } else {
-	    for (level = 0; level <= args->last_level; level++) {
-	       unsigned depth_param = (gr->target == GL_TEXTURE_2D_ARRAY || gr->target == GL_TEXTURE_CUBE_MAP_ARRAY) ? args->array_size : u_minify(args->depth, level);
-	       unsigned mwidth = u_minify(args->width, level);
-	       unsigned mheight = u_minify(args->height, level);
-	       glTexImage3D(gr->target, level, internalformat, mwidth, mheight, depth_param, 0,
-			    glformat,
-			    gltype, NULL);
-	    }
-	 }
-      } else if (gr->target == GL_TEXTURE_1D && vrend_state.use_gles) {
-         report_gles_missing_func(NULL, "glTexImage1D");
-      } else if (gr->target == GL_TEXTURE_1D) {
-	 if (vrend_state.have_texture_storage) {
-	    glTexStorage1D(gr->target, args->last_level + 1, internalformat, args->width);
-	 } else {
-	    for (level = 0; level <= args->last_level; level++) {
-	       unsigned mwidth = u_minify(args->width, level);
-	       glTexImage1D(gr->target, level, internalformat, mwidth, 0,
-			    glformat,
-			    gltype, NULL);
-	    }
-	 }
-      } else {
-	 if (vrend_state.have_texture_storage)
-	    glTexStorage2D(gr->target, args->last_level + 1, internalformat, args->width,
-			   gr->target == GL_TEXTURE_1D_ARRAY ? args->array_size : args->height);
-	 else {
-	    for (level = 0; level <= args->last_level; level++) {
-	       unsigned mwidth = u_minify(args->width, level);
-	       unsigned mheight = u_minify(args->height, level);
-	       glTexImage2D(gr->target, level, internalformat, mwidth, gr->target == GL_TEXTURE_1D_ARRAY ? args->array_size : mheight, 0, glformat,
-			    gltype, NULL);
-	    }
-	 }
-      }
-
-      gt->state.max_lod = -1;
-      gt->cur_swizzle_r = gt->cur_swizzle_g = gt->cur_swizzle_b = gt->cur_swizzle_a = -1;
+      int r = vrend_renderer_resource_allocate_texture(gr);
+      if (r)
+         return r;
    }
 
    ret = vrend_resource_insert(gr, args->handle);
