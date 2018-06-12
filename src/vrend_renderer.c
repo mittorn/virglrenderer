@@ -122,6 +122,7 @@ struct global_renderer_state {
    /* these appeared broken on at least one driver */
    bool use_explicit_locations;
    uint32_t max_uniform_blocks;
+   uint32_t max_draw_buffers;
    struct list_head active_ctx_list;
 
    /* threaded sync */
@@ -4378,6 +4379,8 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
       fprintf(stderr, "gl_version %d - compat profile\n", gl_ver);
    }
 
+   glGetIntegerv(GL_MAX_DRAW_BUFFERS, (GLint *) &vrend_state.max_draw_buffers);
+
    if (epoxy_has_gl_extension("GL_ARB_robustness")) {
       vrend_state.have_arb_robustness = true;
    } else if (gles && epoxy_has_gl_extension("GL_KHR_robustness")) {
@@ -4634,6 +4637,7 @@ struct vrend_context *vrend_create_context(int id, uint32_t nlen, const char *de
    grctx->shader_cfg.use_gles = vrend_state.use_gles;
    grctx->shader_cfg.use_core_profile = vrend_state.use_core_profile;
    grctx->shader_cfg.use_explicit_locations = vrend_state.use_explicit_locations;
+   grctx->shader_cfg.max_draw_buffers = vrend_state.max_draw_buffers;
    vrend_renderer_create_sub_ctx(grctx, 0);
    vrend_renderer_set_sub_ctx(grctx, 0);
 
@@ -7012,8 +7016,7 @@ static bool vrend_renderer_fill_caps_common(uint32_t set, UNUSED uint32_t versio
 
 
    /* Common limits for all backends. */
-   glGetIntegerv(GL_MAX_DRAW_BUFFERS, &max);
-   caps->v1.max_render_targets = max;
+   caps->v1.max_render_targets = vrend_state.max_draw_buffers;
 
    glGetIntegerv(GL_MAX_SAMPLES, &max);
    caps->v1.max_samples = max;

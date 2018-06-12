@@ -1208,7 +1208,7 @@ static int emit_cbuf_writes(struct dump_ctx *ctx)
    int i;
    char *sret;
 
-   for (i = ctx->num_outputs; i < 8; i++) {
+   for (i = ctx->num_outputs; i < ctx->cfg->max_draw_buffers; i++) {
       snprintf(buf, 255, "fsout_c%d = fsout_c0;\n", i);
       sret = add_str_to_glsl_main(ctx, buf);
       if (!sret)
@@ -3494,7 +3494,7 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
    }
 
    if (ctx->write_all_cbufs) {
-      for (i = 0; i < 8; i++) {
+      for (i = 0; i < ctx->cfg->max_draw_buffers; i++) {
          if (ctx->cfg->use_gles)
             snprintf(buf, 255, "layout (location=%d) out vec4 fsout_c%d;\n", i, i);
          else

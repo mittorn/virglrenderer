@@ -102,6 +102,7 @@ struct vrend_shader_key {
 
 struct vrend_shader_cfg {
    int glsl_version;
+   int max_draw_buffers;
    bool use_gles;
    bool use_core_profile;
    bool use_explicit_locations;
