@@ -30,6 +30,7 @@
 #include "virgl_protocol.h"
 #include "vrend_iov.h"
 #include "virgl_hw.h"
+#include <epoxy/gl.h>
 
 typedef void *virgl_gl_context;
 typedef void *virgl_gl_drawable;

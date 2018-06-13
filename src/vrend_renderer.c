@@ -25,8 +25,6 @@
 #include "config.h"
 #endif
 
-#include <epoxy/gl.h>
-
 #include <unistd.h>
 #include <stdio.h>
 #include <errno.h>
