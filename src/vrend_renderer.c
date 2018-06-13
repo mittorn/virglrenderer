@@ -4178,9 +4178,9 @@ static void vrend_free_sync_thread(void)
 
    pipe_mutex_lock(vrend_state.fence_mutex);
    vrend_state.stop_sync_thread = true;
+   pipe_condvar_signal(vrend_state.fence_cond);
    pipe_mutex_unlock(vrend_state.fence_mutex);
 
-   pipe_condvar_signal(vrend_state.fence_cond);
    pipe_thread_wait(vrend_state.sync_thread);
    vrend_state.sync_thread = 0;
 
@@ -6427,8 +6427,8 @@ int vrend_renderer_create_fence(int client_fence_id, uint32_t ctx_id)
    if (vrend_state.sync_thread) {
       pipe_mutex_lock(vrend_state.fence_mutex);
       list_addtail(&fence->fences, &vrend_state.fence_wait_list);
-      pipe_mutex_unlock(vrend_state.fence_mutex);
       pipe_condvar_signal(vrend_state.fence_cond);
+      pipe_mutex_unlock(vrend_state.fence_mutex);
    } else
       list_addtail(&fence->fences, &vrend_state.fence_list);
    return 0;
