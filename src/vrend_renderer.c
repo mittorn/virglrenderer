@@ -860,6 +860,51 @@ static void set_stream_out_varyings(int prog_id, struct vrend_shader_info *sinfo
          free(varyings[i]);
 }
 
+static void bind_sampler_locs(struct vrend_linked_shader_program *sprog,
+                              int id)
+{
+   if (sprog->ss[id]->sel->sinfo.samplers_used_mask) {
+      uint32_t mask = sprog->ss[id]->sel->sinfo.samplers_used_mask;
+      int nsamp = util_bitcount(sprog->ss[id]->sel->sinfo.samplers_used_mask);
+      int index;
+      sprog->shadow_samp_mask[id] = sprog->ss[id]->sel->sinfo.shadow_samp_mask;
+      if (sprog->ss[id]->sel->sinfo.shadow_samp_mask) {
+         sprog->shadow_samp_mask_locs[id] = calloc(nsamp, sizeof(uint32_t));
+         sprog->shadow_samp_add_locs[id] = calloc(nsamp, sizeof(uint32_t));
+      } else {
+         sprog->shadow_samp_mask_locs[id] = sprog->shadow_samp_add_locs[id] = NULL;
+      }
+      sprog->samp_locs[id] = calloc(nsamp, sizeof(uint32_t));
+      if (sprog->samp_locs[id]) {
+         const char *prefix = pipe_shader_to_prefix(id);
+         index = 0;
+         while(mask) {
+            uint32_t i = u_bit_scan(&mask);
+            char name[64];
+            if (sprog->ss[id]->sel->sinfo.num_sampler_arrays) {
+               int arr_idx = shader_lookup_sampler_array(&sprog->ss[id]->sel->sinfo, i);
+               snprintf(name, 32, "%ssamp%d[%d]", prefix, arr_idx, i - sprog->ss[id]->sel->sinfo.sampler_arrays[arr_idx].first);
+            } else
+               snprintf(name, 32, "%ssamp%d", prefix, i);
+            sprog->samp_locs[id][index] = glGetUniformLocation(sprog->id, name);
+            if (sprog->ss[id]->sel->sinfo.shadow_samp_mask & (1 << i)) {
+               snprintf(name, 32, "%sshadmask%d", prefix, i);
+               sprog->shadow_samp_mask_locs[id][index] = glGetUniformLocation(sprog->id, name);
+               snprintf(name, 32, "%sshadadd%d", prefix, i);
+               sprog->shadow_samp_add_locs[id][index] = glGetUniformLocation(sprog->id, name);
+            }
+            index++;
+         }
+      }
+   } else {
+      sprog->samp_locs[id] = NULL;
+      sprog->shadow_samp_mask_locs[id] = NULL;
+      sprog->shadow_samp_add_locs[id] = NULL;
+      sprog->shadow_samp_mask[id] = 0;
+   }
+   sprog->samplers_used_mask[id] = sprog->ss[id]->sel->sinfo.samplers_used_mask;
+}
+
 static struct vrend_linked_shader_program *add_shader_program(struct vrend_context *ctx,
                                                               struct vrend_shader *vs,
                                                               struct vrend_shader *fs,
@@ -1001,45 +1046,8 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
    for (id = PIPE_SHADER_VERTEX; id <= last_shader; id++) {
       if (!sprog->ss[id])
          continue;
-      if (sprog->ss[id]->sel->sinfo.samplers_used_mask) {
-         uint32_t mask = sprog->ss[id]->sel->sinfo.samplers_used_mask;
-         int nsamp = util_bitcount(sprog->ss[id]->sel->sinfo.samplers_used_mask);
-         int index;
-         sprog->shadow_samp_mask[id] = sprog->ss[id]->sel->sinfo.shadow_samp_mask;
-         if (sprog->ss[id]->sel->sinfo.shadow_samp_mask) {
-            sprog->shadow_samp_mask_locs[id] = calloc(nsamp, sizeof(uint32_t));
-            sprog->shadow_samp_add_locs[id] = calloc(nsamp, sizeof(uint32_t));
-         } else {
-            sprog->shadow_samp_mask_locs[id] = sprog->shadow_samp_add_locs[id] = NULL;
-         }
-         sprog->samp_locs[id] = calloc(nsamp, sizeof(uint32_t));
-         if (sprog->samp_locs[id]) {
-            const char *prefix = pipe_shader_to_prefix(id);
-            index = 0;
-            while(mask) {
-               i = u_bit_scan(&mask);
-               if (sprog->ss[id]->sel->sinfo.num_sampler_arrays) {
-                  int arr_idx = shader_lookup_sampler_array(&sprog->ss[id]->sel->sinfo, i);
-                  snprintf(name, 32, "%ssamp%d[%d]", prefix, arr_idx, i - sprog->ss[id]->sel->sinfo.sampler_arrays[arr_idx].first);
-               } else
-                  snprintf(name, 32, "%ssamp%d", prefix, i);
-               sprog->samp_locs[id][index] = glGetUniformLocation(prog_id, name);
-               if (sprog->ss[id]->sel->sinfo.shadow_samp_mask & (1 << i)) {
-                  snprintf(name, 32, "%sshadmask%d", prefix, i);
-                  sprog->shadow_samp_mask_locs[id][index] = glGetUniformLocation(prog_id, name);
-                  snprintf(name, 32, "%sshadadd%d", prefix, i);
-                  sprog->shadow_samp_add_locs[id][index] = glGetUniformLocation(prog_id, name);
-               }
-               index++;
-            }
-         }
-      } else {
-         sprog->samp_locs[id] = NULL;
-         sprog->shadow_samp_mask_locs[id] = NULL;
-         sprog->shadow_samp_add_locs[id] = NULL;
-         sprog->shadow_samp_mask[id] = 0;
-      }
-      sprog->samplers_used_mask[id] = sprog->ss[id]->sel->sinfo.samplers_used_mask;
+
+      bind_sampler_locs(sprog, id);
    }
 
    for (id = PIPE_SHADER_VERTEX; id <= last_shader; id++) {
