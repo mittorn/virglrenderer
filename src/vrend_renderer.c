@@ -3015,24 +3015,6 @@ static void vrend_draw_bind_samplers_shader(struct vrend_context *ctx,
    }
 }
 
-static void vrend_draw_bind_samplers(struct vrend_context *ctx)
-{
-   int sampler_id;
-   int shader_type;
-
-   sampler_id = 0;
-   for (shader_type = PIPE_SHADER_VERTEX; shader_type <= ctx->sub->last_shader_idx; shader_type++) {
-      vrend_draw_bind_samplers_shader(ctx, shader_type, &sampler_id);
-   }
-
-   if (vrend_state.use_core_profile && ctx->sub->prog->fs_stipple_loc != -1) {
-      glActiveTexture(GL_TEXTURE0 + sampler_id);
-      glBindTexture(GL_TEXTURE_2D, ctx->pstipple_tex_id);
-      glUniform1i(ctx->sub->prog->fs_stipple_loc, sampler_id);
-   }
-   ctx->sub->sampler_state_dirty = false;
-}
-
 static void vrend_draw_bind_ubo_shader(struct vrend_context *ctx,
                                        int shader_type, int *ubo_id)
 {
@@ -3075,17 +3057,6 @@ static void vrend_draw_bind_ubo_shader(struct vrend_context *ctx,
    }
 }
 
-static void vrend_draw_bind_ubo(struct vrend_context *ctx)
-{
-   int ubo_id;
-   int shader_type;
-
-   ubo_id = 0;
-   for (shader_type = PIPE_SHADER_VERTEX; shader_type <= ctx->sub->last_shader_idx; shader_type++) {
-      vrend_draw_bind_ubo_shader(ctx, shader_type, &ubo_id);
-   }
-}
-
 static void vrend_draw_bind_const_shader(struct vrend_context *ctx,
                                          int shader_type, bool new_program)
 {
@@ -3100,11 +3071,21 @@ static void vrend_draw_bind_const_shader(struct vrend_context *ctx,
    }
 }
 
-static void vrend_draw_bind_const(struct vrend_context *ctx, bool new_program)
+static void vrend_draw_bind_objects(struct vrend_context *ctx, bool new_program)
 {
+   int ubo_id = 0, sampler_id = 0;
    for (int shader_type = PIPE_SHADER_VERTEX; shader_type <= ctx->sub->last_shader_idx; shader_type++) {
+      vrend_draw_bind_ubo_shader(ctx, shader_type, &ubo_id);
       vrend_draw_bind_const_shader(ctx, shader_type, new_program);
+      vrend_draw_bind_samplers_shader(ctx, shader_type, &sampler_id);
    }
+
+   if (vrend_state.use_core_profile && ctx->sub->prog->fs_stipple_loc != -1) {
+      glActiveTexture(GL_TEXTURE0 + sampler_id);
+      glBindTexture(GL_TEXTURE_2D, ctx->pstipple_tex_id);
+      glUniform1i(ctx->sub->prog->fs_stipple_loc, sampler_id);
+   }
+   ctx->sub->sampler_state_dirty = false;
 }
 
 void vrend_draw_vbo(struct vrend_context *ctx,
@@ -3231,11 +3212,7 @@ void vrend_draw_vbo(struct vrend_context *ctx,
 
    vrend_use_program(ctx, ctx->sub->prog->id);
 
-   vrend_draw_bind_const(ctx, new_program);
-
-   vrend_draw_bind_samplers(ctx);
-
-   vrend_draw_bind_ubo(ctx);
+   vrend_draw_bind_objects(ctx, new_program);
 
    if (!ctx->sub->ve) {
       fprintf(stderr,"illegal VE setup - skipping renderering\n");
