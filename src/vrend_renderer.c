@@ -922,6 +922,27 @@ static void bind_const_locs(struct vrend_linked_shader_program *sprog,
       sprog->const_locs[id] = NULL;
 }
 
+static void bind_ubo_locs(struct vrend_linked_shader_program *sprog,
+                          int id)
+{
+   if (sprog->ss[id]->sel->sinfo.num_ubos) {
+      const char *prefix = pipe_shader_to_prefix(id);
+
+      sprog->ubo_locs[id] = calloc(sprog->ss[id]->sel->sinfo.num_ubos, sizeof(uint32_t));
+      for (int i = 0; i < sprog->ss[id]->sel->sinfo.num_ubos; i++) {
+         int ubo_idx = sprog->ss[id]->sel->sinfo.ubo_idx[i];
+         char name[32];
+         if (sprog->ss[id]->sel->sinfo.ubo_indirect)
+            snprintf(name, 32, "%subo[%d]", prefix, ubo_idx - 1);
+         else
+            snprintf(name, 32, "%subo%d", prefix, ubo_idx);
+
+         sprog->ubo_locs[id][i] = glGetUniformBlockIndex(sprog->id, name);
+      }
+   } else
+      sprog->ubo_locs[id] = NULL;
+}
+
 static struct vrend_linked_shader_program *add_shader_program(struct vrend_context *ctx,
                                                               struct vrend_shader *vs,
                                                               struct vrend_shader *fs,
@@ -1089,21 +1110,8 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
    for (id = PIPE_SHADER_VERTEX; id <= last_shader; id++) {
       if (!sprog->ss[id])
          continue;
-      if (sprog->ss[id]->sel->sinfo.num_ubos) {
-         const char *prefix = pipe_shader_to_prefix(id);
 
-         sprog->ubo_locs[id] = calloc(sprog->ss[id]->sel->sinfo.num_ubos, sizeof(uint32_t));
-         for (i = 0; i < sprog->ss[id]->sel->sinfo.num_ubos; i++) {
-            int ubo_idx = sprog->ss[id]->sel->sinfo.ubo_idx[i];
-            if (sprog->ss[id]->sel->sinfo.ubo_indirect)
-               snprintf(name, 32, "%subo[%d]", prefix, ubo_idx - 1);
-            else
-               snprintf(name, 32, "%subo%d", prefix, ubo_idx);
-
-            sprog->ubo_locs[id][i] = glGetUniformBlockIndex(prog_id, name);
-         }
-      } else
-         sprog->ubo_locs[id] = NULL;
+      bind_ubo_locs(sprog, id);
    }
 
    if (vs->sel->sinfo.num_ucp) {
