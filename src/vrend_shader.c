@@ -1003,6 +1003,9 @@ iter_declaration(struct tgsi_iterate_context *iter,
          return FALSE;
       }
       ctx->samplers[decl->Range.First].tgsi_sampler_return = decl->SamplerView.ReturnTypeX;
+      if (decl->SamplerView.ReturnTypeX == TGSI_RETURN_TYPE_SINT ||
+          decl->SamplerView.ReturnTypeX == TGSI_RETURN_TYPE_UINT)
+         ctx->shader_req_bits |= SHADER_REQ_INTS;
       if (ctx->info.indirect_files & (1 << TGSI_FILE_SAMPLER)) {
          if (ctx->last_sampler_array_idx != -1) {
             if (ctx->sampler_arrays[ctx->last_sampler_array_idx].sview_type == decl->SamplerView.Resource &&
