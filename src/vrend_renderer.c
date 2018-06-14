@@ -3086,6 +3086,27 @@ static void vrend_draw_bind_ubo(struct vrend_context *ctx)
    }
 }
 
+static void vrend_draw_bind_const_shader(struct vrend_context *ctx,
+                                         int shader_type, bool new_program)
+{
+   if (ctx->sub->consts[shader_type].consts &&
+       ctx->sub->prog->const_locs[shader_type] &&
+       (ctx->sub->const_dirty[shader_type] || new_program)) {
+      for (int i = 0; i < ctx->sub->shaders[shader_type]->sinfo.num_consts; i++) {
+         if (ctx->sub->prog->const_locs[shader_type][i] != -1)
+            glUniform4uiv(ctx->sub->prog->const_locs[shader_type][i], 1, &ctx->sub->consts[shader_type].consts[i * 4]);
+      }
+      ctx->sub->const_dirty[shader_type] = false;
+   }
+}
+
+static void vrend_draw_bind_const(struct vrend_context *ctx, bool new_program)
+{
+   for (int shader_type = PIPE_SHADER_VERTEX; shader_type <= ctx->sub->last_shader_idx; shader_type++) {
+      vrend_draw_bind_const_shader(ctx, shader_type, new_program);
+   }
+}
+
 void vrend_draw_vbo(struct vrend_context *ctx,
                     const struct pipe_draw_info *info,
                     uint32_t cso, uint32_t indirect_handle,
@@ -3093,7 +3114,6 @@ void vrend_draw_vbo(struct vrend_context *ctx,
 {
    int i;
    bool new_program = false;
-   int32_t shader_type;
    struct vrend_resource *indirect_res = NULL;
 
    if (ctx->in_error)
@@ -3211,17 +3231,7 @@ void vrend_draw_vbo(struct vrend_context *ctx,
 
    vrend_use_program(ctx, ctx->sub->prog->id);
 
-   for (shader_type = PIPE_SHADER_VERTEX; shader_type <= ctx->sub->last_shader_idx; shader_type++) {
-      if (ctx->sub->consts[shader_type].consts &&
-          ctx->sub->prog->const_locs[shader_type] &&
-          (ctx->sub->const_dirty[shader_type] || new_program)) {
-         for (i = 0; i < ctx->sub->shaders[shader_type]->sinfo.num_consts; i++) {
-            if (ctx->sub->prog->const_locs[shader_type][i] != -1)
-               glUniform4uiv(ctx->sub->prog->const_locs[shader_type][i], 1, &ctx->sub->consts[shader_type].consts[i * 4]);
-         }
-         ctx->sub->const_dirty[shader_type] = false;
-      }
-   }
+   vrend_draw_bind_const(ctx, new_program);
 
    vrend_draw_bind_samplers(ctx);
 
