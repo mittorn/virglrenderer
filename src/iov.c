@@ -124,7 +124,7 @@ size_t vrend_read_from_iovec_cb(const struct iovec *iov, int iovlen,
       
       if (count < iov->iov_len - offset) len = count;
 
-      (*iocb)(cookie, count, (char*)iov->iov_base + offset, len);
+      (*iocb)(cookie, read, (char*)iov->iov_base + offset, len);
       read += len;
 
       count -= len;
