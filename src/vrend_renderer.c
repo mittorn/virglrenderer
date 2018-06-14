@@ -1086,12 +1086,8 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
          continue;
 
       bind_sampler_locs(sprog, id);
-   }
-
-   for (id = PIPE_SHADER_VERTEX; id <= last_shader; id++) {
-      if (!sprog->ss[id])
-         continue;
       bind_const_locs(sprog, id);
+      bind_ubo_locs(sprog, id);
    }
 
    if (!vrend_state.have_gles31_vertex_attrib_binding) {
@@ -1105,13 +1101,6 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
          }
       } else
          sprog->attrib_locs = NULL;
-   }
-
-   for (id = PIPE_SHADER_VERTEX; id <= last_shader; id++) {
-      if (!sprog->ss[id])
-         continue;
-
-      bind_ubo_locs(sprog, id);
    }
 
    if (vs->sel->sinfo.num_ucp) {
