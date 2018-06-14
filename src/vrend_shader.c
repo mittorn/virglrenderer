@@ -1055,7 +1055,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
       ctx->system_values[i].first = decl->Range.First;
       if (decl->Semantic.Name == TGSI_SEMANTIC_INSTANCEID) {
          name_prefix = "gl_InstanceID";
-         ctx->shader_req_bits |= SHADER_REQ_INSTANCE_ID;
+         ctx->shader_req_bits |= SHADER_REQ_INSTANCE_ID | SHADER_REQ_INTS;
       } else if (decl->Semantic.Name == TGSI_SEMANTIC_VERTEXID) {
          name_prefix = "gl_VertexID";
          ctx->shader_req_bits |= SHADER_REQ_INTS;
