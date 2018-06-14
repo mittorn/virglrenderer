@@ -905,6 +905,23 @@ static void bind_sampler_locs(struct vrend_linked_shader_program *sprog,
    sprog->samplers_used_mask[id] = sprog->ss[id]->sel->sinfo.samplers_used_mask;
 }
 
+static void bind_const_locs(struct vrend_linked_shader_program *sprog,
+                            int id)
+{
+  if (sprog->ss[id]->sel->sinfo.num_consts) {
+      sprog->const_locs[id] = calloc(sprog->ss[id]->sel->sinfo.num_consts, sizeof(uint32_t));
+      if (sprog->const_locs[id]) {
+         const char *prefix = pipe_shader_to_prefix(id);
+         for (int i = 0; i < sprog->ss[id]->sel->sinfo.num_consts; i++) {
+            char name[32];
+            snprintf(name, 32, "%sconst0[%d]", prefix, i);
+            sprog->const_locs[id][i] = glGetUniformLocation(sprog->id, name);
+         }
+      }
+   } else
+      sprog->const_locs[id] = NULL;
+}
+
 static struct vrend_linked_shader_program *add_shader_program(struct vrend_context *ctx,
                                                               struct vrend_shader *vs,
                                                               struct vrend_shader *fs,
@@ -1053,17 +1070,7 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
    for (id = PIPE_SHADER_VERTEX; id <= last_shader; id++) {
       if (!sprog->ss[id])
          continue;
-      if (sprog->ss[id]->sel->sinfo.num_consts) {
-         sprog->const_locs[id] = calloc(sprog->ss[id]->sel->sinfo.num_consts, sizeof(uint32_t));
-         if (sprog->const_locs[id]) {
-            const char *prefix = pipe_shader_to_prefix(id);
-            for (i = 0; i < sprog->ss[id]->sel->sinfo.num_consts; i++) {
-               snprintf(name, 32, "%sconst0[%d]", prefix, i);
-               sprog->const_locs[id][i] = glGetUniformLocation(prog_id, name);
-            }
-         }
-      } else
-         sprog->const_locs[id] = NULL;
+      bind_const_locs(sprog, id);
    }
 
    if (!vrend_state.have_gles31_vertex_attrib_binding) {
