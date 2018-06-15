@@ -1777,6 +1777,46 @@ static bool fill_offset_buffer(struct dump_ctx *ctx,
          return false;
          break;
       }
+   } else if (inst->TexOffsets[0].File == TGSI_FILE_INPUT) {
+      for (uint32_t j = 0; j < ctx->num_inputs; j++) {
+         if (ctx->inputs[j].first != inst->TexOffsets[0].Index)
+            continue;
+         switch (inst->Texture.Texture) {
+         case TGSI_TEXTURE_1D:
+         case TGSI_TEXTURE_1D_ARRAY:
+         case TGSI_TEXTURE_SHADOW1D:
+         case TGSI_TEXTURE_SHADOW1D_ARRAY:
+            snprintf(offbuf, 120, ", int(floatBitsToInt(%s.%c))",
+                     ctx->inputs[j].glsl_name,
+                     get_swiz_char(inst->TexOffsets[0].SwizzleX));
+            break;
+         case TGSI_TEXTURE_RECT:
+         case TGSI_TEXTURE_SHADOWRECT:
+         case TGSI_TEXTURE_2D:
+         case TGSI_TEXTURE_2D_ARRAY:
+         case TGSI_TEXTURE_SHADOW2D:
+         case TGSI_TEXTURE_SHADOW2D_ARRAY:
+            snprintf(offbuf, 120, ", ivec2(floatBitsToInt(%s.%c), floatBitsToInt(%s.%c))",
+                     ctx->inputs[j].glsl_name,
+                     get_swiz_char(inst->TexOffsets[0].SwizzleX),
+                     ctx->inputs[j].glsl_name,
+                     get_swiz_char(inst->TexOffsets[0].SwizzleY));
+            break;
+         case TGSI_TEXTURE_3D:
+            snprintf(offbuf, 120, ", ivec3(floatBitsToInt(%s.%c), floatBitsToInt(%s.%c), floatBitsToInt(%s.%c)",
+                     ctx->inputs[j].glsl_name,
+                     get_swiz_char(inst->TexOffsets[0].SwizzleX),
+                     ctx->inputs[j].glsl_name,
+                     get_swiz_char(inst->TexOffsets[0].SwizzleY),
+                     ctx->inputs[j].glsl_name,
+                     get_swiz_char(inst->TexOffsets[0].SwizzleZ));
+            break;
+         default:
+            fprintf(stderr, "unhandled texture: %x\n", inst->Texture.Texture);
+            return false;
+            break;
+         }
+      }
    }
    return true;
 }
