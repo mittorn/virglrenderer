@@ -6156,9 +6156,11 @@ static void vrend_resource_copy_fallback(struct vrend_resource *src_res,
    } else {
       switch (elsize) {
       case 1:
+      case 3:
          glPixelStorei(GL_PACK_ALIGNMENT, 1);
          break;
       case 2:
+      case 6:
          glPixelStorei(GL_PACK_ALIGNMENT, 2);
          break;
       case 4:
@@ -6192,9 +6194,11 @@ static void vrend_resource_copy_fallback(struct vrend_resource *src_res,
    glPixelStorei(GL_PACK_ALIGNMENT, 4);
    switch (elsize) {
    case 1:
+   case 3:
       glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
       break;
    case 2:
+   case 6:
       glPixelStorei(GL_UNPACK_ALIGNMENT, 2);
       break;
    case 4:
