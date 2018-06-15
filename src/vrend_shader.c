@@ -1764,7 +1764,7 @@ static bool fill_offset_buffer(struct dump_ctx *ctx,
                   get_swiz_char(inst->TexOffsets[0].SwizzleY));
             break;
       case TGSI_TEXTURE_3D:
-         snprintf(offbuf, 120, ", ivec2(floatBitsToInt(temp%d[%d].%c), floatBitsToInt(temp%d[%d].%c), floatBitsToInt(temp%d[%d].%c)",
+         snprintf(offbuf, 120, ", ivec3(floatBitsToInt(temp%d[%d].%c), floatBitsToInt(temp%d[%d].%c), floatBitsToInt(temp%d[%d].%c)",
                   range->first, idx,
                   get_swiz_char(inst->TexOffsets[0].SwizzleX),
                   range->first, idx,
