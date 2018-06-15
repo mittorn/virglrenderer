@@ -2625,9 +2625,12 @@ get_source_info(struct dump_ctx *ctx,
                    ctx->system_values[j].name == TGSI_SEMANTIC_PRIMID ||
                    ctx->system_values[j].name == TGSI_SEMANTIC_VERTICESIN ||
                    ctx->system_values[j].name == TGSI_SEMANTIC_INVOCATIONID ||
-                   ctx->system_values[j].name == TGSI_SEMANTIC_SAMPLEID)
-                  snprintf(srcs[i], 255, "%s(vec4(intBitsToFloat(%s)))", get_string(stypeprefix), ctx->system_values[j].glsl_name);
-               else if (ctx->system_values[j].name == TGSI_SEMANTIC_TESSINNER ||
+                   ctx->system_values[j].name == TGSI_SEMANTIC_SAMPLEID) {
+                  if (inst->Instruction.Opcode == TGSI_OPCODE_INTERP_SAMPLE && i == 1)
+                     snprintf(srcs[i], 255, "ivec4(%s)", ctx->system_values[j].glsl_name);
+                  else
+                     snprintf(srcs[i], 255, "%s(vec4(intBitsToFloat(%s)))", get_string(stypeprefix), ctx->system_values[j].glsl_name);
+               } else if (ctx->system_values[j].name == TGSI_SEMANTIC_TESSINNER ||
                         ctx->system_values[j].name == TGSI_SEMANTIC_TESSOUTER) {
                   snprintf(srcs[i], 255, "%s(vec4(%s[%d], %s[%d], %s[%d], %s[%d]))",
                            prefix,
