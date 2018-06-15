@@ -1478,15 +1478,14 @@ void vrend_fb_bind_texture(struct vrend_resource *res,
    const struct util_format_description *desc = util_format_description(res->base.format);
    GLenum attachment = GL_COLOR_ATTACHMENT0_EXT + idx;
 
-   if (vrend_format_is_ds(res->base.format)) { {
-         if (util_format_has_stencil(desc)) {
-            if (util_format_has_depth(desc))
-               attachment = GL_DEPTH_STENCIL_ATTACHMENT;
-            else
-               attachment = GL_STENCIL_ATTACHMENT;
-         } else
-            attachment = GL_DEPTH_ATTACHMENT;
-      }
+   if (vrend_format_is_ds(res->base.format)) {
+      if (util_format_has_stencil(desc)) {
+         if (util_format_has_depth(desc))
+            attachment = GL_DEPTH_STENCIL_ATTACHMENT;
+         else
+            attachment = GL_STENCIL_ATTACHMENT;
+      } else
+         attachment = GL_DEPTH_ATTACHMENT;
    }
 
    switch (res->target) {
