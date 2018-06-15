@@ -6070,8 +6070,7 @@ static void vrend_resource_buffer_copy(UNUSED struct vrend_context *ctx,
    glBindBuffer(GL_COPY_WRITE_BUFFER, 0);
 }
 
-static void vrend_resource_copy_fallback(struct vrend_context *ctx,
-                                         struct vrend_resource *src_res,
+static void vrend_resource_copy_fallback(struct vrend_resource *src_res,
                                          struct vrend_resource *dst_res,
                                          uint32_t dst_level,
                                          uint32_t dstx, uint32_t dsty,
@@ -6158,15 +6157,11 @@ static void vrend_resource_copy_fallback(struct vrend_context *ctx,
          if (compressed) {
             if (vrend_state.have_arb_robustness)
                glGetnCompressedTexImageARB(ctarget, src_level, transfer_size, tptr + slice_offset);
-            else if (vrend_state.use_gles)
-               report_gles_missing_func(ctx, "glGetCompressedTexImage");
             else
                glGetCompressedTexImage(ctarget, src_level, tptr + slice_offset);
          } else {
             if (vrend_state.have_arb_robustness)
                glGetnTexImageARB(ctarget, src_level, glformat, gltype, transfer_size, tptr + slice_offset);
-            else if (vrend_state.use_gles)
-               report_gles_missing_func(ctx, "glGetTexImage");
             else
                glGetTexImage(ctarget, src_level, glformat, gltype, tptr + slice_offset);
          }
@@ -6260,7 +6255,7 @@ void vrend_renderer_resource_copy_region(struct vrend_context *ctx,
 
    if (!vrend_format_can_render(src_res->base.format) ||
        !vrend_format_can_render(dst_res->base.format)) {
-      vrend_resource_copy_fallback(ctx, src_res, dst_res, dst_level, dstx,
+      vrend_resource_copy_fallback(src_res, dst_res, dst_level, dstx,
                                    dsty, dstz, src_level, src_box);
 
       return;
