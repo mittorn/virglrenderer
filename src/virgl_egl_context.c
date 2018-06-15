@@ -123,7 +123,7 @@ static bool virgl_egl_has_extension_in_string(const char *haystack, const char *
    return false;
 }
 
-struct virgl_egl *virgl_egl_init(void)
+struct virgl_egl *virgl_egl_init(int fd)
 {
    static const EGLint conf_att[] = {
       EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
@@ -148,7 +148,11 @@ struct virgl_egl *virgl_egl_init(void)
    if (!d)
       return NULL;
 
-   d->fd = egl_rendernode_open();
+   if (fd >= 0) {
+      d->fd = fd;
+   } else {
+      d->fd = egl_rendernode_open();
+   }
    if (d->fd == -1)
       goto fail;
    d->gbm_dev = gbm_create_device(d->fd);

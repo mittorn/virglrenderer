@@ -44,6 +44,8 @@ struct virgl_renderer_gl_ctx_param {
    int minor_ver;
 };
 
+#define VIRGL_RENDERER_CALLBACKS_VERSION 2
+
 struct virgl_renderer_callbacks {
    int version;
    void (*write_fence)(void *cookie, uint32_t fence);
@@ -52,6 +54,8 @@ struct virgl_renderer_callbacks {
    virgl_renderer_gl_context (*create_gl_context)(void *cookie, int scanout_idx, struct virgl_renderer_gl_ctx_param *param);
    void (*destroy_gl_context)(void *cookie, virgl_renderer_gl_context ctx);
    int (*make_current)(void *cookie, int scanout_idx, virgl_renderer_gl_context ctx);
+
+   int (*get_drm_fd)(void *cookie); /* v2, used with flags & VIRGL_RENDERER_USE_EGL */
 };
 
 /* virtio-gpu compatible interface */

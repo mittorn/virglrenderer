@@ -303,7 +303,7 @@ int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks
    if (!cookie || !cbs)
       return -1;
 
-   if (cbs->version != 1)
+   if (cbs->version < 1 || cbs->version > VIRGL_RENDERER_CALLBACKS_VERSION)
       return -1;
 
    dev_cookie = cookie;
@@ -311,7 +311,11 @@ int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks
 
    if (flags & VIRGL_RENDERER_USE_EGL) {
 #ifdef HAVE_EPOXY_EGL_H
-      egl_info = virgl_egl_init();
+      int fd = -1;
+      if (cbs->version >= 2 && cbs->get_drm_fd) {
+         fd = cbs->get_drm_fd(cookie);
+      }
+      egl_info = virgl_egl_init(fd);
       if (!egl_info)
          return -1;
       use_context = CONTEXT_EGL;
