@@ -6091,7 +6091,7 @@ static void vrend_resource_copy_fallback(struct vrend_resource *src_res,
                                          const struct pipe_box *src_box)
 {
    char *tptr;
-   uint32_t transfer_size, src_stride, dst_stride;
+   uint32_t total_size, src_stride, dst_stride;
    GLenum glformat, gltype;
    int elsize = util_format_get_blocksize(dst_res->base.format);
    int compressed = util_format_is_compressed(dst_res->base.format);
@@ -6115,9 +6115,9 @@ static void vrend_resource_copy_fallback(struct vrend_resource *src_res,
    /* this is ugly need to do a full GetTexImage */
    slice_size = util_format_get_nblocks(src_res->base.format, u_minify(src_res->base.width0, src_level), u_minify(src_res->base.height0, src_level)) *
                 util_format_get_blocksize(src_res->base.format);
-   transfer_size = slice_size * vrend_get_texture_depth(src_res, src_level);
+   total_size = slice_size * vrend_get_texture_depth(src_res, src_level);
 
-   tptr = malloc(transfer_size);
+   tptr = malloc(total_size);
    if (!tptr)
       return;
 
@@ -6151,9 +6151,10 @@ static void vrend_resource_copy_fallback(struct vrend_resource *src_res,
          as 32-bit scaled integers, so we need to scale them here */
       if (dst_res->base.format == (enum pipe_format)VIRGL_FORMAT_Z24X8_UNORM) {
          float depth_scale = 256.0;
-         vrend_scale_depth(tptr, transfer_size, depth_scale);
+         vrend_scale_depth(tptr, total_size, depth_scale);
       }
    } else {
+      uint32_t read_chunk_size;
       switch (elsize) {
       case 1:
       case 3:
@@ -6173,17 +6174,18 @@ static void vrend_resource_copy_fallback(struct vrend_resource *src_res,
       }
       glBindTexture(src_res->target, src_res->id);
       slice_offset = 0;
+      read_chunk_size = (src_res->target == GL_TEXTURE_CUBE_MAP) ? slice_size : total_size;
       for (i = 0; i < cube_slice; i++) {
          GLenum ctarget = src_res->target == GL_TEXTURE_CUBE_MAP ?
                             (GLenum)(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i) : src_res->target;
          if (compressed) {
             if (vrend_state.have_arb_robustness)
-               glGetnCompressedTexImageARB(ctarget, src_level, transfer_size, tptr + slice_offset);
+               glGetnCompressedTexImageARB(ctarget, src_level, read_chunk_size, tptr + slice_offset);
             else
                glGetCompressedTexImage(ctarget, src_level, tptr + slice_offset);
          } else {
             if (vrend_state.have_arb_robustness)
-               glGetnTexImageARB(ctarget, src_level, glformat, gltype, transfer_size, tptr + slice_offset);
+               glGetnTexImageARB(ctarget, src_level, glformat, gltype, read_chunk_size, tptr + slice_offset);
             else
                glGetTexImage(ctarget, src_level, glformat, gltype, tptr + slice_offset);
          }
@@ -6221,11 +6223,11 @@ static void vrend_resource_copy_fallback(struct vrend_resource *src_res,
          if (ctarget == GL_TEXTURE_1D) {
             glCompressedTexSubImage1D(ctarget, dst_level, dstx,
                                       src_box->width,
-                                      glformat, transfer_size, tptr + slice_offset);
+                                      glformat, slice_size, tptr + slice_offset);
          } else {
             glCompressedTexSubImage2D(ctarget, dst_level, dstx, dsty,
                                       src_box->width, src_box->height,
-                                      glformat, transfer_size, tptr + slice_offset);
+                                      glformat, slice_size, tptr + slice_offset);
          }
       } else {
          if (ctarget == GL_TEXTURE_1D) {
