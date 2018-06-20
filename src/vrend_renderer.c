@@ -4932,6 +4932,11 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
       }
    }
 
+   if (!vrend_state.have_texture_storage) {
+      glTexParameteri(gr->target, GL_TEXTURE_BASE_LEVEL, 0);
+      glTexParameteri(gr->target, GL_TEXTURE_MAX_LEVEL, pr->last_level);
+   }
+
    gt->state.max_lod = -1;
    gt->cur_swizzle_r = gt->cur_swizzle_g = gt->cur_swizzle_b = gt->cur_swizzle_a = -1;
    return 0;
