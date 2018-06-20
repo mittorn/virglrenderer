@@ -44,6 +44,11 @@ struct virgl_gl_ctx_param {
 extern int vrend_dump_shaders;
 struct vrend_context;
 
+/* Number of mipmap levels for which to keep the backing iov offsets.
+ * Value mirrored from mesa/virgl
+ */
+#define VR_MAX_TEXTURE_2D_LEVELS 15
+
 struct vrend_resource {
    struct pipe_resource base;
    GLuint id;
@@ -62,6 +67,7 @@ struct vrend_resource {
    char *ptr;
    struct iovec *iov;
    uint32_t num_iovs;
+   uint64_t mipmap_offsets[VR_MAX_TEXTURE_2D_LEVELS];
 };
 
 /* assume every format is sampler friendly */

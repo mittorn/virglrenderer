@@ -5414,6 +5414,19 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
          x = info->box->x;
          y = invert ? (int)res->base.height0 - info->box->y - info->box->height : info->box->y;
 
+
+         /* mipmaps are usually passed in one iov, and we need to keep the offset
+          * into the data in case we want to read back the data of a surface
+          * that can not be rendered. Since we can not assume that the whole texture
+          * is filled, we evaluate the offset for origin (0,0,0). Since it is also
+          * possible that a resource is reused and resized update the offset every time.
+          */
+         if (info->level < VR_MAX_TEXTURE_2D_LEVELS) {
+            int64_t level_height = u_minify(res->base.height0, info->level);
+            res->mipmap_offsets[info->level] = info->offset -
+                                               ((info->box->z * level_height + y) * stride + x * elsize);
+         }
+
          if (res->base.format == (enum pipe_format)VIRGL_FORMAT_Z24X8_UNORM) {
             /* we get values from the guest as 24-bit scaled integers
                but we give them to the host GL and it interprets them
@@ -6097,8 +6110,6 @@ static void vrend_resource_copy_fallback(struct vrend_resource *src_res,
 
    box = *src_box;
    box.depth = vrend_get_texture_depth(src_res, src_level);
-
-   src_stride = util_format_get_stride(src_res->base.format, src_res->base.width0);
    dst_stride = util_format_get_stride(dst_res->base.format, dst_res->base.width0);
 
    /* this is ugly need to do a full GetTexImage */
@@ -6120,12 +6131,21 @@ static void vrend_resource_copy_fallback(struct vrend_resource *src_res,
     * iovec to have the data we need, otherwise we can use glGetTexture
     */
    if (vrend_state.use_gles) {
-      read_transfer_data(&src_res->base, src_res->iov, src_res->num_iovs,
-                         tptr, src_stride, &box, src_level, 0, false);
-      /* Sync the dst iovec backing store because
+      uint64_t src_offset = 0;
+      uint64_t dst_offset = 0;
+      if (src_level < VR_MAX_TEXTURE_2D_LEVELS) {
+         src_offset = src_res->mipmap_offsets[src_level];
+         dst_offset = dst_res->mipmap_offsets[src_level];
+      }
+
+      src_stride = util_format_get_nblocksx(src_res->base.format,
+                                            u_minify(src_res->base.width0, src_level)) * elsize;
+      read_transfer_data(&src_res->base, src_res->iov, src_res->num_iovs, tptr,
+                         src_stride, &box, src_level, src_offset, false);
+      /* When on GLES sync the iov that backs the dst resource because
        * we might need it in a chain copy A->B, B->C */
       write_transfer_data(&dst_res->base, dst_res->iov, dst_res->num_iovs, tptr,
-                          dst_stride, &box, src_level, 0, false);
+                          dst_stride, &box, src_level, dst_offset, false);
       /* we get values from the guest as 24-bit scaled integers
          but we give them to the host GL and it interprets them
          as 32-bit scaled integers, so we need to scale them here */
