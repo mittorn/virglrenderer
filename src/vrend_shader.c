@@ -1195,6 +1195,9 @@ iter_declaration(struct tgsi_iterate_context *iter,
       } else if (decl->Semantic.Name == TGSI_SEMANTIC_VERTEXID) {
          name_prefix = "gl_VertexID";
          ctx->shader_req_bits |= SHADER_REQ_INTS;
+      } else if (decl->Semantic.Name == TGSI_SEMANTIC_HELPER_INVOCATION) {
+         name_prefix = "gl_HelperInvocation";
+         ctx->shader_req_bits |= SHADER_REQ_ES31_COMPAT;
       } else if (decl->Semantic.Name == TGSI_SEMANTIC_SAMPLEID) {
          name_prefix = "gl_SampleID";
          ctx->shader_req_bits |= (SHADER_REQ_SAMPLE_SHADING | SHADER_REQ_INTS);
@@ -3089,6 +3092,8 @@ get_source_info(struct dump_ctx *ctx,
                      snprintf(srcs[i], 255, "ivec4(%s)", ctx->system_values[j].glsl_name);
                   else
                      snprintf(srcs[i], 255, "%s(vec4(intBitsToFloat(%s)))", get_string(stypeprefix), ctx->system_values[j].glsl_name);
+               } else if (ctx->system_values[j].name == TGSI_SEMANTIC_HELPER_INVOCATION) {
+                  snprintf(srcs[i], 255, "uvec4(%s)", ctx->system_values[j].glsl_name);
                } else if (ctx->system_values[j].name == TGSI_SEMANTIC_TESSINNER ||
                         ctx->system_values[j].name == TGSI_SEMANTIC_TESSOUTER) {
                   snprintf(srcs[i], 255, "%s(vec4(%s[%d], %s[%d], %s[%d], %s[%d]))",
