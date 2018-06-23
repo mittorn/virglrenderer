@@ -110,6 +110,8 @@ tgsi_default_declaration( void )
    declaration.Invariant = 0;
    declaration.Local = 0;
    declaration.Array = 0;
+   declaration.Atomic = 0;
+   declaration.MemType = TGSI_MEMORY_TYPE_GLOBAL;
    declaration.Padding = 0;
 
    return declaration;
@@ -125,6 +127,8 @@ tgsi_build_declaration(
    unsigned invariant,
    unsigned local,
    unsigned array,
+   unsigned atomic,
+   unsigned memtype,
    struct tgsi_header *header )
 {
    struct tgsi_declaration declaration;
@@ -141,6 +145,8 @@ tgsi_build_declaration(
    declaration.Invariant = invariant;
    declaration.Local = local;
    declaration.Array = array;
+   declaration.Atomic = atomic;
+   declaration.MemType = memtype;
    header_bodysize_grow( header );
 
    return declaration;
@@ -409,6 +415,8 @@ tgsi_build_full_declaration(
       full_decl->Declaration.Invariant,
       full_decl->Declaration.Local,
       full_decl->Declaration.Array,
+      full_decl->Declaration.Atomic,
+      full_decl->Declaration.MemType,
       header );
 
    if (maxsize <= size)
