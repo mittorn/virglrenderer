@@ -64,7 +64,7 @@ struct vrend_shader_io {
    int                        sid;
    unsigned                interpolate;
    int first;
-   bool                 centroid;
+   unsigned                location;
    bool                    invariant;
    bool glsl_predefined_no_emit;
    bool glsl_no_index;
@@ -179,6 +179,7 @@ struct dump_ctx {
    bool has_clipvertex_so;
    bool vs_has_pervertex;
    bool write_mul_temp;
+   bool has_sample_input;
 
    int tcs_vertices_out;
    int tes_prim_mode;
@@ -549,12 +550,18 @@ iter_declaration(struct tgsi_iterate_context *iter,
       ctx->inputs[i].name = decl->Semantic.Name;
       ctx->inputs[i].sid = decl->Semantic.Index;
       ctx->inputs[i].interpolate = decl->Interp.Interpolate;
-      ctx->inputs[i].centroid = decl->Interp.Location == TGSI_INTERPOLATE_LOC_CENTROID;
+      ctx->inputs[i].location = decl->Interp.Location;
       ctx->inputs[i].first = decl->Range.First;
       ctx->inputs[i].glsl_predefined_no_emit = false;
       ctx->inputs[i].glsl_no_index = false;
       ctx->inputs[i].override_no_wm = false;
       ctx->inputs[i].glsl_gl_block = false;
+
+      if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT &&
+          decl->Interp.Interpolate == TGSI_INTERPOLATE_LOC_SAMPLE) {
+         ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
+         ctx->has_sample_input = true;
+      }
 
       switch (ctx->inputs[i].name) {
       case TGSI_SEMANTIC_COLOR:
@@ -578,6 +585,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
                   ctx->inputs[j].name = TGSI_SEMANTIC_BCOLOR;
                   ctx->inputs[j].sid = decl->Semantic.Index;
                   ctx->inputs[j].interpolate = decl->Interp.Interpolate;
+                  ctx->inputs[j].location = decl->Interp.Location;
                   ctx->inputs[j].first = decl->Range.First;
                   ctx->inputs[j].glsl_predefined_no_emit = false;
                   ctx->inputs[j].glsl_no_index = false;
@@ -595,7 +603,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
                      ctx->inputs[k].name = TGSI_SEMANTIC_FACE;
                      ctx->inputs[k].sid = 0;
                      ctx->inputs[k].interpolate = 0;
-                     ctx->inputs[k].centroid = 0;
+                     ctx->inputs[k].location = TGSI_INTERPOLATE_LOC_CENTER;
                      ctx->inputs[k].first = 0;
                      ctx->inputs[k].override_no_wm = false;
                      ctx->inputs[k].glsl_predefined_no_emit = true;
@@ -3404,9 +3412,17 @@ static const char *get_interp_string(struct vrend_shader_cfg *cfg, int interpola
    }
 }
 
-static const char *get_aux_string(bool centroid)
+static const char *get_aux_string(unsigned location)
 {
-   return centroid ? "centroid " : "";
+   switch (location) {
+   case TGSI_INTERPOLATE_LOC_CENTER:
+   default:
+      return "";
+   case TGSI_INTERPOLATE_LOC_CENTROID:
+      return "centroid ";
+   case TGSI_INTERPOLATE_LOC_SAMPLE:
+      return "sample ";
+   }
 }
 
 static char get_return_type_prefix(enum tgsi_return_type type)
@@ -3500,7 +3516,7 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
             prefix = get_interp_string(ctx->cfg, ctx->inputs[i].interpolate, ctx->key->flatshade);
             if (!prefix)
                prefix = "";
-            auxprefix = get_aux_string(ctx->inputs[i].centroid);
+            auxprefix = get_aux_string(ctx->inputs[i].location);
             ctx->num_interps++;
          }
 
@@ -3879,7 +3895,7 @@ static boolean fill_fragment_interpolants(struct dump_ctx *ctx, struct vrend_sha
       sinfo->interpinfo[index].semantic_name = ctx->inputs[i].name;
       sinfo->interpinfo[index].semantic_index = ctx->inputs[i].sid;
       sinfo->interpinfo[index].interpolate = ctx->inputs[i].interpolate;
-      sinfo->interpinfo[index].centroid = ctx->inputs[i].centroid;
+      sinfo->interpinfo[index].location = ctx->inputs[i].location;
       index++;
    }
    return TRUE;
@@ -3932,6 +3948,7 @@ char *vrend_convert_shader(struct vrend_shader_cfg *cfg,
    ctx.num_sampler_arrays = 0;
    ctx.sampler_arrays = NULL;
    ctx.last_sampler_array_idx = -1;
+   ctx.has_sample_input = false;
    tgsi_scan_shader(tokens, &ctx.info);
    /* if we are in core profile mode we should use GLSL 1.40 */
    if (cfg->use_core_profile && cfg->glsl_version >= 140)
@@ -3991,6 +4008,7 @@ char *vrend_convert_shader(struct vrend_shader_cfg *cfg,
    free(glsl_hdr);
    sinfo->num_ucp = ctx.key->clip_plane_enable ? 8 : 0;
    sinfo->has_pervertex_out = ctx.vs_has_pervertex;
+   sinfo->has_sample_input = ctx.has_sample_input;
    bool has_prop = (ctx.num_clip_dist_prop + ctx.num_cull_dist_prop) > 0;
    sinfo->num_clip_out = has_prop ? ctx.num_clip_dist_prop : (ctx.num_clip_dist ? ctx.num_clip_dist : 8);
    sinfo->num_cull_out = has_prop ? ctx.num_cull_dist_prop : 0;
@@ -4053,6 +4071,19 @@ static void replace_interp(char *program,
    memcpy(ptr + strlen(pstring), auxstring, strlen(auxstring));
 }
 
+static const char *gpu_shader5_string = "#extension GL_ARB_gpu_shader5 : require\n";
+
+static void require_gpu_shader5(char *program)
+{
+   /* the first line is the #version line */
+   char *ptr = strchr(program, '\n');
+   if (!ptr)
+      return;
+   ptr++;
+
+   memcpy(ptr, gpu_shader5_string, strlen(gpu_shader5_string));
+}
+
 bool vrend_patch_vertex_shader_interpolants(struct vrend_shader_cfg *cfg, char *program,
                                             struct vrend_shader_info *vs_info,
                                             struct vrend_shader_info *fs_info, const char *oprefix, bool flatshade)
@@ -4066,12 +4097,15 @@ bool vrend_patch_vertex_shader_interpolants(struct vrend_shader_cfg *cfg, char *
    if (!fs_info->interpinfo)
       return true;
 
+   if (fs_info->has_sample_input)
+      require_gpu_shader5(program);
+
    for (i = 0; i < fs_info->num_interps; i++) {
       pstring = get_interp_string(cfg, fs_info->interpinfo[i].interpolate, flatshade);
       if (!pstring)
          continue;
 
-      auxstring = get_aux_string(fs_info->interpinfo[i].centroid);
+      auxstring = get_aux_string(fs_info->interpinfo[i].location);
 
       switch (fs_info->interpinfo[i].semantic_name) {
       case TGSI_SEMANTIC_COLOR:

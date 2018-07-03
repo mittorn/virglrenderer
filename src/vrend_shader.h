@@ -33,7 +33,7 @@ struct vrend_interp_info {
    int semantic_name;
    int semantic_index;
    int interpolate;
-   bool centroid;
+   unsigned location;
 };
 
 struct vrend_sampler_array {
@@ -60,6 +60,7 @@ struct vrend_shader_info {
    int num_ucp;
    int glsl_ver;
    bool has_pervertex_out;
+   bool has_sample_input;
    uint8_t num_clip_out;
    uint8_t num_cull_out;
    uint32_t shadow_samp_mask;
