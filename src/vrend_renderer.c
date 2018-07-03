@@ -3611,6 +3611,7 @@ static void vrend_hw_emit_blend(struct vrend_context *ctx, struct pipe_blend_sta
                      state->rt[0].colormask & PIPE_MASK_A ? GL_TRUE : GL_FALSE);
       }
    }
+   ctx->sub->hw_blend_state.independent_blend_enable = state->independent_blend_enable;
 
    if (vrend_state.have_multisample) {
       if (state->alpha_to_coverage)
