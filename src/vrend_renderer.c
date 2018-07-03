@@ -4931,7 +4931,7 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
 	 return EINVAL;
       }
    } else if (pr->nr_samples > 1) {
-      if (vrend_state.use_gles) {
+      if (vrend_state.use_gles || vrend_state.have_texture_storage) {
          if (gr->target == GL_TEXTURE_2D_MULTISAMPLE) {
             glTexStorage2DMultisample(gr->target, pr->nr_samples,
                                       internalformat, pr->width0, pr->height0,
