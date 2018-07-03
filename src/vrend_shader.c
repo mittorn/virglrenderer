@@ -3434,6 +3434,46 @@ static char get_return_type_prefix(enum tgsi_return_type type)
    return ' ';
 }
 
+static void *emit_sampler_decl(struct dump_ctx *ctx, char *glsl_hdr,
+                                      uint32_t i)
+{
+   char buf[255];
+   int is_shad = 0;
+   const char *stc;
+   char ptc;
+   const char *sname;
+   const char *precision;
+
+   ptc = vrend_shader_samplerreturnconv(ctx->samplers[i].tgsi_sampler_return);
+   stc = vrend_shader_samplertypeconv(ctx->samplers[i].tgsi_sampler_type, &is_shad);
+
+   sname = tgsi_proc_to_prefix(ctx->prog_type);
+
+   if (ctx->cfg->use_gles) {
+      precision = "highp ";
+   } else {
+      precision = " ";
+   }
+
+   /* OpenGL ES do not support 1D texture
+    * so we use a 2D texture with a parameter set to 0.5
+    */
+   if (ctx->cfg->use_gles && !strcmp(stc, "1D"))
+      snprintf(buf, 255, "uniform %csampler2D %ssamp%d;\n", ptc, sname, i);
+   else
+      snprintf(buf, 255, "uniform %s%csampler%s %ssamp%d;\n", precision,  ptc, stc, sname, i);
+
+   STRCAT_WITH_RET(glsl_hdr, buf);
+   if (is_shad) {
+      snprintf(buf, 255, "uniform %svec4 %sshadmask%d;\n", precision,  sname, i);
+      STRCAT_WITH_RET(glsl_hdr, buf);
+      snprintf(buf, 255, "uniform %svec4 %sshadadd%d;\n", precision,  sname, i);
+      STRCAT_WITH_RET(glsl_hdr, buf);
+      ctx->shadow_samp_mask |= (1 << i);
+   }
+   return glsl_hdr;
+}
+
 static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
 {
    uint32_t i;
@@ -3829,43 +3869,13 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
    } else {
       nsamp = util_last_bit(ctx->samplers_used);
       for (i = 0; i < nsamp; i++) {
-         int is_shad = 0;
-         const char *stc;
-         char ptc;
 
          if ((ctx->samplers_used & (1 << i)) == 0)
             continue;
 
-         const char *sname;
-         const char *precision;
-
-         ptc = vrend_shader_samplerreturnconv(ctx->samplers[i].tgsi_sampler_return);
-         stc = vrend_shader_samplertypeconv(ctx->samplers[i].tgsi_sampler_type, &is_shad);
-
-         sname = tgsi_proc_to_prefix(ctx->prog_type);
-
-         if (ctx->cfg->use_gles) {
-            precision = "highp ";
-         } else {
-            precision = " ";
-         }
-
-         /* OpenGL ES do not support 1D texture
-          * so we use a 2D texture with a parameter set to 0.5
-          */
-         if (ctx->cfg->use_gles && !strcmp(stc, "1D"))
-            snprintf(buf, 255, "uniform %csampler2D %ssamp%d;\n", ptc, sname, i);
-         else
-            snprintf(buf, 255, "uniform %s%csampler%s %ssamp%d;\n", precision,  ptc, stc, sname, i);
-
-         STRCAT_WITH_RET(glsl_hdr, buf);
-         if (is_shad) {
-            snprintf(buf, 255, "uniform %svec4 %sshadmask%d;\n", precision,  sname, i);
-            STRCAT_WITH_RET(glsl_hdr, buf);
-            snprintf(buf, 255, "uniform %svec4 %sshadadd%d;\n", precision,  sname, i);
-            STRCAT_WITH_RET(glsl_hdr, buf);
-            ctx->shadow_samp_mask |= (1 << i);
-         }
+         glsl_hdr = emit_sampler_decl(ctx, glsl_hdr, i);
+         if (!glsl_hdr)
+            return NULL;
       }
    }
    if (ctx->prog_type == TGSI_PROCESSOR_FRAGMENT &&
