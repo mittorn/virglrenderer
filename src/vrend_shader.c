@@ -3290,10 +3290,15 @@ prolog(struct tgsi_iterate_context *iter)
       if ((mainstr) == NULL) return NULL;               \
    } while(0)
 
+/* reserve space for: "#extension GL_ARB_gpu_shader5 : require\n" */
+#define PAD_GPU_SHADER5(s) \
+   STRCAT_WITH_RET(s, "                                       \n")
+
 static char *emit_header(struct dump_ctx *ctx, char *glsl_hdr)
 {
    if (ctx->cfg->use_gles) {
       STRCAT_WITH_RET(glsl_hdr, "#version 300 es\n");
+      PAD_GPU_SHADER5(glsl_hdr);
       STRCAT_WITH_RET(glsl_hdr, "precision highp float;\n");
       STRCAT_WITH_RET(glsl_hdr, "precision highp int;\n");
    } else {
@@ -3307,6 +3312,10 @@ static char *emit_header(struct dump_ctx *ctx, char *glsl_hdr)
          STRCAT_WITH_RET(glsl_hdr, "#version 140\n");
       else
          STRCAT_WITH_RET(glsl_hdr, "#version 130\n");
+      if (ctx->prog_type == TGSI_PROCESSOR_VERTEX ||
+          ctx->prog_type == TGSI_PROCESSOR_GEOMETRY ||
+          ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL)
+         PAD_GPU_SHADER5(glsl_hdr);
 
       if (ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL ||
           ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL)
