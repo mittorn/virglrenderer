@@ -3118,6 +3118,9 @@ static void vrend_draw_bind_samplers_shader(struct vrend_context *ctx,
    for (int i = 0; i < ctx->sub->views[shader_type].num_views; i++) {
       struct vrend_sampler_view *tview = ctx->sub->views[shader_type].views[i];
 
+      if (!tview)
+         continue;
+
       if (!(ctx->sub->prog->samplers_used_mask[shader_type] & (1 << i)))
          continue;
 
