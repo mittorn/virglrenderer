@@ -7314,6 +7314,8 @@ static void vrend_renderer_fill_caps_gles(uint32_t set, UNUSED uint32_t version,
 
    /* Not available on GLES */
    caps->v2.texture_buffer_offset_alignment = 0;
+
+   caps->v1.max_samples = vrend_renderer_query_multisample_caps(max, &caps->v2);
 }
 
 void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
@@ -7539,6 +7541,8 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
       glGetIntegerv(GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT, (GLint*)&caps->v2.texture_buffer_offset_alignment);
       glGetIntegerv(GL_SHADER_STORAGE_BUFFER_OFFSET_ALIGNMENT, (GLint*)&caps->v2.shader_buffer_offset_alignment);
    }
+
+   caps->v1.max_samples = vrend_renderer_query_multisample_caps(max, &caps->v2);
 
    caps->v2.capability_bits |= VIRGL_CAP_TGSI_INVARIANT;
 

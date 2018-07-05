@@ -390,6 +390,9 @@ void vrend_renderer_reset(void);
 int vrend_renderer_get_poll_fd(void);
 void vrend_decode_reset(bool ctx_0_only);
 
+unsigned vrend_renderer_query_multisample_caps(unsigned max_samples,
+                                               struct virgl_caps_v2 *caps);
+
 struct gl_version {
    uint32_t major;
    uint32_t minor;

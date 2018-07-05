@@ -443,3 +443,47 @@ void vrend_build_format_list_gles(void)
    */
   add_formats(gles_z32_format);
 }
+
+unsigned vrend_renderer_query_multisample_caps(unsigned max_samples, struct virgl_caps_v2 *caps)
+{
+   GLuint tex;
+   GLuint fbo;
+   GLenum status;
+
+   uint max_samples_confirmed = 1;
+   uint test_num_samples[4] = {2,4,8,16};
+   int out_buf_offsets[4] = {0,1,2,4};
+
+   glGenFramebuffers( 1, &fbo );
+   memset(caps->sample_locations, 0, 8 * sizeof(uint32_t));
+
+   for (int i = 0; i < 4 && test_num_samples[i] <= max_samples; ++i) {
+      glGenTextures(1, &tex);
+      glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, tex);
+      glTexStorage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, test_num_samples[i], GL_RGBA32F, 16, 16, GL_TRUE);
+      status = glGetError();
+      if (status == GL_NO_ERROR) {
+         glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, tex, 0);
+         status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+         if (status == GL_FRAMEBUFFER_COMPLETE) {
+            max_samples_confirmed = test_num_samples[i];
+
+            for (uint k = 0; k < test_num_samples[i]; ++k) {
+               float msp[2];
+               uint32_t compressed;
+               glGetMultisamplefv(GL_SAMPLE_POSITION, k, msp);
+               debug_printf("VIRGL: sample postion [%2d/%2d] = (%f, %f)\n",
+                            k, test_num_samples[i], msp[0], msp[1]);
+               compressed = ((unsigned)(floor(msp[0] * 16.0f)) & 0xf) << 4;
+               compressed |= ((unsigned)(floor(msp[1] * 16.0f)) & 0xf);
+               caps->sample_locations[out_buf_offsets[i] + (k >> 2)] |= compressed  << (8 * (k & 3));
+            }
+         }
+      }
+      glBindFramebuffer(GL_FRAMEBUFFER, 0);
+      glDeleteTextures(1, &tex);
+   }
+   glDeleteFramebuffers(1, &fbo);
+   return max_samples_confirmed;
+}
