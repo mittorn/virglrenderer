@@ -7586,6 +7586,9 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
 
    caps->v2.capability_bits |= VIRGL_CAP_TGSI_INVARIANT | VIRGL_CAP_SET_MIN_SAMPLES;
 
+   if (gl_ver >= 44)
+      glGetIntegerv(GL_MAX_VERTEX_ATTRIB_STRIDE, (GLint*)&caps->v2.max_vertex_attrib_stride);
+
    if (gl_ver >= 43 || epoxy_has_gl_extension("GL_ARB_texture_view"))
       caps->v2.capability_bits |= VIRGL_CAP_TEXTURE_VIEW;
 }

@@ -306,6 +306,7 @@ struct virgl_caps_v2 {
         uint32_t shader_buffer_offset_alignment;
         uint32_t capability_bits;
         uint32_t sample_locations[8];
+        uint32_t max_vertex_attrib_stride;
 };
 
 union virgl_caps {
