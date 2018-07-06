@@ -197,11 +197,6 @@ struct vrend_shader_selector {
 struct vrend_texture {
    struct vrend_resource base;
    struct pipe_sampler_state state;
-   GLenum cur_swizzle_r;
-   GLenum cur_swizzle_g;
-   GLenum cur_swizzle_b;
-   GLenum cur_swizzle_a;
-   GLuint srgb_decode;
 };
 
 struct vrend_surface {
@@ -237,9 +232,14 @@ struct vrend_sampler_view {
    GLuint gl_swizzle_g;
    GLuint gl_swizzle_b;
    GLuint gl_swizzle_a;
+   GLenum cur_swizzle_r;
+   GLenum cur_swizzle_g;
+   GLenum cur_swizzle_b;
+   GLenum cur_swizzle_a;
    GLuint cur_base, cur_max;
    GLenum depth_texture_mode;
    GLuint srgb_decode;
+   GLuint cur_srgb_decode;
    struct vrend_resource *texture;
 };
 
@@ -1540,6 +1540,9 @@ int vrend_create_sampler_view(struct vrend_context *ctx,
    view->gl_swizzle_b = to_gl_swizzle(swizzle[2]);
    view->gl_swizzle_a = to_gl_swizzle(swizzle[3]);
 
+   view->cur_swizzle_r = view->cur_swizzle_g =
+         view->cur_swizzle_b = view->cur_swizzle_a = -1;
+
    ret_handle = vrend_renderer_object_insert(ctx, view, sizeof(*view), handle, VIRGL_OBJECT_SAMPLER_VIEW);
    if (ret_handle == 0) {
       FREE(view);
@@ -2189,29 +2192,29 @@ void vrend_set_single_sampler_view(struct vrend_context *ctx,
             view->cur_max = (view->val1 >> 8) & 0xff;
             glTexParameteri(view->texture->target, GL_TEXTURE_MAX_LEVEL, view->cur_max);
          }
-         if (tex->cur_swizzle_r != view->gl_swizzle_r) {
+         if (view->cur_swizzle_r != view->gl_swizzle_r) {
             glTexParameteri(view->texture->target, GL_TEXTURE_SWIZZLE_R, view->gl_swizzle_r);
-            tex->cur_swizzle_r = view->gl_swizzle_r;
+            view->cur_swizzle_r = view->gl_swizzle_r;
          }
-         if (tex->cur_swizzle_g != view->gl_swizzle_g) {
+         if (view->cur_swizzle_g != view->gl_swizzle_g) {
             glTexParameteri(view->texture->target, GL_TEXTURE_SWIZZLE_G, view->gl_swizzle_g);
-            tex->cur_swizzle_g = view->gl_swizzle_g;
+            view->cur_swizzle_g = view->gl_swizzle_g;
          }
-         if (tex->cur_swizzle_b != view->gl_swizzle_b) {
+         if (view->cur_swizzle_b != view->gl_swizzle_b) {
             glTexParameteri(view->texture->target, GL_TEXTURE_SWIZZLE_B, view->gl_swizzle_b);
-            tex->cur_swizzle_b = view->gl_swizzle_b;
+            view->cur_swizzle_b = view->gl_swizzle_b;
          }
-         if (tex->cur_swizzle_a != view->gl_swizzle_a) {
+         if (view->cur_swizzle_a != view->gl_swizzle_a) {
             glTexParameteri(view->texture->target, GL_TEXTURE_SWIZZLE_A, view->gl_swizzle_a);
-            tex->cur_swizzle_a = view->gl_swizzle_a;
+            view->cur_swizzle_a = view->gl_swizzle_a;
          }
-         if (tex->srgb_decode != view->srgb_decode && util_format_is_srgb(tex->base.base.format)) {
+         if (view->cur_srgb_decode != view->srgb_decode && util_format_is_srgb(view->format)) {
             if (vrend_state.have_samplers)
                ctx->sub->sampler_state_dirty = true;
             else {
                glTexParameteri(view->texture->target, GL_TEXTURE_SRGB_DECODE_EXT,
                                view->srgb_decode);
-               tex->srgb_decode = view->srgb_decode;
+               view->cur_srgb_decode = view->srgb_decode;
             }
          }
       } else {
@@ -5018,7 +5021,6 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
    }
 
    gt->state.max_lod = -1;
-   gt->cur_swizzle_r = gt->cur_swizzle_g = gt->cur_swizzle_b = gt->cur_swizzle_a = -1;
    return 0;
 }
 
