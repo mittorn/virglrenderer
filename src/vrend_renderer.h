@@ -227,7 +227,7 @@ void vrend_set_num_sampler_views(struct vrend_context *ctx,
                                  int num_sampler_views);
 void vrend_set_single_sampler_view(struct vrend_context *ctx,
                                    uint32_t shader_type,
-                                   int index,
+                                   uint32_t index,
                                    uint32_t res_handle);
 
 void vrend_object_bind_blend(struct vrend_context *ctx,

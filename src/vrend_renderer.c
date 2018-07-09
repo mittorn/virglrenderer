@@ -2142,7 +2142,7 @@ void vrend_set_num_vbo(struct vrend_context *ctx,
 
 void vrend_set_single_sampler_view(struct vrend_context *ctx,
                                    uint32_t shader_type,
-                                   int index,
+                                   uint32_t index,
                                    uint32_t handle)
 {
    struct vrend_sampler_view *view = NULL;

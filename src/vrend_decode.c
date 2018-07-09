@@ -280,10 +280,10 @@ static int vrend_decode_set_vertex_buffers(struct vrend_decode_ctx *ctx, uint16_
 
 static int vrend_decode_set_sampler_views(struct vrend_decode_ctx *ctx, uint16_t length)
 {
-   int num_samps;
-   int i;
+   uint32_t num_samps;
+   uint32_t i;
    uint32_t shader_type;
-   int32_t start_slot;
+   uint32_t start_slot;
 
    if (length < 2)
       return EINVAL;
