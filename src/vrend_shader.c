@@ -558,7 +558,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
       ctx->inputs[i].glsl_gl_block = false;
 
       if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT &&
-          decl->Interp.Interpolate == TGSI_INTERPOLATE_LOC_SAMPLE) {
+          decl->Interp.Location == TGSI_INTERPOLATE_LOC_SAMPLE) {
          ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
          ctx->has_sample_input = true;
       }
