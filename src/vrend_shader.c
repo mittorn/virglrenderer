@@ -2653,6 +2653,12 @@ get_source_info(struct dump_ctx *ctx,
                            ctx->system_values[j].glsl_name, get_swiz_char(src->Register.SwizzleY),
                            ctx->system_values[j].glsl_name, get_swiz_char(src->Register.SwizzleZ),
                            ctx->system_values[j].glsl_name, get_swiz_char(src->Register.SwizzleW));
+               } else if (ctx->system_values[j].name == TGSI_SEMANTIC_SAMPLEMASK) {
+                  snprintf(srcs[i], 255, "ivec4(%s, %s, %s, %s)",
+                     src->Register.SwizzleX == TGSI_SWIZZLE_X ? ctx->system_values[j].glsl_name : "0",
+                     src->Register.SwizzleY == TGSI_SWIZZLE_X ? ctx->system_values[j].glsl_name : "0",
+                     src->Register.SwizzleZ == TGSI_SWIZZLE_X ? ctx->system_values[j].glsl_name : "0",
+                     src->Register.SwizzleW == TGSI_SWIZZLE_X ? ctx->system_values[j].glsl_name : "0");
                } else
                   snprintf(srcs[i], 255, "%s%s", prefix, ctx->system_values[j].glsl_name);
                sinfo->override_no_wm[i] = ctx->system_values[j].override_no_wm;
