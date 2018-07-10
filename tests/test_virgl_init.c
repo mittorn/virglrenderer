@@ -64,7 +64,7 @@ START_TEST(virgl_init_cbs_wrong_ver)
   int ret;
   struct virgl_renderer_callbacks testcbs;
   memset(&testcbs, 0, sizeof(testcbs));
-  testcbs.version = 2;
+  testcbs.version = VIRGL_RENDERER_CALLBACKS_VERSION + 1;
   ret = virgl_renderer_init(&mystruct, 0, &testcbs);
   ck_assert_int_eq(ret, -1);
 }
