@@ -865,6 +865,17 @@ static int vrend_decode_set_sample_mask(struct vrend_decode_ctx *ctx, int length
    return 0;
 }
 
+static int vrend_decode_set_min_samples(struct vrend_decode_ctx *ctx, int length)
+{
+   unsigned min_samples;
+
+   if (length != VIRGL_SET_MIN_SAMPLES_SIZE)
+      return EINVAL;
+   min_samples = get_buf_entry(ctx, VIRGL_SET_MIN_SAMPLES_MASK);
+   vrend_set_min_samples(ctx->grctx, min_samples);
+   return 0;
+}
+
 static int vrend_decode_resource_copy_region(struct vrend_decode_ctx *ctx, int length)
 {
    struct pipe_box box;
@@ -1266,6 +1277,9 @@ int vrend_decode_block(uint32_t ctx_id, uint32_t *block, int ndw)
          break;
       case VIRGL_CCMD_SET_SAMPLE_MASK:
          ret = vrend_decode_set_sample_mask(gdctx, len);
+         break;
+      case VIRGL_CCMD_SET_MIN_SAMPLES:
+         ret = vrend_decode_set_min_samples(gdctx, len);
          break;
       case VIRGL_CCMD_SET_STREAMOUT_TARGETS:
          ret = vrend_decode_set_streamout_targets(gdctx, len);

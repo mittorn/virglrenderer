@@ -272,6 +272,7 @@ void vrend_set_polygon_stipple(struct vrend_context *ctx, struct pipe_poly_stipp
 
 void vrend_set_clip_state(struct vrend_context *ctx, struct pipe_clip_state *ucp);
 void vrend_set_sample_mask(struct vrend_context *ctx, unsigned sample_mask);
+void vrend_set_min_samples(struct vrend_context *ctx, unsigned min_samples);
 
 void vrend_set_constants(struct vrend_context *ctx,
                          uint32_t shader,

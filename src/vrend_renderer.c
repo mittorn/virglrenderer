@@ -6086,6 +6086,18 @@ void vrend_set_sample_mask(UNUSED struct vrend_context *ctx, unsigned sample_mas
    glSampleMaski(0, sample_mask);
 }
 
+void vrend_set_min_samples(struct vrend_context *ctx, unsigned min_samples)
+{
+   float min_sample_shading = (float)min_samples;
+   if (ctx->sub->nr_cbufs > 0 && ctx->sub->surf[0]) {
+      assert(ctx->sub->surf[0]->texture);
+      min_sample_shading /= MAX2(1, ctx->sub->surf[0]->texture->base.nr_samples);
+   }
+
+   if (vrend_state.have_sample_shading)
+      glMinSampleShading(min_sample_shading);
+}
+
 void vrend_set_tess_state(UNUSED struct vrend_context *ctx, const float tess_factors[6])
 {
    if (vrend_state.have_tessellation) {
@@ -7550,7 +7562,7 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
 
    caps->v1.max_samples = vrend_renderer_query_multisample_caps(max, &caps->v2);
 
-   caps->v2.capability_bits |= VIRGL_CAP_TGSI_INVARIANT;
+   caps->v2.capability_bits |= VIRGL_CAP_TGSI_INVARIANT | VIRGL_CAP_SET_MIN_SAMPLES;
 
    if (gl_ver >= 43 || epoxy_has_gl_extension("GL_ARB_texture_view"))
       caps->v2.capability_bits |= VIRGL_CAP_TEXTURE_VIEW;
