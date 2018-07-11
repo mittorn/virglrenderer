@@ -4173,7 +4173,19 @@ static void vrend_apply_sampler_state(struct vrend_context *ctx,
       return;
    }
 
+   /*
+    * If we emulate alpha format with red, we need to tell
+    * the sampler to use the red channel and not the alpha one
+    * by swizzling the GL_TEXTURE_BORDER_COLOR parameter.
+    */
    if (vrend_state.have_samplers) {
+      if (vrend_format_is_emulated_alpha(res->base.format)) {
+         union pipe_color_union border_color;
+         border_color = vstate->base.border_color;
+         border_color.ui[0] = border_color.ui[3];
+         border_color.ui[3] = 0;
+         glSamplerParameterIuiv(vstate->id, GL_TEXTURE_BORDER_COLOR, border_color.ui);
+      }
       glBindSampler(sampler_id, vstate->id);
       glSamplerParameteri(vstate->id, GL_TEXTURE_SRGB_DECODE_EXT,
                           srgb_decode);
