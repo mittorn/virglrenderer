@@ -2648,7 +2648,8 @@ get_source_info(struct dump_ctx *ctx,
                            ctx->system_values[j].glsl_name, src->Register.SwizzleW);
                } else if (ctx->system_values[j].name == TGSI_SEMANTIC_SAMPLEPOS ||
                           ctx->system_values[j].name == TGSI_SEMANTIC_TESSCOORD) {
-                  snprintf(srcs[i], 255, "vec4(%s.%c, %s.%c, %s.%c, %s.%c)",
+                  snprintf(srcs[i], 255, "%s(vec4(%s.%c, %s.%c, %s.%c, %s.%c))",
+                           prefix,
                            ctx->system_values[j].glsl_name, get_swiz_char(src->Register.SwizzleX),
                            ctx->system_values[j].glsl_name, get_swiz_char(src->Register.SwizzleY),
                            ctx->system_values[j].glsl_name, get_swiz_char(src->Register.SwizzleZ),
