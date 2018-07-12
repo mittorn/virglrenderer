@@ -3856,16 +3856,11 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
 
    if (ctx->info.indirect_files & (1 << TGSI_FILE_SAMPLER)) {
       for (i = 0; i < ctx->num_sampler_arrays; i++) {
-         int is_shad = 0;
-         const char *stc;
-         stc = vrend_shader_samplertypeconv(ctx->sampler_arrays[i].sview_type, &is_shad);
-         if (!stc)
-            continue;
-         snprintf(buf, 255, "uniform %csampler%s %ssamp%d[%d];\n",
-                  get_return_type_prefix(ctx->sampler_arrays[i].sview_rtype),
-                  stc, sname, ctx->sampler_arrays[i].idx,
-                  ctx->sampler_arrays[i].last - ctx->sampler_arrays[i].first);
-         STRCAT_WITH_RET(glsl_hdr, buf);
+         uint32_t range = ctx->sampler_arrays[i].last - ctx->sampler_arrays[i].first;
+         glsl_hdr = emit_sampler_decl(ctx, glsl_hdr, i, range, ctx->sampler_arrays[i].sview_rtype,
+                                      ctx->sampler_arrays[i].sview_type);
+         if (!glsl_hdr)
+            return NULL;
       }
    } else {
       nsamp = util_last_bit(ctx->samplers_used);
