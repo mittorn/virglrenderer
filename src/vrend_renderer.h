@@ -381,6 +381,8 @@ void vrend_fb_bind_texture(struct vrend_resource *res,
                            uint32_t level, uint32_t layer);
 bool vrend_is_ds_format(enum virgl_formats format);
 bool vrend_format_is_emulated_alpha(enum virgl_formats format);
+boolean format_is_copy_compatible(enum pipe_format src, enum pipe_format dst);
+
 /* blitter interface */
 void vrend_renderer_blit_gl(struct vrend_context *ctx,
                             struct vrend_resource *src_res,

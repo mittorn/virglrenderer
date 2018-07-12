@@ -487,3 +487,20 @@ unsigned vrend_renderer_query_multisample_caps(unsigned max_samples, struct virg
    glDeleteFramebuffers(1, &fbo);
    return max_samples_confirmed;
 }
+
+boolean format_is_copy_compatible(enum pipe_format src, enum pipe_format dst)
+{
+   int r;
+
+   if (src == dst)
+      return true;
+
+   if (util_format_is_plain(src) && util_format_is_plain(dst))  {
+      const struct util_format_description *src_desc = util_format_description(src);
+      const struct util_format_description *dst_desc = util_format_description(dst);
+      return util_is_format_compatible(src_desc, dst_desc);
+   }
+
+   /* compressed formats will be supported later */
+   return false;
+}

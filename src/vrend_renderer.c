@@ -119,6 +119,7 @@ struct global_renderer_state {
    bool have_texture_storage;
    bool have_tessellation;
    bool have_texture_view;
+   bool have_copy_image;
 
    /* these appeared broken on at least one driver */
    bool use_explicit_locations;
@@ -4551,6 +4552,12 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
    if (gl_ver >= 46 || epoxy_has_gl_extension("GL_ARB_polygon_offset_clamp"))
       vrend_state.have_polygon_offset_clamp = true;
 
+   if (gl_ver >= 43 || (gles && gl_ver >= 32) ||
+       epoxy_has_gl_extension("GL_ARB_copy_image") ||
+       epoxy_has_gl_extension("GL_EXT_copy_image") ||
+       epoxy_has_gl_extension("GL_OES_copy_image"))
+       vrend_state.have_copy_image = true;
+
    /* callbacks for when we are cleaning up the object table */
    vrend_resource_set_destroy_callback(vrend_destroy_resource_object);
    vrend_object_set_destroy_callback(VIRGL_OBJECT_QUERY, vrend_destroy_query_object);
@@ -6365,6 +6372,22 @@ static void vrend_resource_copy_fallback(struct vrend_resource *src_res,
    free(tptr);
 }
 
+
+static inline void
+vrend_copy_sub_image(struct vrend_resource* src_res, struct vrend_resource * dst_res,
+                     uint32_t src_level, const struct pipe_box *src_box,
+                     uint32_t dst_level, uint32_t dstx, uint32_t dsty, uint32_t dstz)
+{
+   glCopyImageSubData(src_res->id,
+                      tgsitargettogltarget(src_res->base.target, src_res->base.nr_samples),
+                      src_level, src_box->x, src_box->y, src_box->z,
+                      dst_res->id,
+                      tgsitargettogltarget(dst_res->base.target, dst_res->base.nr_samples),
+                      dst_level, dstx, dsty, dstz,
+                      src_box->width, src_box->height,src_box->depth);
+}
+
+
 void vrend_renderer_resource_copy_region(struct vrend_context *ctx,
                                          uint32_t dst_handle, uint32_t dst_level,
                                          uint32_t dstx, uint32_t dsty, uint32_t dstz,
@@ -6397,11 +6420,19 @@ void vrend_renderer_resource_copy_region(struct vrend_context *ctx,
       return;
    }
 
+   if (vrend_state.have_copy_image) {
+      if (format_is_copy_compatible(src_res->base.format,dst_res->base.format) &&
+          src_res->base.nr_samples == dst_res->base.nr_samples) {
+         vrend_copy_sub_image(src_res, dst_res, src_level, src_box,
+                              dst_level, dstx, dsty, dstz);
+         return;
+      }
+   }
+
    if (!vrend_format_can_render(src_res->base.format) ||
        !vrend_format_can_render(dst_res->base.format)) {
       vrend_resource_copy_fallback(src_res, dst_res, dst_level, dstx,
                                    dsty, dstz, src_level, src_box);
-
       return;
    }
 
@@ -6673,7 +6704,25 @@ void vrend_renderer_blit(struct vrend_context *ctx,
    if (info->render_condition_enable == false)
       vrend_pause_render_condition(ctx, true);
 
-   vrend_renderer_blit_int(ctx, src_res, dst_res, info);
+   /* The gallium blit function can be called for a general blit that may
+    * scale, convert the data, and apply some rander states or if is called via
+    * glCopyImageSubData. For the latter case forward the call to the
+    * glCopyImageSubData function, otherwise use a framebuffer blit.
+    */
+   if (vrend_state.have_copy_image && !info->render_condition_enable &&
+       format_is_copy_compatible(info->src.format,info->dst.format) &&
+       !info->scissor_enable && (info->filter == PIPE_TEX_FILTER_NEAREST) &&
+       !info->alpha_blend && (info->mask == PIPE_MASK_RGBA) &&
+       (src_res->base.nr_samples == dst_res->base.nr_samples) &&
+       info->src.box.width == info->dst.box.width &&
+       info->src.box.height == info->dst.box.height &&
+       info->src.box.depth == info->dst.box.depth) {
+      vrend_copy_sub_image(src_res, dst_res, info->src.level, &info->src.box,
+                           info->dst.level, info->dst.box.x, info->dst.box.y,
+                           info->dst.box.z);
+   } else {
+      vrend_renderer_blit_int(ctx, src_res, dst_res, info);
+   }
 
    if (info->render_condition_enable == false)
       vrend_pause_render_condition(ctx, false);
