@@ -7400,6 +7400,9 @@ static void vrend_renderer_fill_caps_gles(uint32_t set, UNUSED uint32_t version,
    caps->v2.texture_buffer_offset_alignment = 0;
 
    caps->v1.max_samples = vrend_renderer_query_multisample_caps(max, &caps->v2);
+
+   if (vrend_state.have_copy_image)
+      caps->v2.capability_bits |= VIRGL_CAP_COPY_IMAGE;
 }
 
 void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
@@ -7576,7 +7579,6 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
       caps->v1.max_viewports = 1;
    }
 
-
    if (!fill_capset2)
       return;
 
@@ -7635,6 +7637,9 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
 
    if (gl_ver >= 43 || epoxy_has_gl_extension("GL_ARB_texture_view"))
       caps->v2.capability_bits |= VIRGL_CAP_TEXTURE_VIEW;
+
+   if (vrend_state.have_copy_image)
+      caps->v2.capability_bits |= VIRGL_CAP_COPY_IMAGE;
 }
 
 GLint64 vrend_renderer_get_timestamp(void)
