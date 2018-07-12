@@ -3441,32 +3441,25 @@ static char get_return_type_prefix(enum tgsi_return_type type)
    return ' ';
 }
 
-static void *emit_sampler_decl(struct dump_ctx *ctx, char *glsl_hdr,
-                                      uint32_t i)
+static void *emit_sampler_decl(struct dump_ctx *ctx, char *glsl_hdr, uint32_t i,
+                               uint32_t range, uint32_t return_type, uint32_t texture_type)
 {
-   char buf[255];
+   char buf[255], ptc;
    int is_shad = 0;
-   const char *stc;
-   char ptc;
-   const char *sname;
-   const char *precision;
-
-   ptc = vrend_shader_samplerreturnconv(ctx->samplers[i].tgsi_sampler_return);
-   stc = vrend_shader_samplertypeconv(ctx->samplers[i].tgsi_sampler_type, &is_shad);
+   const char *sname, *precision, *stc;
 
    sname = tgsi_proc_to_prefix(ctx->prog_type);
 
-   if (ctx->cfg->use_gles) {
-      precision = "highp ";
-   } else {
-      precision = " ";
-   }
+   precision = (ctx->cfg->use_gles) ? "highp " : " ";
 
-   /* OpenGL ES do not support 1D texture
-    * so we use a 2D texture with a parameter set to 0.5
-    */
-   if (ctx->cfg->use_gles && !strcmp(stc, "1D"))
+   ptc = vrend_shader_samplerreturnconv(return_type);
+   stc = vrend_shader_samplertypeconv(texture_type, &is_shad);
+
+   /* GLES does not support 1D textures -- we use a 2D texture and set the parameter set to 0.5 */
+   if (ctx->cfg->use_gles && texture_type == TGSI_TEXTURE_1D)
       snprintf(buf, 255, "uniform %csampler2D %ssamp%d;\n", ptc, sname, i);
+   else if (range)
+      snprintf(buf, 255, "uniform %s%csampler%s %ssamp%d[%d];\n", precision, ptc, stc, sname, i, range);
    else
       snprintf(buf, 255, "uniform %s%csampler%s %ssamp%d;\n", precision,  ptc, stc, sname, i);
 
@@ -3478,6 +3471,7 @@ static void *emit_sampler_decl(struct dump_ctx *ctx, char *glsl_hdr,
       STRCAT_WITH_RET(glsl_hdr, buf);
       ctx->shadow_samp_mask |= (1 << i);
    }
+
    return glsl_hdr;
 }
 
@@ -3880,7 +3874,8 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
          if ((ctx->samplers_used & (1 << i)) == 0)
             continue;
 
-         glsl_hdr = emit_sampler_decl(ctx, glsl_hdr, i);
+         glsl_hdr = emit_sampler_decl(ctx, glsl_hdr, i, 0, ctx->samplers[i].tgsi_sampler_return,
+                                      ctx->samplers[i].tgsi_sampler_type);
          if (!glsl_hdr)
             return NULL;
       }
