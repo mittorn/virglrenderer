@@ -4287,7 +4287,7 @@ static void vrend_apply_sampler_state(struct vrend_context *ctx,
    if (has_feature(feat_samplers)) {
       if (vrend_format_is_emulated_alpha(res->base.format)) {
          union pipe_color_union border_color;
-         border_color = vstate->base.border_color;
+         border_color = state->border_color;
          border_color.ui[0] = border_color.ui[3];
          border_color.ui[3] = 0;
          glSamplerParameterIuiv(vstate->id, GL_TEXTURE_BORDER_COLOR, border_color.ui);
@@ -4352,7 +4352,7 @@ static void vrend_apply_sampler_state(struct vrend_context *ctx,
        is_emulated_alpha) {
       if (is_emulated_alpha) {
          union pipe_color_union border_color;
-         border_color = vstate->base.border_color;
+         border_color = state->border_color;
          border_color.ui[0] = border_color.ui[3];
          border_color.ui[3] = 0;
          glTexParameterIuiv(target, GL_TEXTURE_BORDER_COLOR, border_color.ui);
