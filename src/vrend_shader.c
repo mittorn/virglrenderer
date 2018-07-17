@@ -228,6 +228,21 @@ enum vrend_type_qualifier {
    DVEC2 = 18,
 };
 
+struct dest_info {
+  enum vrend_type_qualifier dtypeprefix;
+  enum vrend_type_qualifier dstconv;
+  enum vrend_type_qualifier udstconv;
+  enum vrend_type_qualifier idstconv;
+  bool dst_override_no_wm[2];
+};
+
+struct source_info {
+   enum vrend_type_qualifier svec4;
+   uint32_t sreg_index;
+   bool tg4_has_component;
+   bool override_no_wm[3];
+};
+
 static const struct vrend_shader_table conversion_table[] =
 {
    {TYPE_CONVERSION_NONE, ""},
@@ -1831,13 +1846,11 @@ static bool fill_offset_buffer(struct dump_ctx *ctx,
 
 static int translate_tex(struct dump_ctx *ctx,
                          struct tgsi_full_instruction *inst,
-                         uint32_t sreg_index,
+                         struct source_info *sinfo,
+                         struct dest_info *dinfo,
                          char srcs[4][255],
                          char dsts[3][255],
-                         const char *writemask,
-                         const char *dstconv,
-                         bool dst0_override_no_wm,
-                         bool tg4_has_component)
+                         const char *writemask)
 {
    enum vrend_type_qualifier txfi = TYPE_CONVERSION_NONE;
    unsigned twm = TGSI_WRITEMASK_NONE, gwm = TGSI_WRITEMASK_NONE;
@@ -1849,18 +1862,18 @@ static int translate_tex(struct dump_ctx *ctx,
    int sampler_index;
    const char *tex_ext;
 
-   if (set_texture_reqs(ctx, inst, sreg_index, &is_shad) == false)
+   if (set_texture_reqs(ctx, inst, sinfo->sreg_index, &is_shad) == false)
       return FALSE;
 
-   switch (ctx->samplers[sreg_index].tgsi_sampler_return) {
+   switch (ctx->samplers[sinfo->sreg_index].tgsi_sampler_return) {
    case TGSI_RETURN_TYPE_SINT:
       /* if dstconv isn't an int */
-      if (strcmp(dstconv, "int"))
+      if (dinfo->dstconv != INT)
          dtypeprefix = INT_BITS_TO_FLOAT;
       break;
    case TGSI_RETURN_TYPE_UINT:
       /* if dstconv isn't an int */
-      if (strcmp(dstconv, "int"))
+      if (dinfo->dstconv != INT)
          dtypeprefix = UINT_BITS_TO_FLOAT;
       break;
    default:
@@ -2001,7 +2014,7 @@ static int translate_tex(struct dump_ctx *ctx,
             snprintf(bias, 64, ", %s.x", srcs[1]);
          else
             snprintf(bias, 64, ", %s.z", srcs[0]);
-      } else if (tg4_has_component) {
+      } else if (sinfo->tg4_has_component) {
          if (inst->Texture.NumOffsets == 0) {
             if (inst->Texture.Texture == TGSI_TEXTURE_2D ||
                 inst->Texture.Texture == TGSI_TEXTURE_RECT ||
@@ -2038,7 +2051,7 @@ static int translate_tex(struct dump_ctx *ctx,
       }
    }
    if (inst->Instruction.Opcode == TGSI_OPCODE_TXF) {
-      snprintf(buf, 255, "%s = %s(%s(texelFetch%s(%s, %s(%s%s)%s%s)%s));\n", dsts[0], dstconv, get_string(dtypeprefix), tex_ext, srcs[sampler_index], get_string(txfi), srcs[0], get_wm_string(twm), bias, offbuf, dst0_override_no_wm ? "" : writemask);
+      snprintf(buf, 255, "%s = %s(%s(texelFetch%s(%s, %s(%s%s)%s%s)%s));\n", dsts[0], get_string(dinfo->dstconv), get_string(dtypeprefix), tex_ext, srcs[sampler_index], get_string(txfi), srcs[0], get_wm_string(twm), bias, offbuf, dinfo->dst_override_no_wm[0] ? "" : writemask);
    } else if (ctx->cfg->glsl_version < 140 && (ctx->shader_req_bits & SHADER_REQ_SAMPLER_RECT)) {
       /* rect is special in GLSL 1.30 */
       if (inst->Texture.Texture == TGSI_TEXTURE_RECT)
@@ -2048,15 +2061,15 @@ static int translate_tex(struct dump_ctx *ctx,
    } else if (is_shad && inst->Instruction.Opcode != TGSI_OPCODE_TG4) { /* TGSI returns 1.0 in alpha */
       const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
       const struct tgsi_full_src_register *src = &inst->Src[sampler_index];
-      snprintf(buf, 255, "%s = %s(%s(vec4(vec4(texture%s(%s, %s%s%s%s)) * %sshadmask%d + %sshadadd%d)%s));\n", dsts[0], dstconv, get_string(dtypeprefix), tex_ext, srcs[sampler_index], srcs[0], get_wm_string(twm), offbuf, bias, cname, src->Register.Index, cname, src->Register.Index, writemask);
+      snprintf(buf, 255, "%s = %s(%s(vec4(vec4(texture%s(%s, %s%s%s%s)) * %sshadmask%d + %sshadadd%d)%s));\n", dsts[0], get_string(dinfo->dstconv), get_string(dtypeprefix), tex_ext, srcs[sampler_index], srcs[0], get_wm_string(twm), offbuf, bias, cname, src->Register.Index, cname, src->Register.Index, writemask);
    } else {
       /* OpenGL ES do not support 1D texture
        * so we use a 2D texture with a parameter set to 0.5
        */
       if (ctx->cfg->use_gles && inst->Texture.Texture == TGSI_TEXTURE_1D) {
-         snprintf(buf, 255, "%s = %s(%s(texture2D(%s, vec2(%s%s%s%s, 0.5))%s));\n", dsts[0], dstconv, get_string(dtypeprefix), srcs[sampler_index], srcs[0], get_wm_string(twm), offbuf, bias, dst0_override_no_wm ? "" : writemask);
+         snprintf(buf, 255, "%s = %s(%s(texture2D(%s, vec2(%s%s%s%s, 0.5))%s));\n", dsts[0], get_string(dinfo->dstconv), get_string(dtypeprefix), srcs[sampler_index], srcs[0], get_wm_string(twm), offbuf, bias, dinfo->dst_override_no_wm[0] ? "" : writemask);
       } else {
-         snprintf(buf, 255, "%s = %s(%s(texture%s(%s, %s%s%s%s)%s));\n", dsts[0], dstconv, get_string(dtypeprefix), tex_ext, srcs[sampler_index], srcs[0], get_wm_string(twm), offbuf, bias, dst0_override_no_wm ? "" : writemask);
+         snprintf(buf, 255, "%s = %s(%s(texture%s(%s, %s%s%s%s)%s));\n", dsts[0], get_string(dinfo->dstconv), get_string(dtypeprefix), tex_ext, srcs[sampler_index], srcs[0], get_wm_string(twm), offbuf, bias, dinfo->dst_override_no_wm[0] ? "" : writemask);
       }
    }
    return emit_buf(ctx, buf);
@@ -2109,14 +2122,6 @@ create_swizzled_clipdist(struct dump_ctx *ctx,
    }
    snprintf(result, 255, "%s(vec4(%s,%s,%s,%s))", stypeprefix, clipdistvec[0], clipdistvec[1], clipdistvec[2], clipdistvec[3]);
 }
-
-struct dest_info {
-  enum vrend_type_qualifier dtypeprefix;
-  enum vrend_type_qualifier dstconv;
-  enum vrend_type_qualifier udstconv;
-  enum vrend_type_qualifier idstconv;
-  bool dst_override_no_wm[2];
-};
 
 static int
 get_destination_info(struct dump_ctx *ctx,
@@ -2305,13 +2310,6 @@ static void fill_blkarray(struct dump_ctx *ctx,
          strcpy(blkarray, "[0]");
    }
 }
-
-struct source_info {
-   enum vrend_type_qualifier svec4;
-   uint32_t sreg_index;
-   bool tg4_has_component;
-   bool override_no_wm[3];
-};
 
 static int
 get_source_info(struct dump_ctx *ctx,
@@ -2978,7 +2976,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
    case TGSI_OPCODE_TG4:
    case TGSI_OPCODE_TXP:
    case TGSI_OPCODE_LODQ:
-      ret = translate_tex(ctx, inst, sinfo.sreg_index, srcs, dsts, writemask, get_string(dinfo.dstconv), dinfo.dst_override_no_wm[0], sinfo.tg4_has_component);
+      ret = translate_tex(ctx, inst, &sinfo, &dinfo, srcs, dsts, writemask);
       if (ret)
          return FALSE;
       break;
