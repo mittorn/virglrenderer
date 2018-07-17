@@ -97,6 +97,13 @@ if test "x$build_tests" = "xyes"; then
 	AC_PATH_PROG(VALGRIND, [valgrind])
 fi
 
+AC_ARG_ENABLE(fuzzer,
+	      AS_HELP_STRING([--enable-fuzzer], [Build fuzzer targets]),
+	      [enable_fuzzer="$enableval"],
+	      [enable_fuzzer=no]
+)
+AM_CONDITIONAL(FUZZER, [test "x$enable_fuzzer" = "xyes"])
+
 AC_CHECK_FUNCS_ONCE([eventfd])
 AC_CHECK_HEADERS_ONCE([sys/uio.h])
 AM_CONDITIONAL(HAVE_VALGRIND, [test "x$VALGRIND" != "x"])
@@ -136,7 +143,6 @@ AS_IF([test "x$with_glx" = "xyes"], [
 ])
 AM_CONDITIONAL([WITH_GLX], [test "x$with_glx" = "xyes"])
 
-
 AC_SUBST([DEFINES])
 AC_CONFIG_FILES([
 		virglrenderer.pc
@@ -145,6 +151,7 @@ AC_CONFIG_FILES([
 		src/gallium/auxiliary/Makefile
 		vtest/Makefile
 		tests/Makefile
+		tests/fuzzer/Makefile
 ])
 AC_OUTPUT
 
@@ -161,5 +168,6 @@ AC_MSG_NOTICE([
       egl:                      $epoxy_has_egl
       debug:                    $enable_debug
       tests:                    $build_tests
+      fuzzer:                   $enable_fuzzer
 
 ])

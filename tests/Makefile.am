@@ -1,3 +1,5 @@
+SUBDIRS = fuzzer
+
 if BUILD_TESTS
 
 AM_CPPFLAGS = -I$(top_srcdir)/src -I$(top_srcdir)/src/gallium/include $(CHECK_CFLAGS) -I$(top_srcdir)/src/gallium/auxiliary $(DEFINES)
