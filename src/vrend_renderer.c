@@ -120,6 +120,7 @@ struct global_renderer_state {
    bool have_tessellation;
    bool have_texture_view;
    bool have_copy_image;
+   bool have_ssbo;
 
    /* these appeared broken on at least one driver */
    bool use_explicit_locations;
@@ -167,6 +168,9 @@ struct vrend_linked_shader_program {
    GLint fs_stipple_loc;
 
    GLuint clip_locs[8];
+
+   uint32_t ssbo_used_mask[PIPE_SHADER_TYPES];
+   GLuint *ssbo_locs[PIPE_SHADER_TYPES];
 };
 
 struct vrend_shader {
@@ -242,6 +246,12 @@ struct vrend_sampler_view {
    GLuint srgb_decode;
    GLuint cur_srgb_decode;
    struct vrend_resource *texture;
+};
+
+struct vrend_ssbo {
+   struct vrend_resource *res;
+   unsigned buffer_size;
+   unsigned buffer_offset;
 };
 
 struct vrend_vertex_element {
@@ -382,6 +392,9 @@ struct vrend_sub_context {
 
    uint32_t cond_render_q_id;
    GLenum cond_render_gl_mode;
+
+   struct vrend_ssbo ssbo[PIPE_SHADER_TYPES][PIPE_MAX_SHADER_BUFFERS];
+   uint32_t ssbo_used_mask[PIPE_SHADER_TYPES];
 };
 
 struct vrend_context {
@@ -952,6 +965,26 @@ static void bind_ubo_locs(struct vrend_linked_shader_program *sprog,
       sprog->ubo_locs[id] = NULL;
 }
 
+static void bind_ssbo_locs(struct vrend_linked_shader_program *sprog,
+                           int id)
+{
+   int i;
+   char name[32];
+   if (sprog->ss[id]->sel->sinfo.ssbo_used_mask) {
+      const char *prefix = pipe_shader_to_prefix(id);
+      uint32_t mask = sprog->ss[id]->sel->sinfo.ssbo_used_mask;
+      sprog->ssbo_locs[id] = calloc(util_last_bit(mask), sizeof(uint32_t));
+
+      while (mask) {
+         i = u_bit_scan(&mask);
+         snprintf(name, 32, "%sssbo%d", prefix, i);
+         sprog->ssbo_locs[id][i] = glGetProgramResourceIndex(sprog->id, GL_SHADER_STORAGE_BLOCK, name);
+      }
+   } else
+      sprog->ssbo_locs[id] = NULL;
+   sprog->ssbo_used_mask[id] = sprog->ss[id]->sel->sinfo.ssbo_used_mask;
+}
+
 static struct vrend_linked_shader_program *add_shader_program(struct vrend_context *ctx,
                                                               struct vrend_shader *vs,
                                                               struct vrend_shader *fs,
@@ -1097,6 +1130,7 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
       bind_sampler_locs(sprog, id);
       bind_const_locs(sprog, id);
       bind_ubo_locs(sprog, id);
+      bind_ssbo_locs(sprog, id);
    }
 
    if (!vrend_state.have_gles31_vertex_attrib_binding) {
@@ -1164,6 +1198,7 @@ static void vrend_destroy_program(struct vrend_linked_shader_program *ent)
       free(ent->shadow_samp_mask_locs[i]);
       free(ent->shadow_samp_add_locs[i]);
       free(ent->samp_locs[i]);
+      free(ent->ssbo_locs[i]);
       free(ent->const_locs[i]);
       free(ent->ubo_locs[i]);
    }
@@ -2251,6 +2286,32 @@ void vrend_set_num_sampler_views(struct vrend_context *ctx,
    ctx->sub->views[shader_type].num_views = last_slot;
 }
 
+void vrend_set_single_ssbo(struct vrend_context *ctx,
+                           uint32_t shader_type,
+                           int index,
+                           uint32_t offset, uint32_t length,
+                           uint32_t handle)
+{
+   struct vrend_ssbo *ssbo = &ctx->sub->ssbo[shader_type][index];
+   struct vrend_resource *res;
+   if (handle) {
+      res = vrend_renderer_ctx_res_lookup(ctx, handle);
+      if (!res) {
+         report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, handle);
+         return;
+      }
+      ssbo->buffer_offset = offset;
+      ssbo->buffer_size = length;
+      ssbo->res = res;
+      ctx->sub->ssbo_used_mask[shader_type] |= (1 << index);
+   } else {
+      ssbo->res = 0;
+      ssbo->buffer_offset = 0;
+      ssbo->buffer_size = 0;
+      ctx->sub->ssbo_used_mask[shader_type] &= ~(1 << index);
+   }
+}
+
 static void vrend_destroy_shader_object(void *obj_ptr)
 {
    struct vrend_shader_selector *state = obj_ptr;
@@ -3144,6 +3205,32 @@ static void vrend_draw_bind_const_shader(struct vrend_context *ctx,
    }
 }
 
+static void vrend_draw_bind_ssbo_shader(struct vrend_context *ctx, int shader_type)
+{
+   uint32_t mask;
+   struct vrend_ssbo *ssbo;
+   struct vrend_resource *res;
+   int i;
+
+   if (!ctx->sub->prog->ssbo_locs[shader_type])
+      return;
+
+   if (!ctx->sub->ssbo_used_mask[shader_type])
+      return;
+
+   mask = ctx->sub->ssbo_used_mask[shader_type];
+   while (mask) {
+      i = u_bit_scan(&mask);
+
+      ssbo = &ctx->sub->ssbo[shader_type][i];
+      res = (struct vrend_resource *)ssbo->res;
+      glBindBufferRange(GL_SHADER_STORAGE_BUFFER, i, res->id,
+                        ssbo->buffer_offset, ssbo->buffer_size);
+      if (ctx->sub->prog->ssbo_locs[shader_type][i] != -1)
+         glShaderStorageBlockBinding(ctx->sub->prog->id, ctx->sub->prog->ssbo_locs[shader_type][i], i);
+   }
+}
+
 static void vrend_draw_bind_objects(struct vrend_context *ctx, bool new_program)
 {
    int ubo_id = 0, sampler_id = 0;
@@ -3151,6 +3238,7 @@ static void vrend_draw_bind_objects(struct vrend_context *ctx, bool new_program)
       vrend_draw_bind_ubo_shader(ctx, shader_type, &ubo_id);
       vrend_draw_bind_const_shader(ctx, shader_type, new_program);
       vrend_draw_bind_samplers_shader(ctx, shader_type, &sampler_id);
+      vrend_draw_bind_ssbo_shader(ctx, shader_type);
    }
 
    if (vrend_state.use_core_profile && ctx->sub->prog->fs_stipple_loc != -1) {
@@ -4549,6 +4637,9 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
    if (gl_ver >= 43 || epoxy_has_gl_extension("GL_ARB_texture_view"))
       vrend_state.have_texture_view = true;
 
+   if (gl_ver >= 43 || epoxy_has_gl_extension("GL_ARB_shader_storage_buffer_object"))
+      vrend_state.have_ssbo = true;
+
    if (gl_ver >= 46 || epoxy_has_gl_extension("GL_ARB_polygon_offset_clamp"))
       vrend_state.have_polygon_offset_clamp = true;
 
@@ -4855,7 +4946,8 @@ static int check_resource_valid(struct vrend_renderer_resource_create_args *args
        args->bind == VREND_RES_BIND_INDEX_BUFFER ||
        args->bind == VREND_RES_BIND_STREAM_OUTPUT ||
        args->bind == VREND_RES_BIND_VERTEX_BUFFER ||
-       args->bind == VREND_RES_BIND_CONSTANT_BUFFER) {
+       args->bind == VREND_RES_BIND_CONSTANT_BUFFER ||
+       args->bind == VREND_RES_BIND_SHADER_BUFFER) {
       if (args->target != PIPE_BUFFER)
          return -1;
       if (args->height != 1 || args->depth != 1)
@@ -5093,7 +5185,7 @@ int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *a
    } else if (args->bind == VREND_RES_BIND_CONSTANT_BUFFER) {
       gr->target = GL_UNIFORM_BUFFER;
       vrend_create_buffer(gr, args->width);
-   } else if (args->target == PIPE_BUFFER && args->bind == 0) {
+   } else if (args->target == PIPE_BUFFER && (args->bind == 0 || args->bind == VREND_RES_BIND_SHADER_BUFFER)) {
       gr->target = GL_ARRAY_BUFFER_ARB;
       vrend_create_buffer(gr, args->width);
    } else if (args->target == PIPE_BUFFER && (args->bind & VREND_RES_BIND_SAMPLER_VIEW)) {
@@ -7625,7 +7717,19 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
 
    if (gl_ver >= 43) {
       glGetIntegerv(GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT, (GLint*)&caps->v2.texture_buffer_offset_alignment);
+   }
+
+   if (gl_ver >= 43 || epoxy_has_gl_extension("GL_ARB_shader_storage_buffer_object")) {
       glGetIntegerv(GL_SHADER_STORAGE_BUFFER_OFFSET_ALIGNMENT, (GLint*)&caps->v2.shader_buffer_offset_alignment);
+
+      glGetIntegerv(GL_MAX_VERTEX_SHADER_STORAGE_BLOCKS, &max);
+      if (max > PIPE_MAX_SHADER_BUFFERS)
+         max = PIPE_MAX_SHADER_BUFFERS;
+      caps->v2.max_shader_buffer_other_stages = max;
+      glGetIntegerv(GL_MAX_FRAGMENT_SHADER_STORAGE_BLOCKS, &max);
+      if (max > PIPE_MAX_SHADER_BUFFERS)
+         max = PIPE_MAX_SHADER_BUFFERS;
+      caps->v2.max_shader_buffer_frag_compute = max;
    }
 
    caps->v1.max_samples = vrend_renderer_query_multisample_caps(max, &caps->v2);

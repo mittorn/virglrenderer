@@ -154,6 +154,7 @@ void vrend_renderer_context_destroy(uint32_t handle);
 #define VREND_RES_BIND_INDEX_BUFFER  (1 << 5)
 #define VREND_RES_BIND_CONSTANT_BUFFER (1 << 6)
 #define VREND_RES_BIND_STREAM_OUTPUT (1 << 11)
+#define VREND_RES_BIND_SHADER_BUFFER (1 << 14)
 #define VREND_RES_BIND_CURSOR        (1 << 16)
 #define VREND_RES_BIND_CUSTOM        (1 << 17)
 
@@ -246,6 +247,11 @@ void vrend_set_index_buffer(struct vrend_context *ctx,
                             uint32_t res_handle,
                             uint32_t index_size,
                             uint32_t offset);
+void vrend_set_single_ssbo(struct vrend_context *ctx,
+                           uint32_t shader_type,
+                           int index,
+                           uint32_t offset, uint32_t length,
+                           uint32_t handle);
 
 #define VREND_TRANSFER_WRITE 1
 #define VREND_TRANSFER_READ 2
