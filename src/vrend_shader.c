@@ -3432,15 +3432,6 @@ static const char *get_aux_string(unsigned location)
    }
 }
 
-static char get_return_type_prefix(enum tgsi_return_type type)
-{
-   if (type == TGSI_RETURN_TYPE_SINT)
-      return 'i';
-   if (type == TGSI_RETURN_TYPE_UINT)
-      return 'u';
-   return ' ';
-}
-
 static void *emit_sampler_decl(struct dump_ctx *ctx, char *glsl_hdr, uint32_t i,
                                uint32_t range, uint32_t return_type, uint32_t texture_type)
 {
