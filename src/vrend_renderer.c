@@ -4284,8 +4284,9 @@ static void vrend_apply_sampler_state(struct vrend_context *ctx,
     * the sampler to use the red channel and not the alpha one
     * by swizzling the GL_TEXTURE_BORDER_COLOR parameter.
     */
+   bool is_emulated_alpha = vrend_format_is_emulated_alpha(res->base.format);
    if (has_feature(feat_samplers)) {
-      if (vrend_format_is_emulated_alpha(res->base.format)) {
+      if (is_emulated_alpha) {
          union pipe_color_union border_color;
          border_color = state->border_color;
          border_color.ui[0] = border_color.ui[3];
@@ -4347,7 +4348,6 @@ static void vrend_apply_sampler_state(struct vrend_context *ctx,
       }
    }
 
-   bool is_emulated_alpha = vrend_format_is_emulated_alpha(res->base.format);
    if (memcmp(&tex->state.border_color, &state->border_color, 16) || set_all ||
        is_emulated_alpha) {
       if (is_emulated_alpha) {
