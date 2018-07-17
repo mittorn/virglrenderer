@@ -136,6 +136,12 @@ struct dump_ctx {
 
    struct vrend_shader_sampler samplers[32];
    uint32_t samplers_used;
+
+   uint32_t ssbo_used_mask;
+   uint32_t ssbo_atomic_mask;
+   uint32_t ssbo_array_base;
+   uint32_t ssbo_atomic_array_base;
+
    struct vrend_sampler_array *sampler_arrays;
    uint32_t num_sampler_arrays;
    int last_sampler_array_idx;
@@ -1039,6 +1045,21 @@ iter_declaration(struct tgsi_iterate_context *iter,
          } else {
             ctx->last_sampler_array_idx = add_sampler_array(ctx, decl->Range.First, decl->Range.Last + 1, decl->SamplerView.Resource, decl->SamplerView.ReturnTypeX);
          }
+      }
+      break;
+   case TGSI_FILE_BUFFER:
+      if (decl->Range.First >= 32) {
+         fprintf(stderr, "Buffer view exceeded, max is 32\n");
+         return FALSE;
+      }
+      ctx->ssbo_used_mask |= (1 << decl->Range.First);
+      if (decl->Declaration.Atomic) {
+         if (decl->Range.First < ctx->ssbo_atomic_array_base)
+            ctx->ssbo_atomic_array_base = decl->Range.First;
+         ctx->ssbo_atomic_mask |= (1 << decl->Range.First);
+      } else {
+         if (decl->Range.First < ctx->ssbo_array_base)
+            ctx->ssbo_array_base = decl->Range.First;
       }
       break;
    case TGSI_FILE_CONSTANT:
@@ -2122,6 +2143,173 @@ create_swizzled_clipdist(struct dump_ctx *ctx,
 }
 
 static int
+translate_store(struct dump_ctx *ctx,
+                struct tgsi_full_instruction *inst,
+                char srcs[4][255],
+                char dsts[3][255])
+{
+   const struct tgsi_full_dst_register *dst = &inst->Dst[0];
+   char buf[512];
+
+   if (dst->Register.File == TGSI_FILE_BUFFER) {
+      const char *conversion = get_string(FLOAT_BITS_TO_UINT);
+      if (inst->Dst[0].Register.WriteMask & 0x1) {
+         snprintf(buf, 255, "%s[uint(floatBitsToUint(%s))>>2] = %s(%s).x;\n", dsts[0], srcs[0], conversion, srcs[1]);
+         EMIT_BUF_WITH_RET(ctx, buf);
+      }
+      if (inst->Dst[0].Register.WriteMask & 0x2) {
+         snprintf(buf, 255, "%s[(uint(floatBitsToUint(%s))>>2)+1u] = %s(%s).y;\n", dsts[0], srcs[0], conversion, srcs[1]);
+         EMIT_BUF_WITH_RET(ctx, buf);
+      }
+      if (inst->Dst[0].Register.WriteMask & 0x4) {
+         snprintf(buf, 255, "%s[(uint(floatBitsToUint(%s))>>2)+2u] = %s(%s).z;\n", dsts[0], srcs[0], conversion, srcs[1]);
+         EMIT_BUF_WITH_RET(ctx, buf);
+      }
+      if (inst->Dst[0].Register.WriteMask & 0x8) {
+         snprintf(buf, 255, "%s[(uint(floatBitsToUint(%s))>>2)+3u] = %s(%s).w;\n", dsts[0], srcs[0], conversion, srcs[1]);
+         EMIT_BUF_WITH_RET(ctx, buf);
+      }
+   }
+   return 0;
+}
+
+static int
+translate_load(struct dump_ctx *ctx,
+               struct tgsi_full_instruction *inst,
+               char srcs[4][255],
+               char dsts[3][255])
+{
+   char buf[512];
+   const struct tgsi_full_src_register *src = &inst->Src[0];
+
+   if (src->Register.File == TGSI_FILE_BUFFER) {
+      char mydst[255], atomic_op[9], atomic_src[10];
+      strcpy(mydst, dsts[0]);
+      char *wmp = strchr(mydst, '.');
+      if (wmp)
+         wmp[0] = 0;
+      snprintf(buf, 255, "ssbo_addr_temp = uint(floatBitsToUint(%s)) >> 2;\n", srcs[1]);
+      EMIT_BUF_WITH_RET(ctx, buf);
+
+      atomic_op[0] = atomic_src[0] = '\0';
+      if (ctx->ssbo_atomic_mask & (1 << src->Register.Index)) {
+         /* Emulate atomicCounter with atomicOr. */
+         strcpy(atomic_op, "atomicOr");
+         strcpy(atomic_src, ", uint(0)");
+      }
+
+      if (inst->Dst[0].Register.WriteMask & 0x1) {
+         snprintf(buf, 255, "%s.x = (uintBitsToFloat(%s(%s[ssbo_addr_temp]%s)));\n", mydst, atomic_op, srcs[0], atomic_src);
+         EMIT_BUF_WITH_RET(ctx, buf);
+      }
+      if (inst->Dst[0].Register.WriteMask & 0x2) {
+         snprintf(buf, 255, "%s.y = (uintBitsToFloat(%s(%s[ssbo_addr_temp + 1u]%s)));\n", mydst, atomic_op, srcs[0], atomic_src);
+         EMIT_BUF_WITH_RET(ctx, buf);
+      }
+      if (inst->Dst[0].Register.WriteMask & 0x4) {
+         snprintf(buf, 255, "%s.z = (uintBitsToFloat(%s(%s[ssbo_addr_temp + 2u]%s)));\n", mydst, atomic_op, srcs[0], atomic_src);
+         EMIT_BUF_WITH_RET(ctx, buf);
+      }
+      if (inst->Dst[0].Register.WriteMask & 0x8) {
+         snprintf(buf, 255, "%s.w = (uintBitsToFloat(%s(%s[ssbo_addr_temp + 3u]%s)));\n", mydst, atomic_op, srcs[0], atomic_src);
+         EMIT_BUF_WITH_RET(ctx, buf);
+      }
+   }
+   return 0;
+}
+
+static const char *get_atomic_opname(int tgsi_opcode, bool *is_cas)
+{
+   const char *opname;
+   *is_cas = false;
+   switch (tgsi_opcode) {
+   case TGSI_OPCODE_ATOMUADD:
+      opname = "Add";
+      break;
+   case TGSI_OPCODE_ATOMXCHG:
+      opname = "Exchange";
+      break;
+   case TGSI_OPCODE_ATOMCAS:
+      opname = "CompSwap";
+      *is_cas = true;
+      break;
+   case TGSI_OPCODE_ATOMAND:
+      opname = "And";
+      break;
+   case TGSI_OPCODE_ATOMOR:
+      opname = "Or";
+      break;
+   case TGSI_OPCODE_ATOMXOR:
+      opname = "Xor";
+      break;
+   case TGSI_OPCODE_ATOMUMIN:
+      opname = "Min";
+      break;
+   case TGSI_OPCODE_ATOMUMAX:
+      opname = "Max";
+      break;
+   case TGSI_OPCODE_ATOMIMIN:
+      opname = "Min";
+      break;
+   case TGSI_OPCODE_ATOMIMAX:
+      opname = "Max";
+      break;
+   default:
+      fprintf(stderr, "illegal atomic opcode");
+      return NULL;
+   }
+   return opname;
+}
+
+static int
+translate_resq(struct dump_ctx *ctx, struct tgsi_full_instruction *inst,
+               char srcs[4][255], char dsts[3][255])
+{
+   char buf[512];
+   const struct tgsi_full_src_register *src = &inst->Src[0];
+
+   if (src->Register.File == TGSI_FILE_BUFFER) {
+      snprintf(buf, 255, "%s = %s(int(%s.length()) << 2);\n", dsts[0], get_string(INT_BITS_TO_FLOAT), srcs[0]);
+      EMIT_BUF_WITH_RET(ctx, buf);
+   }
+
+   return 0;
+}
+
+static int
+translate_atomic(struct dump_ctx *ctx,
+                 struct tgsi_full_instruction *inst,
+                 char srcs[4][255],
+                 char dsts[3][255])
+{
+   char buf[512];
+   const struct tgsi_full_src_register *src = &inst->Src[0];
+   const char *opname;
+   enum vrend_type_qualifier stypeprefix;
+   enum vrend_type_qualifier dtypeprefix;
+   enum vrend_type_qualifier stypecast;
+   bool is_cas;
+   char cas_str[64] = {};
+
+   stypeprefix = FLOAT_BITS_TO_UINT;
+   dtypeprefix = UINT_BITS_TO_FLOAT;
+   stypecast = UINT;
+
+   opname = get_atomic_opname(inst->Instruction.Opcode, &is_cas);
+   if (!opname)
+      return -1;
+
+   if (is_cas)
+      snprintf(cas_str, 64, ", %s(%s(%s))", get_string(stypecast), get_string(stypeprefix), srcs[3]);
+
+   if (src->Register.File == TGSI_FILE_BUFFER) {
+      snprintf(buf, 512, "%s = %s(atomic%s(%s[int(floatBitsToInt(%s)) >> 2], uint(%s(%s).x)%s));\n", dsts[0], get_string(dtypeprefix), opname, srcs[0], srcs[1], get_string(stypeprefix), srcs[2], cas_str);
+      EMIT_BUF_WITH_RET(ctx, buf);
+   }
+   return 0;
+}
+
+static int
 get_destination_info(struct dump_ctx *ctx,
                      const struct tgsi_full_instruction *inst,
                      struct dest_info *dinfo,
@@ -2276,8 +2464,19 @@ get_destination_info(struct dump_ctx *ctx,
             snprintf(dsts[i], 255, "temp%d[addr0 + %d]%s", range->first, dst_reg->Register.Index - range->first, writemask);
          } else
             snprintf(dsts[i], 255, "temp%d[%d]%s", range->first, dst_reg->Register.Index - range->first, writemask);
-      }
-      else if (dst_reg->Register.File == TGSI_FILE_ADDRESS) {
+      } else if (dst_reg->Register.File == TGSI_FILE_BUFFER) {
+         const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
+         if (ctx->info.indirect_files & (1 << TGSI_FILE_BUFFER)) {
+            bool atomic_ssbo = ctx->ssbo_atomic_mask & (1 << dst_reg->Register.Index);
+            const char *atomic_str = atomic_ssbo ? "atomic" : "";
+            int base = atomic_ssbo ? ctx->ssbo_atomic_array_base : ctx->ssbo_array_base;
+            if (dst_reg->Register.Indirect) {
+               snprintf(dsts[i], 255, "%sssboarr%s[addr%d+%d].%sssbocontents%d", cname, atomic_str, dst_reg->Indirect.Index, dst_reg->Register.Index - base, cname, base);
+            } else
+               snprintf(dsts[i], 255, "%sssboarr%s[%d].%sssbocontents%d", cname, atomic_str, dst_reg->Register.Index - base, cname, base);
+         } else
+            snprintf(dsts[i], 255, "%sssbocontents%d", cname, dst_reg->Register.Index);
+      } else if (dst_reg->Register.File == TGSI_FILE_ADDRESS) {
          snprintf(dsts[i], 255, "addr%d", dst_reg->Register.Index);
       }
 
@@ -2531,6 +2730,21 @@ get_source_info(struct dump_ctx *ctx,
             }
          } else {
             snprintf(srcs[i], 255, "%ssamp%d%s", cname, src->Register.Index, swizzle);
+         }
+         sinfo->sreg_index = src->Register.Index;
+      } else if (src->Register.File == TGSI_FILE_BUFFER) {
+         const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
+         if (ctx->info.indirect_files & (1 << TGSI_FILE_BUFFER)) {
+            bool atomic_ssbo = ctx->ssbo_atomic_mask & (1 << src->Register.Index);
+            const char *atomic_str = atomic_ssbo ? "atomic" : "";
+            int base = atomic_ssbo ? ctx->ssbo_atomic_array_base : ctx->ssbo_array_base;
+            if (src->Register.Indirect) {
+               snprintf(srcs[i], 255, "%sssboarr%s[addr%d+%d].%sssbocontents%d%s", cname, atomic_str, src->Indirect.Index, src->Register.Index - base, cname, base, swizzle);
+            } else {
+               snprintf(srcs[i], 255, "%sssboarr%s[%d].%sssbocontents%d%s", cname, atomic_str, src->Register.Index - base, cname, base, swizzle);
+            }
+         } else {
+            snprintf(srcs[i], 255, "%sssbocontents%d%s", cname, src->Register.Index, swizzle);
          }
          sinfo->sreg_index = src->Register.Index;
       } else if (src->Register.File == TGSI_FILE_IMMEDIATE) {
@@ -3262,6 +3476,35 @@ iter_instruction(struct tgsi_iterate_context *iter,
       snprintf(buf, 255, "barrier();\n");
       EMIT_BUF_WITH_RET(ctx, buf);
       break;
+   case TGSI_OPCODE_STORE:
+      ret = translate_store(ctx, inst, srcs, dsts);
+      if (ret)
+         return FALSE;
+      break;
+   case TGSI_OPCODE_LOAD:
+      ret = translate_load(ctx, inst, srcs, dsts);
+      if (ret)
+         return FALSE;
+      break;
+   case TGSI_OPCODE_ATOMUADD:
+   case TGSI_OPCODE_ATOMXCHG:
+   case TGSI_OPCODE_ATOMCAS:
+   case TGSI_OPCODE_ATOMAND:
+   case TGSI_OPCODE_ATOMOR:
+   case TGSI_OPCODE_ATOMXOR:
+   case TGSI_OPCODE_ATOMUMIN:
+   case TGSI_OPCODE_ATOMUMAX:
+   case TGSI_OPCODE_ATOMIMIN:
+   case TGSI_OPCODE_ATOMIMAX:
+      ret = translate_atomic(ctx, inst, srcs, dsts);
+      if (ret)
+         return FALSE;
+      break;
+   case TGSI_OPCODE_RESQ:
+      ret = translate_resq(ctx, inst, srcs, dsts);
+      if (ret)
+         return FALSE;
+      break;
    default:
       fprintf(stderr,"failed to convert opcode %d\n", inst->Instruction.Opcode);
       break;
@@ -3342,6 +3585,8 @@ static char *emit_header(struct dump_ctx *ctx, char *glsl_hdr)
 
       if (ctx->num_cull_dist_prop || ctx->key->prev_stage_num_cull_out)
          STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_cull_distance : require\n");
+      if (ctx->ssbo_used_mask)
+         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_shader_storage_buffer_object : require\n");
 
       for (uint32_t i = 0; i < ARRAY_SIZE(shader_req_table); i++) {
          if (shader_req_table[i].key == SHADER_REQ_SAMPLER_RECT && ctx->glsl_ver_required >= 140)
@@ -3799,6 +4044,11 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
       STRCAT_WITH_RET(glsl_hdr, buf);
    }
 
+   if (ctx->ssbo_used_mask) {
+     snprintf(buf, 255, "uint ssbo_addr_temp;\n");
+     STRCAT_WITH_RET(glsl_hdr, buf);
+   }
+
    if (ctx->shader_req_bits & SHADER_REQ_FP64) {
       snprintf(buf, 255, "dvec2 fp64_dst[3];\n");
       STRCAT_WITH_RET(glsl_hdr, buf);
@@ -3862,6 +4112,26 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
             return NULL;
       }
    }
+
+   if (ctx->info.indirect_files & (1 << TGSI_FILE_BUFFER)) {
+      uint32_t mask = ctx->ssbo_used_mask;
+      while (mask) {
+         int start, count, i;
+         u_bit_scan_consecutive_range(&mask, &start, &count);
+         const char *atomic = (ctx->ssbo_atomic_mask & (1 << start)) ? "atomic" : "";
+         snprintf(buf, 255, "layout (binding = %d, std430) buffer %sssbo%d { uint %sssbocontents%d[]; } %sssboarr%s[%d];\n", start, sname, start, sname, start, sname, atomic, count);
+         STRCAT_WITH_RET(glsl_hdr, buf);
+      }
+   } else {
+      uint32_t mask = ctx->ssbo_used_mask;
+      while (mask) {
+         uint32_t id = u_bit_scan(&mask);
+         sname = tgsi_proc_to_prefix(ctx->prog_type);
+         snprintf(buf, 255, "layout (binding = %d, std430) buffer %sssbo%d { uint %sssbocontents%d[]; };\n", id, sname, id, sname, id);
+         STRCAT_WITH_RET(glsl_hdr, buf);
+      }
+   }
+
    if (ctx->prog_type == TGSI_PROCESSOR_FRAGMENT &&
        ctx->key->pstipple_tex == true) {
       snprintf(buf, 255, "uniform sampler2D pstipple_sampler;\nfloat stip_temp;\n");
@@ -3942,6 +4212,8 @@ char *vrend_convert_shader(struct vrend_shader_cfg *cfg,
    ctx.num_sampler_arrays = 0;
    ctx.sampler_arrays = NULL;
    ctx.last_sampler_array_idx = -1;
+   ctx.ssbo_array_base = 0xffffffff;
+   ctx.ssbo_atomic_array_base = 0xffffffff;
    ctx.has_sample_input = false;
    tgsi_scan_shader(tokens, &ctx.info);
    /* if we are in core profile mode we should use GLSL 1.40 */
@@ -3959,6 +4231,10 @@ char *vrend_convert_shader(struct vrend_shader_cfg *cfg,
    if (ctx.info.dimension_indirect_files & (1 << TGSI_FILE_CONSTANT))
       require_glsl_ver(&ctx, 150);
 
+   if (ctx.info.indirect_files & (1 << TGSI_FILE_BUFFER)) {
+      require_glsl_ver(&ctx, 150);
+      ctx.shader_req_bits |= SHADER_REQ_GPU_SHADER5;
+   }
    if (ctx.info.indirect_files & (1 << TGSI_FILE_SAMPLER))
       ctx.shader_req_bits |= SHADER_REQ_GPU_SHADER5;
 
@@ -4010,6 +4286,9 @@ char *vrend_convert_shader(struct vrend_shader_cfg *cfg,
    sinfo->num_consts = ctx.num_consts;
    sinfo->num_ubos = ctx.num_ubo;
    memcpy(sinfo->ubo_idx, ctx.ubo_idx, ctx.num_ubo * sizeof(*ctx.ubo_idx));
+
+   sinfo->ssbo_used_mask = ctx.ssbo_used_mask;
+
    sinfo->ubo_indirect = ctx.info.dimension_indirect_files & (1 << TGSI_FILE_CONSTANT);
    if (ctx_indirect_inputs(&ctx)) {
       if (ctx.generic_input_range.used)

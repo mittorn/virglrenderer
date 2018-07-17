@@ -46,6 +46,7 @@ struct vrend_sampler_array {
 
 struct vrend_shader_info {
    uint32_t samplers_used_mask;
+   uint32_t ssbo_used_mask;
    int num_consts;
    int num_inputs;
    int num_interps;
