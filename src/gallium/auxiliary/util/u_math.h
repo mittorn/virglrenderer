@@ -584,6 +584,31 @@ static inline int u_bit_scan(unsigned *mask)
    return i;
 }
 
+/* For looping over a bitmask when you want to loop over consecutive bits
+ * manually, for example:
+ *
+ * while (mask) {
+ *    int start, count, i;
+ *
+ *    u_bit_scan_consecutive_range(&mask, &start, &count);
+ *
+ *    for (i = 0; i < count; i++)
+ *       ... process element (start+i)
+ * }
+ */
+static inline void
+u_bit_scan_consecutive_range(unsigned *mask, int *start, int *count)
+{
+   if (*mask == 0xffffffff) {
+      *start = 0;
+      *count = 32;
+      *mask = 0;
+      return;
+   }
+   *start = ffs(*mask) - 1;
+   *count = ffs(~(*mask >> *start)) - 1;
+   *mask &= ~(((1u << *count) - 1) << *start);
+}
 
 /**
  * Return float bits.
