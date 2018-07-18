@@ -3484,6 +3484,42 @@ iter_instruction(struct tgsi_iterate_context *iter,
       snprintf(buf, 255, "barrier();\n");
       EMIT_BUF_WITH_RET(ctx, buf);
       break;
+   case TGSI_OPCODE_MEMBAR: {
+      struct immed *imd = &ctx->imm[(inst->Src[0].Register.Index)];
+      uint32_t val = imd->val[inst->Src[0].Register.SwizzleX].ui;
+      uint32_t all_val = (TGSI_MEMBAR_SHADER_BUFFER |
+                          TGSI_MEMBAR_ATOMIC_BUFFER |
+                          TGSI_MEMBAR_SHADER_IMAGE |
+                          TGSI_MEMBAR_SHARED);
+
+      if (val & TGSI_MEMBAR_THREAD_GROUP) {
+         snprintf(buf, 255, "groupMemoryBarrier();\n");
+         EMIT_BUF_WITH_RET(ctx, buf);
+      } else {
+         if ((val & all_val) == all_val) {
+            snprintf(buf, 255, "memoryBarrier();\n");
+            EMIT_BUF_WITH_RET(ctx, buf);
+         } else {
+            if (val & TGSI_MEMBAR_SHADER_BUFFER) {
+               snprintf(buf, 255, "memoryBarrierBuffer();\n");
+               EMIT_BUF_WITH_RET(ctx, buf);
+            }
+            if (val & TGSI_MEMBAR_ATOMIC_BUFFER) {
+               snprintf(buf, 255, "memoryBarrierAtomic();\n");
+               EMIT_BUF_WITH_RET(ctx, buf);
+            }
+            if (val & TGSI_MEMBAR_SHADER_IMAGE) {
+               snprintf(buf, 255, "memoryBarrierImage();\n");
+               EMIT_BUF_WITH_RET(ctx, buf);
+            }
+            if (val & TGSI_MEMBAR_SHARED) {
+               snprintf(buf, 255, "memoryBarrierShared();\n");
+               EMIT_BUF_WITH_RET(ctx, buf);
+            }
+         }
+      }
+      break;
+   }
    case TGSI_OPCODE_STORE:
       ret = translate_store(ctx, inst, srcs, dsts);
       if (ret)
