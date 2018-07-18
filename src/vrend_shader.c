@@ -136,7 +136,6 @@ struct dump_ctx {
 
    struct vrend_shader_sampler samplers[32];
    uint32_t samplers_used;
-   bool sviews_used;
    struct vrend_sampler_array *sampler_arrays;
    uint32_t num_sampler_arrays;
    int last_sampler_array_idx;
@@ -1040,8 +1039,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
          } else {
             ctx->last_sampler_array_idx = add_sampler_array(ctx, decl->Range.First, decl->Range.Last + 1, decl->SamplerView.Resource, decl->SamplerView.ReturnTypeX);
          }
-      } else
-      ctx->sviews_used = true;
+      }
       break;
    case TGSI_FILE_CONSTANT:
       if (decl->Declaration.Dimension && decl->Dim.Index2D != 0) {
