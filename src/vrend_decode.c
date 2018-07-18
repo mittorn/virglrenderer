@@ -1137,6 +1137,16 @@ static int vrend_decode_set_shader_images(struct vrend_decode_ctx *ctx, uint16_t
    return 0;
 }
 
+static int vrend_decode_memory_barrier(struct vrend_decode_ctx *ctx, uint16_t length)
+{
+   if (length != VIRGL_MEMORY_BARRIER_SIZE)
+      return EINVAL;
+
+   unsigned flags = get_buf_entry(ctx, VIRGL_MEMORY_BARRIER_FLAGS);
+   vrend_memory_barrier(ctx->grctx, flags);
+   return 0;
+}
+
 static int vrend_decode_set_streamout_targets(struct vrend_decode_ctx *ctx,
                                               uint16_t length)
 {
@@ -1370,6 +1380,9 @@ int vrend_decode_block(uint32_t ctx_id, uint32_t *block, int ndw)
          break;
       case VIRGL_CCMD_SET_SHADER_IMAGES:
          ret = vrend_decode_set_shader_images(gdctx, len);
+         break;
+      case VIRGL_CCMD_MEMORY_BARRIER:
+         ret = vrend_decode_memory_barrier(gdctx, len);
          break;
       default:
          ret = EINVAL;

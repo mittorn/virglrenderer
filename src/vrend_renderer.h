@@ -240,7 +240,8 @@ void vrend_set_single_ssbo(struct vrend_context *ctx,
                            int index,
                            uint32_t offset, uint32_t length,
                            uint32_t handle);
-
+void vrend_memory_barrier(struct vrend_context *ctx,
+                          unsigned flags);
 #define VREND_TRANSFER_WRITE 1
 #define VREND_TRANSFER_READ 2
 int vrend_renderer_transfer_iov(const struct vrend_transfer_info *info, int transfer_mode);

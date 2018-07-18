@@ -223,6 +223,7 @@ enum virgl_formats {
 #define VIRGL_CAP_COPY_IMAGE           (1 << 3)
 #define VIRGL_CAP_TGSI_PRECISE         (1 << 4)
 #define VIRGL_CAP_TXQS                 (1 << 5)
+#define VIRGL_CAP_MEMORY_BARRIER       (1 << 6)
 
 /* virgl bind flags - these are compatible with mesa 10.5 gallium.
  * but are fixed, no other should be passed to virgl either.

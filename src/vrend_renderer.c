@@ -92,6 +92,7 @@ enum features_id
    feat_arb_or_gles_ext_texture_buffer,
    feat_arb_robustness,
    feat_base_instance,
+   feat_barrier,
    feat_bit_encoding,
    feat_copy_image,
    feat_conditional_render_inverted,
@@ -118,6 +119,7 @@ enum features_id
    feat_sample_shading,
    feat_samplers,
    feat_ssbo,
+   feat_ssbo_barrier,
    feat_stencil_texturing,
    feat_tessellation,
    feat_texture_array,
@@ -146,6 +148,7 @@ static const  struct {
    [feat_arb_or_gles_ext_texture_buffer] = { 31, UNAVAIL, { "GL_ARB_texture_buffer_object", "GL_EXT_texture_buffer", NULL } },
    [feat_arb_robustness] = { UNAVAIL, UNAVAIL, { "GL_ARB_robustness" } },
    [feat_base_instance] = { 42, UNAVAIL, { "GL_ARB_base_instance", "GL_EXT_base_instance" } },
+   [feat_barrier] = { 42, 31, {} },
    [feat_bit_encoding] = { 33, UNAVAIL, { "GL_ARB_shader_bit_encoding" } },
    [feat_copy_image] = { 43, 32, { "GL_ARB_copy_image", "GL_EXT_copy_image", "GL_OES_copy_image" } },
    [feat_conditional_render_inverted] = { 45, UNAVAIL, { "GL_ARB_conditional_render_inverted" } },
@@ -172,6 +175,7 @@ static const  struct {
    [feat_sample_shading] = { 40, UNAVAIL, { "GL_ARB_sample_shading" } },
    [feat_samplers] = { 33, UNAVAIL, { "GL_ARB_sampler_objects" } },
    [feat_ssbo] = { 43, 31, { "GL_ARB_shader_storage_buffer_object" } },
+   [feat_ssbo_barrier] = { 43, 31, {} },
    [feat_stencil_texturing] = { 43, UNAVAIL, { "GL_ARB_stencil_texturing" } },
    [feat_tessellation] = { 40, UNAVAIL, { "GL_ARB_tessellation_shader" } },
    [feat_texture_array] = { 30, 30, { "GL_EXT_texture_array" } },
@@ -2536,6 +2540,44 @@ void vrend_set_single_ssbo(struct vrend_context *ctx,
       ssbo->buffer_size = 0;
       ctx->sub->ssbo_used_mask[shader_type] &= ~(1 << index);
    }
+}
+
+void vrend_memory_barrier(struct vrend_context *ctx,
+                          unsigned flags)
+{
+   GLbitfield gl_barrier = 0;
+
+   if (!has_feature(feat_barrier))
+      return;
+
+   if ((flags & PIPE_BARRIER_ALL) == PIPE_BARRIER_ALL)
+      gl_barrier = GL_ALL_BARRIER_BITS;
+   else {
+      if (flags & PIPE_BARRIER_VERTEX_BUFFER)
+         gl_barrier |= GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT;
+      if (flags & PIPE_BARRIER_INDEX_BUFFER)
+         gl_barrier |= GL_ELEMENT_ARRAY_BARRIER_BIT;
+      if (flags & PIPE_BARRIER_CONSTANT_BUFFER)
+         gl_barrier |= GL_UNIFORM_BARRIER_BIT;
+      if (flags & PIPE_BARRIER_TEXTURE)
+         gl_barrier |= GL_TEXTURE_FETCH_BARRIER_BIT | GL_PIXEL_BUFFER_BARRIER_BIT;
+      if (flags & PIPE_BARRIER_IMAGE)
+         gl_barrier |= GL_SHADER_IMAGE_ACCESS_BARRIER_BIT;
+      if (flags & PIPE_BARRIER_INDIRECT_BUFFER)
+         gl_barrier |= GL_COMMAND_BARRIER_BIT;
+      if (flags & PIPE_BARRIER_MAPPED_BUFFER)
+         gl_barrier |= GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT;
+      if (flags & PIPE_BARRIER_FRAMEBUFFER)
+         gl_barrier |= GL_FRAMEBUFFER_BARRIER_BIT;
+      if (flags & PIPE_BARRIER_STREAMOUT_BUFFER)
+         gl_barrier |= GL_TRANSFORM_FEEDBACK_BARRIER_BIT;
+      if (flags & PIPE_BARRIER_SHADER_BUFFER) {
+         gl_barrier |= GL_ATOMIC_COUNTER_BARRIER_BIT;
+         if (has_feature(feat_ssbo_barrier))
+            gl_barrier |= GL_SHADER_STORAGE_BARRIER_BIT;
+      }
+   }
+   glMemoryBarrier(gl_barrier);
 }
 
 static void vrend_destroy_shader_object(void *obj_ptr)
@@ -7988,6 +8030,9 @@ void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
 
    if (has_feature(feat_txqs))
       caps->v2.capability_bits |= VIRGL_CAP_TXQS;
+
+   if (has_feature(feat_barrier))
+      caps->v2.capability_bits |= VIRGL_CAP_MEMORY_BARRIER;
 
    if (has_feature(feat_copy_image))
       caps->v2.capability_bits |= VIRGL_CAP_COPY_IMAGE;
