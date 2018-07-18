@@ -514,7 +514,7 @@ static void __report_core_warn(const char *fname, struct vrend_context *ctx, enu
 #define GLES_WARN_DEPTH_RANGE 3
 #define GLES_WARN_POINT_SIZE 4
 #define GLES_WARN_LOD_BIAS 5
-#define GLES_WARN_SRGB_FB 6
+//#define GLES_WARN_ free slot 6
 #define GLES_WARN_TEXTURE_RECT 7
 #define GLES_WARN_OFFSET_LINE 8
 #define GLES_WARN_OFFSET_POINT 9
@@ -528,7 +528,7 @@ static void __report_core_warn(const char *fname, struct vrend_context *ctx, enu
 
 static const char *vrend_gles_warn_strings[] = {
    "None", "Stipple", "Polygon Mode", "Depth Range", "Point Size", "Lod Bias",
-   "SRGB Framebuffer", "Texture Rect", "Offset Line", "Offset Point",
+   "<<WARNING #6>>", "Texture Rect", "Offset Line", "Offset Point",
    "Depth Clip", "Flatshade First", "Line Smooth", "Poly Smooth",
    "Depth Clear", "LogicOp", "GL_TIMESTAMP"
 };
@@ -1689,7 +1689,8 @@ static void vrend_hw_emit_framebuffer_state(struct vrend_context *ctx)
       if (!vrend_state.use_gles) {
          glDisable(GL_FRAMEBUFFER_SRGB_EXT);
       }
-   } else {
+   } else if (!vrend_state.use_gles) {
+      /* Do not enter this path on GLES as this is not needed. */
       struct vrend_surface *surf = NULL;
       bool use_srgb = false;
       int i;
@@ -1702,15 +1703,9 @@ static void vrend_hw_emit_framebuffer_state(struct vrend_context *ctx)
          }
       }
       if (use_srgb) {
-         if (!vrend_state.use_gles) {
-            glEnable(GL_FRAMEBUFFER_SRGB_EXT);
-         } else {
-            report_gles_warn(ctx, GLES_WARN_SRGB_FB, 0);
-         }
+         glEnable(GL_FRAMEBUFFER_SRGB_EXT);
       } else {
-         if (!vrend_state.use_gles) {
-            glDisable(GL_FRAMEBUFFER_SRGB_EXT);
-         }
+         glDisable(GL_FRAMEBUFFER_SRGB_EXT);
       }
    }
    glDrawBuffers(ctx->sub->nr_cbufs, buffers);
