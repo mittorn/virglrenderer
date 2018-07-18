@@ -5908,6 +5908,7 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
    uint32_t h = u_minify(res->base.height0, info->level);
    int elsize = util_format_get_blocksize(res->base.format);
    float depth_scale;
+   int row_stride = info->stride;
 
    vrend_use_program(ctx, 0);
 
@@ -5933,6 +5934,8 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
    } else {
       send_size = iov[0].iov_len - info->offset;
       data = myptr;
+      if (!row_stride)
+         row_stride = util_format_get_nblocksx(res->base.format, u_minify(res->base.width0, info->level));
    }
 
    if (res->readback_fb_id == 0 || (int)res->readback_fb_level != info->level ||
@@ -5960,8 +5963,8 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
       glPixelStorei(GL_PACK_INVERT_MESA, 1);
    if (!vrend_format_is_ds(res->base.format))
       glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
-   if (!need_temp && info->stride)
-      glPixelStorei(GL_PACK_ROW_LENGTH, info->stride / elsize);
+   if (!need_temp && row_stride)
+      glPixelStorei(GL_PACK_ROW_LENGTH, row_stride);
 
    switch (elsize) {
    case 1:
@@ -6032,7 +6035,7 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
    }
    if (has_feature(feat_mesa_invert) && actually_invert)
       glPixelStorei(GL_PACK_INVERT_MESA, 0);
-   if (!need_temp && info->stride)
+   if (!need_temp && row_stride)
       glPixelStorei(GL_PACK_ROW_LENGTH, 0);
    glPixelStorei(GL_PACK_ALIGNMENT, 4);
    if (need_temp) {
