@@ -485,6 +485,14 @@ enum pipe_flush_flags {
 #define PIPE_TIMEOUT_INFINITE 0xffffffffffffffffull
 
 /**
+ * pipe_image_view access flags.
+ */
+#define PIPE_IMAGE_ACCESS_READ       (1 << 0)
+#define PIPE_IMAGE_ACCESS_WRITE      (1 << 1)
+#define PIPE_IMAGE_ACCESS_READ_WRITE (PIPE_IMAGE_ACCESS_READ | \
+                                      PIPE_IMAGE_ACCESS_WRITE)
+
+/**
  * Implementation capabilities/limits which are queried through
  * pipe_screen::get_param()
  */
