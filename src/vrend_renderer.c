@@ -7528,6 +7528,9 @@ static void vrend_renderer_fill_caps_gles(uint32_t set, UNUSED uint32_t version,
    if (gles_ver >= 31)
       glGetIntegerv(GL_SHADER_STORAGE_BUFFER_OFFSET_ALIGNMENT, (GLint*)&caps->v2.shader_buffer_offset_alignment);
 
+   if (gles_ver >= 31)
+      glGetIntegerv(GL_MAX_VERTEX_ATTRIB_STRIDE, (GLint*)&caps->v2.max_vertex_attrib_stride);
+
    /* Not available on GLES */
    caps->v2.texture_buffer_offset_alignment = 0;
 
