@@ -101,6 +101,7 @@ enum features_id
    feat_debug_cb,
    feat_draw_instance,
    feat_dual_src_blend,
+   feat_fb_no_attach,
    feat_geometry_shader,
    feat_gl_conditional_render,
    feat_gl_prim_restart,
@@ -158,6 +159,7 @@ static const  struct {
    [feat_debug_cb] = { UNAVAIL, UNAVAIL, {} }, /* special case */
    [feat_draw_instance] = { 31, 30, { "GL_ARB_draw_instanced" } },
    [feat_dual_src_blend] = { 33, UNAVAIL, { "GL_ARB_blend_func_extended" } },
+   [feat_fb_no_attach] = { 43, 31, { "GL_ARB_framebuffer_no_attachments" } },
    [feat_geometry_shader] = { 32, UNAVAIL, {} },
    [feat_gl_conditional_render] = { 30, UNAVAIL, {} },
    [feat_gl_prim_restart] = { 31, UNAVAIL, {} },
@@ -2089,6 +2091,22 @@ void vrend_set_framebuffer_state(struct vrend_context *ctx,
          fprintf(stderr,"failed to complete framebuffer 0x%x %s\n", status, ctx->debug_name);
    }
    ctx->sub->shader_dirty = true;
+}
+
+void vrend_set_framebuffer_state_no_attach(struct vrend_context *ctx,
+                                           uint32_t width, uint32_t height,
+                                           uint32_t layers, uint32_t samples)
+{
+   if (has_feature(feat_fb_no_attach)) {
+      glFramebufferParameteri(GL_FRAMEBUFFER,
+                              GL_FRAMEBUFFER_DEFAULT_WIDTH, width);
+      glFramebufferParameteri(GL_FRAMEBUFFER,
+                              GL_FRAMEBUFFER_DEFAULT_HEIGHT, height);
+      glFramebufferParameteri(GL_FRAMEBUFFER,
+                              GL_FRAMEBUFFER_DEFAULT_LAYERS, layers);
+      glFramebufferParameteri(GL_FRAMEBUFFER,
+                              GL_FRAMEBUFFER_DEFAULT_SAMPLES, samples);
+   }
 }
 
 /*
@@ -8186,6 +8204,9 @@ void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
 
       caps->v2.capability_bits |= VIRGL_CAP_COMPUTE_SHADER;
    }
+
+   if (has_feature(feat_fb_no_attach))
+      caps->v2.capability_bits |= VIRGL_CAP_FB_NO_ATTACH;
 
    if (has_feature(feat_texture_view))
       caps->v2.capability_bits |= VIRGL_CAP_TEXTURE_VIEW;

@@ -248,6 +248,9 @@ void vrend_launch_grid(struct vrend_context *ctx,
                        uint32_t *grid,
                        uint32_t indirect_handle,
                        uint32_t indirect_offset);
+void vrend_set_framebuffer_state_no_attach(struct vrend_context *ctx,
+                                           uint32_t width, uint32_t height,
+                                           uint32_t layers, uint32_t samples);
 #define VREND_TRANSFER_WRITE 1
 #define VREND_TRANSFER_READ 2
 int vrend_renderer_transfer_iov(const struct vrend_transfer_info *info, int transfer_mode);

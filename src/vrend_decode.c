@@ -157,6 +157,27 @@ static int vrend_decode_set_framebuffer_state(struct vrend_decode_ctx *ctx, int 
    return 0;
 }
 
+static int vrend_decode_set_framebuffer_state_no_attach(struct vrend_decode_ctx *ctx, int length)
+{
+   uint32_t width, height;
+   uint32_t layers, samples;
+   uint32_t tmp;
+
+   if (length != VIRGL_SET_FRAMEBUFFER_STATE_NO_ATTACH_SIZE)
+      return EINVAL;
+
+   tmp = get_buf_entry(ctx, VIRGL_SET_FRAMEBUFFER_STATE_NO_ATTACH_WIDTH_HEIGHT);
+   width = VIRGL_SET_FRAMEBUFFER_STATE_NO_ATTACH_WIDTH(tmp);
+   height = VIRGL_SET_FRAMEBUFFER_STATE_NO_ATTACH_HEIGHT(tmp);
+
+   tmp = get_buf_entry(ctx, VIRGL_SET_FRAMEBUFFER_STATE_NO_ATTACH_LAYERS_SAMPLES);
+   layers = VIRGL_SET_FRAMEBUFFER_STATE_NO_ATTACH_LAYERS(tmp);
+   samples = VIRGL_SET_FRAMEBUFFER_STATE_NO_ATTACH_SAMPLES(tmp);
+
+   vrend_set_framebuffer_state_no_attach(ctx->grctx, width, height, layers, samples);
+   return 0;
+}
+
 static int vrend_decode_clear(struct vrend_decode_ctx *ctx, int length)
 {
    union pipe_color_union color;
@@ -1411,6 +1432,9 @@ int vrend_decode_block(uint32_t ctx_id, uint32_t *block, int ndw)
          break;
       case VIRGL_CCMD_LAUNCH_GRID:
          ret = vrend_decode_launch_grid(gdctx, len);
+         break;
+      case VIRGL_CCMD_SET_FRAMEBUFFER_STATE_NO_ATTACH:
+         ret = vrend_decode_set_framebuffer_state_no_attach(gdctx, len);
          break;
       default:
          ret = EINVAL;
