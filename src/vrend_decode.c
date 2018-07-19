@@ -1106,6 +1106,37 @@ static int vrend_decode_set_shader_buffers(struct vrend_decode_ctx *ctx, uint16_
    return 0;
 }
 
+static int vrend_decode_set_shader_images(struct vrend_decode_ctx *ctx, uint16_t length)
+{
+   int num_images;
+   uint32_t shader_type, start_slot;
+   if (length < 2)
+      return EINVAL;
+
+   num_images = (length - 2) / VIRGL_SET_SHADER_IMAGE_ELEMENT_SIZE;
+   shader_type = get_buf_entry(ctx, VIRGL_SET_SHADER_IMAGE_SHADER_TYPE);
+   start_slot = get_buf_entry(ctx, VIRGL_SET_SHADER_IMAGE_START_SLOT);
+   if (shader_type >= PIPE_SHADER_TYPES)
+      return EINVAL;
+
+   if (num_images < 1) {
+      return 0;
+   }
+   if (start_slot + num_images > PIPE_MAX_SHADER_IMAGES)
+      return EINVAL;
+
+   for (int i = 0; i < num_images; i++) {
+      uint32_t format = get_buf_entry(ctx, VIRGL_SET_SHADER_IMAGE_FORMAT(i));
+      uint32_t access = get_buf_entry(ctx, VIRGL_SET_SHADER_IMAGE_ACCESS(i));
+      uint32_t layer_offset = get_buf_entry(ctx, VIRGL_SET_SHADER_IMAGE_LAYER_OFFSET(i));
+      uint32_t level_size = get_buf_entry(ctx, VIRGL_SET_SHADER_IMAGE_LEVEL_SIZE(i));
+      uint32_t handle = get_buf_entry(ctx, VIRGL_SET_SHADER_IMAGE_RES_HANDLE(i));
+      vrend_set_single_image_view(ctx->grctx, shader_type, start_slot + i, format, access,
+                                  layer_offset, level_size, handle);
+   }
+   return 0;
+}
+
 static int vrend_decode_set_streamout_targets(struct vrend_decode_ctx *ctx,
                                               uint16_t length)
 {
@@ -1336,6 +1367,9 @@ int vrend_decode_block(uint32_t ctx_id, uint32_t *block, int ndw)
          break;
       case VIRGL_CCMD_SET_SHADER_BUFFERS:
          ret = vrend_decode_set_shader_buffers(gdctx, len);
+         break;
+      case VIRGL_CCMD_SET_SHADER_IMAGES:
+         ret = vrend_decode_set_shader_images(gdctx, len);
          break;
       default:
          ret = EINVAL;

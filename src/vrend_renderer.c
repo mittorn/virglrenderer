@@ -104,6 +104,7 @@ enum features_id
    feat_gl_prim_restart,
    feat_gles_khr_robustness,
    feat_gles31_vertex_attrib_binding,
+   feat_images,
    feat_indep_blend,
    feat_indep_blend_func,
    feat_indirect_draw,
@@ -156,6 +157,7 @@ static const  struct {
    [feat_gl_prim_restart] = { 31, UNAVAIL, {} },
    [feat_gles_khr_robustness] = { UNAVAIL, UNAVAIL, { "GL_KHR_robustness" } },
    [feat_gles31_vertex_attrib_binding] = { 43, 31, { "GL_ARB_vertex_attrib_binding" } },
+   [feat_images] = { 42, 31, { "GL_ARB_shader_image_load_store" } },
    [feat_indep_blend] = { 30, UNAVAIL, { "GL_EXT_draw_buffers2" } },
    [feat_indep_blend_func] = { 40, UNAVAIL, { "GL_ARB_draw_buffers_blend" } },
    [feat_indirect_draw] = { 40, UNAVAIL, { "GL_ARB_indirect_draw" } },
@@ -255,6 +257,9 @@ struct vrend_linked_shader_program {
 
    GLuint clip_locs[8];
 
+   uint32_t images_used_mask[PIPE_SHADER_TYPES];
+   GLint *img_locs[PIPE_SHADER_TYPES];
+
    uint32_t ssbo_used_mask[PIPE_SHADER_TYPES];
    GLuint *ssbo_locs[PIPE_SHADER_TYPES];
 };
@@ -331,6 +336,24 @@ struct vrend_sampler_view {
    GLenum depth_texture_mode;
    GLuint srgb_decode;
    GLuint cur_srgb_decode;
+   struct vrend_resource *texture;
+};
+
+struct vrend_image_view {
+   GLuint id;
+   GLenum access;
+   GLenum format;
+   union {
+      struct {
+         unsigned first_layer:16;     /**< first layer to use for array textures */
+         unsigned last_layer:16;      /**< last layer to use for array textures */
+         unsigned level:8;            /**< mipmap level to use */
+      } tex;
+      struct {
+         unsigned offset;   /**< offset in bytes */
+         unsigned size;     /**< size of the accessible sub-range in bytes */
+      } buf;
+   } u;
    struct vrend_resource *texture;
 };
 
@@ -412,6 +435,7 @@ struct vrend_sub_context {
    bool shader_dirty;
    bool sampler_state_dirty;
    bool stencil_state_dirty;
+   bool image_state_dirty;
 
    uint32_t long_shader_in_progress_handle[PIPE_SHADER_TYPES];
    struct vrend_shader_selector *shaders[PIPE_SHADER_TYPES];
@@ -478,6 +502,9 @@ struct vrend_sub_context {
 
    uint32_t cond_render_q_id;
    GLenum cond_render_gl_mode;
+
+   struct vrend_image_view image_views[PIPE_SHADER_TYPES][PIPE_MAX_SHADER_IMAGES];
+   uint32_t images_used_mask[PIPE_SHADER_TYPES];
 
    struct vrend_ssbo ssbo[PIPE_SHADER_TYPES][PIPE_MAX_SHADER_BUFFERS];
    uint32_t ssbo_used_mask[PIPE_SHADER_TYPES];
@@ -1095,6 +1122,51 @@ static void bind_ssbo_locs(struct vrend_linked_shader_program *sprog,
    sprog->ssbo_used_mask[id] = sprog->ss[id]->sel->sinfo.ssbo_used_mask;
 }
 
+static void bind_image_locs(struct vrend_linked_shader_program *sprog,
+                            int id)
+{
+   int i;
+   char name[32];
+   const char *prefix = pipe_shader_to_prefix(id);
+
+   if (!has_feature(feat_images))
+      return;
+
+   uint32_t mask = sprog->ss[id]->sel->sinfo.images_used_mask;
+   int nsamp = util_last_bit(mask);
+   if (nsamp) {
+      sprog->img_locs[id] = calloc(nsamp, sizeof(GLint));
+      if (!sprog->img_locs[id])
+         return;
+   } else
+      sprog->img_locs[id] = NULL;
+
+   if (sprog->ss[id]->sel->sinfo.num_image_arrays) {
+      int idx;
+      for (i = 0; i < sprog->ss[id]->sel->sinfo.num_image_arrays; i++) {
+         struct vrend_image_array *img_array = &sprog->ss[id]->sel->sinfo.image_arrays[i];
+         for (int j = 0; j < img_array->array_size; j++) {
+            snprintf(name, 32, "%simg%d[%d]", prefix, img_array->first, j);
+            sprog->img_locs[id][img_array->first + j] = glGetUniformLocation(sprog->id, name);
+            if (sprog->img_locs[id][img_array->first + j] == -1)
+               fprintf(stderr, "failed to get uniform loc for image %s\n", name);
+         }
+      }
+   } else if (mask) {
+      for (i = 0; i < nsamp; i++) {
+         if (mask & (1 << i)) {
+            snprintf(name, 32, "%simg%d", prefix, i);
+            sprog->img_locs[id][i] = glGetUniformLocation(sprog->id, name);
+            if (sprog->img_locs[id][i] == -1)
+               fprintf(stderr, "failed to get uniform loc for image %s\n", name);
+         } else {
+            sprog->img_locs[id][i] = -1;
+         }
+      }
+   }
+   sprog->images_used_mask[id] = mask;
+}
+
 static struct vrend_linked_shader_program *add_shader_program(struct vrend_context *ctx,
                                                               struct vrend_shader *vs,
                                                               struct vrend_shader *fs,
@@ -1240,6 +1312,7 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
       bind_sampler_locs(sprog, id);
       bind_const_locs(sprog, id);
       bind_ubo_locs(sprog, id);
+      bind_image_locs(sprog, id);
       bind_ssbo_locs(sprog, id);
    }
 
@@ -1309,6 +1382,7 @@ static void vrend_destroy_program(struct vrend_linked_shader_program *ent)
       free(ent->shadow_samp_add_locs[i]);
       free(ent->samp_locs[i]);
       free(ent->ssbo_locs[i]);
+      free(ent->img_locs[i]);
       free(ent->const_locs[i]);
       free(ent->ubo_locs[i]);
    }
@@ -2400,6 +2474,38 @@ void vrend_set_num_sampler_views(struct vrend_context *ctx,
    ctx->sub->views[shader_type].num_views = last_slot;
 }
 
+void vrend_set_single_image_view(struct vrend_context *ctx,
+                                 uint32_t shader_type,
+                                 int index,
+                                 uint32_t format, uint32_t access,
+                                 uint32_t layer_offset, uint32_t level_size,
+                                 uint32_t handle)
+{
+   struct vrend_image_view *iview = &ctx->sub->image_views[shader_type][index];
+   struct vrend_resource *res;
+
+   if (!has_feature(feat_images))
+      return;
+
+   if (handle) {
+      res = vrend_renderer_ctx_res_lookup(ctx, handle);
+      if (!res) {
+         report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, handle);
+         return;
+      }
+      iview->texture = res;
+      iview->format = tex_conv_table[format].internalformat;
+      iview->access = access;
+      iview->u.buf.offset = layer_offset;
+      iview->u.buf.size = level_size;
+      ctx->sub->images_used_mask[shader_type] |= (1 << index);
+   } else {
+      iview->texture = NULL;
+      iview->format = 0;
+      ctx->sub->images_used_mask[shader_type] &= ~(1 << index);
+   }
+}
+
 void vrend_set_single_ssbo(struct vrend_context *ctx,
                            uint32_t shader_type,
                            int index,
@@ -3362,6 +3468,68 @@ static void vrend_draw_bind_ssbo_shader(struct vrend_context *ctx, int shader_ty
    }
 }
 
+static void vrend_draw_bind_images_shader(struct vrend_context *ctx, int shader_type)
+{
+   struct vrend_image_view *iview;
+   uint32_t mask;
+   uint32_t tex_id;
+   GLenum access;
+
+   if (!has_feature(feat_images))
+      return;
+
+   if (!ctx->sub->images_used_mask[shader_type])
+      return;
+
+   if (!ctx->sub->prog->img_locs[shader_type])
+      return;
+
+   mask = ctx->sub->images_used_mask[shader_type];
+   while (mask) {
+      unsigned i = u_bit_scan(&mask);
+
+      if (!(ctx->sub->prog->images_used_mask[shader_type] & (1 << i)))
+          continue;
+      iview = &ctx->sub->image_views[shader_type][i];
+      tex_id = iview->texture->id;
+      if (iview->texture->is_buffer) {
+         if (!iview->texture->tbo_tex_id)
+            glGenTextures(1, &iview->texture->tbo_tex_id);
+
+         glBindBufferARB(GL_TEXTURE_BUFFER, iview->texture->id);
+         glBindTexture(GL_TEXTURE_BUFFER, iview->texture->tbo_tex_id);
+         glTexBuffer(GL_TEXTURE_BUFFER, iview->format, iview->texture->id);
+         tex_id = iview->texture->tbo_tex_id;
+      }
+
+      glUniform1i(ctx->sub->prog->img_locs[shader_type][i], i);
+      GLboolean layered = !((iview->texture->base.array_size > 1 ||
+                             iview->texture->base.depth0 > 1) && (iview->u.tex.first_layer == iview->u.tex.last_layer));
+
+      switch (iview->access) {
+      case PIPE_IMAGE_ACCESS_READ:
+         access = GL_READ_ONLY;
+         break;
+      case PIPE_IMAGE_ACCESS_WRITE:
+         access = GL_WRITE_ONLY;
+         break;
+      case PIPE_IMAGE_ACCESS_READ_WRITE:
+         access = GL_READ_WRITE;
+         break;
+      default:
+         fprintf(stderr, "Invalid access specified\n");
+         return;
+      }
+
+      glBindImageTexture(i, tex_id,
+                         iview->u.tex.level,
+                         layered,
+                         iview->u.tex.first_layer,
+                         access,
+                         iview->format);
+   }
+}
+
 static void vrend_draw_bind_objects(struct vrend_context *ctx, bool new_program)
 {
    int ubo_id = 0, sampler_id = 0;
@@ -3369,6 +3537,7 @@ static void vrend_draw_bind_objects(struct vrend_context *ctx, bool new_program)
       vrend_draw_bind_ubo_shader(ctx, shader_type, &ubo_id);
       vrend_draw_bind_const_shader(ctx, shader_type, new_program);
       vrend_draw_bind_samplers_shader(ctx, shader_type, &sampler_id);
+      vrend_draw_bind_images_shader(ctx, shader_type);
       vrend_draw_bind_ssbo_shader(ctx, shader_type);
    }
 
@@ -7790,6 +7959,19 @@ void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
       if (max > PIPE_MAX_SHADER_BUFFERS)
          max = PIPE_MAX_SHADER_BUFFERS;
       caps->v2.max_shader_buffer_frag_compute = max;
+   }
+
+   if (has_feature(feat_images)) {
+      glGetIntegerv(GL_MAX_VERTEX_IMAGE_UNIFORMS, &max);
+      if (max > PIPE_MAX_SHADER_IMAGES)
+         max = PIPE_MAX_SHADER_IMAGES;
+      caps->v2.max_shader_image_other_stages = max;
+      glGetIntegerv(GL_MAX_FRAGMENT_IMAGE_UNIFORMS, &max);
+      if (max > PIPE_MAX_SHADER_IMAGES)
+         max = PIPE_MAX_SHADER_IMAGES;
+      caps->v2.max_shader_image_frag_compute = max;
+
+      glGetIntegerv(GL_MAX_IMAGE_SAMPLES, (GLint*)&caps->v2.max_image_samples);
    }
 
    caps->v1.max_samples = vrend_renderer_query_multisample_caps(max, &caps->v2);
