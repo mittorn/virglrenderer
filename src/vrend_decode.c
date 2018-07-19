@@ -1133,6 +1133,32 @@ static int vrend_decode_set_shader_buffers(struct vrend_decode_ctx *ctx, uint16_
    return 0;
 }
 
+static int vrend_decode_set_atomic_buffers(struct vrend_decode_ctx *ctx, uint16_t length)
+{
+   int num_abo;
+   uint32_t start_slot;
+
+   if (length < 2)
+      return EINVAL;
+
+   num_abo = (length - 1) / VIRGL_SET_ATOMIC_BUFFER_ELEMENT_SIZE;
+   start_slot = get_buf_entry(ctx, VIRGL_SET_ATOMIC_BUFFER_START_SLOT);
+   if (num_abo < 1)
+      return 0;
+
+   if (start_slot + num_abo > PIPE_MAX_HW_ATOMIC_BUFFERS)
+      return EINVAL;
+
+   for (int i = 0; i < num_abo; i++) {
+      uint32_t offset = get_buf_entry(ctx, i * VIRGL_SET_ATOMIC_BUFFER_ELEMENT_SIZE + 2);
+      uint32_t buf_len = get_buf_entry(ctx, i * VIRGL_SET_ATOMIC_BUFFER_ELEMENT_SIZE + 3);
+      uint32_t handle = get_buf_entry(ctx, i * VIRGL_SET_ATOMIC_BUFFER_ELEMENT_SIZE + 4);
+      vrend_set_single_abo(ctx->grctx, start_slot + i, offset, buf_len, handle);
+   }
+
+   return 0;
+}
+
 static int vrend_decode_set_shader_images(struct vrend_decode_ctx *ctx, uint16_t length)
 {
    int num_images;
@@ -1436,6 +1462,9 @@ int vrend_decode_block(uint32_t ctx_id, uint32_t *block, int ndw)
          break;
       case VIRGL_CCMD_SET_SHADER_IMAGES:
          ret = vrend_decode_set_shader_images(gdctx, len);
+         break;
+      case VIRGL_CCMD_SET_ATOMIC_BUFFERS:
+         ret = vrend_decode_set_atomic_buffers(gdctx, len);
          break;
       case VIRGL_CCMD_MEMORY_BARRIER:
          ret = vrend_decode_memory_barrier(gdctx, len);

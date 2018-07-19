@@ -243,6 +243,10 @@ void vrend_set_single_ssbo(struct vrend_context *ctx,
                            int index,
                            uint32_t offset, uint32_t length,
                            uint32_t handle);
+void vrend_set_single_abo(struct vrend_context *ctx,
+                          int index,
+                          uint32_t offset, uint32_t length,
+                          uint32_t handle);
 void vrend_memory_barrier(struct vrend_context *ctx,
                           unsigned flags);
 void vrend_launch_grid(struct vrend_context *ctx,

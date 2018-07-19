@@ -91,6 +91,7 @@ enum features_id
 {
    feat_arb_or_gles_ext_texture_buffer,
    feat_arb_robustness,
+   feat_atomic_counters,
    feat_base_instance,
    feat_barrier,
    feat_bit_encoding,
@@ -157,6 +158,7 @@ static const  struct {
 } feature_list[] = {
    [feat_arb_or_gles_ext_texture_buffer] = { 31, UNAVAIL, { "GL_ARB_texture_buffer_object", "GL_EXT_texture_buffer", NULL } },
    [feat_arb_robustness] = { UNAVAIL, UNAVAIL, { "GL_ARB_robustness" } },
+   [feat_atomic_counters] = { 42, 31, { "GL_ARB_shader_atomic_counters" } },
    [feat_base_instance] = { 42, UNAVAIL, { "GL_ARB_base_instance", "GL_EXT_base_instance" } },
    [feat_barrier] = { 42, 31, {} },
    [feat_bit_encoding] = { 33, UNAVAIL, { "GL_ARB_shader_bit_encoding" } },
@@ -390,6 +392,12 @@ struct vrend_ssbo {
    unsigned buffer_offset;
 };
 
+struct vrend_abo {
+   struct vrend_resource *res;
+   unsigned buffer_size;
+   unsigned buffer_offset;
+};
+
 struct vrend_vertex_element {
    struct pipe_vertex_element base;
    GLenum type;
@@ -535,6 +543,9 @@ struct vrend_sub_context {
 
    struct vrend_ssbo ssbo[PIPE_SHADER_TYPES][PIPE_MAX_SHADER_BUFFERS];
    uint32_t ssbo_used_mask[PIPE_SHADER_TYPES];
+
+   struct vrend_abo abo[PIPE_MAX_HW_ATOMIC_BUFFERS];
+   uint32_t abo_used_mask;
 };
 
 struct vrend_context {
@@ -2622,6 +2633,35 @@ void vrend_set_single_ssbo(struct vrend_context *ctx,
    }
 }
 
+void vrend_set_single_abo(struct vrend_context *ctx,
+                          int index,
+                          uint32_t offset, uint32_t length,
+                          uint32_t handle)
+{
+   struct vrend_abo *abo = &ctx->sub->abo[index];
+   struct vrend_resource *res;
+
+   if (!has_feature(feat_atomic_counters))
+      return;
+
+   if (handle) {
+      res = vrend_renderer_ctx_res_lookup(ctx, handle);
+      if (!res) {
+         report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, handle);
+         return;
+      }
+      abo->res = res;
+      abo->buffer_offset = offset;
+      abo->buffer_size = length;
+      ctx->sub->abo_used_mask |= (1 << index);
+   } else {
+      abo->res = 0;
+      abo->buffer_offset = 0;
+      abo->buffer_size = 0;
+      ctx->sub->abo_used_mask &= ~(1 << index);
+   }
+}
+
 void vrend_memory_barrier(UNUSED struct vrend_context *ctx,
                           unsigned flags)
 {
@@ -3627,6 +3667,27 @@ static void vrend_draw_bind_ssbo_shader(struct vrend_context *ctx, int shader_ty
    }
 }
 
+static void vrend_draw_bind_abo_shader(struct vrend_context *ctx)
+{
+   uint32_t mask;
+   struct vrend_abo *abo;
+   struct vrend_resource *res;
+   int i;
+
+   if (!has_feature(feat_atomic_counters))
+      return;
+
+   mask = ctx->sub->abo_used_mask;
+   while (mask) {
+      i = u_bit_scan(&mask);
+
+      abo = &ctx->sub->abo[i];
+      res = (struct vrend_resource *)abo->res;
+      glBindBufferRange(GL_ATOMIC_COUNTER_BUFFER, i, res->id,
+                        abo->buffer_offset, abo->buffer_size);
+   }
+}
+
 static void vrend_draw_bind_images_shader(struct vrend_context *ctx, int shader_type)
 {
    GLenum access;
@@ -3703,6 +3764,8 @@ static void vrend_draw_bind_objects(struct vrend_context *ctx, bool new_program)
       vrend_draw_bind_images_shader(ctx, shader_type);
       vrend_draw_bind_ssbo_shader(ctx, shader_type);
    }
+
+   vrend_draw_bind_abo_shader(ctx);
 
    if (vrend_state.use_core_profile && ctx->sub->prog->fs_stipple_loc != -1) {
       glActiveTexture(GL_TEXTURE0 + sampler_id);
@@ -4037,6 +4100,7 @@ void vrend_launch_grid(struct vrend_context *ctx,
    vrend_draw_bind_samplers_shader(ctx, PIPE_SHADER_COMPUTE, &sampler_id);
    vrend_draw_bind_images_shader(ctx, PIPE_SHADER_COMPUTE);
    vrend_draw_bind_ssbo_shader(ctx, PIPE_SHADER_COMPUTE);
+   vrend_draw_bind_abo_shader(ctx);
 
    if (indirect_handle) {
       indirect_res = vrend_renderer_ctx_res_lookup(ctx, indirect_handle);
@@ -8177,6 +8241,47 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
       glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 2, (GLint*)&caps->v2.max_compute_block_size[2]);
 
       caps->v2.capability_bits |= VIRGL_CAP_COMPUTE_SHADER;
+   }
+
+   if (has_feature(feat_atomic_counters)) {
+      glGetIntegerv(GL_MAX_VERTEX_ATOMIC_COUNTERS,
+                    (GLint*)(caps->v2.max_atomic_counters + PIPE_SHADER_VERTEX));
+      glGetIntegerv(GL_MAX_VERTEX_ATOMIC_COUNTER_BUFFERS,
+                    (GLint*)(caps->v2.max_atomic_counter_buffers + PIPE_SHADER_VERTEX));
+      glGetIntegerv(GL_MAX_FRAGMENT_ATOMIC_COUNTERS,
+                    (GLint*)(caps->v2.max_atomic_counters + PIPE_SHADER_FRAGMENT));
+      glGetIntegerv(GL_MAX_FRAGMENT_ATOMIC_COUNTER_BUFFERS,
+                    (GLint*)(caps->v2.max_atomic_counter_buffers + PIPE_SHADER_FRAGMENT));
+
+      if (has_feature(feat_geometry_shader)) {
+         glGetIntegerv(GL_MAX_GEOMETRY_ATOMIC_COUNTERS,
+                       (GLint*)(caps->v2.max_atomic_counters + PIPE_SHADER_GEOMETRY));
+         glGetIntegerv(GL_MAX_GEOMETRY_ATOMIC_COUNTER_BUFFERS,
+                       (GLint*)(caps->v2.max_atomic_counter_buffers + PIPE_SHADER_GEOMETRY));
+      }
+
+      if (has_feature(feat_tessellation)) {
+         glGetIntegerv(GL_MAX_TESS_CONTROL_ATOMIC_COUNTERS,
+                       (GLint*)(caps->v2.max_atomic_counters + PIPE_SHADER_TESS_CTRL));
+         glGetIntegerv(GL_MAX_TESS_CONTROL_ATOMIC_COUNTER_BUFFERS,
+                       (GLint*)(caps->v2.max_atomic_counter_buffers + PIPE_SHADER_TESS_CTRL));
+         glGetIntegerv(GL_MAX_TESS_EVALUATION_ATOMIC_COUNTERS,
+                       (GLint*)(caps->v2.max_atomic_counters + PIPE_SHADER_TESS_EVAL));
+         glGetIntegerv(GL_MAX_TESS_EVALUATION_ATOMIC_COUNTER_BUFFERS,
+                       (GLint*)(caps->v2.max_atomic_counter_buffers + PIPE_SHADER_TESS_EVAL));
+      }
+
+      if (has_feature(feat_compute_shader)) {
+         glGetIntegerv(GL_MAX_COMPUTE_ATOMIC_COUNTERS,
+                       (GLint*)(caps->v2.max_atomic_counters + PIPE_SHADER_COMPUTE));
+         glGetIntegerv(GL_MAX_COMPUTE_ATOMIC_COUNTER_BUFFERS,
+                       (GLint*)(caps->v2.max_atomic_counter_buffers + PIPE_SHADER_COMPUTE));
+      }
+
+      glGetIntegerv(GL_MAX_COMBINED_ATOMIC_COUNTERS,
+                    (GLint*)&caps->v2.max_combined_atomic_counters);
+      glGetIntegerv(GL_MAX_COMBINED_ATOMIC_COUNTER_BUFFERS,
+                    (GLint*)&caps->v2.max_combined_atomic_counter_buffers);
    }
 
    if (has_feature(feat_fb_no_attach))
