@@ -181,6 +181,11 @@ struct dump_ctx {
    int ubo_sizes[32];
    uint32_t num_address;
 
+   uint32_t num_abo;
+   int abo_idx[32];
+   int abo_sizes[32];
+   int abo_offsets[32];
+
    uint32_t shader_req_bits;
 
    struct pipe_stream_output_info *so;
@@ -283,6 +288,7 @@ struct source_info {
    bool tg4_has_component;
    bool override_no_wm[3];
    bool override_no_cast[3];
+   int imm_value;
 };
 
 static const struct vrend_shader_table conversion_table[] =
@@ -1291,6 +1297,16 @@ iter_declaration(struct tgsi_iterate_context *iter,
       break;
    case TGSI_FILE_MEMORY:
       ctx->has_file_memory = true;
+      break;
+   case TGSI_FILE_HW_ATOMIC:
+      if (ctx->num_abo >= ARRAY_SIZE(ctx->abo_idx)) {
+         fprintf(stderr, "Number of atomic counter buffers exceeded, max is %lu\n", ARRAY_SIZE(ctx->abo_idx));
+         return FALSE;
+      }
+      ctx->abo_idx[ctx->num_abo] = decl->Dim.Index2D;
+      ctx->abo_sizes[ctx->num_abo] = decl->Range.Last - decl->Range.First + 1;
+      ctx->abo_offsets[ctx->num_abo] = decl->Range.First;
+      ctx->num_abo++;
       break;
    default:
       fprintf(stderr,"unsupported file %d declaration\n", decl->Declaration.File);
@@ -2512,6 +2528,9 @@ translate_load(struct dump_ctx *ctx,
          snprintf(buf, 255, "%s.w = (%s(%s(%s[ssbo_addr_temp + 3u]%s)));\n", mydst, get_string(dtypeprefix), atomic_op, srcs[0], atomic_src);
          EMIT_BUF_WITH_RET(ctx, buf);
       }
+   } else if (src->Register.File == TGSI_FILE_HW_ATOMIC) {
+      snprintf(buf, 255, "%s = uintBitsToFloat(atomicCounter(%s));\n", dsts[0], srcs[0]);
+      EMIT_BUF_WITH_RET(ctx, buf);
    }
    return 0;
 }
@@ -2662,6 +2681,16 @@ translate_atomic(struct dump_ctx *ctx,
       snprintf(buf, 512, "%s = %s(atomic%s(%s[int(floatBitsToInt(%s)) >> 2], %s(%s(%s).x)%s));\n", dsts[0], get_string(dtypeprefix), opname, srcs[0], srcs[1], get_string(type), get_string(stypeprefix), srcs[2], cas_str);
       EMIT_BUF_WITH_RET(ctx, buf);
    }
+   if(src->Register.File == TGSI_FILE_HW_ATOMIC) {
+      if (sinfo->imm_value == -1)
+         snprintf(buf, 512, "%s = %s(atomicCounterDecrement(%s) + 1u);\n", dsts[0], get_string(dtypeprefix), srcs[0]);
+      else if (sinfo->imm_value == 1)
+         snprintf(buf, 512, "%s = %s(atomicCounterIncrement(%s));\n", dsts[0], get_string(dtypeprefix), srcs[0]);
+      else
+         snprintf(buf, 512, "%s = %s(atomicCounter%sARB(%s, floatBitsToUint(%s).x%s));\n", dsts[0], get_string(dtypeprefix), opname, srcs[0], srcs[2], cas_str);
+      EMIT_BUF_WITH_RET(ctx, buf);
+   }
+
    return 0;
 }
 
@@ -3215,6 +3244,7 @@ get_source_info(struct dump_ctx *ctx,
                break;
             case TGSI_IMM_INT32:
                snprintf(temp, 25, "%d", imd->val[idx].i);
+               sinfo->imm_value = imd->val[idx].i;
                break;
             case TGSI_IMM_FLOAT64:
                snprintf(temp, 48, "%uU", imd->val[idx].ui);
@@ -3289,6 +3319,24 @@ get_source_info(struct dump_ctx *ctx,
                sinfo->override_no_wm[i] = ctx->system_values[j].override_no_wm;
                break;
             }
+      } else if (src->Register.File == TGSI_FILE_HW_ATOMIC) {
+         for (uint32_t j = 0; j < ctx->num_abo; j++) {
+            if (src->Dimension.Index == ctx->abo_idx[j] &&
+                src->Register.Index >= ctx->abo_offsets[j] &&
+                src->Register.Index < ctx->abo_offsets[j] + ctx->abo_sizes[j]) {
+               if (ctx->abo_sizes[j] > 1) {
+                  int offset = src->Register.Index - ctx->abo_offsets[j];
+                  if (src->Register.Indirect) {
+                     assert(src->Indirect.File == TGSI_FILE_ADDRESS);
+                     snprintf(srcs[i], 255, "ac%d[addr%d + %d]", j, src->Indirect.Index, offset);
+                  } else
+                     snprintf(srcs[i], 255, "ac%d[%d]", j, offset);
+               } else
+                  snprintf(srcs[i], 255, "ac%d", j);
+               break;
+            }
+         }
+         sinfo->sreg_index = src->Register.Index;
       }
 
       if (stype == TGSI_TYPE_DOUBLE) {
@@ -4085,6 +4133,11 @@ static char *emit_header(struct dump_ctx *ctx, char *glsl_hdr)
       if (ctx->ssbo_used_mask)
          STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_shader_storage_buffer_object : require\n");
 
+      if (ctx->num_abo) {
+         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_shader_atomic_counters : require\n");
+         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_shader_atomic_counter_ops : require\n");
+      }
+
       for (uint32_t i = 0; i < ARRAY_SIZE(shader_req_table); i++) {
          if (shader_req_table[i].key == SHADER_REQ_SAMPLER_RECT && ctx->glsl_ver_required >= 140)
             continue;
@@ -4840,6 +4893,14 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
          if (!glsl_hdr)
             return NULL;
       }
+   }
+
+   for (i = 0; i < ctx->num_abo; i++){
+      if (ctx->abo_sizes[i] > 1)
+         snprintf(buf, 255, "layout (binding = %d, offset = %d) uniform atomic_uint ac%d[%d];\n", ctx->abo_idx[i], ctx->abo_offsets[i] * 4, i, ctx->abo_sizes[i]);
+      else
+         snprintf(buf, 255, "layout (binding = %d, offset = %d) uniform atomic_uint ac%d;\n", ctx->abo_idx[i], ctx->abo_offsets[i] * 4, i);
+      STRCAT_WITH_RET(glsl_hdr, buf);
    }
 
    if (ctx->info.indirect_files & (1 << TGSI_FILE_BUFFER)) {
