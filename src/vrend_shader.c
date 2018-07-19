@@ -56,6 +56,9 @@ extern int vrend_dump_shaders;
 #define SHADER_REQ_GPU_SHADER5        (1 << 12)
 #define SHADER_REQ_DERIVATIVE_CONTROL (1 << 13)
 #define SHADER_REQ_FP64               (1 << 14)
+#define SHADER_REQ_IMAGE_LOAD_STORE   (1 << 15)
+#define SHADER_REQ_ES31_COMPAT        (1 << 16)
+#define SHADER_REQ_IMAGE_SIZE         (1 << 17)
 
 struct vrend_shader_io {
    unsigned                name;
@@ -84,6 +87,12 @@ struct vrend_shader_sampler {
 struct vrend_shader_table {
    uint32_t key;
    const char *string;
+};
+
+struct vrend_shader_image {
+   struct tgsi_declaration_image decl;
+   enum tgsi_return_type image_return;
+   bool vflag;
 };
 
 #define MAX_IMMEDIATE 1024
@@ -142,6 +151,12 @@ struct dump_ctx {
    uint32_t ssbo_atomic_mask;
    uint32_t ssbo_array_base;
    uint32_t ssbo_atomic_array_base;
+
+   struct vrend_shader_image images[32];
+   uint32_t images_used_mask;
+
+   struct vrend_image_array *image_arrays;
+   uint32_t num_image_arrays;
 
    struct vrend_sampler_array *sampler_arrays;
    uint32_t num_sampler_arrays;
@@ -210,6 +225,9 @@ static const struct vrend_shader_table shader_req_table[] = {
     { SHADER_REQ_GPU_SHADER5, "GL_ARB_gpu_shader5" },
     { SHADER_REQ_DERIVATIVE_CONTROL, "GL_ARB_derivative_control" },
     { SHADER_REQ_FP64, "GL_ARB_gpu_shader_fp64" },
+    { SHADER_REQ_IMAGE_LOAD_STORE, "GL_ARB_shader_image_load_store" },
+    { SHADER_REQ_ES31_COMPAT, "GL_ARB_ES3_1_compatibility" },
+    { SHADER_REQ_IMAGE_SIZE, "GL_ARB_shader_image_size" },
 };
 
 enum vrend_type_qualifier {
@@ -300,6 +318,8 @@ static inline const char *get_wm_string(unsigned wm)
       return "";
    }
 }
+
+const char *get_internalformat_string(int virgl_format, enum tgsi_return_type *stype);
 
 static inline const char *tgsi_proc_to_prefix(int shader_type)
 {
@@ -488,6 +508,53 @@ static struct vrend_temp_range *find_temp_range(struct dump_ctx *ctx, int index)
    return NULL;
 }
 
+static int add_images(struct dump_ctx *ctx, int first, int last,
+                      struct tgsi_declaration_image *img_decl)
+{
+   int i;
+
+   for (i = first; i <= last; i++) {
+      ctx->images[i].decl = *img_decl;
+      ctx->images[i].vflag = false;
+      ctx->images_used_mask |= (1 << i);
+
+      if (ctx->images[i].decl.Resource == TGSI_TEXTURE_CUBE_ARRAY)
+         ctx->shader_req_bits |= SHADER_REQ_CUBE_ARRAY;
+      else if (ctx->images[i].decl.Resource == TGSI_TEXTURE_2D_MSAA ||
+          ctx->images[i].decl.Resource == TGSI_TEXTURE_2D_ARRAY_MSAA)
+         ctx->shader_req_bits |= SHADER_REQ_SAMPLER_MS;
+      else if (ctx->images[i].decl.Resource == TGSI_TEXTURE_BUFFER)
+         ctx->uses_sampler_buf = true;
+      else if (ctx->images[i].decl.Resource == TGSI_TEXTURE_RECT)
+         ctx->shader_req_bits |= SHADER_REQ_SAMPLER_RECT;
+   }
+
+   if (ctx->info.indirect_files & (1 << TGSI_FILE_IMAGE)) {
+      if (ctx->num_image_arrays) {
+         struct vrend_image_array *last_array = &ctx->image_arrays[ctx->num_image_arrays - 1];
+         /*
+          * If this set of images is consecutive to the last array,
+          * and has compatible return and decls, then increase the array size.
+          */
+         if ((last_array->first + last_array->array_size == first) &&
+             !memcmp(&ctx->images[last_array->first].decl, &ctx->images[first].decl, sizeof(ctx->images[first].decl)) &&
+             ctx->images[last_array->first].image_return == ctx->images[first].image_return) {
+            last_array->array_size += last - first + 1;
+            return 0;
+         }
+      }
+
+      /* allocate a new image array for this range of images */
+      ctx->num_image_arrays++;
+      ctx->image_arrays = realloc(ctx->image_arrays, sizeof(struct vrend_image_array) * ctx->num_image_arrays);
+      if (!ctx->image_arrays)
+         return -1;
+      ctx->image_arrays[ctx->num_image_arrays - 1].first = first;
+      ctx->image_arrays[ctx->num_image_arrays - 1].array_size = last - first + 1;
+   }
+   return 0;
+}
+
 static int add_sampler_array(struct dump_ctx *ctx, int first, int last, int sview_type, int sview_rtype)
 {
    int idx = ctx->num_sampler_arrays;
@@ -544,6 +611,18 @@ static bool ctx_indirect_outputs(struct dump_ctx *ctx)
    if (ctx->key->num_indirect_generic_outputs || ctx->key->num_indirect_patch_outputs)
       return true;
    return false;
+}
+
+static int lookup_image_array(struct dump_ctx *ctx, int index)
+{
+   uint32_t i;
+   for (i = 0; i < ctx->num_image_arrays; i++) {
+      if (index >= ctx->image_arrays[i].first &&
+          index <= ctx->image_arrays[i].first + ctx->image_arrays[i].array_size - 1) {
+         return ctx->image_arrays[i].first;
+      }
+   }
+   return -1;
 }
 
 static boolean
@@ -1049,6 +1128,18 @@ iter_declaration(struct tgsi_iterate_context *iter,
          }
       }
       break;
+   case TGSI_FILE_IMAGE: {
+      int ret;
+      ctx->shader_req_bits |= SHADER_REQ_IMAGE_LOAD_STORE;
+      if (decl->Range.Last >= ARRAY_SIZE(ctx->images)) {
+         fprintf(stderr, "Image view exceeded, max is %lu\n", ARRAY_SIZE(ctx->images));
+         return FALSE;
+      }
+      ret = add_images(ctx, decl->Range.First, decl->Range.Last, &decl->Image);
+      if (ret == -1)
+         return FALSE;
+      break;
+   }
    case TGSI_FILE_BUFFER:
       if (decl->Range.First >= 32) {
          fprintf(stderr, "Buffer view exceeded, max is 32\n");
@@ -2144,6 +2235,32 @@ create_swizzled_clipdist(struct dump_ctx *ctx,
    snprintf(result, 255, "%s(vec4(%s,%s,%s,%s))", stypeprefix, clipdistvec[0], clipdistvec[1], clipdistvec[2], clipdistvec[3]);
 }
 
+static enum vrend_type_qualifier get_coord_prefix(int resource, bool *is_ms)
+{
+   switch(resource) {
+   case TGSI_TEXTURE_1D:
+   case TGSI_TEXTURE_BUFFER:
+      return INT;
+   case TGSI_TEXTURE_2D:
+   case TGSI_TEXTURE_RECT:
+   case TGSI_TEXTURE_1D_ARRAY:
+      return IVEC2;
+   case TGSI_TEXTURE_3D:
+   case TGSI_TEXTURE_CUBE:
+   case TGSI_TEXTURE_2D_ARRAY:
+   case TGSI_TEXTURE_CUBE_ARRAY:
+      return IVEC3;
+   case TGSI_TEXTURE_2D_MSAA:
+      *is_ms = true;
+      return IVEC2;
+   case TGSI_TEXTURE_2D_ARRAY_MSAA:
+      *is_ms = true;
+      return IVEC3;
+   default:
+      return TYPE_CONVERSION_NONE;
+   }
+}
+
 static int
 translate_store(struct dump_ctx *ctx,
                 struct tgsi_full_instruction *inst,
@@ -2153,7 +2270,29 @@ translate_store(struct dump_ctx *ctx,
    const struct tgsi_full_dst_register *dst = &inst->Dst[0];
    char buf[512];
 
-   if (dst->Register.File == TGSI_FILE_BUFFER) {
+   if (dst->Register.File == TGSI_FILE_IMAGE) {
+      bool is_ms = false;
+      enum vrend_type_qualifier coord_prefix = get_coord_prefix(ctx->images[dst->Register.Index].decl.Resource, &is_ms);
+      enum tgsi_return_type itype;
+      char ms_str[32] = {};
+      enum vrend_type_qualifier stypeprefix = TYPE_CONVERSION_NONE;
+      get_internalformat_string(inst->Memory.Format, &itype);
+      if (is_ms) {
+         snprintf(ms_str, 32, "int(%s.w),", srcs[0]);
+      }
+      switch (itype) {
+      case TGSI_RETURN_TYPE_UINT:
+         stypeprefix = FLOAT_BITS_TO_UINT;
+         break;
+      case TGSI_RETURN_TYPE_SINT:
+         stypeprefix = FLOAT_BITS_TO_INT;
+         break;
+      default:
+         break;
+      }
+      snprintf(buf, 512, "imageStore(%s,%s(floatBitsToInt(%s)),%s%s(%s));\n", dsts[0], get_string(coord_prefix), srcs[0], ms_str, get_string(stypeprefix), srcs[1]);
+      EMIT_BUF_WITH_RET(ctx, buf);
+   } else if (dst->Register.File == TGSI_FILE_BUFFER) {
       const char *conversion = get_string(FLOAT_BITS_TO_UINT);
       if (inst->Dst[0].Register.WriteMask & 0x1) {
          snprintf(buf, 255, "%s[uint(floatBitsToUint(%s))>>2] = %s(%s).x;\n", dsts[0], srcs[0], conversion, srcs[1]);
@@ -2178,13 +2317,38 @@ translate_store(struct dump_ctx *ctx,
 static int
 translate_load(struct dump_ctx *ctx,
                struct tgsi_full_instruction *inst,
+               struct source_info *sinfo,
+               struct dest_info *dinfo,
                char srcs[4][255],
-               char dsts[3][255])
+               char dsts[3][255],
+               const char *writemask)
 {
    char buf[512];
    const struct tgsi_full_src_register *src = &inst->Src[0];
-
-   if (src->Register.File == TGSI_FILE_BUFFER) {
+   if (src->Register.File == TGSI_FILE_IMAGE) {
+      bool is_ms = false;
+      enum vrend_type_qualifier coord_prefix = get_coord_prefix(ctx->images[sinfo->sreg_index].decl.Resource, &is_ms);
+      enum vrend_type_qualifier dtypeprefix = TYPE_CONVERSION_NONE;
+      enum tgsi_return_type itype;
+      get_internalformat_string(ctx->images[sinfo->sreg_index].decl.Format, &itype);
+      char ms_str[32] = {};
+      const char *wm = dinfo->dst_override_no_wm[0] ? "" : writemask;
+      if (is_ms) {
+         snprintf(ms_str, 32, ", int(%s.w)", srcs[1]);
+      }
+      switch (itype) {
+      case TGSI_RETURN_TYPE_UINT:
+         dtypeprefix = UINT_BITS_TO_FLOAT;
+         break;
+      case TGSI_RETURN_TYPE_SINT:
+         dtypeprefix = INT_BITS_TO_FLOAT;
+         break;
+      default:
+         break;
+      }
+      snprintf(buf, 512, "%s = %s(imageLoad(%s, %s(floatBitsToInt(%s))%s)%s);\n", dsts[0], get_string(dtypeprefix), srcs[0], get_string(coord_prefix), srcs[1], ms_str, wm);
+      EMIT_BUF_WITH_RET(ctx, buf);
+   } else if (src->Register.File == TGSI_FILE_BUFFER) {
       char mydst[255], atomic_op[9], atomic_src[10];
       strcpy(mydst, dsts[0]);
       char *wmp = strchr(mydst, '.');
@@ -2270,7 +2434,11 @@ translate_resq(struct dump_ctx *ctx, struct tgsi_full_instruction *inst,
    char buf[512];
    const struct tgsi_full_src_register *src = &inst->Src[0];
 
-   if (src->Register.File == TGSI_FILE_BUFFER) {
+   if (src->Register.File == TGSI_FILE_IMAGE) {
+      ctx->shader_req_bits |= SHADER_REQ_IMAGE_SIZE;
+      snprintf(buf, 255, "%s = %s(imageSize(%s));\n", dsts[0], get_string(INT_BITS_TO_FLOAT), srcs[0]);
+      EMIT_BUF_WITH_RET(ctx, buf);
+   } else if (src->Register.File == TGSI_FILE_BUFFER) {
       snprintf(buf, 255, "%s = %s(int(%s.length()) << 2);\n", dsts[0], get_string(INT_BITS_TO_FLOAT), srcs[0]);
       EMIT_BUF_WITH_RET(ctx, buf);
    }
@@ -2281,29 +2449,62 @@ translate_resq(struct dump_ctx *ctx, struct tgsi_full_instruction *inst,
 static int
 translate_atomic(struct dump_ctx *ctx,
                  struct tgsi_full_instruction *inst,
+                 struct source_info *sinfo,
                  char srcs[4][255],
                  char dsts[3][255])
 {
    char buf[512];
    const struct tgsi_full_src_register *src = &inst->Src[0];
    const char *opname;
-   enum vrend_type_qualifier stypeprefix;
-   enum vrend_type_qualifier dtypeprefix;
-   enum vrend_type_qualifier stypecast;
+   enum vrend_type_qualifier stypeprefix = TYPE_CONVERSION_NONE;
+   enum vrend_type_qualifier dtypeprefix = TYPE_CONVERSION_NONE;
+   enum vrend_type_qualifier stypecast = TYPE_CONVERSION_NONE;
    bool is_cas;
-   char cas_str[64] = {};
+   char cas_str[128] = {};
 
-   stypeprefix = FLOAT_BITS_TO_UINT;
-   dtypeprefix = UINT_BITS_TO_FLOAT;
-   stypecast = UINT;
+   if (src->Register.File == TGSI_FILE_IMAGE) {
+     enum tgsi_return_type itype;
+     get_internalformat_string(ctx->images[sinfo->sreg_index].decl.Format, &itype);
+     switch (itype) {
+     default:
+     case TGSI_RETURN_TYPE_UINT:
+        stypeprefix = FLOAT_BITS_TO_UINT;
+        dtypeprefix = UINT_BITS_TO_FLOAT;
+        stypecast = UINT;
+        break;
+     case TGSI_RETURN_TYPE_SINT:
+        stypeprefix = FLOAT_BITS_TO_INT;
+        dtypeprefix = INT_BITS_TO_FLOAT;
+        stypecast = INT;
+        break;
+     case TGSI_RETURN_TYPE_FLOAT:
+        ctx->shader_req_bits |= SHADER_REQ_ES31_COMPAT;
+        stypecast = FLOAT;
+        break;
+     }
+   } else {
+     stypeprefix = FLOAT_BITS_TO_UINT;
+     dtypeprefix = UINT_BITS_TO_FLOAT;
+     stypecast = UINT;
+   }
 
    opname = get_atomic_opname(inst->Instruction.Opcode, &is_cas);
    if (!opname)
       return -1;
 
    if (is_cas)
-      snprintf(cas_str, 64, ", %s(%s(%s))", get_string(stypecast), get_string(stypeprefix), srcs[3]);
+      snprintf(cas_str, 128, ", %s(%s(%s))", get_string(stypecast), get_string(stypeprefix), srcs[3]);
 
+   if (src->Register.File == TGSI_FILE_IMAGE) {
+      bool is_ms = false;
+      enum vrend_type_qualifier coord_prefix = get_coord_prefix(ctx->images[sinfo->sreg_index].decl.Resource, &is_ms);
+      char ms_str[32] = {};
+      if (is_ms) {
+         snprintf(ms_str, 32, ", int(%s.w)", srcs[1]);
+      }
+      snprintf(buf, 512, "%s = %s(imageAtomic%s(%s, %s(floatBitsToInt(%s))%s, %s(%s(%s))%s));\n", dsts[0], get_string(dtypeprefix), opname, srcs[0], get_string(coord_prefix), srcs[1], ms_str, get_string(stypecast), get_string(stypeprefix), srcs[2], cas_str);
+      EMIT_BUF_WITH_RET(ctx, buf);
+   }
    if (src->Register.File == TGSI_FILE_BUFFER) {
       snprintf(buf, 512, "%s = %s(atomic%s(%s[int(floatBitsToInt(%s)) >> 2], uint(%s(%s).x)%s));\n", dsts[0], get_string(dtypeprefix), opname, srcs[0], srcs[1], get_string(stypeprefix), srcs[2], cas_str);
       EMIT_BUF_WITH_RET(ctx, buf);
@@ -2472,6 +2673,18 @@ get_destination_info(struct dump_ctx *ctx,
             snprintf(dsts[i], 255, "temp%d[addr0 + %d]%s", range->first, dst_reg->Register.Index - range->first, writemask);
          } else
             snprintf(dsts[i], 255, "temp%d[%d]%s", range->first, dst_reg->Register.Index - range->first, writemask);
+      }
+      else if (dst_reg->Register.File == TGSI_FILE_IMAGE) {
+         const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
+	 if (ctx->info.indirect_files & (1 << TGSI_FILE_IMAGE)) {
+            int basearrayidx = lookup_image_array(ctx, dst_reg->Register.Index);
+            if (dst_reg->Register.Indirect) {
+               assert(dst_reg->Indirect.File == TGSI_FILE_ADDRESS);
+               snprintf(dsts[i], 255, "%simg%d[addr%d + %d]", cname, basearrayidx, dst_reg->Indirect.Index, dst_reg->Register.Index - basearrayidx);
+            } else
+               snprintf(dsts[i], 255, "%simg%d[%d]", cname, basearrayidx, dst_reg->Register.Index - basearrayidx);
+         } else
+            snprintf(dsts[i], 255, "%simg%d", cname, dst_reg->Register.Index);
       } else if (dst_reg->Register.File == TGSI_FILE_BUFFER) {
          const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
          if (ctx->info.indirect_files & (1 << TGSI_FILE_BUFFER)) {
@@ -2739,6 +2952,18 @@ get_source_info(struct dump_ctx *ctx,
          } else {
             snprintf(srcs[i], 255, "%ssamp%d%s", cname, src->Register.Index, swizzle);
          }
+         sinfo->sreg_index = src->Register.Index;
+      } else if (src->Register.File == TGSI_FILE_IMAGE) {
+         const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
+         if (ctx->info.indirect_files & (1 << TGSI_FILE_IMAGE)) {
+            int basearrayidx = lookup_image_array(ctx, src->Register.Index);
+            if (src->Register.Indirect) {
+               assert(src->Indirect.File == TGSI_FILE_ADDRESS);
+               snprintf(srcs[i], 255, "%simg%d[addr%d + %d]", cname, basearrayidx, src->Indirect.Index, src->Register.Index - basearrayidx);
+            } else
+               snprintf(srcs[i], 255, "%simg%d[%d]", cname, basearrayidx, src->Register.Index - basearrayidx);
+         } else
+            snprintf(srcs[i], 255, "%simg%d%s", cname, src->Register.Index, swizzle);
          sinfo->sreg_index = src->Register.Index;
       } else if (src->Register.File == TGSI_FILE_BUFFER) {
          const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
@@ -3526,7 +3751,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
          return FALSE;
       break;
    case TGSI_OPCODE_LOAD:
-      ret = translate_load(ctx, inst, srcs, dsts);
+      ret = translate_load(ctx, inst, &sinfo, &dinfo, srcs, dsts, writemask);
       if (ret)
          return FALSE;
       break;
@@ -3540,7 +3765,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
    case TGSI_OPCODE_ATOMUMAX:
    case TGSI_OPCODE_ATOMIMIN:
    case TGSI_OPCODE_ATOMIMAX:
-      ret = translate_atomic(ctx, inst, srcs, dsts);
+      ret = translate_atomic(ctx, inst, &sinfo, srcs, dsts);
       if (ret)
          return FALSE;
       break;
@@ -3749,6 +3974,136 @@ static void *emit_sampler_decl(struct dump_ctx *ctx, char *glsl_hdr, uint32_t i,
    }
 
    return glsl_hdr;
+}
+
+const char *get_internalformat_string(int virgl_format, enum tgsi_return_type *stype)
+{
+   switch (virgl_format) {
+   case PIPE_FORMAT_R11G11B10_FLOAT:
+      *stype = TGSI_RETURN_TYPE_FLOAT;
+      return "layout(r11f_g11f_b10f) ";
+   case PIPE_FORMAT_R10G10B10A2_UNORM:
+      *stype = TGSI_RETURN_TYPE_UNORM;
+      return "layout(rgb10_a2) ";
+   case PIPE_FORMAT_R10G10B10A2_UINT:
+      *stype = TGSI_RETURN_TYPE_UINT;
+      return "layout(rgb10_a2ui) ";
+   case PIPE_FORMAT_R8_UNORM:
+      *stype = TGSI_RETURN_TYPE_UNORM;
+      return "layout(r8) ";
+   case PIPE_FORMAT_R8_SNORM:
+      *stype = TGSI_RETURN_TYPE_SNORM;
+      return "layout(r8_snorm) ";
+   case PIPE_FORMAT_R8_UINT:
+      *stype = TGSI_RETURN_TYPE_UINT;
+      return "layout(r8ui) ";
+   case PIPE_FORMAT_R8_SINT:
+      *stype = TGSI_RETURN_TYPE_SINT;
+      return "layout(r8i) ";
+   case PIPE_FORMAT_R8G8_UNORM:
+      *stype = TGSI_RETURN_TYPE_UNORM;
+      return "layout(rg8) ";
+   case PIPE_FORMAT_R8G8_SNORM:
+      *stype = TGSI_RETURN_TYPE_SNORM;
+      return "layout(rg8_snorm) ";
+   case PIPE_FORMAT_R8G8_UINT:
+      *stype = TGSI_RETURN_TYPE_UINT;
+      return "layout(rg8ui) ";
+   case PIPE_FORMAT_R8G8_SINT:
+      *stype = TGSI_RETURN_TYPE_SINT;
+      return "layout(rg8i) ";
+   case PIPE_FORMAT_R8G8B8A8_UNORM:
+      *stype = TGSI_RETURN_TYPE_UNORM;
+      return "layout(rgba8) ";
+   case PIPE_FORMAT_R8G8B8A8_SNORM:
+      *stype = TGSI_RETURN_TYPE_SNORM;
+      return "layout(rgba8_snorm) ";
+   case PIPE_FORMAT_R8G8B8A8_UINT:
+      *stype = TGSI_RETURN_TYPE_UINT;
+      return "layout(rgba8ui) ";
+   case PIPE_FORMAT_R8G8B8A8_SINT:
+      *stype = TGSI_RETURN_TYPE_SINT;
+      return "layout(rgba8i) ";
+   case PIPE_FORMAT_R16_UNORM:
+      *stype = TGSI_RETURN_TYPE_UNORM;
+      return "layout(r16) ";
+   case PIPE_FORMAT_R16_SNORM:
+      *stype = TGSI_RETURN_TYPE_SNORM;
+      return "layout(r16_snorm) ";
+   case PIPE_FORMAT_R16_UINT:
+      *stype = TGSI_RETURN_TYPE_UINT;
+      return "layout(r16ui) ";
+   case PIPE_FORMAT_R16_SINT:
+      *stype = TGSI_RETURN_TYPE_SINT;
+      return "layout(r16i) ";
+   case PIPE_FORMAT_R16_FLOAT:
+      *stype = TGSI_RETURN_TYPE_FLOAT;
+      return "layout(r16f) ";
+   case PIPE_FORMAT_R16G16_UNORM:
+      *stype = TGSI_RETURN_TYPE_UNORM;
+      return "layout(rg16) ";
+   case PIPE_FORMAT_R16G16_SNORM:
+      *stype = TGSI_RETURN_TYPE_SNORM;
+      return "layout(rg16_snorm) ";
+   case PIPE_FORMAT_R16G16_UINT:
+      *stype = TGSI_RETURN_TYPE_UINT;
+      return "layout(rg16ui) ";
+   case PIPE_FORMAT_R16G16_SINT:
+      *stype = TGSI_RETURN_TYPE_SINT;
+      return "layout(rg16i) ";
+   case PIPE_FORMAT_R16G16_FLOAT:
+      *stype = TGSI_RETURN_TYPE_FLOAT;
+      return "layout(rg16f) ";
+   case PIPE_FORMAT_R16G16B16A16_UNORM:
+      *stype = TGSI_RETURN_TYPE_UNORM;
+      return "layout(rgba16) ";
+   case PIPE_FORMAT_R16G16B16A16_SNORM:
+      *stype = TGSI_RETURN_TYPE_SNORM;
+      return "layout(rgba16_snorm) ";
+   case PIPE_FORMAT_R16G16B16A16_FLOAT:
+      *stype = TGSI_RETURN_TYPE_FLOAT;
+      return "layout(rgba16f) ";
+   case PIPE_FORMAT_R32_FLOAT:
+      *stype = TGSI_RETURN_TYPE_FLOAT;
+      return "layout(r32f) ";
+   case PIPE_FORMAT_R32_UINT:
+      *stype = TGSI_RETURN_TYPE_UINT;
+      return "layout(r32ui) ";
+   case PIPE_FORMAT_R32_SINT:
+      *stype = TGSI_RETURN_TYPE_SINT;
+      return "layout(r32i) ";
+   case PIPE_FORMAT_R32G32_FLOAT:
+      *stype = TGSI_RETURN_TYPE_FLOAT;
+      return "layout(rg32f) ";
+   case PIPE_FORMAT_R32G32_UINT:
+      *stype = TGSI_RETURN_TYPE_UINT;
+      return "layout(rg32ui) ";
+   case PIPE_FORMAT_R32G32_SINT:
+      *stype = TGSI_RETURN_TYPE_SINT;
+      return "layout(rg32i) ";
+   case PIPE_FORMAT_R32G32B32A32_FLOAT:
+      *stype = TGSI_RETURN_TYPE_FLOAT;
+      return "layout(rgba32f) ";
+   case PIPE_FORMAT_R32G32B32A32_UINT:
+      *stype = TGSI_RETURN_TYPE_UINT;
+      return "layout(rgba32ui) ";
+   case PIPE_FORMAT_R16G16B16A16_UINT:
+      *stype = TGSI_RETURN_TYPE_UINT;
+      return "layout(rgba16ui) ";
+   case PIPE_FORMAT_R16G16B16A16_SINT:
+      *stype = TGSI_RETURN_TYPE_SINT;
+      return "layout(rgba16i) ";
+   case PIPE_FORMAT_R32G32B32A32_SINT:
+      *stype = TGSI_RETURN_TYPE_SINT;
+      return "layout(rgba32i) ";
+   case PIPE_FORMAT_NONE:
+      *stype = TGSI_RETURN_TYPE_UNORM;
+      return "";
+   default:
+      *stype = TGSI_RETURN_TYPE_UNORM;
+      fprintf(stderr, "illegal format %d\n", virgl_format);
+      return "";
+   }
 }
 
 static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
@@ -4166,6 +4521,44 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
       }
    }
 
+   if (ctx->info.indirect_files & (1 << TGSI_FILE_IMAGE)) {
+      for (i = 0; i < ctx->num_image_arrays; i++) {
+         int idx = ctx->image_arrays[i].first;
+         int is_shad = 0;
+         const char *stc;
+         char ptc;
+         const char *volatile_str = (ctx->images[idx].vflag) ? "volatile " : "";
+         const char *writeonly = (ctx->images[idx].decl.Format) ? "" : "writeonly ";
+         const char *formatstr;
+         enum tgsi_return_type itype;
+         formatstr = get_internalformat_string(ctx->images[idx].decl.Format, &itype);
+         ptc = vrend_shader_samplerreturnconv(itype);
+         sname = tgsi_proc_to_prefix(ctx->prog_type);
+         stc = vrend_shader_samplertypeconv(ctx->images[i].decl.Resource, &is_shad);
+         snprintf(buf, 255, "%s%s%suniform %cimage%s %simg%d[%d];\n", formatstr, writeonly, volatile_str, ptc, stc, sname, idx, ctx->image_arrays[i].array_size);
+         STRCAT_WITH_RET(glsl_hdr, buf);
+      }
+   } else {
+      uint32_t mask = ctx->images_used_mask;
+      while (mask) {
+         int is_shad = 0;
+         const char *stc;
+         char ptc;
+
+         i = u_bit_scan(&mask);
+         const char *volatile_str = (ctx->images[i].vflag) ? "volatile " : "";
+         const char *writeonly = (ctx->images[i].decl.Format) ? "" : "writeonly ";
+         const char *formatstr;
+         enum tgsi_return_type itype;
+         formatstr = get_internalformat_string(ctx->images[i].decl.Format, &itype);
+         ptc = vrend_shader_samplerreturnconv(itype);
+         sname = tgsi_proc_to_prefix(ctx->prog_type);
+         stc = vrend_shader_samplertypeconv(ctx->images[i].decl.Resource, &is_shad);
+         snprintf(buf, 255, "%s%s%suniform %cimage%s %simg%d;\n", formatstr, writeonly, volatile_str, ptc, stc, sname, i);
+         STRCAT_WITH_RET(glsl_hdr, buf);
+      }
+   }
+
    if (ctx->info.indirect_files & (1 << TGSI_FILE_BUFFER)) {
       uint32_t mask = ctx->ssbo_used_mask;
       while (mask) {
@@ -4262,6 +4655,8 @@ char *vrend_convert_shader(struct vrend_shader_cfg *cfg,
    ctx.key = key;
    ctx.cfg = cfg;
    ctx.prog_type = -1;
+   ctx.num_image_arrays = 0;
+   ctx.image_arrays = NULL;
    ctx.num_sampler_arrays = 0;
    ctx.sampler_arrays = NULL;
    ctx.last_sampler_array_idx = -1;
@@ -4284,7 +4679,8 @@ char *vrend_convert_shader(struct vrend_shader_cfg *cfg,
    if (ctx.info.dimension_indirect_files & (1 << TGSI_FILE_CONSTANT))
       require_glsl_ver(&ctx, 150);
 
-   if (ctx.info.indirect_files & (1 << TGSI_FILE_BUFFER)) {
+   if (ctx.info.indirect_files & (1 << TGSI_FILE_BUFFER) ||
+       ctx.info.indirect_files & (1 << TGSI_FILE_IMAGE)) {
       require_glsl_ver(&ctx, 150);
       ctx.shader_req_bits |= SHADER_REQ_GPU_SHADER5;
    }
@@ -4336,6 +4732,7 @@ char *vrend_convert_shader(struct vrend_shader_cfg *cfg,
    sinfo->num_clip_out = has_prop ? ctx.num_clip_dist_prop : (ctx.num_clip_dist ? ctx.num_clip_dist : 8);
    sinfo->num_cull_out = has_prop ? ctx.num_cull_dist_prop : 0;
    sinfo->samplers_used_mask = ctx.samplers_used;
+   sinfo->images_used_mask = ctx.images_used_mask;
    sinfo->num_consts = ctx.num_consts;
    sinfo->num_ubos = ctx.num_ubo;
    memcpy(sinfo->ubo_idx, ctx.ubo_idx, ctx.num_ubo * sizeof(*ctx.ubo_idx));
@@ -4368,6 +4765,8 @@ char *vrend_convert_shader(struct vrend_shader_cfg *cfg,
    sinfo->attrib_input_mask = ctx.attrib_input_mask;
    sinfo->sampler_arrays = ctx.sampler_arrays;
    sinfo->num_sampler_arrays = ctx.num_sampler_arrays;
+   sinfo->image_arrays = ctx.image_arrays;
+   sinfo->num_image_arrays = ctx.num_image_arrays;
    return glsl_final;
  fail:
    free(ctx.glsl_main);

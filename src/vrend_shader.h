@@ -44,8 +44,14 @@ struct vrend_sampler_array {
    int sview_rtype;
 };
 
+struct vrend_image_array {
+   int first;
+   int array_size;
+};
+
 struct vrend_shader_info {
    uint32_t samplers_used_mask;
+   uint32_t images_used_mask;
    uint32_t ssbo_used_mask;
    int num_consts;
    int num_inputs;
@@ -72,6 +78,9 @@ struct vrend_shader_info {
 
    struct vrend_sampler_array *sampler_arrays;
    int num_sampler_arrays;
+
+   struct vrend_image_array *image_arrays;
+   int num_image_arrays;
 
    struct pipe_stream_output_info so_info;
 

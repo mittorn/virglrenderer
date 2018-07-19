@@ -749,6 +749,7 @@ static void vrend_destroy_shader_selector(struct vrend_shader_selector *sel)
    free(sel->sinfo.so_names);
    free(sel->sinfo.interpinfo);
    free(sel->sinfo.sampler_arrays);
+   free(sel->sinfo.image_arrays);
    free(sel->tokens);
    free(sel);
 }
