@@ -129,6 +129,7 @@ enum features_id
    feat_transform_feedback2,
    feat_transform_feedback3,
    feat_transform_feedback_overflow_query,
+   feat_txqs,
    feat_ubo,
    feat_viewport_array,
    feat_last,
@@ -182,6 +183,7 @@ static const  struct {
    [feat_transform_feedback2] = { 40, 30, { "GL_ARB_transform_feedback2" } },
    [feat_transform_feedback3] = { 40, UNAVAIL, { "GL_ARB_transform_feedback3" } },
    [feat_transform_feedback_overflow_query] = { 46, UNAVAIL, { "GL_ARB_transform_feedback_overflow_query" } },
+   [feat_txqs] = { 45, UNAVAIL, { "GL_ARB_shader_texture_image_samples" } },
    [feat_ubo] = { 31, 30, { "GL_ARB_uniform_buffer_object" } },
    [feat_viewport_array] = { 41, UNAVAIL, { "GL_ARB_viewport_array" } },
 };
@@ -7983,6 +7985,9 @@ void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
 
    if (has_feature(feat_texture_view))
       caps->v2.capability_bits |= VIRGL_CAP_TEXTURE_VIEW;
+
+   if (has_feature(feat_txqs))
+      caps->v2.capability_bits |= VIRGL_CAP_TXQS;
 
    if (has_feature(feat_copy_image))
       caps->v2.capability_bits |= VIRGL_CAP_COPY_IMAGE;
