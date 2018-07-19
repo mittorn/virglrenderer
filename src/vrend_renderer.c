@@ -2300,9 +2300,9 @@ void vrend_set_single_ssbo(struct vrend_context *ctx,
          report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, handle);
          return;
       }
+      ssbo->res = res;
       ssbo->buffer_offset = offset;
       ssbo->buffer_size = length;
-      ssbo->res = res;
       ctx->sub->ssbo_used_mask[shader_type] |= (1 << index);
    } else {
       ssbo->res = 0;
