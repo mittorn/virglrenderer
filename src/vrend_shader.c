@@ -59,6 +59,7 @@ extern int vrend_dump_shaders;
 #define SHADER_REQ_IMAGE_LOAD_STORE   (1 << 15)
 #define SHADER_REQ_ES31_COMPAT        (1 << 16)
 #define SHADER_REQ_IMAGE_SIZE         (1 << 17)
+#define SHADER_REQ_TXQS               (1 << 18)
 
 struct vrend_shader_io {
    unsigned                name;
@@ -229,6 +230,7 @@ static const struct vrend_shader_table shader_req_table[] = {
     { SHADER_REQ_IMAGE_LOAD_STORE, "GL_ARB_shader_image_load_store" },
     { SHADER_REQ_ES31_COMPAT, "GL_ARB_ES3_1_compatibility" },
     { SHADER_REQ_IMAGE_SIZE, "GL_ARB_shader_image_size" },
+    { SHADER_REQ_TXQS, "GL_ARB_shader_texture_image_samples" },
 };
 
 enum vrend_type_qualifier {
@@ -1815,6 +1817,32 @@ static int emit_txq(struct dump_ctx *ctx,
    return 0;
 }
 
+/* sample queries are pretty much separate */
+static int emit_txqs(struct dump_ctx *ctx,
+                     struct tgsi_full_instruction *inst,
+                     uint32_t sreg_index,
+                     char srcs[4][255],
+                     char dsts[3][255])
+{
+   char buf[512];
+   const int sampler_index = 0;
+   bool is_shad;
+   enum vrend_type_qualifier dtypeprefix = INT_BITS_TO_FLOAT;
+
+   ctx->shader_req_bits |= SHADER_REQ_TXQS;
+   if (set_texture_reqs(ctx, inst, sreg_index, &is_shad) == false)
+      return FALSE;
+
+   if (inst->Texture.Texture != TGSI_TEXTURE_2D_MSAA &&
+       inst->Texture.Texture != TGSI_TEXTURE_2D_ARRAY_MSAA)
+      return FALSE;
+
+   snprintf(buf, 255, "%s = %s(textureSamples(%s));\n", dsts[0],
+            get_string(dtypeprefix), srcs[sampler_index]);
+   EMIT_BUF_WITH_RET(ctx, buf);
+   return 0;
+}
+
 static const char *get_tex_inst_ext(struct tgsi_full_instruction *inst)
 {
    const char *tex_ext = "";
@@ -2446,9 +2474,16 @@ translate_resq(struct dump_ctx *ctx, struct tgsi_full_instruction *inst,
    const struct tgsi_full_src_register *src = &inst->Src[0];
 
    if (src->Register.File == TGSI_FILE_IMAGE) {
-      ctx->shader_req_bits |= SHADER_REQ_IMAGE_SIZE;
-      snprintf(buf, 255, "%s = %s(imageSize(%s));\n", dsts[0], get_string(INT_BITS_TO_FLOAT), srcs[0]);
-      EMIT_BUF_WITH_RET(ctx, buf);
+      if (inst->Dst[0].Register.WriteMask & 0x8) {
+         ctx->shader_req_bits |= SHADER_REQ_TXQS | SHADER_REQ_INTS;
+         snprintf(buf, 255, "%s = %s(imageSamples(%s));\n", dsts[0], get_string(INT_BITS_TO_FLOAT), srcs[0]);
+         EMIT_BUF_WITH_RET(ctx, buf);
+      }
+      if (inst->Dst[0].Register.WriteMask & 0x7) {
+         ctx->shader_req_bits |= SHADER_REQ_IMAGE_SIZE | SHADER_REQ_INTS;
+         snprintf(buf, 255, "%s = %s(imageSize(%s));\n", dsts[0], get_string(INT_BITS_TO_FLOAT), srcs[0]);
+         EMIT_BUF_WITH_RET(ctx, buf);
+      }
    } else if (src->Register.File == TGSI_FILE_BUFFER) {
       snprintf(buf, 255, "%s = %s(int(%s.length()) << 2);\n", dsts[0], get_string(INT_BITS_TO_FLOAT), srcs[0]);
       EMIT_BUF_WITH_RET(ctx, buf);
@@ -3440,6 +3475,11 @@ iter_instruction(struct tgsi_iterate_context *iter,
       break;
    case TGSI_OPCODE_TXQ:
       ret = emit_txq(ctx, inst, sinfo.sreg_index, srcs, dsts, writemask);
+      if (ret)
+         return FALSE;
+      break;
+   case TGSI_OPCODE_TXQS:
+      ret = emit_txqs(ctx, inst, sinfo.sreg_index, srcs, dsts);
       if (ret)
          return FALSE;
       break;
