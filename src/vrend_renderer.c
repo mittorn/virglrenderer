@@ -7909,8 +7909,10 @@ static void vrend_renderer_fill_caps_gl(bool fill_capset2, int gl_ver,
       caps->v1.glsl_level = 400;
    else if (gl_ver == 41)
       caps->v1.glsl_level = 410;
-   else if (gl_ver >= 42)
+   else if (gl_ver == 42)
       caps->v1.glsl_level = 420;
+   else if (gl_ver >= 43)
+      caps->v1.glsl_level = 430;
 
    if (!vrend_state.use_core_profile) {
       caps->v1.bset.poly_stipple = 1;
