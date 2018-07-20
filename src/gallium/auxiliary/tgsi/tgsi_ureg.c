@@ -923,6 +923,7 @@ struct ureg_emit_insn_result
 ureg_emit_insn(struct ureg_program *ureg,
                unsigned opcode,
                boolean saturate,
+               unsigned precise,
                unsigned num_dst,
                unsigned num_src )
 {
@@ -936,6 +937,7 @@ ureg_emit_insn(struct ureg_program *ureg,
    out[0].insn = tgsi_default_instruction();
    out[0].insn.Opcode = opcode;
    out[0].insn.Saturate = saturate;
+   out[0].insn.Precise = precise;
    out[0].insn.NumDstRegs = num_dst;
    out[0].insn.NumSrcRegs = num_src;
 
@@ -1038,7 +1040,8 @@ ureg_insn(struct ureg_program *ureg,
           const struct ureg_dst *dst,
           unsigned nr_dst,
           const struct ureg_src *src,
-          unsigned nr_src )
+          unsigned nr_src,
+          unsigned precise )
 {
    struct ureg_emit_insn_result insn;
    unsigned i;
@@ -1053,6 +1056,7 @@ ureg_insn(struct ureg_program *ureg,
    insn = ureg_emit_insn(ureg,
                          opcode,
                          saturate,
+                         precise,
                          nr_dst,
                          nr_src);
 
@@ -1089,6 +1093,7 @@ ureg_tex_insn(struct ureg_program *ureg,
    insn = ureg_emit_insn(ureg,
                          opcode,
                          saturate,
+                         0,
                          nr_dst,
                          nr_src);
 
@@ -1120,6 +1125,7 @@ ureg_label_insn(struct ureg_program *ureg,
    insn = ureg_emit_insn(ureg,
                          opcode,
                          FALSE,
+                         0,
                          0,
                          nr_src);
 
