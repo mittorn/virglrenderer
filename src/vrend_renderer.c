@@ -4606,7 +4606,7 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
       vrend_state.have_samplers = true;
    if (gl_ver >= 33 || epoxy_has_gl_extension("GL_ARB_shader_bit_encoding"))
       vrend_state.have_bit_encoding = true;
-   if (gl_ver >= 31)
+   if (!gles && gl_ver >= 31)
       vrend_state.have_gl_prim_restart = true;
    else if (epoxy_has_gl_extension("GL_NV_primitive_restart"))
       vrend_state.have_nv_prim_restart = true;
