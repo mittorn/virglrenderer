@@ -66,6 +66,7 @@ struct vrend_shader_io {
    int first;
    unsigned                location;
    bool                    invariant;
+   bool                    precise;
    bool glsl_predefined_no_emit;
    bool glsl_no_index;
    bool glsl_gl_block;
@@ -808,6 +809,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
       ctx->outputs[i].sid = decl->Semantic.Index;
       ctx->outputs[i].interpolate = decl->Interp.Interpolate;
       ctx->outputs[i].invariant = decl->Declaration.Invariant;
+      ctx->outputs[i].precise = false;
       ctx->outputs[i].first = decl->Range.First;
       ctx->outputs[i].glsl_predefined_no_emit = false;
       ctx->outputs[i].glsl_no_index = false;
@@ -2390,6 +2392,12 @@ get_destination_info(struct dump_ctx *ctx,
       if (dst_reg->Register.File == TGSI_FILE_OUTPUT) {
          for (uint32_t j = 0; j < ctx->num_outputs; j++) {
             if (ctx->outputs[j].first == dst_reg->Register.Index) {
+
+               if (inst->Instruction.Precise) {
+                  ctx->outputs[j].precise = true;
+                  ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
+               }
+
                if (ctx->glsl_ver_required >= 140 && ctx->outputs[j].name == TGSI_SEMANTIC_CLIPVERTEX) {
                   snprintf(dsts[i], 255, "clipv_tmp");
                } else if (ctx->outputs[j].name == TGSI_SEMANTIC_CLIPDIST) {
@@ -3871,12 +3879,21 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
                else
                   snprintf(buf, 255, "%sout vec4 %s[];\n", prefix, ctx->outputs[i].glsl_name);
             } else if (ctx->prog_type == TGSI_PROCESSOR_GEOMETRY && ctx->outputs[i].stream)
-               snprintf(buf, 255, "layout (stream = %d) %s%sout vec4 %s;\n", ctx->outputs[i].stream, prefix, ctx->outputs[i].invariant ? "invariant " : "", ctx->outputs[i].glsl_name);
+               snprintf(buf, 255, "layout (stream = %d) %s%s%sout vec4 %s;\n", ctx->outputs[i].stream, prefix,
+                        ctx->outputs[i].precise ? "precise " : "",
+                        ctx->outputs[i].invariant ? "invariant " : "",
+                        ctx->outputs[i].glsl_name);
             else
-               snprintf(buf, 255, "%s%sout vec4 %s;\n", prefix, ctx->outputs[i].invariant ? "invariant " : "", ctx->outputs[i].glsl_name);
+               snprintf(buf, 255, "%s%s%sout vec4 %s;\n", prefix,
+                        ctx->outputs[i].precise ? "precise " : "",
+                        ctx->outputs[i].invariant ? "invariant " : "",
+                        ctx->outputs[i].glsl_name);
             STRCAT_WITH_RET(glsl_hdr, buf);
-         } else if (ctx->outputs[i].invariant) {
-            snprintf(buf, 255, "invariant %s;\n", ctx->outputs[i].glsl_name);
+         } else if (ctx->outputs[i].invariant || ctx->outputs[i].precise) {
+            snprintf(buf, 255, "%s%s %s;\n",
+               ctx->outputs[i].precise ? "precise " : "",
+               ctx->outputs[i].invariant ? "invariant " : "",
+               ctx->outputs[i].glsl_name);
             STRCAT_WITH_RET(glsl_hdr, buf);
          }
       }
