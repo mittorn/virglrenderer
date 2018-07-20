@@ -7753,7 +7753,7 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
 
    caps->v1.max_samples = vrend_renderer_query_multisample_caps(max, &caps->v2);
 
-   caps->v2.capability_bits |= VIRGL_CAP_TGSI_INVARIANT | VIRGL_CAP_SET_MIN_SAMPLES;
+   caps->v2.capability_bits |= VIRGL_CAP_TGSI_INVARIANT | VIRGL_CAP_SET_MIN_SAMPLES | VIRGL_CAP_TGSI_PRECISE;
 
    if (gl_ver >= 44)
       glGetIntegerv(GL_MAX_VERTEX_ATTRIB_STRIDE, (GLint*)&caps->v2.max_vertex_attrib_stride);

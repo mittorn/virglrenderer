@@ -221,6 +221,7 @@ enum virgl_formats {
 #define VIRGL_CAP_TEXTURE_VIEW         (1 << 1)
 #define VIRGL_CAP_SET_MIN_SAMPLES      (1 << 2)
 #define VIRGL_CAP_COPY_IMAGE           (1 << 3)
+#define VIRGL_CAP_TGSI_PRECISE         (1 << 4)
 
 struct virgl_caps_bool_set1 {
         unsigned indep_blend_enable:1;
