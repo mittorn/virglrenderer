@@ -109,6 +109,8 @@ struct global_renderer_state {
    bool have_ms_scaled_blit;
    bool have_nv_prim_restart;
    bool have_gl_prim_restart;
+   bool have_gl_conditional_render;
+   bool have_nv_conditional_render;
    bool have_bit_encoding;
    bool have_gles31_vertex_attrib_binding;
    bool have_tf2;
@@ -4608,6 +4610,10 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
       vrend_state.have_gl_prim_restart = true;
    else if (epoxy_has_gl_extension("GL_NV_primitive_restart"))
       vrend_state.have_nv_prim_restart = true;
+   if (!gles && gl_ver >= 30)
+      vrend_state.have_gl_conditional_render = true;
+   else if (epoxy_has_gl_extension("GL_NV_conditional_render"))
+      vrend_state.have_nv_conditional_render = true;
    if (gl_ver >= 40 || (gles && gl_ver >= 30) ||
        epoxy_has_gl_extension("GL_ARB_transform_feedback2")) {
       vrend_state.have_tf2 = true;
@@ -7145,11 +7151,18 @@ static void vrend_pause_render_condition(struct vrend_context *ctx, bool pause)
 {
    if (pause) {
       if (ctx->sub->cond_render_q_id)
-         glEndConditionalRenderNV();
+         if (vrend_state.have_gl_conditional_render)
+            glEndConditionalRender();
+         else if (vrend_state.have_nv_conditional_render)
+            glEndConditionalRenderNV();
    } else {
       if (ctx->sub->cond_render_q_id)
-         glBeginConditionalRender(ctx->sub->cond_render_q_id,
-                                  ctx->sub->cond_render_gl_mode);
+         if (vrend_state.have_gl_conditional_render)
+            glBeginConditionalRender(ctx->sub->cond_render_q_id,
+                                     ctx->sub->cond_render_gl_mode);
+         else if (vrend_state.have_nv_conditional_render)
+            glBeginConditionalRenderNV(ctx->sub->cond_render_q_id,
+                                       ctx->sub->cond_render_gl_mode);
    }
 }
 
@@ -7162,7 +7175,10 @@ void vrend_render_condition(struct vrend_context *ctx,
    GLenum glmode = 0;
 
    if (handle == 0) {
-      glEndConditionalRenderNV();
+      if (vrend_state.have_gl_conditional_render)
+         glEndConditionalRender();
+      else if (vrend_state.have_nv_conditional_render)
+         glEndConditionalRenderNV();
       ctx->sub->cond_render_q_id = 0;
       ctx->sub->cond_render_gl_mode = 0;
       return;
@@ -7191,8 +7207,10 @@ void vrend_render_condition(struct vrend_context *ctx,
 
    ctx->sub->cond_render_q_id = q->id;
    ctx->sub->cond_render_gl_mode = glmode;
-   glBeginConditionalRender(q->id, glmode);
-
+   if (vrend_state.have_gl_conditional_render)
+      glBeginConditionalRender(q->id, glmode);
+   if (vrend_state.have_nv_conditional_render)
+      glBeginConditionalRenderNV(q->id, glmode);
 }
 
 int vrend_create_so_target(struct vrend_context *ctx,
