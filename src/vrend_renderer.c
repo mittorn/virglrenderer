@@ -3430,7 +3430,7 @@ void vrend_draw_vbo(struct vrend_context *ctx,
       } else if (vrend_state.have_nv_prim_restart) {
          glEnableClientState(GL_PRIMITIVE_RESTART_NV);
          glPrimitiveRestartIndexNV(info->restart_index);
-      } else {
+      } else if (vrend_state.have_gl_prim_restart) {
          glEnable(GL_PRIMITIVE_RESTART);
          glPrimitiveRestartIndex(info->restart_index);
       }
