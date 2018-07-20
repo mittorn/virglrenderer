@@ -829,4 +829,8 @@ void vrend_renderer_blit_gl(UNUSED struct vrend_context *ctx,
       glBufferData(GL_ARRAY_BUFFER, sizeof(blit_ctx->vertices), blit_ctx->vertices, GL_STATIC_DRAW);
       glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
    }
+   glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_STENCIL_ATTACHMENT,
+                             GL_TEXTURE_2D, 0, 0);
+   glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0,
+                             GL_TEXTURE_2D, 0, 0);
 }
