@@ -7150,19 +7150,21 @@ void vrend_get_query_result(struct vrend_context *ctx, uint32_t handle,
 static void vrend_pause_render_condition(struct vrend_context *ctx, bool pause)
 {
    if (pause) {
-      if (ctx->sub->cond_render_q_id)
+      if (ctx->sub->cond_render_q_id) {
          if (vrend_state.have_gl_conditional_render)
             glEndConditionalRender();
          else if (vrend_state.have_nv_conditional_render)
             glEndConditionalRenderNV();
+      }
    } else {
-      if (ctx->sub->cond_render_q_id)
+      if (ctx->sub->cond_render_q_id) {
          if (vrend_state.have_gl_conditional_render)
             glBeginConditionalRender(ctx->sub->cond_render_q_id,
                                      ctx->sub->cond_render_gl_mode);
          else if (vrend_state.have_nv_conditional_render)
             glBeginConditionalRenderNV(ctx->sub->cond_render_q_id,
                                        ctx->sub->cond_render_gl_mode);
+      }
    }
 }
 
