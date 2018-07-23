@@ -87,6 +87,35 @@ struct global_error_state {
    enum virgl_errors last_error;
 };
 
+enum features_id
+{
+   feat_arb_or_gles_ext_texture_buffer,
+   feat_arb_robustness,
+   feat_bit_encoding,
+   feat_copy_image,
+   feat_debug_cb,
+   feat_gl_conditional_render,
+   feat_gl_prim_restart,
+   feat_gles_khr_robustness,
+   feat_gles31_vertex_attrib_binding,
+   feat_mesa_invert,
+   feat_ms_scaled_blit,
+   feat_multisample,
+   feat_nv_conditional_render,
+   feat_nv_prim_restart,
+   feat_polygon_offset_clamp,
+   feat_sample_shading,
+   feat_samplers,
+   feat_ssbo,
+   feat_stencil_texturing,
+   feat_tessellation,
+   feat_texture_buffer_range,
+   feat_texture_storage,
+   feat_texture_view,
+   feat_transform_feedback2,
+   feat_last,
+};
+
 struct global_renderer_state {
    int gl_major_ver;
    int gl_minor_ver;
@@ -99,30 +128,7 @@ struct global_renderer_state {
    bool use_gles;
    bool use_core_profile;
 
-   bool have_debug_cb;
-   bool have_mesa_invert;
-   bool have_samplers;
-   bool have_gles_khr_robustness;
-   bool have_arb_robustness;
-   bool have_arb_or_gles_ext_texture_buffer;
-   bool have_multisample;
-   bool have_ms_scaled_blit;
-   bool have_nv_prim_restart;
-   bool have_gl_prim_restart;
-   bool have_gl_conditional_render;
-   bool have_nv_conditional_render;
-   bool have_bit_encoding;
-   bool have_gles31_vertex_attrib_binding;
-   bool have_tf2;
-   bool have_stencil_texturing;
-   bool have_sample_shading;
-   bool have_texture_buffer_range;
-   bool have_polygon_offset_clamp;
-   bool have_texture_storage;
-   bool have_tessellation;
-   bool have_texture_view;
-   bool have_copy_image;
-   bool have_ssbo;
+   bool features[feat_last];
 
    /* these appeared broken on at least one driver */
    bool use_explicit_locations;
@@ -144,6 +150,16 @@ struct global_renderer_state {
 };
 
 static struct global_renderer_state vrend_state;
+
+static inline bool has_feature(enum features_id feature_id)
+{
+   return vrend_state.features[feature_id];
+}
+
+static inline void set_feature(enum features_id feature_id)
+{
+   vrend_state.features[feature_id] = true;
+}
 
 struct vrend_linked_shader_program {
    struct list_head head;
@@ -1072,7 +1088,7 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
    } else
       sprog->dual_src_linked = false;
 
-   if (vrend_state.have_gles31_vertex_attrib_binding) {
+   if (has_feature(feat_gles31_vertex_attrib_binding)) {
       uint32_t mask = vs->sel->sinfo.attrib_input_mask;
       while (mask) {
          i = u_bit_scan(&mask);
@@ -1135,7 +1151,7 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
       bind_ssbo_locs(sprog, id);
    }
 
-   if (!vrend_state.have_gles31_vertex_attrib_binding) {
+   if (!has_feature(feat_gles31_vertex_attrib_binding)) {
       if (vs->sel->sinfo.num_inputs) {
          sprog->attrib_locs = calloc(vs->sel->sinfo.num_inputs, sizeof(uint32_t));
          if (sprog->attrib_locs) {
@@ -1226,7 +1242,7 @@ static void vrend_destroy_streamout_object(struct vrend_streamout_object *obj)
    list_del(&obj->head);
    for (i = 0; i < obj->num_targets; i++)
       vrend_so_target_reference(&obj->so_targets[i], NULL);
-   if (vrend_state.have_tf2)
+   if (has_feature(feat_transform_feedback2))
       glDeleteTransformFeedbacks(1, &obj->id);
    FREE(obj);
 }
@@ -1260,7 +1276,7 @@ int vrend_create_surface(struct vrend_context *ctx,
    surf->val1 = val1;
    surf->id = res->id;
 
-   if (vrend_state.have_texture_view && !res->is_buffer) {
+   if (has_feature(feat_texture_view) && !res->is_buffer) {
       /* We don't need texture views for buffer objects.
        * Otherwise we only need a texture view if the
        * a) formats differ between the surface and base texture
@@ -1329,10 +1345,10 @@ static void vrend_destroy_so_target_object(void *obj_ptr)
          if (obj == sub_ctx->current_so)
             sub_ctx->current_so = NULL;
          if (obj->xfb_state == XFB_STATE_PAUSED) {
-               if (vrend_state.have_tf2)
+               if (has_feature(feat_transform_feedback2))
                   glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, obj->id);
                glEndTransformFeedback();
-            if (sub_ctx->current_so && vrend_state.have_tf2)
+            if (sub_ctx->current_so && has_feature(feat_transform_feedback2))
                glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, sub_ctx->current_so->id);
          }
          vrend_destroy_streamout_object(obj);
@@ -1346,7 +1362,7 @@ static void vrend_destroy_vertex_elements_object(void *obj_ptr)
 {
    struct vrend_vertex_element_array *v = obj_ptr;
 
-   if (vrend_state.have_gles31_vertex_attrib_binding) {
+   if (has_feature(feat_gles31_vertex_attrib_binding)) {
       glDeleteVertexArrays(1, &v->id);
    }
    FREE(v);
@@ -1356,7 +1372,7 @@ static void vrend_destroy_sampler_state_object(void *obj_ptr)
 {
    struct vrend_sampler_state *state = obj_ptr;
 
-   if (vrend_state.have_samplers)
+   if (has_feature(feat_samplers))
       glDeleteSamplers(1, &state->id);
    FREE(state);
 }
@@ -1418,7 +1434,7 @@ int vrend_create_sampler_state(struct vrend_context *ctx,
 
    state->base = *templ;
 
-   if (vrend_state.have_samplers) {
+   if (has_feature(feat_samplers)) {
       glGenSamplers(1, &state->id);
 
       glSamplerParameteri(state->id, GL_TEXTURE_WRAP_S, convert_wrap(templ->wrap_s));
@@ -1444,7 +1460,7 @@ int vrend_create_sampler_state(struct vrend_context *ctx,
    ret_handle = vrend_renderer_object_insert(ctx, state, sizeof(struct vrend_sampler_state), handle,
                                              VIRGL_OBJECT_SAMPLER_STATE);
    if (!ret_handle) {
-      if (vrend_state.have_samplers)
+      if (has_feature(feat_samplers))
          glDeleteSamplers(1, &state->id);
       FREE(state);
       return ENOMEM;
@@ -1506,7 +1522,7 @@ int vrend_create_sampler_view(struct vrend_context *ctx,
    if (!view->target)
       view->target = view->texture->target;
 
-   if (vrend_state.have_texture_view && !view->texture->is_buffer)  {
+   if (has_feature(feat_texture_view) && !view->texture->is_buffer)  {
       enum pipe_format format;
       bool needs_view = false;
 
@@ -2003,7 +2019,7 @@ int vrend_create_vertex_elements_state(struct vrend_context *ctx,
          v->elements[i].nr_chan = desc->nr_channels;
    }
 
-   if (vrend_state.have_gles31_vertex_attrib_binding) {
+   if (has_feature(feat_gles31_vertex_attrib_binding)) {
       glGenVertexArrays(1, &v->id);
       glBindVertexArray(v->id);
       for (i = 0; i < num_elements; i++) {
@@ -2208,7 +2224,7 @@ void vrend_set_single_sampler_view(struct vrend_context *ctx,
                   view->depth_texture_mode = GL_RED;
                }
             }
-            if (vrend_state.have_stencil_texturing) {
+            if (has_feature(feat_stencil_texturing)) {
                const struct util_format_description *desc = util_format_description(view->format);
                if (!util_format_has_depth(desc)) {
                   glTexParameteri(view->texture->target, GL_DEPTH_STENCIL_TEXTURE_MODE, GL_STENCIL_INDEX);
@@ -2243,7 +2259,7 @@ void vrend_set_single_sampler_view(struct vrend_context *ctx,
             view->cur_swizzle_a = view->gl_swizzle_a;
          }
          if (view->cur_srgb_decode != view->srgb_decode && util_format_is_srgb(view->format)) {
-            if (vrend_state.have_samplers)
+            if (has_feature(feat_samplers))
                ctx->sub->sampler_state_dirty = true;
             else {
                glTexParameteri(view->texture->target, GL_TEXTURE_SRGB_DECODE_EXT,
@@ -2259,7 +2275,7 @@ void vrend_set_single_sampler_view(struct vrend_context *ctx,
 
          glBindTexture(GL_TEXTURE_BUFFER, view->texture->tbo_tex_id);
          internalformat = tex_conv_table[view->format].internalformat;
-         if (vrend_state.have_texture_buffer_range) {
+         if (has_feature(feat_texture_buffer_range)) {
             unsigned offset = view->val0;
             unsigned size = view->val1 - view->val0 + 1;
             int blsize = util_format_get_blocksize(view->format);
@@ -2566,7 +2582,7 @@ int vrend_create_shader(struct vrend_context *ctx,
    if (type > PIPE_SHADER_TESS_EVAL)
       return EINVAL;
 
-   if (!vrend_state.have_tessellation &&
+   if (!has_feature(feat_tessellation) &&
        (type == PIPE_SHADER_TESS_CTRL ||
         type == PIPE_SHADER_TESS_EVAL))
       return EINVAL;
@@ -2993,7 +3009,7 @@ static void vrend_draw_bind_vertex_legacy(struct vrend_context *ctx,
          continue;
       }
 
-      if (vrend_state.use_explicit_locations || vrend_state.have_gles31_vertex_attrib_binding) {
+      if (vrend_state.use_explicit_locations || has_feature(feat_gles31_vertex_attrib_binding)) {
          loc = i;
       } else {
          if (ctx->sub->prog->attrib_locs) {
@@ -3390,7 +3406,7 @@ void vrend_draw_vbo(struct vrend_context *ctx,
       }
    }
 
-   if (vrend_state.have_gles31_vertex_attrib_binding)
+   if (has_feature(feat_gles31_vertex_attrib_binding))
       vrend_draw_bind_vertex_binding(ctx, ctx->sub->ve);
    else
       vrend_draw_bind_vertex_legacy(ctx, ctx->sub->ve);
@@ -3430,10 +3446,10 @@ void vrend_draw_vbo(struct vrend_context *ctx,
    if (info->primitive_restart) {
       if (vrend_state.use_gles) {
          glEnable(GL_PRIMITIVE_RESTART_FIXED_INDEX);
-      } else if (vrend_state.have_nv_prim_restart) {
+      } else if (has_feature(feat_nv_prim_restart)) {
          glEnableClientState(GL_PRIMITIVE_RESTART_NV);
          glPrimitiveRestartIndexNV(info->restart_index);
-      } else if (vrend_state.have_gl_prim_restart) {
+      } else if (has_feature(feat_gl_prim_restart)) {
          glEnable(GL_PRIMITIVE_RESTART);
          glPrimitiveRestartIndex(info->restart_index);
       }
@@ -3444,7 +3460,7 @@ void vrend_draw_vbo(struct vrend_context *ctx,
    else
       glBindBuffer(GL_DRAW_INDIRECT_BUFFER, 0);
 
-   if (info->vertices_per_patch && vrend_state.have_tessellation)
+   if (info->vertices_per_patch && has_feature(feat_tessellation))
       glPatchParameteri(GL_PATCH_VERTICES, info->vertices_per_patch);
 
    /* set the vertex state up now on a delay */
@@ -3497,14 +3513,14 @@ void vrend_draw_vbo(struct vrend_context *ctx,
    if (info->primitive_restart) {
       if (vrend_state.use_gles) {
          glEnable(GL_PRIMITIVE_RESTART_FIXED_INDEX);
-      } else if (vrend_state.have_nv_prim_restart) {
+      } else if (has_feature(feat_nv_prim_restart)) {
          glDisableClientState(GL_PRIMITIVE_RESTART_NV);
-      } else if (vrend_state.have_gl_prim_restart) {
+      } else if (has_feature(feat_gl_prim_restart)) {
          glDisable(GL_PRIMITIVE_RESTART);
       }
    }
 
-   if (ctx->sub->current_so && vrend_state.have_tf2) {
+   if (ctx->sub->current_so && has_feature(feat_transform_feedback2)) {
       if (ctx->sub->current_so->xfb_state == XFB_STATE_STARTED) {
          glPauseTransformFeedback();
          ctx->sub->current_so->xfb_state = XFB_STATE_PAUSED;
@@ -3708,7 +3724,7 @@ static void vrend_hw_emit_blend(struct vrend_context *ctx, struct pipe_blend_sta
    }
    ctx->sub->hw_blend_state.independent_blend_enable = state->independent_blend_enable;
 
-   if (vrend_state.have_multisample) {
+   if (has_feature(feat_multisample)) {
       if (state->alpha_to_coverage)
          glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE);
       else
@@ -4039,7 +4055,7 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
       }
    }
 
-   if (!vrend_state.use_gles && vrend_state.have_polygon_offset_clamp)
+   if (!vrend_state.use_gles && has_feature(feat_polygon_offset_clamp))
        glPolygonOffsetClampEXT(state->offset_scale, state->offset_units, state->offset_clamp);
    else
        glPolygonOffset(state->offset_scale, state->offset_units);
@@ -4154,7 +4170,7 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
          report_core_warn(ctx, CORE_PROFILE_WARN_CLAMP, 0);
    }
 
-   if (vrend_state.have_multisample) {
+   if (has_feature(feat_multisample)) {
       if (state->multisample)
          glEnable(GL_SAMPLE_MASK);
       else
@@ -4168,7 +4184,7 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
             glDisable(GL_MULTISAMPLE);
       }
 
-      if (vrend_state.have_sample_shading) {
+      if (has_feature(feat_sample_shading)) {
          if (state->force_persample_interp)
             glEnable(GL_SAMPLE_SHADING);
          else
@@ -4265,7 +4281,7 @@ static void vrend_apply_sampler_state(struct vrend_context *ctx,
     * the sampler to use the red channel and not the alpha one
     * by swizzling the GL_TEXTURE_BORDER_COLOR parameter.
     */
-   if (vrend_state.have_samplers) {
+   if (has_feature(feat_samplers)) {
       if (vrend_format_is_emulated_alpha(res->base.format)) {
          union pipe_color_union border_color;
          border_color = vstate->base.border_color;
@@ -4558,7 +4574,7 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
       glDebugMessageCallback(vrend_debug_cb, NULL);
       glEnable(GL_DEBUG_OUTPUT);
       glDisable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-      vrend_state.have_debug_cb = true;
+      set_feature(feat_debug_cb);
    }
 
    /* make sure you have the latest version of libepoxy */
@@ -4582,79 +4598,79 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
    glGetIntegerv(GL_MAX_DRAW_BUFFERS, (GLint *) &vrend_state.max_draw_buffers);
 
    if (epoxy_has_gl_extension("GL_ARB_robustness")) {
-      vrend_state.have_arb_robustness = true;
+      set_feature(feat_arb_robustness);
    } else if (gles && epoxy_has_gl_extension("GL_KHR_robustness")) {
-      vrend_state.have_gles_khr_robustness = true;
+      set_feature(feat_gles_khr_robustness);
    } else {
       fprintf(stderr,"WARNING: running without ARB/KHR robustness in place may crash\n");
    }
 
    /* used for buffers that we want to texture from */
    if (epoxy_has_gl_extension("GL_ARB_texture_buffer_object")) {
-      vrend_state.have_arb_or_gles_ext_texture_buffer = true;
+      set_feature(feat_arb_or_gles_ext_texture_buffer);
    }
    if (gles && epoxy_has_gl_extension("GL_EXT_texture_buffer")) {
-      vrend_state.have_arb_or_gles_ext_texture_buffer = true;
+      set_feature(feat_arb_or_gles_ext_texture_buffer);
    }
 
    if (epoxy_has_gl_extension("GL_MESA_pack_invert"))
-      vrend_state.have_mesa_invert = true;
+      set_feature(feat_mesa_invert);
    if (gl_ver >= 43 ||  (gles && gl_ver >= 31) ||
        epoxy_has_gl_extension("GL_ARB_vertex_attrib_binding"))
-      vrend_state.have_gles31_vertex_attrib_binding = true;
+      set_feature(feat_gles31_vertex_attrib_binding);
    if (gl_ver >= 33 || epoxy_has_gl_extension("GL_ARB_sampler_objects"))
-      vrend_state.have_samplers = true;
+      set_feature(feat_samplers);
    if (gl_ver >= 33 || epoxy_has_gl_extension("GL_ARB_shader_bit_encoding"))
-      vrend_state.have_bit_encoding = true;
+      set_feature(feat_bit_encoding);
    if (!gles && gl_ver >= 31)
-      vrend_state.have_gl_prim_restart = true;
+      set_feature(feat_gl_prim_restart);
    else if (epoxy_has_gl_extension("GL_NV_primitive_restart"))
-      vrend_state.have_nv_prim_restart = true;
+      set_feature(feat_nv_prim_restart);
    if (!gles && gl_ver >= 30)
-      vrend_state.have_gl_conditional_render = true;
+      set_feature(feat_gl_conditional_render);
    else if (epoxy_has_gl_extension("GL_NV_conditional_render"))
-      vrend_state.have_nv_conditional_render = true;
+      set_feature(feat_nv_conditional_render);
    if (gl_ver >= 40 || (gles && gl_ver >= 30) ||
        epoxy_has_gl_extension("GL_ARB_transform_feedback2")) {
-      vrend_state.have_tf2 = true;
+      set_feature(feat_transform_feedback2);
    }
 
    if (epoxy_has_gl_extension("GL_ARB_stencil_texturing"))
-      vrend_state.have_stencil_texturing = true;
+      set_feature(feat_stencil_texturing);
    if ((gles && gl_ver >= 30) ||
        (epoxy_has_gl_extension("GL_EXT_framebuffer_multisample") &&
         epoxy_has_gl_extension("GL_ARB_texture_multisample"))) {
-      vrend_state.have_multisample = true;
+      set_feature(feat_multisample);
       if (epoxy_has_gl_extension("GL_EXT_framebuffer_multisample_blit_scaled"))
-         vrend_state.have_ms_scaled_blit = true;
+         set_feature(feat_ms_scaled_blit);
    }
 
    if (gl_ver >= 40 || epoxy_has_gl_extension("GL_ARB_sample_shading"))
-      vrend_state.have_sample_shading = true;
+      set_feature(feat_sample_shading);
 
    if (gl_ver >= 40 || epoxy_has_gl_extension("GL_ARB_tessellation_shader"))
-      vrend_state.have_tessellation = true;
+      set_feature(feat_tessellation);
 
    if (gl_ver >= 43 || epoxy_has_gl_extension("GL_ARB_texture_buffer_range"))
-      vrend_state.have_texture_buffer_range = true;
+      set_feature(feat_texture_buffer_range);
 
    if (gl_ver >= 42 || epoxy_has_gl_extension("GL_ARB_texture_storage"))
-      vrend_state.have_texture_storage = true;
+      set_feature(feat_texture_storage);
 
    if (gl_ver >= 43 || epoxy_has_gl_extension("GL_ARB_texture_view"))
-      vrend_state.have_texture_view = true;
+      set_feature(feat_texture_view);
 
    if (gl_ver >= 43 || epoxy_has_gl_extension("GL_ARB_shader_storage_buffer_object"))
-      vrend_state.have_ssbo = true;
+      set_feature(feat_ssbo);
 
    if (gl_ver >= 46 || epoxy_has_gl_extension("GL_ARB_polygon_offset_clamp"))
-      vrend_state.have_polygon_offset_clamp = true;
+      set_feature(feat_polygon_offset_clamp);
 
    if (gl_ver >= 43 || (gles && gl_ver >= 32) ||
        epoxy_has_gl_extension("GL_ARB_copy_image") ||
        epoxy_has_gl_extension("GL_EXT_copy_image") ||
        epoxy_has_gl_extension("GL_OES_copy_image"))
-       vrend_state.have_copy_image = true;
+      set_feature(feat_copy_image);
 
    /* callbacks for when we are cleaning up the object table */
    vrend_resource_set_destroy_callback(vrend_destroy_resource_object);
@@ -4667,7 +4683,7 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
    vrend_object_set_destroy_callback(VIRGL_OBJECT_VERTEX_ELEMENTS, vrend_destroy_vertex_elements_object);
 
    /* disable for format testing, spews a lot of errors */
-   if (vrend_state.have_debug_cb) {
+   if (has_feature(feat_debug_cb)) {
       glDisable(GL_DEBUG_OUTPUT);
    }
 
@@ -4680,7 +4696,7 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
    }
 
    /* disable for format testing */
-   if (vrend_state.have_debug_cb) {
+   if (has_feature(feat_debug_cb)) {
       glDisable(GL_DEBUG_OUTPUT);
    }
 
@@ -4734,7 +4750,7 @@ static void vrend_destroy_sub_context(struct vrend_sub_context *sub)
 
    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-   if (!vrend_state.have_gles31_vertex_attrib_binding) {
+   if (!has_feature(feat_gles31_vertex_attrib_binding)) {
       while (sub->enabled_attribs_bitmask) {
          i = u_bit_scan(&sub->enabled_attribs_bitmask);
 
@@ -5061,7 +5077,7 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
 	 return EINVAL;
       }
    } else if (pr->nr_samples > 1) {
-      if (vrend_state.use_gles || vrend_state.have_texture_storage) {
+      if (vrend_state.use_gles || has_feature(feat_texture_storage)) {
          if (gr->target == GL_TEXTURE_2D_MULTISAMPLE) {
             glTexStorage2DMultisample(gr->target, pr->nr_samples,
                                       internalformat, pr->width0, pr->height0,
@@ -5084,7 +5100,7 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
       }
    } else if (gr->target == GL_TEXTURE_CUBE_MAP) {
          int i;
-         if (vrend_state.have_texture_storage)
+         if (has_feature(feat_texture_storage))
             glTexStorage2D(GL_TEXTURE_CUBE_MAP, pr->last_level + 1, internalformat, pr->width0, pr->height0);
          else {
             for (i = 0; i < 6; i++) {
@@ -5101,7 +5117,7 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
    } else if (gr->target == GL_TEXTURE_3D ||
               gr->target == GL_TEXTURE_2D_ARRAY ||
               gr->target == GL_TEXTURE_CUBE_MAP_ARRAY) {
-      if (vrend_state.have_texture_storage) {
+      if (has_feature(feat_texture_storage)) {
          unsigned depth_param = (gr->target == GL_TEXTURE_2D_ARRAY || gr->target == GL_TEXTURE_CUBE_MAP_ARRAY) ?
                                    pr->array_size : pr->depth0;
          glTexStorage3D(gr->target, pr->last_level + 1, internalformat, pr->width0, pr->height0, depth_param);
@@ -5118,7 +5134,7 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
    } else if (gr->target == GL_TEXTURE_1D && vrend_state.use_gles) {
       report_gles_missing_func(NULL, "glTexImage1D");
    } else if (gr->target == GL_TEXTURE_1D) {
-      if (vrend_state.have_texture_storage) {
+      if (has_feature(feat_texture_storage)) {
          glTexStorage1D(gr->target, pr->last_level + 1, internalformat, pr->width0);
       } else {
          for (level = 0; level <= pr->last_level; level++) {
@@ -5128,7 +5144,7 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
          }
       }
    } else {
-      if (vrend_state.have_texture_storage)
+      if (has_feature(feat_texture_storage))
          glTexStorage2D(gr->target, pr->last_level + 1, internalformat, pr->width0,
                         gr->target == GL_TEXTURE_1D_ARRAY ? pr->array_size : pr->height0);
       else {
@@ -5142,7 +5158,7 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
       }
    }
 
-   if (!vrend_state.have_texture_storage) {
+   if (!has_feature(feat_texture_storage)) {
       glTexParameteri(gr->target, GL_TEXTURE_BASE_LEVEL, 0);
       glTexParameteri(gr->target, GL_TEXTURE_MAX_LEVEL, pr->last_level);
    }
@@ -5205,7 +5221,7 @@ int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *a
 #endif
 
       /* need to check GL version here */
-      if (vrend_state.have_arb_or_gles_ext_texture_buffer) {
+      if (has_feature(feat_arb_or_gles_ext_texture_buffer)) {
          gr->target = GL_TEXTURE_BUFFER;
       } else {
          gr->target = GL_PIXEL_PACK_BUFFER_ARB;
@@ -5776,7 +5792,7 @@ static int vrend_transfer_send_getteximage(struct vrend_context *ctx,
       target = res->target;
 
    if (compressed) {
-      if (vrend_state.have_arb_robustness) {
+      if (has_feature(feat_arb_robustness)) {
          glGetnCompressedTexImageARB(target, info->level, tex_size, data);
       } else if (vrend_state.use_gles) {
          report_gles_missing_func(ctx, "glGetCompressedTexImage");
@@ -5784,7 +5800,7 @@ static int vrend_transfer_send_getteximage(struct vrend_context *ctx,
          glGetCompressedTexImage(target, info->level, data);
       }
    } else {
-      if (vrend_state.have_arb_robustness) {
+      if (has_feature(feat_arb_robustness)) {
          glGetnTexImageARB(target, info->level, format, type, tex_size, data);
       } else if (vrend_state.use_gles) {
          report_gles_missing_func(ctx, "glGetTexImage");
@@ -5827,7 +5843,7 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
 
    actually_invert = res->y_0_top;
 
-   if (actually_invert && !vrend_state.have_mesa_invert)
+   if (actually_invert && !has_feature(feat_mesa_invert))
       separate_invert = true;
 
    if (num_iovs > 1 || separate_invert)
@@ -5866,7 +5882,7 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
    else
       y1 = info->box->y;
 
-   if (vrend_state.have_mesa_invert && actually_invert)
+   if (has_feature(feat_mesa_invert) && actually_invert)
       glPixelStorei(GL_PACK_INVERT_MESA, 1);
    if (!vrend_format_is_ds(res->base.format))
       glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
@@ -5927,9 +5943,9 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
       }
    }
 
-   if (vrend_state.have_arb_robustness)
+   if (has_feature(feat_arb_robustness))
       glReadnPixelsARB(info->box->x, y1, info->box->width, info->box->height, format, type, send_size, data);
-   else if (vrend_state.have_gles_khr_robustness)
+   else if (has_feature(feat_gles_khr_robustness))
       glReadnPixelsKHR(info->box->x, y1, info->box->width, info->box->height, format, type, send_size, data);
    else
       glReadPixels(info->box->x, y1, info->box->width, info->box->height, format, type, data);
@@ -5940,7 +5956,7 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
       else
          vrend_scale_depth(data, send_size, depth_scale);
    }
-   if (vrend_state.have_mesa_invert && actually_invert)
+   if (has_feature(feat_mesa_invert) && actually_invert)
       glPixelStorei(GL_PACK_INVERT_MESA, 0);
    if (!need_temp && info->stride)
       glPixelStorei(GL_PACK_ROW_LENGTH, 0);
@@ -6217,13 +6233,13 @@ void vrend_set_min_samples(struct vrend_context *ctx, unsigned min_samples)
       min_sample_shading /= MAX2(1, ctx->sub->surf[0]->texture->base.nr_samples);
    }
 
-   if (vrend_state.have_sample_shading)
+   if (has_feature(feat_sample_shading))
       glMinSampleShading(min_sample_shading);
 }
 
 void vrend_set_tess_state(UNUSED struct vrend_context *ctx, const float tess_factors[6])
 {
-   if (vrend_state.have_tessellation) {
+   if (has_feature(feat_tessellation)) {
       glPatchParameterfv(GL_PATCH_DEFAULT_OUTER_LEVEL, tess_factors);
       glPatchParameterfv(GL_PATCH_DEFAULT_INNER_LEVEL, &tess_factors[4]);
    }
@@ -6267,7 +6283,7 @@ void vrend_set_streamout_targets(struct vrend_context *ctx,
       }
 
       obj = CALLOC_STRUCT(vrend_streamout_object);
-      if (vrend_state.have_tf2) {
+      if (has_feature(feat_transform_feedback2)) {
          glGenTransformFeedbacks(1, &obj->id);
          glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, obj->id);
       }
@@ -6287,7 +6303,7 @@ void vrend_set_streamout_targets(struct vrend_context *ctx,
       ctx->sub->current_so = obj;
       obj->xfb_state = XFB_STATE_STARTED_NEED_BEGIN;
    } else {
-      if (vrend_state.have_tf2)
+      if (has_feature(feat_transform_feedback2))
          glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, 0);
       ctx->sub->current_so = NULL;
    }
@@ -6403,12 +6419,12 @@ static void vrend_resource_copy_fallback(struct vrend_resource *src_res,
          GLenum ctarget = src_res->target == GL_TEXTURE_CUBE_MAP ?
                             (GLenum)(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i) : src_res->target;
          if (compressed) {
-            if (vrend_state.have_arb_robustness)
+            if (has_feature(feat_arb_robustness))
                glGetnCompressedTexImageARB(ctarget, src_level, read_chunk_size, tptr + slice_offset);
             else
                glGetCompressedTexImage(ctarget, src_level, tptr + slice_offset);
          } else {
-            if (vrend_state.have_arb_robustness)
+            if (has_feature(feat_arb_robustness))
                glGetnTexImageARB(ctarget, src_level, glformat, gltype, read_chunk_size, tptr + slice_offset);
             else
                glGetTexImage(ctarget, src_level, glformat, gltype, tptr + slice_offset);
@@ -6519,7 +6535,7 @@ void vrend_renderer_resource_copy_region(struct vrend_context *ctx,
       return;
    }
 
-   if (vrend_state.have_copy_image) {
+   if (has_feature(feat_copy_image)) {
       if (format_is_copy_compatible(src_res->base.format,dst_res->base.format) &&
           src_res->base.nr_samples == dst_res->base.nr_samples) {
          vrend_copy_sub_image(src_res, dst_res, src_level, src_box,
@@ -6627,7 +6643,7 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
        src_res->base.nr_samples != dst_res->base.nr_samples &&
        (info->src.box.width != info->dst.box.width ||
         info->src.box.height != info->dst.box.height)) {
-      if (vrend_state.have_ms_scaled_blit)
+      if (has_feature(feat_ms_scaled_blit))
          filter = GL_SCALED_RESOLVE_NICEST_EXT;
       else
          use_gl = true;
@@ -6808,7 +6824,7 @@ void vrend_renderer_blit(struct vrend_context *ctx,
     * glCopyImageSubData. For the latter case forward the call to the
     * glCopyImageSubData function, otherwise use a framebuffer blit.
     */
-   if (vrend_state.have_copy_image && !info->render_condition_enable &&
+   if (has_feature(feat_copy_image) && !info->render_condition_enable &&
        format_is_copy_compatible(info->src.format,info->dst.format) &&
        !info->scissor_enable && (info->filter == PIPE_TEX_FILTER_NEAREST) &&
        !info->alpha_blend && (info->mask == PIPE_MASK_RGBA) &&
@@ -7151,17 +7167,17 @@ static void vrend_pause_render_condition(struct vrend_context *ctx, bool pause)
 {
    if (pause) {
       if (ctx->sub->cond_render_q_id) {
-         if (vrend_state.have_gl_conditional_render)
+         if (has_feature(feat_gl_conditional_render))
             glEndConditionalRender();
-         else if (vrend_state.have_nv_conditional_render)
+         else if (has_feature(feat_nv_conditional_render))
             glEndConditionalRenderNV();
       }
    } else {
       if (ctx->sub->cond_render_q_id) {
-         if (vrend_state.have_gl_conditional_render)
+         if (has_feature(feat_gl_conditional_render))
             glBeginConditionalRender(ctx->sub->cond_render_q_id,
                                      ctx->sub->cond_render_gl_mode);
-         else if (vrend_state.have_nv_conditional_render)
+         else if (has_feature(feat_nv_conditional_render))
             glBeginConditionalRenderNV(ctx->sub->cond_render_q_id,
                                        ctx->sub->cond_render_gl_mode);
       }
@@ -7177,9 +7193,9 @@ void vrend_render_condition(struct vrend_context *ctx,
    GLenum glmode = 0;
 
    if (handle == 0) {
-      if (vrend_state.have_gl_conditional_render)
+      if (has_feature(feat_gl_conditional_render))
          glEndConditionalRender();
-      else if (vrend_state.have_nv_conditional_render)
+      else if (has_feature(feat_nv_conditional_render))
          glEndConditionalRenderNV();
       ctx->sub->cond_render_q_id = 0;
       ctx->sub->cond_render_gl_mode = 0;
@@ -7209,9 +7225,9 @@ void vrend_render_condition(struct vrend_context *ctx,
 
    ctx->sub->cond_render_q_id = q->id;
    ctx->sub->cond_render_gl_mode = glmode;
-   if (vrend_state.have_gl_conditional_render)
+   if (has_feature(feat_gl_conditional_render))
       glBeginConditionalRender(q->id, glmode);
-   if (vrend_state.have_nv_conditional_render)
+   if (has_feature(feat_nv_conditional_render))
       glBeginConditionalRenderNV(q->id, glmode);
 }
 
@@ -7383,8 +7399,8 @@ static bool vrend_renderer_fill_caps_common(uint32_t set, UNUSED uint32_t versio
 
 
    /* These are filled in by the init code, so are common. */
-   if (vrend_state.have_nv_prim_restart ||
-       vrend_state.have_gl_prim_restart) {
+   if (has_feature(feat_nv_prim_restart) ||
+       has_feature(feat_gl_prim_restart)) {
       caps->v1.bset.primitive_restart = 1;
    }
 
@@ -7514,7 +7530,7 @@ static void vrend_renderer_fill_caps_gles(uint32_t set, UNUSED uint32_t version,
 
    caps->v1.max_samples = vrend_renderer_query_multisample_caps(max, &caps->v2);
 
-   if (vrend_state.have_copy_image)
+   if (has_feature(feat_copy_image))
       caps->v2.capability_bits |= VIRGL_CAP_COPY_IMAGE;
 }
 
@@ -7763,7 +7779,7 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
    if (gl_ver >= 43 || epoxy_has_gl_extension("GL_ARB_texture_view"))
       caps->v2.capability_bits |= VIRGL_CAP_TEXTURE_VIEW;
 
-   if (vrend_state.have_copy_image)
+   if (has_feature(feat_copy_image))
       caps->v2.capability_bits |= VIRGL_CAP_COPY_IMAGE;
 }
 
@@ -7810,7 +7826,7 @@ void *vrend_renderer_get_cursor_contents(uint32_t res_handle, uint32_t *width, u
       return NULL;
    }
 
-   if (vrend_state.have_arb_robustness) {
+   if (has_feature(feat_arb_robustness)) {
       glBindTexture(res->target, res->id);
       glGetnTexImageARB(res->target, 0, format, type, size, data);
    } else if (vrend_state.use_gles) {
@@ -7833,9 +7849,9 @@ void *vrend_renderer_get_cursor_contents(uint32_t res_handle, uint32_t *width, u
          glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, res->readback_fb_id);
       }
 
-      if (vrend_state.have_arb_robustness) {
+      if (has_feature(feat_arb_robustness)) {
          glReadnPixelsARB(0, 0, *width, *height, format, type, size, data);
-      } else if (vrend_state.have_gles_khr_robustness) {
+      } else if (has_feature(feat_gles_khr_robustness)) {
          glReadnPixelsKHR(0, 0, *width, *height, format, type, size, data);
       } else {
          glReadPixels(0, 0, *width, *height, format, type, data);
@@ -8003,7 +8019,7 @@ void vrend_renderer_create_sub_ctx(struct vrend_context *ctx, int sub_ctx_id)
    vrend_clicbs->make_current(0, sub->gl_context);
 
    /* enable if vrend_renderer_init function has done it as well */
-   if (vrend_state.have_debug_cb) {
+   if (has_feature(feat_debug_cb)) {
       glDebugMessageCallback(vrend_debug_cb, NULL);
       glEnable(GL_DEBUG_OUTPUT);
       glDisable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
@@ -8016,7 +8032,7 @@ void vrend_renderer_create_sub_ctx(struct vrend_context *ctx, int sub_ctx_id)
       sub->vps[i].far_val = 1.0;
    }
 
-   if (!vrend_state.have_gles31_vertex_attrib_binding) {
+   if (!has_feature(feat_gles31_vertex_attrib_binding)) {
       glGenVertexArrays(1, &sub->vaoid);
       glBindVertexArray(sub->vaoid);
    }
