@@ -7563,14 +7563,15 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
       fill_capset2 = true;
    }
 
+   if (has_feature(feat_nv_conditional_render) ||
+       has_feature(feat_gl_conditional_render))
+      caps->v1.bset.conditional_render = 1;
+
    if (gl_ver >= 30) {
       caps->v1.bset.indep_blend_enable = 1;
-      caps->v1.bset.conditional_render = 1;
    } else {
       if (epoxy_has_gl_extension("GL_EXT_draw_buffers2"))
          caps->v1.bset.indep_blend_enable = 1;
-      if (epoxy_has_gl_extension("GL_NV_conditional_render"))
-         caps->v1.bset.conditional_render = 1;
    }
 
    if (vrend_state.use_core_profile) {
@@ -7610,14 +7611,18 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
       caps->v1.bset.texture_multisample = 1;
    }
 
+   if (has_feature(feat_tessellation))
+      caps->v1.bset.has_tessellation_shaders = 1;
+
+   if (has_feature(feat_sample_shading))
+      caps->v1.bset.has_sample_shading = 1;
+
    if (gl_ver >= 40) {
       caps->v1.bset.indep_blend_func = 1;
       caps->v1.bset.cube_map_array = 1;
       caps->v1.bset.texture_query_lod = 1;
       caps->v1.bset.has_indirect_draw = 1;
-      caps->v1.bset.has_sample_shading = 1;
       caps->v1.bset.has_fp64 = 1;
-      caps->v1.bset.has_tessellation_shaders = 1;
    } else {
       if (epoxy_has_gl_extension("GL_ARB_draw_buffers_blend"))
          caps->v1.bset.indep_blend_func = 1;
@@ -7627,14 +7632,10 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
          caps->v1.bset.texture_query_lod = 1;
       if (epoxy_has_gl_extension("GL_ARB_indirect_draw"))
          caps->v1.bset.has_indirect_draw = 1;
-      if (epoxy_has_gl_extension("GL_ARB_sample_shading"))
-         caps->v1.bset.has_sample_shading = 1;
       /* need gpu shader 5 for bitfield insert */
       if (epoxy_has_gl_extension("GL_ARB_gpu_shader_fp64") &&
           epoxy_has_gl_extension("GL_ARB_gpu_shader5"))
          caps->v1.bset.has_fp64 = 1;
-      if (epoxy_has_gl_extension("GL_ARB_tessellation_shader"))
-         caps->v1.bset.has_tessellation_shaders = 1;
    }
 
    if (gl_ver >= 42) {
@@ -7660,12 +7661,12 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
 	caps->v1.bset.derivative_control = 1;
    }
 
+   if (has_feature(feat_polygon_offset_clamp))
+      caps->v1.bset.polygon_offset_clamp = 1;
+
    if (gl_ver >= 46) {
-     caps->v1.bset.polygon_offset_clamp = 1;
      caps->v1.bset.transform_feedback_overflow_query = 1;
    } else {
-     if (epoxy_has_gl_extension("GL_ARB_polygon_offset_clamp"))
-       caps->v1.bset.polygon_offset_clamp = 1;
      if (epoxy_has_gl_extension("GL_ARB_transform_feedback_overflow_query"))
        caps->v1.bset.transform_feedback_overflow_query = 1;
    }
@@ -7681,7 +7682,7 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
    }
 
    /* we need tf3 so we can do gallium skip buffers */
-   if (epoxy_has_gl_extension("GL_ARB_transform_feedback2")) {
+   if (has_feature(feat_transform_feedback2)) {
       caps->v1.bset.streamout_pause_resume = 1;
    }
 
@@ -7743,7 +7744,7 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
       glGetIntegerv(GL_MAX_GEOMETRY_TOTAL_OUTPUT_COMPONENTS, (GLint*)&caps->v2.max_geom_total_output_components);
    }
 
-   if (epoxy_has_gl_extension("GL_ARB_tessellation_shader") || gl_ver >= 40) {
+   if (has_feature(feat_tessellation)) {
       glGetIntegerv(GL_MAX_TESS_PATCH_COMPONENTS, &max);
       caps->v2.max_shader_patch_varyings = max / 4;
    } else
@@ -7762,7 +7763,7 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
       glGetIntegerv(GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT, (GLint*)&caps->v2.texture_buffer_offset_alignment);
    }
 
-   if (gl_ver >= 43 || epoxy_has_gl_extension("GL_ARB_shader_storage_buffer_object")) {
+   if (has_feature(feat_ssbo)) {
       glGetIntegerv(GL_SHADER_STORAGE_BUFFER_OFFSET_ALIGNMENT, (GLint*)&caps->v2.shader_buffer_offset_alignment);
 
       glGetIntegerv(GL_MAX_VERTEX_SHADER_STORAGE_BLOCKS, &max);
@@ -7782,7 +7783,7 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
    if (gl_ver >= 44)
       glGetIntegerv(GL_MAX_VERTEX_ATTRIB_STRIDE, (GLint*)&caps->v2.max_vertex_attrib_stride);
 
-   if (gl_ver >= 43 || epoxy_has_gl_extension("GL_ARB_texture_view"))
+   if (has_feature(feat_texture_view))
       caps->v2.capability_bits |= VIRGL_CAP_TEXTURE_VIEW;
 
    if (has_feature(feat_copy_image))
