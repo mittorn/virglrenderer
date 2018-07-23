@@ -1097,9 +1097,9 @@ static int vrend_decode_set_shader_buffers(struct vrend_decode_ctx *ctx, uint16_
       return EINVAL;
 
    for (int i = 0; i < num_ssbo; i++) {
-      uint32_t offset = get_buf_entry(ctx, i * VIRGL_SET_SHADER_BUFFER_ELEMENT_SIZE + 3);
-      uint32_t buf_len = get_buf_entry(ctx, i * VIRGL_SET_SHADER_BUFFER_ELEMENT_SIZE + 4);
-      uint32_t handle = get_buf_entry(ctx, i * VIRGL_SET_SHADER_BUFFER_ELEMENT_SIZE + 5);
+      uint32_t offset = get_buf_entry(ctx, VIRGL_SET_SHADER_BUFFER_OFFSET(i));
+      uint32_t buf_len = get_buf_entry(ctx, VIRGL_SET_SHADER_BUFFER_LENGTH(i));
+      uint32_t handle = get_buf_entry(ctx, VIRGL_SET_SHADER_BUFFER_RES_HANDLE(i));
       vrend_set_single_ssbo(ctx->grctx, shader_type, start_slot + i, offset, buf_len,
                             handle);
    }
