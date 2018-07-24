@@ -127,6 +127,7 @@ enum features_id
    feat_transform_feedback2,
    feat_transform_feedback3,
    feat_transform_feedback_overflow_query,
+   feat_ubo,
    feat_viewport_array,
    feat_last,
 };
@@ -177,6 +178,7 @@ static const  struct {
    [feat_transform_feedback2] = { 40, 30, { "GL_ARB_transform_feedback2" } },
    [feat_transform_feedback3] = { 40, UNAVAIL, { "GL_ARB_transform_feedback3" } },
    [feat_transform_feedback_overflow_query] = { 46, UNAVAIL, { "GL_ARB_transform_feedback_overflow_query" } },
+   [feat_ubo] = { 31, 30, { "GL_ARB_uniform_buffer_object" } },
    [feat_viewport_array] = { 41, UNAVAIL, { "GL_ARB_viewport_array" } },
 };
 
@@ -1048,6 +1050,8 @@ static void bind_const_locs(struct vrend_linked_shader_program *sprog,
 static void bind_ubo_locs(struct vrend_linked_shader_program *sprog,
                           int id)
 {
+   if (!has_feature(feat_ubo))
+      return;
    if (sprog->ss[id]->sel->sinfo.num_ubos) {
       const char *prefix = pipe_shader_to_prefix(id);
 
@@ -2176,6 +2180,9 @@ void vrend_set_uniform_buffer(struct vrend_context *ctx,
 {
    struct vrend_resource *res;
 
+   if (!has_feature(feat_ubo))
+      return;
+
    if (res_handle) {
       res = vrend_renderer_ctx_res_lookup(ctx, res_handle);
 
@@ -3266,6 +3273,9 @@ static void vrend_draw_bind_ubo_shader(struct vrend_context *ctx,
    struct pipe_constant_buffer *cb;
    struct vrend_resource *res;
    struct vrend_shader_info* sinfo;
+
+   if (!has_feature(feat_ubo))
+      return;
 
    if (!ctx->sub->const_bufs_used_mask[shader_type])
       return;
@@ -7649,7 +7659,7 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
    if (has_feature(feat_draw_instance))
       caps->v1.bset.instanceid = 1;
 
-   if (gl_ver >= 31) {
+   if (has_feature(feat_ubo)) {
       glGetIntegerv(GL_MAX_VERTEX_UNIFORM_BLOCKS, &max);
       vrend_state.max_uniform_blocks = max;
       caps->v1.max_uniform_blocks = max + 1;
