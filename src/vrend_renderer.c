@@ -117,6 +117,41 @@ enum features_id
    feat_last,
 };
 
+#define FEAT_MAX_EXTS 4
+#define UNAVAIL INT_MAX
+
+static const  struct {
+   int gl_ver;
+   int gles_ver;
+   const char *gl_ext[FEAT_MAX_EXTS];
+} feature_list[] = {
+   [feat_arb_or_gles_ext_texture_buffer] = { 31, UNAVAIL, { "GL_ARB_texture_buffer_object", "GL_EXT_texture_buffer", NULL } },
+   [feat_arb_robustness] = { UNAVAIL, UNAVAIL, { "GL_ARB_robustness" } },
+   [feat_bit_encoding] = { 33, UNAVAIL, { "GL_ARB_shader_bit_encoding" } },
+   [feat_copy_image] = { 43, 32, { "GL_ARB_copy_image", "GL_EXT_copy_image", "GL_OES_copy_image" } },
+   [feat_debug_cb] = { UNAVAIL, UNAVAIL, {} }, /* special case */
+   [feat_gl_conditional_render] = { 30, UNAVAIL, {} },
+   [feat_gl_prim_restart] = { 31, UNAVAIL, {} },
+   [feat_gles_khr_robustness] = { UNAVAIL, UNAVAIL, { "GL_KHR_robustness" } },
+   [feat_gles31_vertex_attrib_binding] = { 43, 31, { "GL_ARB_vertex_attrib_binding" } },
+   [feat_mesa_invert] = { UNAVAIL, UNAVAIL, { "GL_MESA_pack_invert" } },
+   [feat_ms_scaled_blit] = { UNAVAIL, UNAVAIL, { "GL_EXT_framebuffer_multisample_blit_scaled" } },
+   [feat_multisample] = { 32, 30, { "GL_ARB_texture_multisample" } },
+   [feat_nv_conditional_render] = { UNAVAIL, UNAVAIL, { "GL_NV_conditional_render" } },
+   [feat_nv_prim_restart] = { UNAVAIL, UNAVAIL, { "GL_NV_primitive_restart" } },
+   [feat_polygon_offset_clamp] = { 46, UNAVAIL, { "GL_ARB_polygon_offset_clamp" } },
+   [feat_sample_shading] = { 40, UNAVAIL, { "GL_ARB_sample_shading" } },
+   [feat_samplers] = { 33, UNAVAIL, { "GL_ARB_sampler_objects" } },
+   [feat_ssbo] = { 43, 31, { "GL_ARB_shader_storage_buffer_object" } },
+   [feat_stencil_texturing] = { 43, UNAVAIL, { "GL_ARB_stencil_texturing" } },
+   [feat_tessellation] = { 40, UNAVAIL, { "GL_ARB_tessellation_shader" } },
+   [feat_texture_buffer_range] = { 43, UNAVAIL, { "GL_ARB_texture_buffer_range" } },
+   [feat_texture_storage] = { 42, UNAVAIL, { "GL_ARB_texture_storage" } },
+   [feat_texture_view] = { 43, UNAVAIL, { "GL_ARB_texture_view" } },
+   [feat_transform_feedback2] = { 40, 30, { "GL_ARB_transform_feedback2" } },
+   [feat_transform_feedback3] = { 40, UNAVAIL, { "GL_ARB_transform_feedback3" } },
+};
+
 struct global_renderer_state {
    int gl_major_ver;
    int gl_minor_ver;
@@ -581,6 +616,25 @@ static void __report_gles_missing_func(const char *fname, struct vrend_context *
    fprintf(stderr,"%s: gles violation reported %d \"%s\" %s is missing\n", fname, id, name, missf);
 }
 #define report_gles_missing_func(ctx, missf) __report_gles_missing_func(__func__, ctx, missf)
+
+static void init_features(int gl_ver, int gles_ver)
+{
+   for (enum features_id id = 0; id < feat_last; id++) {
+      if (gl_ver >= feature_list[id].gl_ver ||
+          gles_ver >= feature_list[id].gles_ver)
+         set_feature(id);
+      else {
+         for (uint32_t i = 0; i < FEAT_MAX_EXTS; i++) {
+            if (!feature_list[id].gl_ext[i])
+               break;
+            if (epoxy_has_gl_extension(feature_list[id].gl_ext[i])) {
+               set_feature(id);
+               break;
+            }
+         }
+      }
+   }
+}
 
 static void vrend_destroy_surface(struct vrend_surface *surf)
 {
@@ -4599,86 +4653,15 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
       fprintf(stderr, "gl_version %d - compat profile\n", gl_ver);
    }
 
+   init_features(gles ? 0 : gl_ver,
+                 gles ? gl_ver : 0);
+
    glGetIntegerv(GL_MAX_DRAW_BUFFERS, (GLint *) &vrend_state.max_draw_buffers);
 
-   if (epoxy_has_gl_extension("GL_ARB_robustness")) {
-      set_feature(feat_arb_robustness);
-   } else if (gles && epoxy_has_gl_extension("GL_KHR_robustness")) {
-      set_feature(feat_gles_khr_robustness);
-   } else {
+   if (!has_feature(feat_arb_robustness) &&
+       !has_feature(feat_gles_khr_robustness)) {
       fprintf(stderr,"WARNING: running without ARB/KHR robustness in place may crash\n");
    }
-
-   /* used for buffers that we want to texture from */
-   if (epoxy_has_gl_extension("GL_ARB_texture_buffer_object")) {
-      set_feature(feat_arb_or_gles_ext_texture_buffer);
-   }
-   if (gles && epoxy_has_gl_extension("GL_EXT_texture_buffer")) {
-      set_feature(feat_arb_or_gles_ext_texture_buffer);
-   }
-
-   if (epoxy_has_gl_extension("GL_MESA_pack_invert"))
-      set_feature(feat_mesa_invert);
-   if (gl_ver >= 43 ||  (gles && gl_ver >= 31) ||
-       epoxy_has_gl_extension("GL_ARB_vertex_attrib_binding"))
-      set_feature(feat_gles31_vertex_attrib_binding);
-   if (gl_ver >= 33 || epoxy_has_gl_extension("GL_ARB_sampler_objects"))
-      set_feature(feat_samplers);
-   if (gl_ver >= 33 || epoxy_has_gl_extension("GL_ARB_shader_bit_encoding"))
-      set_feature(feat_bit_encoding);
-   if (!gles && gl_ver >= 31)
-      set_feature(feat_gl_prim_restart);
-   else if (epoxy_has_gl_extension("GL_NV_primitive_restart"))
-      set_feature(feat_nv_prim_restart);
-   if (!gles && gl_ver >= 30)
-      set_feature(feat_gl_conditional_render);
-   else if (epoxy_has_gl_extension("GL_NV_conditional_render"))
-      set_feature(feat_nv_conditional_render);
-   if (gl_ver >= 40 || (gles && gl_ver >= 30) ||
-       epoxy_has_gl_extension("GL_ARB_transform_feedback2")) {
-      set_feature(feat_transform_feedback2);
-   }
-
-   if (gl_ver >= 40 ||
-       epoxy_has_gl_extension("GL_ARB_transform_feedback3"))
-      set_feature(feat_transform_feedback3);
-
-   if (epoxy_has_gl_extension("GL_ARB_stencil_texturing"))
-      set_feature(feat_stencil_texturing);
-   if ((gles && gl_ver >= 30) ||
-       (epoxy_has_gl_extension("GL_EXT_framebuffer_multisample") &&
-        epoxy_has_gl_extension("GL_ARB_texture_multisample"))) {
-      set_feature(feat_multisample);
-      if (epoxy_has_gl_extension("GL_EXT_framebuffer_multisample_blit_scaled"))
-         set_feature(feat_ms_scaled_blit);
-   }
-
-   if (gl_ver >= 40 || epoxy_has_gl_extension("GL_ARB_sample_shading"))
-      set_feature(feat_sample_shading);
-
-   if (gl_ver >= 40 || epoxy_has_gl_extension("GL_ARB_tessellation_shader"))
-      set_feature(feat_tessellation);
-
-   if (gl_ver >= 43 || epoxy_has_gl_extension("GL_ARB_texture_buffer_range"))
-      set_feature(feat_texture_buffer_range);
-
-   if (gl_ver >= 42 || epoxy_has_gl_extension("GL_ARB_texture_storage"))
-      set_feature(feat_texture_storage);
-
-   if (gl_ver >= 43 || epoxy_has_gl_extension("GL_ARB_texture_view"))
-      set_feature(feat_texture_view);
-
-   if (gl_ver >= 43 || epoxy_has_gl_extension("GL_ARB_shader_storage_buffer_object"))
-      set_feature(feat_ssbo);
-
-   if (gl_ver >= 46 || epoxy_has_gl_extension("GL_ARB_polygon_offset_clamp"))
-      set_feature(feat_polygon_offset_clamp);
-
-   if (gl_ver >= 43 || (gles && gl_ver >= 32) ||
-       epoxy_has_gl_extension("GL_ARB_copy_image") ||
-       epoxy_has_gl_extension("GL_EXT_copy_image") ||
-       epoxy_has_gl_extension("GL_OES_copy_image"))
-      set_feature(feat_copy_image);
 
    /* callbacks for when we are cleaning up the object table */
    vrend_resource_set_destroy_callback(vrend_destroy_resource_object);
