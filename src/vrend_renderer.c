@@ -117,6 +117,7 @@ enum features_id
    feat_ssbo,
    feat_stencil_texturing,
    feat_tessellation,
+   feat_texture_array,
    feat_texture_buffer_range,
    feat_texture_storage,
    feat_texture_view,
@@ -163,6 +164,7 @@ static const  struct {
    [feat_ssbo] = { 43, 31, { "GL_ARB_shader_storage_buffer_object" } },
    [feat_stencil_texturing] = { 43, UNAVAIL, { "GL_ARB_stencil_texturing" } },
    [feat_tessellation] = { 40, UNAVAIL, { "GL_ARB_tessellation_shader" } },
+   [feat_texture_array] = { 30, 30, { "GL_EXT_texture_array" } },
    [feat_texture_buffer_range] = { 43, UNAVAIL, { "GL_ARB_texture_buffer_range" } },
    [feat_texture_storage] = { 42, UNAVAIL, { "GL_ARB_texture_storage" } },
    [feat_texture_view] = { 43, UNAVAIL, { "GL_ARB_texture_view" } },
@@ -5001,6 +5003,9 @@ static int check_resource_valid(struct vrend_renderer_resource_create_args *args
       if (args->target != PIPE_TEXTURE_2D_ARRAY &&
           args->target != PIPE_TEXTURE_1D_ARRAY)
          return -1;
+
+      if (!has_feature(feat_texture_array))
+         return -1;
    }
 
    if (args->bind == 0 ||
@@ -7713,7 +7718,7 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
       caps->v1.bset.mirror_clamp = true;
    }
 
-   if (epoxy_has_gl_extension("GL_EXT_texture_array")) {
+   if (has_feature(feat_texture_array)) {
       glGetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS, &max);
       caps->v1.max_texture_array_layers = max;
    }
