@@ -532,16 +532,16 @@ static struct vrend_format_table tex_conv_table[VIRGL_FORMAT_MAX];
 
 static inline bool vrend_format_can_sample(enum virgl_formats format)
 {
-   return tex_conv_table[format].bindings & VREND_BIND_SAMPLER;
+   return tex_conv_table[format].bindings & VIRGL_BIND_SAMPLER_VIEW;
 }
 static inline bool vrend_format_can_render(enum virgl_formats format)
 {
-   return tex_conv_table[format].bindings & VREND_BIND_RENDER;
+   return tex_conv_table[format].bindings & VIRGL_BIND_RENDER_TARGET;
 }
 
 static inline bool vrend_format_is_ds(enum virgl_formats format)
 {
-   return tex_conv_table[format].bindings & VREND_BIND_DEPTHSTENCIL;
+   return tex_conv_table[format].bindings & VIRGL_BIND_DEPTH_STENCIL;
 }
 
 bool vrend_is_ds_format(enum virgl_formats format)
@@ -559,7 +559,7 @@ bool vrend_format_is_emulated_alpha(enum virgl_formats format)
 
 static bool vrend_format_needs_swizzle(enum virgl_formats format)
 {
-   return tex_conv_table[format].flags & VREND_BIND_NEED_SWIZZLE;
+   return tex_conv_table[format].flags & VIRGL_BIND_NEED_SWIZZLE;
 }
 
 static inline const char *pipe_shader_to_prefix(int shader_type)
@@ -793,7 +793,7 @@ vrend_insert_format_swizzle(int override_format, struct vrend_format_table *entr
    int i;
    tex_conv_table[override_format] = *entry;
    tex_conv_table[override_format].bindings = bindings;
-   tex_conv_table[override_format].flags = VREND_BIND_NEED_SWIZZLE;
+   tex_conv_table[override_format].flags = VIRGL_BIND_NEED_SWIZZLE;
    for (i = 0; i < 4; i++)
       tex_conv_table[override_format].swizzle[i] = swizzle[i];
 }
@@ -1668,7 +1668,7 @@ int vrend_create_sampler_view(struct vrend_context *ctx,
           swizzle[3] = PIPE_SWIZZLE_ONE;
    }
 
-   if (tex_conv_table[view->format].flags & VREND_BIND_NEED_SWIZZLE) {
+   if (tex_conv_table[view->format].flags & VIRGL_BIND_NEED_SWIZZLE) {
       if (swizzle[0] <= PIPE_SWIZZLE_ALPHA)
          swizzle[0] = tex_conv_table[view->format].swizzle[swizzle[0]];
       if (swizzle[1] <= PIPE_SWIZZLE_ALPHA)

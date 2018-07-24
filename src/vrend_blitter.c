@@ -393,7 +393,7 @@ static GLuint blit_get_frag_tex_col(struct vrend_blitter_ctx *blit_ctx,
 {
    assert(pipe_tex_target < PIPE_MAX_TEXTURE_TYPES);
 
-   bool needs_swizzle = dst_entry->flags & VREND_BIND_NEED_SWIZZLE;
+   bool needs_swizzle = dst_entry->flags & VIRGL_BIND_NEED_SWIZZLE;
 
    if (needs_swizzle || nr_samples > 1) {
       const uint8_t *swizzle = needs_swizzle ? dst_entry->swizzle : NULL;
@@ -776,7 +776,7 @@ void vrend_renderer_blit_gl(UNUSED struct vrend_context *ctx,
 
    glBindTexture(src_res->target, src_res->id);
 
-   if (src_entry->flags & VREND_BIND_NEED_SWIZZLE) {
+   if (src_entry->flags & VIRGL_BIND_NEED_SWIZZLE) {
       glTexParameteri(src_res->target, GL_TEXTURE_SWIZZLE_R,
                       to_gl_swizzle(src_entry->swizzle[0]));
       glTexParameteri(src_res->target, GL_TEXTURE_SWIZZLE_G,

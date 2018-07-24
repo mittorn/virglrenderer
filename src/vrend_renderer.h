@@ -70,12 +70,7 @@ struct vrend_resource {
    uint64_t mipmap_offsets[VR_MAX_TEXTURE_2D_LEVELS];
 };
 
-/* assume every format is sampler friendly */
-#define VREND_BIND_SAMPLER (1 << 0)
-#define VREND_BIND_RENDER (1 << 1)
-#define VREND_BIND_DEPTHSTENCIL (1 << 2)
-
-#define VREND_BIND_NEED_SWIZZLE (1 << 28)
+#define VIRGL_BIND_NEED_SWIZZLE (1 << 28)
 
 struct vrend_format_table {
    enum virgl_formats format;

@@ -313,7 +313,7 @@ static void vrend_add_formats(struct vrend_format_table *table, int num_entries)
     if (status == GL_INVALID_VALUE || status == GL_INVALID_ENUM) {
       struct vrend_format_table *entry = NULL;
       uint8_t swizzle[4];
-      binding = VREND_BIND_SAMPLER | VREND_BIND_RENDER | VREND_BIND_NEED_SWIZZLE;
+      binding = VIRGL_BIND_SAMPLER_VIEW | VIRGL_BIND_RENDER_TARGET | VIRGL_BIND_NEED_SWIZZLE;
 
       switch (table[i].format) {
       case PIPE_FORMAT_A8_UNORM:
@@ -359,9 +359,9 @@ static void vrend_add_formats(struct vrend_format_table *table, int num_entries)
     }
 
     status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-    binding = VREND_BIND_SAMPLER;
+    binding = VIRGL_BIND_SAMPLER_VIEW;
     if (status == GL_FRAMEBUFFER_COMPLETE)
-      binding |= (is_depth ? VREND_BIND_DEPTHSTENCIL : VREND_BIND_RENDER);
+      binding |= (is_depth ? VIRGL_BIND_DEPTH_STENCIL : VIRGL_BIND_RENDER_TARGET);
 
     glDeleteTextures(1, &tex_id);
     glDeleteFramebuffers(1, &fb_id);
