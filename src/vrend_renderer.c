@@ -1075,6 +1075,8 @@ static void bind_ssbo_locs(struct vrend_linked_shader_program *sprog,
 {
    int i;
    char name[32];
+   if (!has_feature(feat_ssbo))
+      return;
    if (sprog->ss[id]->sel->sinfo.ssbo_used_mask) {
       const char *prefix = pipe_shader_to_prefix(id);
       uint32_t mask = sprog->ss[id]->sel->sinfo.ssbo_used_mask;
@@ -2403,6 +2405,10 @@ void vrend_set_single_ssbo(struct vrend_context *ctx,
 {
    struct vrend_ssbo *ssbo = &ctx->sub->ssbo[shader_type][index];
    struct vrend_resource *res;
+
+   if (!has_feature(feat_ssbo))
+      return;
+
    if (handle) {
       res = vrend_renderer_ctx_res_lookup(ctx, handle);
       if (!res) {
@@ -3330,6 +3336,9 @@ static void vrend_draw_bind_ssbo_shader(struct vrend_context *ctx, int shader_ty
    struct vrend_ssbo *ssbo;
    struct vrend_resource *res;
    int i;
+
+   if (!has_feature(feat_ssbo))
+      return;
 
    if (!ctx->sub->prog->ssbo_locs[shader_type])
       return;
