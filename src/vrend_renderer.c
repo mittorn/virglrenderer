@@ -91,6 +91,7 @@ enum features_id
 {
    feat_arb_or_gles_ext_texture_buffer,
    feat_arb_robustness,
+   feat_base_instance,
    feat_bit_encoding,
    feat_copy_image,
    feat_debug_cb,
@@ -128,6 +129,7 @@ static const  struct {
 } feature_list[] = {
    [feat_arb_or_gles_ext_texture_buffer] = { 31, UNAVAIL, { "GL_ARB_texture_buffer_object", "GL_EXT_texture_buffer", NULL } },
    [feat_arb_robustness] = { UNAVAIL, UNAVAIL, { "GL_ARB_robustness" } },
+   [feat_base_instance] = { 42, UNAVAIL, { "GL_ARB_base_instance", "GL_EXT_base_instance" } },
    [feat_bit_encoding] = { 33, UNAVAIL, { "GL_ARB_shader_bit_encoding" } },
    [feat_copy_image] = { 43, 32, { "GL_ARB_copy_image", "GL_EXT_copy_image", "GL_OES_copy_image" } },
    [feat_debug_cb] = { UNAVAIL, UNAVAIL, {} }, /* special case */
@@ -3341,6 +3343,9 @@ int vrend_draw_vbo(struct vrend_context *ctx,
       return 0;
 
    if (info->instance_count && !has_feature(feat_draw_instance))
+      return EINVAL;
+
+   if (info->start_instance && !has_feature(feat_base_instance))
       return EINVAL;
 
    if (indirect_handle) {
@@ -7639,11 +7644,8 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
          caps->v1.bset.has_fp64 = 1;
    }
 
-   if (gl_ver >= 42) {
+   if (has_feature(feat_base_instance))
       caps->v1.bset.start_instance = 1;
-   } else if (epoxy_has_gl_extension("GL_ARB_base_instance")) {
-      caps->v1.bset.start_instance = 1;
-   }
 
    if (epoxy_has_gl_extension("GL_ARB_shader_stencil_export")) {
       caps->v1.bset.shader_stencil_export = 1;
