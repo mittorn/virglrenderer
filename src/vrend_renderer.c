@@ -101,6 +101,7 @@ enum features_id
    feat_gles_khr_robustness,
    feat_gles31_vertex_attrib_binding,
    feat_indep_blend,
+   feat_indep_blend_func,
    feat_indirect_draw,
    feat_mesa_invert,
    feat_ms_scaled_blit,
@@ -141,6 +142,7 @@ static const  struct {
    [feat_gles_khr_robustness] = { UNAVAIL, UNAVAIL, { "GL_KHR_robustness" } },
    [feat_gles31_vertex_attrib_binding] = { 43, 31, { "GL_ARB_vertex_attrib_binding" } },
    [feat_indep_blend] = { 30, UNAVAIL, { "GL_EXT_draw_buffers2" } },
+   [feat_indep_blend_func] = { 40, UNAVAIL, { "GL_ARB_draw_buffers_blend" } },
    [feat_indirect_draw] = { 40, UNAVAIL, { "GL_ARB_indirect_draw" } },
    [feat_mesa_invert] = { UNAVAIL, UNAVAIL, { "GL_MESA_pack_invert" } },
    [feat_ms_scaled_blit] = { UNAVAIL, UNAVAIL, { "GL_EXT_framebuffer_multisample_blit_scaled" } },
@@ -2835,7 +2837,6 @@ void vrend_clear(struct vrend_context *ctx,
          calling glClear* and restore the previous colormask afterwards, as Gallium expects. */
       if (ctx->sub->hw_blend_state.independent_blend_enable &&
           has_feature(feat_indep_blend)) {
-         /* ARB_draw_buffers_blend is required for this */
          int i;
          for (i = 0; i < PIPE_MAX_COLOR_BUFS; i++)
             glColorMaskIndexedEXT(i, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
@@ -2920,7 +2921,6 @@ void vrend_clear(struct vrend_context *ctx,
    if (buffers & PIPE_CLEAR_COLOR) {
       if (ctx->sub->hw_blend_state.independent_blend_enable &&
           has_feature(feat_indep_blend)) {
-         /* ARB_draw_buffers_blend is required for this */
          int i;
          for (i = 0; i < PIPE_MAX_COLOR_BUFS; i++) {
             struct pipe_blend_state *blend = &ctx->sub->hw_blend_state;
@@ -3755,7 +3755,8 @@ static void vrend_hw_emit_blend(struct vrend_context *ctx, struct pipe_blend_sta
    }
 
    if (state->independent_blend_enable &&
-       has_feature(feat_indep_blend)) {
+       has_feature(feat_indep_blend) &&
+       has_feature(feat_indep_blend_func)) {
       /* ARB_draw_buffers_blend is required for this */
       int i;
 
@@ -7632,14 +7633,15 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
 
    if (has_feature(feat_indirect_draw))
       caps->v1.bset.has_indirect_draw = 1;
-   if (gl_ver >= 40) {
+
+   if (has_feature(feat_indep_blend_func))
       caps->v1.bset.indep_blend_func = 1;
+
+   if (gl_ver >= 40) {
       caps->v1.bset.cube_map_array = 1;
       caps->v1.bset.texture_query_lod = 1;
       caps->v1.bset.has_fp64 = 1;
    } else {
-      if (epoxy_has_gl_extension("GL_ARB_draw_buffers_blend"))
-         caps->v1.bset.indep_blend_func = 1;
       if (epoxy_has_gl_extension("GL_ARB_texture_cube_map_array"))
          caps->v1.bset.cube_map_array = 1;
       if (epoxy_has_gl_extension("GL_ARB_texture_query_lod"))
