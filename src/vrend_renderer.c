@@ -119,6 +119,7 @@ enum features_id
    feat_texture_view,
    feat_transform_feedback2,
    feat_transform_feedback3,
+   feat_viewport_array,
    feat_last,
 };
 
@@ -160,6 +161,7 @@ static const  struct {
    [feat_texture_view] = { 43, UNAVAIL, { "GL_ARB_texture_view" } },
    [feat_transform_feedback2] = { 40, 30, { "GL_ARB_transform_feedback2" } },
    [feat_transform_feedback3] = { 40, UNAVAIL, { "GL_ARB_transform_feedback3" } },
+   [feat_viewport_array] = { 41, UNAVAIL, { "GL_ARB_viewport_array" } },
 };
 
 struct global_renderer_state {
@@ -1994,7 +1996,7 @@ void vrend_set_viewport_states(struct vrend_context *ctx,
 
             /* Best effort despite the warning, gles will clamp. */
             glDepthRangef(ctx->sub->vps[idx].near_val, ctx->sub->vps[idx].far_val);
-         } else if (idx)
+         } else if (idx && has_feature(feat_viewport_array))
             glDepthRangeIndexed(idx, ctx->sub->vps[idx].near_val, ctx->sub->vps[idx].far_val);
          else
             glDepthRange(ctx->sub->vps[idx].near_val, ctx->sub->vps[idx].far_val);
@@ -2963,7 +2965,7 @@ static void vrend_update_scissor_state(struct vrend_context *ctx)
       else
          y = ss->miny;
 
-      if (idx > 0)
+      if (idx > 0 && has_feature(feat_viewport_array))
          glScissorIndexed(idx, ss->minx, y, ss->maxx - ss->minx, ss->maxy - ss->miny);
       else
          glScissor(ss->minx, y, ss->maxx - ss->minx, ss->maxy - ss->miny);
@@ -2983,7 +2985,7 @@ static void vrend_update_viewport_state(struct vrend_context *ctx)
          cy = ctx->sub->vps[idx].cur_y - ctx->sub->vps[idx].height;
       else
          cy = ctx->sub->vps[idx].cur_y;
-      if (idx > 0)
+      if (idx > 0 && has_feature(feat_viewport_array))
          glViewportIndexedf(idx, ctx->sub->vps[idx].cur_x, cy, ctx->sub->vps[idx].width, ctx->sub->vps[idx].height);
       else
          glViewport(ctx->sub->vps[idx].cur_x, cy, ctx->sub->vps[idx].width, ctx->sub->vps[idx].height);
@@ -7719,7 +7721,7 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
       caps->v1.max_texture_gather_components = max;
    }
 
-   if (epoxy_has_gl_extension("GL_ARB_viewport_array")) {
+   if (has_feature(feat_viewport_array)) {
       glGetIntegerv(GL_MAX_VIEWPORTS, &max);
       caps->v1.max_viewports = max;
    } else {
