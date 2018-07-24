@@ -96,6 +96,7 @@ enum features_id
    feat_copy_image,
    feat_debug_cb,
    feat_draw_instance,
+   feat_dual_src_blend,
    feat_gl_conditional_render,
    feat_gl_prim_restart,
    feat_gles_khr_robustness,
@@ -138,6 +139,7 @@ static const  struct {
    [feat_copy_image] = { 43, 32, { "GL_ARB_copy_image", "GL_EXT_copy_image", "GL_OES_copy_image" } },
    [feat_debug_cb] = { UNAVAIL, UNAVAIL, {} }, /* special case */
    [feat_draw_instance] = { 31, 30, { "GL_ARB_draw_instanced" } },
+   [feat_dual_src_blend] = { 33, UNAVAIL, { "GL_ARB_blend_func_extended" } },
    [feat_gl_conditional_render] = { 30, UNAVAIL, {} },
    [feat_gl_prim_restart] = { 31, UNAVAIL, {} },
    [feat_gles_khr_robustness] = { UNAVAIL, UNAVAIL, { "GL_KHR_robustness" } },
@@ -3763,7 +3765,14 @@ static void vrend_hw_emit_blend(struct vrend_context *ctx, struct pipe_blend_sta
       int i;
 
       for (i = 0; i < PIPE_MAX_COLOR_BUFS; i++) {
+
          if (state->rt[i].blend_enable) {
+            bool dual_src = util_blend_state_is_dual(&ctx->sub->blend_state, i);
+            if (dual_src && !has_feature(feat_dual_src_blend)) {
+               fprintf(stderr, "dual src blend requested but not supported for rt %d\n", i);
+               continue;
+            }
+
             glBlendFuncSeparateiARB(i, translate_blend_factor(state->rt[i].rgb_src_factor),
                                     translate_blend_factor(state->rt[i].rgb_dst_factor),
                                     translate_blend_factor(state->rt[i].alpha_src_factor),
@@ -3784,6 +3793,10 @@ static void vrend_hw_emit_blend(struct vrend_context *ctx, struct pipe_blend_sta
       }
    } else {
       if (state->rt[0].blend_enable) {
+         bool dual_src = util_blend_state_is_dual(&ctx->sub->blend_state, 0);
+         if (dual_src && !has_feature(feat_dual_src_blend)) {
+            fprintf(stderr, "dual src blend requested but not supported for rt 0\n");
+         }
          glBlendFuncSeparate(translate_blend_factor(state->rt[0].rgb_src_factor),
                              translate_blend_factor(state->rt[0].rgb_dst_factor),
                              translate_blend_factor(state->rt[0].alpha_src_factor),
@@ -7706,7 +7719,7 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
       caps->v1.max_streamout_buffers = 4;
    }
 
-   if (epoxy_has_gl_extension("GL_ARB_blend_func_extended")) {
+   if (has_feature(feat_dual_src_blend)) {
       glGetIntegerv(GL_MAX_DUAL_SOURCE_DRAW_BUFFERS, &max);
       caps->v1.max_dual_source_render_targets = max;
    }
