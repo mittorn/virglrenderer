@@ -79,8 +79,10 @@ VIRGL_EXPORT void virgl_renderer_get_rect(int resource_id, struct iovec *iov, un
 VIRGL_EXPORT int virgl_renderer_get_fd_for_texture(uint32_t tex_id, int *fd);
 VIRGL_EXPORT int virgl_renderer_get_fd_for_texture2(uint32_t tex_id, int *fd, int *stride, int *offset);
 
-/* virgl bind flags - these are compatible with mesa 10.5 gallium.
-   but are fixed, no other should be passed to virgl either. */
+/*
+ * These are only here for compatibility-reasons. In the future, use the flags
+ * from virgl_hw.h instead.
+ */
 #define VIRGL_RES_BIND_DEPTH_STENCIL (1 << 0)
 #define VIRGL_RES_BIND_RENDER_TARGET (1 << 1)
 #define VIRGL_RES_BIND_SAMPLER_VIEW  (1 << 3)
