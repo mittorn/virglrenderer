@@ -94,6 +94,7 @@ enum features_id
    feat_bit_encoding,
    feat_copy_image,
    feat_debug_cb,
+   feat_draw_instance,
    feat_gl_conditional_render,
    feat_gl_prim_restart,
    feat_gles_khr_robustness,
@@ -130,6 +131,7 @@ static const  struct {
    [feat_bit_encoding] = { 33, UNAVAIL, { "GL_ARB_shader_bit_encoding" } },
    [feat_copy_image] = { 43, 32, { "GL_ARB_copy_image", "GL_EXT_copy_image", "GL_OES_copy_image" } },
    [feat_debug_cb] = { UNAVAIL, UNAVAIL, {} }, /* special case */
+   [feat_draw_instance] = { 31, 30, { "GL_ARB_draw_instanced" } },
    [feat_gl_conditional_render] = { 30, UNAVAIL, {} },
    [feat_gl_prim_restart] = { 31, UNAVAIL, {} },
    [feat_gles_khr_robustness] = { UNAVAIL, UNAVAIL, { "GL_KHR_robustness" } },
@@ -3337,6 +3339,9 @@ int vrend_draw_vbo(struct vrend_context *ctx,
 
    if (ctx->in_error)
       return 0;
+
+   if (info->instance_count && !has_feature(feat_draw_instance))
+      return EINVAL;
 
    if (indirect_handle) {
       indirect_res = vrend_renderer_ctx_res_lookup(ctx, indirect_handle);
@@ -7579,14 +7584,13 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
       caps->v1.bset.color_clamping = 1;
    }
 
-   if (gl_ver >= 31) {
+   if (has_feature(feat_draw_instance))
       caps->v1.bset.instanceid = 1;
+
+   if (gl_ver >= 31) {
       glGetIntegerv(GL_MAX_VERTEX_UNIFORM_BLOCKS, &max);
       vrend_state.max_uniform_blocks = max;
       caps->v1.max_uniform_blocks = max + 1;
-   } else {
-      if (epoxy_has_gl_extension("GL_ARB_draw_instanced"))
-         caps->v1.bset.instanceid = 1;
    }
 
    if (gl_ver >= 32) {
