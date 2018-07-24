@@ -6765,10 +6765,10 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
 
    if (info->scissor_enable) {
       glScissor(info->scissor.minx, info->scissor.miny, info->scissor.maxx - info->scissor.minx, info->scissor.maxy - info->scissor.miny);
-      ctx->sub->scissor_state_dirty = (1 << 0);
       glEnable(GL_SCISSOR_TEST);
    } else
       glDisable(GL_SCISSOR_TEST);
+   ctx->sub->scissor_state_dirty = (1 << 0);
 
    /* An GLES GL_INVALID_OPERATION is generated if one wants to blit from a
     * multi-sample fbo to a non multi-sample fbo and the source and destination
