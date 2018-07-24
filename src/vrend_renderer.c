@@ -94,6 +94,7 @@ enum features_id
    feat_base_instance,
    feat_bit_encoding,
    feat_copy_image,
+   feat_conditional_render_inverted,
    feat_debug_cb,
    feat_draw_instance,
    feat_dual_src_blend,
@@ -139,6 +140,7 @@ static const  struct {
    [feat_base_instance] = { 42, UNAVAIL, { "GL_ARB_base_instance", "GL_EXT_base_instance" } },
    [feat_bit_encoding] = { 33, UNAVAIL, { "GL_ARB_shader_bit_encoding" } },
    [feat_copy_image] = { 43, 32, { "GL_ARB_copy_image", "GL_EXT_copy_image", "GL_OES_copy_image" } },
+   [feat_conditional_render_inverted] = { 45, UNAVAIL, { "GL_ARB_conditional_render_inverted" } },
    [feat_debug_cb] = { UNAVAIL, UNAVAIL, {} }, /* special case */
    [feat_draw_instance] = { 31, 30, { "GL_ARB_draw_instanced" } },
    [feat_dual_src_blend] = { 33, UNAVAIL, { "GL_ARB_blend_func_extended" } },
@@ -7254,6 +7256,8 @@ void vrend_render_condition(struct vrend_context *ctx,
    if (!q)
       return;
 
+   if (condition && !has_feature(feat_conditional_render_inverted))
+      return;
    switch (mode) {
    case PIPE_RENDER_COND_WAIT:
       glmode = condition ? GL_QUERY_WAIT_INVERTED : GL_QUERY_WAIT;
@@ -7685,15 +7689,15 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
       caps->v1.bset.shader_stencil_export = 1;
    }
 
+   if (has_feature(feat_conditional_render_inverted))
+      caps->v1.bset.conditional_render_inverted = 1;
+
    if (gl_ver >= 45) {
-     caps->v1.bset.has_cull = 1;
-     caps->v1.bset.conditional_render_inverted = 1;
-     caps->v1.bset.derivative_control = 1;
+      caps->v1.bset.has_cull = 1;
+      caps->v1.bset.derivative_control = 1;
    } else {
      if (epoxy_has_gl_extension("GL_ARB_cull_distance"))
         caps->v1.bset.has_cull = 1;
-     if (epoxy_has_gl_extension("GL_ARB_conditional_render_inverted"))
-	caps->v1.bset.conditional_render_inverted = 1;
      if (epoxy_has_gl_extension("GL_ARB_derivative_control"))
 	caps->v1.bset.derivative_control = 1;
    }
