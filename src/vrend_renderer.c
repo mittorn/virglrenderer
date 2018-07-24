@@ -101,6 +101,7 @@ enum features_id
    feat_gles_khr_robustness,
    feat_gles31_vertex_attrib_binding,
    feat_indep_blend,
+   feat_indirect_draw,
    feat_mesa_invert,
    feat_ms_scaled_blit,
    feat_multisample,
@@ -140,6 +141,7 @@ static const  struct {
    [feat_gles_khr_robustness] = { UNAVAIL, UNAVAIL, { "GL_KHR_robustness" } },
    [feat_gles31_vertex_attrib_binding] = { 43, 31, { "GL_ARB_vertex_attrib_binding" } },
    [feat_indep_blend] = { 30, UNAVAIL, { "GL_EXT_draw_buffers2" } },
+   [feat_indirect_draw] = { 40, UNAVAIL, { "GL_ARB_indirect_draw" } },
    [feat_mesa_invert] = { UNAVAIL, UNAVAIL, { "GL_MESA_pack_invert" } },
    [feat_ms_scaled_blit] = { UNAVAIL, UNAVAIL, { "GL_EXT_framebuffer_multisample_blit_scaled" } },
    [feat_multisample] = { 32, 30, { "GL_ARB_texture_multisample" } },
@@ -3353,6 +3355,8 @@ int vrend_draw_vbo(struct vrend_context *ctx,
       return EINVAL;
 
    if (indirect_handle) {
+      if (!has_feature(feat_indirect_draw))
+         return EINVAL;
       indirect_res = vrend_renderer_ctx_res_lookup(ctx, indirect_handle);
       if (!indirect_res) {
          report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, indirect_handle);
@@ -3527,10 +3531,12 @@ int vrend_draw_vbo(struct vrend_context *ctx,
       }
    }
 
-   if (indirect_res)
-      glBindBuffer(GL_DRAW_INDIRECT_BUFFER, indirect_res->id);
-   else
-      glBindBuffer(GL_DRAW_INDIRECT_BUFFER, 0);
+   if (has_feature(feat_indirect_draw)) {
+      if (indirect_res)
+         glBindBuffer(GL_DRAW_INDIRECT_BUFFER, indirect_res->id);
+      else
+         glBindBuffer(GL_DRAW_INDIRECT_BUFFER, 0);
+   }
 
    if (info->vertices_per_patch && has_feature(feat_tessellation))
       glPatchParameteri(GL_PATCH_VERTICES, info->vertices_per_patch);
@@ -7624,11 +7630,12 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
    if (has_feature(feat_sample_shading))
       caps->v1.bset.has_sample_shading = 1;
 
+   if (has_feature(feat_indirect_draw))
+      caps->v1.bset.has_indirect_draw = 1;
    if (gl_ver >= 40) {
       caps->v1.bset.indep_blend_func = 1;
       caps->v1.bset.cube_map_array = 1;
       caps->v1.bset.texture_query_lod = 1;
-      caps->v1.bset.has_indirect_draw = 1;
       caps->v1.bset.has_fp64 = 1;
    } else {
       if (epoxy_has_gl_extension("GL_ARB_draw_buffers_blend"))
@@ -7637,8 +7644,6 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
          caps->v1.bset.cube_map_array = 1;
       if (epoxy_has_gl_extension("GL_ARB_texture_query_lod"))
          caps->v1.bset.texture_query_lod = 1;
-      if (epoxy_has_gl_extension("GL_ARB_indirect_draw"))
-         caps->v1.bset.has_indirect_draw = 1;
       /* need gpu shader 5 for bitfield insert */
       if (epoxy_has_gl_extension("GL_ARB_gpu_shader_fp64") &&
           epoxy_has_gl_extension("GL_ARB_gpu_shader5"))
