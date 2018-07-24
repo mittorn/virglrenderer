@@ -223,6 +223,22 @@ enum virgl_formats {
 #define VIRGL_CAP_COPY_IMAGE           (1 << 3)
 #define VIRGL_CAP_TGSI_PRECISE         (1 << 4)
 
+/* virgl bind flags - these are compatible with mesa 10.5 gallium.
+ * but are fixed, no other should be passed to virgl either.
+ */
+#define VIRGL_BIND_DEPTH_STENCIL (1 << 0)
+#define VIRGL_BIND_RENDER_TARGET (1 << 1)
+#define VIRGL_BIND_SAMPLER_VIEW  (1 << 3)
+#define VIRGL_BIND_VERTEX_BUFFER (1 << 4)
+#define VIRGL_BIND_INDEX_BUFFER  (1 << 5)
+#define VIRGL_BIND_CONSTANT_BUFFER (1 << 6)
+#define VIRGL_BIND_DISPLAY_TARGET (1 << 7)
+#define VIRGL_BIND_STREAM_OUTPUT (1 << 11)
+#define VIRGL_BIND_SHADER_BUFFER (1 << 14)
+#define VIRGL_BIND_CURSOR        (1 << 16)
+#define VIRGL_BIND_CUSTOM        (1 << 17)
+#define VIRGL_BIND_SCANOUT       (1 << 18)
+
 struct virgl_caps_bool_set1 {
         unsigned indep_blend_enable:1;
         unsigned indep_blend_func:1;
