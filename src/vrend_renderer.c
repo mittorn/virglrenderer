@@ -100,6 +100,7 @@ enum features_id
    feat_gl_prim_restart,
    feat_gles_khr_robustness,
    feat_gles31_vertex_attrib_binding,
+   feat_indep_blend,
    feat_mesa_invert,
    feat_ms_scaled_blit,
    feat_multisample,
@@ -138,6 +139,7 @@ static const  struct {
    [feat_gl_prim_restart] = { 31, UNAVAIL, {} },
    [feat_gles_khr_robustness] = { UNAVAIL, UNAVAIL, { "GL_KHR_robustness" } },
    [feat_gles31_vertex_attrib_binding] = { 43, 31, { "GL_ARB_vertex_attrib_binding" } },
+   [feat_indep_blend] = { 30, UNAVAIL, { "GL_EXT_draw_buffers2" } },
    [feat_mesa_invert] = { UNAVAIL, UNAVAIL, { "GL_MESA_pack_invert" } },
    [feat_ms_scaled_blit] = { UNAVAIL, UNAVAIL, { "GL_EXT_framebuffer_multisample_blit_scaled" } },
    [feat_multisample] = { 32, 30, { "GL_ARB_texture_multisample" } },
@@ -2829,7 +2831,8 @@ void vrend_clear(struct vrend_context *ctx,
       /* This function implements Gallium's full clear callback (st->pipe->clear) on the host. This
          callback requires no color component be masked. We must unmask all components before
          calling glClear* and restore the previous colormask afterwards, as Gallium expects. */
-      if (ctx->sub->hw_blend_state.independent_blend_enable) {
+      if (ctx->sub->hw_blend_state.independent_blend_enable &&
+          has_feature(feat_indep_blend)) {
          /* ARB_draw_buffers_blend is required for this */
          int i;
          for (i = 0; i < PIPE_MAX_COLOR_BUFS; i++)
@@ -2913,7 +2916,8 @@ void vrend_clear(struct vrend_context *ctx,
 
    /* Restore previous colormask */
    if (buffers & PIPE_CLEAR_COLOR) {
-      if (ctx->sub->hw_blend_state.independent_blend_enable) {
+      if (ctx->sub->hw_blend_state.independent_blend_enable &&
+          has_feature(feat_indep_blend)) {
          /* ARB_draw_buffers_blend is required for this */
          int i;
          for (i = 0; i < PIPE_MAX_COLOR_BUFS; i++) {
@@ -3744,7 +3748,8 @@ static void vrend_hw_emit_blend(struct vrend_context *ctx, struct pipe_blend_sta
       }
    }
 
-   if (state->independent_blend_enable) {
+   if (state->independent_blend_enable &&
+       has_feature(feat_indep_blend)) {
       /* ARB_draw_buffers_blend is required for this */
       int i;
 
@@ -7574,12 +7579,8 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
        has_feature(feat_gl_conditional_render))
       caps->v1.bset.conditional_render = 1;
 
-   if (gl_ver >= 30) {
+   if (has_feature(feat_indep_blend))
       caps->v1.bset.indep_blend_enable = 1;
-   } else {
-      if (epoxy_has_gl_extension("GL_EXT_draw_buffers2"))
-         caps->v1.bset.indep_blend_enable = 1;
-   }
 
    if (vrend_state.use_core_profile) {
       caps->v1.bset.poly_stipple = 0;
