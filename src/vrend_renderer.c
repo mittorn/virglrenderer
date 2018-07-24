@@ -5039,21 +5039,21 @@ static int check_resource_valid(struct vrend_renderer_resource_create_args *args
    }
 
    if (args->bind == 0 ||
-       args->bind == VREND_RES_BIND_CUSTOM ||
-       args->bind == VREND_RES_BIND_INDEX_BUFFER ||
-       args->bind == VREND_RES_BIND_STREAM_OUTPUT ||
-       args->bind == VREND_RES_BIND_VERTEX_BUFFER ||
-       args->bind == VREND_RES_BIND_CONSTANT_BUFFER ||
-       args->bind == VREND_RES_BIND_SHADER_BUFFER) {
+       args->bind == VIRGL_BIND_CUSTOM ||
+       args->bind == VIRGL_BIND_INDEX_BUFFER ||
+       args->bind == VIRGL_BIND_STREAM_OUTPUT ||
+       args->bind == VIRGL_BIND_VERTEX_BUFFER ||
+       args->bind == VIRGL_BIND_CONSTANT_BUFFER ||
+       args->bind == VIRGL_BIND_SHADER_BUFFER) {
       if (args->target != PIPE_BUFFER)
          return -1;
       if (args->height != 1 || args->depth != 1)
          return -1;
    } else {
-      if (!((args->bind & VREND_RES_BIND_SAMPLER_VIEW) ||
-            (args->bind & VREND_RES_BIND_DEPTH_STENCIL) ||
-            (args->bind & VREND_RES_BIND_RENDER_TARGET) ||
-            (args->bind & VREND_RES_BIND_CURSOR)))
+      if (!((args->bind & VIRGL_BIND_SAMPLER_VIEW) ||
+            (args->bind & VIRGL_BIND_DEPTH_STENCIL) ||
+            (args->bind & VIRGL_BIND_RENDER_TARGET) ||
+            (args->bind & VIRGL_BIND_CURSOR)))
          return -1;
 
       if (args->target == PIPE_TEXTURE_2D ||
@@ -5263,29 +5263,29 @@ int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *a
 
    pipe_reference_init(&gr->base.reference, 1);
 
-   if (args->bind == VREND_RES_BIND_CUSTOM) {
+   if (args->bind == VIRGL_BIND_CUSTOM) {
       /* custom should only be for buffers */
       gr->ptr = malloc(args->width);
       if (!gr->ptr) {
          FREE(gr);
          return ENOMEM;
       }
-   } else if (args->bind == VREND_RES_BIND_INDEX_BUFFER) {
+   } else if (args->bind == VIRGL_BIND_INDEX_BUFFER) {
       gr->target = GL_ELEMENT_ARRAY_BUFFER_ARB;
       vrend_create_buffer(gr, args->width);
-   } else if (args->bind == VREND_RES_BIND_STREAM_OUTPUT) {
+   } else if (args->bind == VIRGL_BIND_STREAM_OUTPUT) {
       gr->target = GL_TRANSFORM_FEEDBACK_BUFFER;
       vrend_create_buffer(gr, args->width);
-   } else if (args->bind == VREND_RES_BIND_VERTEX_BUFFER) {
+   } else if (args->bind == VIRGL_BIND_VERTEX_BUFFER) {
       gr->target = GL_ARRAY_BUFFER_ARB;
       vrend_create_buffer(gr, args->width);
-   } else if (args->bind == VREND_RES_BIND_CONSTANT_BUFFER) {
+   } else if (args->bind == VIRGL_BIND_CONSTANT_BUFFER) {
       gr->target = GL_UNIFORM_BUFFER;
       vrend_create_buffer(gr, args->width);
-   } else if (args->target == PIPE_BUFFER && (args->bind == 0 || args->bind == VREND_RES_BIND_SHADER_BUFFER)) {
+   } else if (args->target == PIPE_BUFFER && (args->bind == 0 || args->bind == VIRGL_BIND_SHADER_BUFFER)) {
       gr->target = GL_ARRAY_BUFFER_ARB;
       vrend_create_buffer(gr, args->width);
-   } else if (args->target == PIPE_BUFFER && (args->bind & VREND_RES_BIND_SAMPLER_VIEW)) {
+   } else if (args->target == PIPE_BUFFER && (args->bind & VIRGL_BIND_SAMPLER_VIEW)) {
       /*
        * On Desktop we use GL_ARB_texture_buffer_object on GLES we use
        * GL_EXT_texture_buffer (it is in the ANDRIOD extension pack).
