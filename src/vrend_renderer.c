@@ -7709,7 +7709,7 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
       caps->v1.max_dual_source_render_targets = max;
    }
 
-   if (epoxy_has_gl_extension("GL_ARB_texture_buffer_object")) {
+   if (has_feature(feat_arb_or_gles_ext_texture_buffer)) {
       glGetIntegerv(GL_MAX_TEXTURE_BUFFER_SIZE, &max);
       caps->v1.max_tbo_size = max;
    }
