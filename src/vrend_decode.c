@@ -392,8 +392,7 @@ static int vrend_decode_draw_vbo(struct vrend_decode_ctx *ctx, int length)
 
    cso = get_buf_entry(ctx, VIRGL_DRAW_VBO_COUNT_FROM_SO);
 
-   vrend_draw_vbo(ctx->grctx, &info, cso, handle, indirect_draw_count_handle);
-   return 0;
+   return vrend_draw_vbo(ctx->grctx, &info, cso, handle, indirect_draw_count_handle);
 }
 
 static int vrend_decode_create_blend(struct vrend_decode_ctx *ctx, uint32_t handle, uint16_t length)

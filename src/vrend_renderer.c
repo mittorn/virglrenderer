@@ -3326,30 +3326,30 @@ static void vrend_draw_bind_objects(struct vrend_context *ctx, bool new_program)
    ctx->sub->sampler_state_dirty = false;
 }
 
-void vrend_draw_vbo(struct vrend_context *ctx,
-                    const struct pipe_draw_info *info,
-                    uint32_t cso, uint32_t indirect_handle,
-                    uint32_t indirect_draw_count_handle)
+int vrend_draw_vbo(struct vrend_context *ctx,
+                   const struct pipe_draw_info *info,
+                   uint32_t cso, uint32_t indirect_handle,
+                   uint32_t indirect_draw_count_handle)
 {
    int i;
    bool new_program = false;
    struct vrend_resource *indirect_res = NULL;
 
    if (ctx->in_error)
-      return;
+      return 0;
 
    if (indirect_handle) {
       indirect_res = vrend_renderer_ctx_res_lookup(ctx, indirect_handle);
       if (!indirect_res) {
          report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, indirect_handle);
-         return;
+         return 0;
       }
    }
 
    /* this must be zero until we support the feature */
    if (indirect_draw_count_handle) {
       report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, indirect_handle);
-      return;
+      return 0;
    }
 
    if (ctx->ctx_switch_pending)
@@ -3373,7 +3373,7 @@ void vrend_draw_vbo(struct vrend_context *ctx,
       bool same_prog;
       if (!ctx->sub->shaders[PIPE_SHADER_VERTEX] || !ctx->sub->shaders[PIPE_SHADER_FRAGMENT]) {
          fprintf(stderr,"dropping rendering due to missing shaders: %s\n", ctx->debug_name);
-         return;
+         return 0;
       }
 
       vrend_shader_select(ctx, ctx->sub->shaders[PIPE_SHADER_FRAGMENT], &fs_dirty);
@@ -3391,7 +3391,7 @@ void vrend_draw_vbo(struct vrend_context *ctx,
           (ctx->sub->shaders[PIPE_SHADER_TESS_CTRL] && !ctx->sub->shaders[PIPE_SHADER_TESS_CTRL]->current) ||
           (ctx->sub->shaders[PIPE_SHADER_TESS_EVAL] && !ctx->sub->shaders[PIPE_SHADER_TESS_EVAL]->current)) {
          fprintf(stderr, "failure to compile shader variants: %s\n", ctx->debug_name);
-         return;
+         return 0;
       }
       same_prog = true;
       if (ctx->sub->shaders[PIPE_SHADER_VERTEX]->current->id != (GLuint)ctx->sub->prog_ids[PIPE_SHADER_VERTEX])
@@ -3423,7 +3423,7 @@ void vrend_draw_vbo(struct vrend_context *ctx,
                                       ctx->sub->shaders[PIPE_SHADER_TESS_CTRL] ? ctx->sub->shaders[PIPE_SHADER_TESS_CTRL]->current : NULL,
                                       ctx->sub->shaders[PIPE_SHADER_TESS_EVAL] ? ctx->sub->shaders[PIPE_SHADER_TESS_EVAL]->current : NULL);
             if (!prog)
-               return;
+               return 0;
          }
 
          ctx->sub->last_shader_idx = ctx->sub->shaders[PIPE_SHADER_TESS_EVAL] ? PIPE_SHADER_TESS_EVAL : (ctx->sub->shaders[PIPE_SHADER_GEOMETRY] ? PIPE_SHADER_GEOMETRY : PIPE_SHADER_FRAGMENT);
@@ -3444,7 +3444,7 @@ void vrend_draw_vbo(struct vrend_context *ctx,
    }
    if (!ctx->sub->prog) {
       fprintf(stderr,"dropping rendering due to missing shaders: %s\n", ctx->debug_name);
-      return;
+      return 0;
    }
    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, ctx->sub->fb_id);
 
@@ -3454,7 +3454,7 @@ void vrend_draw_vbo(struct vrend_context *ctx,
 
    if (!ctx->sub->ve) {
       fprintf(stderr,"illegal VE setup - skipping renderering\n");
-      return;
+      return 0;
    }
    glUniform1f(ctx->sub->prog->vs_ws_adjust_loc, ctx->sub->viewport_is_negative ? -1.0 : 1.0);
 
@@ -3475,7 +3475,7 @@ void vrend_draw_vbo(struct vrend_context *ctx,
       int vbo_index = ve->base.vertex_buffer_index;
       if (!ctx->sub->vbo[vbo_index].buffer) {
          fprintf(stderr, "VBO missing vertex buffer\n");
-         return;
+         return 0;
       }
    }
 
@@ -3584,6 +3584,7 @@ void vrend_draw_vbo(struct vrend_context *ctx,
          ctx->sub->current_so->xfb_state = XFB_STATE_PAUSED;
       }
    }
+   return 0;
 }
 
 static GLenum translate_blend_func(uint32_t pipe_blend)
