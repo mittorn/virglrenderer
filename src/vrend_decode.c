@@ -977,8 +977,7 @@ static int vrend_decode_begin_query(struct vrend_decode_ctx *ctx, int length)
 
    uint32_t handle = get_buf_entry(ctx, VIRGL_QUERY_BEGIN_HANDLE);
 
-   vrend_begin_query(ctx->grctx, handle);
-   return 0;
+   return vrend_begin_query(ctx->grctx, handle);
 }
 
 static int vrend_decode_end_query(struct vrend_decode_ctx *ctx, int length)
@@ -988,8 +987,7 @@ static int vrend_decode_end_query(struct vrend_decode_ctx *ctx, int length)
 
    uint32_t handle = get_buf_entry(ctx, VIRGL_QUERY_END_HANDLE);
 
-   vrend_end_query(ctx->grctx, handle);
-   return 0;
+   return vrend_end_query(ctx->grctx, handle);
 }
 
 static int vrend_decode_get_query_result(struct vrend_decode_ctx *ctx, int length)

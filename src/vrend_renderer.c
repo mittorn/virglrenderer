@@ -113,6 +113,7 @@ enum features_id
    feat_texture_storage,
    feat_texture_view,
    feat_transform_feedback2,
+   feat_transform_feedback3,
    feat_last,
 };
 
@@ -4638,6 +4639,10 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
       set_feature(feat_transform_feedback2);
    }
 
+   if (gl_ver >= 40 ||
+       epoxy_has_gl_extension("GL_ARB_transform_feedback3"))
+      set_feature(feat_transform_feedback3);
+
    if (epoxy_has_gl_extension("GL_ARB_stencil_texturing"))
       set_feature(feat_stencil_texturing);
    if ((gles && gl_ver >= 30) ||
@@ -7109,29 +7114,36 @@ static void vrend_destroy_query_object(void *obj_ptr)
    vrend_destroy_query(query);
 }
 
-void vrend_begin_query(struct vrend_context *ctx, uint32_t handle)
+int vrend_begin_query(struct vrend_context *ctx, uint32_t handle)
 {
    struct vrend_query *q;
 
    q = vrend_object_lookup(ctx->sub->object_hash, handle, VIRGL_OBJECT_QUERY);
    if (!q)
-      return;
+      return EINVAL;
+
+   if (q->index > 0 && !has_feature(feat_transform_feedback3))
+      return EINVAL;
 
    if (q->gltype == GL_TIMESTAMP)
-      return;
+      return 0;
 
    if (q->index > 0)
       glBeginQueryIndexed(q->gltype, q->index, q->id);
    else
       glBeginQuery(q->gltype, q->id);
+   return 0;
 }
 
-void vrend_end_query(struct vrend_context *ctx, uint32_t handle)
+int vrend_end_query(struct vrend_context *ctx, uint32_t handle)
 {
    struct vrend_query *q;
    q = vrend_object_lookup(ctx->sub->object_hash, handle, VIRGL_OBJECT_QUERY);
    if (!q)
-      return;
+      return EINVAL;
+
+   if (q->index > 0 && !has_feature(feat_transform_feedback3))
+      return EINVAL;
 
    if (vrend_is_timer_query(q->gltype)) {
       if (vrend_state.use_gles && q->gltype == GL_TIMESTAMP) {
@@ -7142,13 +7154,14 @@ void vrend_end_query(struct vrend_context *ctx, uint32_t handle)
          /* remove from active query list for this context */
          glEndQuery(q->gltype);
       }
-      return;
+      return 0;
    }
 
    if (q->index > 0)
       glEndQueryIndexed(q->gltype, q->index);
    else
       glEndQuery(q->gltype);
+   return 0;
 }
 
 void vrend_get_query_result(struct vrend_context *ctx, uint32_t handle,
@@ -7686,7 +7699,7 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
       caps->v1.bset.streamout_pause_resume = 1;
    }
 
-   if (epoxy_has_gl_extension("GL_ARB_transform_feedback3")) {
+   if (has_feature(feat_transform_feedback3)) {
       glGetIntegerv(GL_MAX_TRANSFORM_FEEDBACK_BUFFERS, &max);
       caps->v1.max_streamout_buffers = max;
    } else if (epoxy_has_gl_extension("GL_EXT_transform_feedback")) {

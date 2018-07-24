@@ -311,8 +311,8 @@ int vrend_create_query(struct vrend_context *ctx, uint32_t handle,
                        uint32_t query_type, uint32_t query_index,
                        uint32_t res_handle, uint32_t offset);
 
-void vrend_begin_query(struct vrend_context *ctx, uint32_t handle);
-void vrend_end_query(struct vrend_context *ctx, uint32_t handle);
+int vrend_begin_query(struct vrend_context *ctx, uint32_t handle);
+int vrend_end_query(struct vrend_context *ctx, uint32_t handle);
 void vrend_get_query_result(struct vrend_context *ctx, uint32_t handle,
                             uint32_t wait);
 void vrend_render_condition(struct vrend_context *ctx,
