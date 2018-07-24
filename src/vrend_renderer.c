@@ -123,6 +123,7 @@ enum features_id
    feat_texture_multisample,
    feat_texture_storage,
    feat_texture_view,
+   feat_transform_feedback,
    feat_transform_feedback2,
    feat_transform_feedback3,
    feat_transform_feedback_overflow_query,
@@ -172,6 +173,7 @@ static const  struct {
    [feat_texture_multisample] = { 32, 30, { "GL_ARB_texture_multisample" } },
    [feat_texture_storage] = { 42, UNAVAIL, { "GL_ARB_texture_storage" } },
    [feat_texture_view] = { 43, UNAVAIL, { "GL_ARB_texture_view" } },
+   [feat_transform_feedback] = { 30, 30, { "GL_EXT_transform_feedback" } },
    [feat_transform_feedback2] = { 40, 30, { "GL_ARB_transform_feedback2" } },
    [feat_transform_feedback3] = { 40, UNAVAIL, { "GL_ARB_transform_feedback3" } },
    [feat_transform_feedback_overflow_query] = { 46, UNAVAIL, { "GL_ARB_transform_feedback_overflow_query" } },
@@ -6318,6 +6320,9 @@ void vrend_set_streamout_targets(struct vrend_context *ctx,
    struct vrend_so_target *target;
    uint i;
 
+   if (!has_feature(feat_transform_feedback))
+      return;
+
    if (num_targets) {
       bool found = false;
       struct vrend_streamout_object *obj;
@@ -7537,7 +7542,7 @@ static void vrend_renderer_fill_caps_gles(uint32_t set, UNUSED uint32_t version,
       caps->v1.max_uniform_blocks = max + 1;
    }
 
-   if (gles_ver >= 30) {
+   if (has_feature(feat_transform_feedback)) {
       glGetIntegerv(GL_MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS, &max);
       /* As with the earlier version of transform feedback this min 4. */
       if (max >= 4) {
@@ -7732,15 +7737,15 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
    }
 
    /* we need tf3 so we can do gallium skip buffers */
-   if (has_feature(feat_transform_feedback2)) {
-      caps->v1.bset.streamout_pause_resume = 1;
-   }
+   if (has_feature(feat_transform_feedback)) {
+      if (has_feature(feat_transform_feedback2))
+         caps->v1.bset.streamout_pause_resume = 1;
 
-   if (has_feature(feat_transform_feedback3)) {
-      glGetIntegerv(GL_MAX_TRANSFORM_FEEDBACK_BUFFERS, &max);
-      caps->v1.max_streamout_buffers = max;
-   } else if (epoxy_has_gl_extension("GL_EXT_transform_feedback")) {
-      caps->v1.max_streamout_buffers = 4;
+      if (has_feature(feat_transform_feedback3)) {
+         glGetIntegerv(GL_MAX_TRANSFORM_FEEDBACK_BUFFERS, &max);
+         caps->v1.max_streamout_buffers = max;
+      } else
+         caps->v1.max_streamout_buffers = 4;
    }
 
    if (has_feature(feat_dual_src_blend)) {
