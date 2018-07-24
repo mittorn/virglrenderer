@@ -120,6 +120,7 @@ enum features_id
    feat_tessellation,
    feat_texture_array,
    feat_texture_buffer_range,
+   feat_texture_multisample,
    feat_texture_storage,
    feat_texture_view,
    feat_transform_feedback2,
@@ -168,6 +169,7 @@ static const  struct {
    [feat_tessellation] = { 40, UNAVAIL, { "GL_ARB_tessellation_shader" } },
    [feat_texture_array] = { 30, 30, { "GL_EXT_texture_array" } },
    [feat_texture_buffer_range] = { 43, UNAVAIL, { "GL_ARB_texture_buffer_range" } },
+   [feat_texture_multisample] = { 32, 30, { "GL_ARB_texture_multisample" } },
    [feat_texture_storage] = { 42, UNAVAIL, { "GL_ARB_texture_storage" } },
    [feat_texture_view] = { 43, UNAVAIL, { "GL_ARB_texture_view" } },
    [feat_transform_feedback2] = { 40, 30, { "GL_ARB_transform_feedback2" } },
@@ -4973,6 +4975,9 @@ static int check_resource_valid(struct vrend_renderer_resource_create_args *args
 
    /* only texture 2d and 2d array can have multiple samples */
    if (args->nr_samples > 1) {
+      if (!has_feature(feat_texture_multisample))
+         return -1;
+
       if (args->target != PIPE_TEXTURE_2D && args->target != PIPE_TEXTURE_2D_ARRAY)
          return -1;
       /* multisample can't have miplevels */
@@ -7660,9 +7665,8 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
       caps->v1.bset.seamless_cube_map_per_texture = 1;
    }
 
-   if (epoxy_has_gl_extension("GL_ARB_texture_multisample")) {
+   if (has_feature(feat_texture_multisample))
       caps->v1.bset.texture_multisample = 1;
-   }
 
    if (has_feature(feat_tessellation))
       caps->v1.bset.has_tessellation_shaders = 1;
