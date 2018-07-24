@@ -95,6 +95,7 @@ enum features_id
    feat_bit_encoding,
    feat_copy_image,
    feat_conditional_render_inverted,
+   feat_cube_map_array,
    feat_debug_cb,
    feat_draw_instance,
    feat_dual_src_blend,
@@ -142,6 +143,7 @@ static const  struct {
    [feat_bit_encoding] = { 33, UNAVAIL, { "GL_ARB_shader_bit_encoding" } },
    [feat_copy_image] = { 43, 32, { "GL_ARB_copy_image", "GL_EXT_copy_image", "GL_OES_copy_image" } },
    [feat_conditional_render_inverted] = { 45, UNAVAIL, { "GL_ARB_conditional_render_inverted" } },
+   [feat_cube_map_array] = { 40, UNAVAIL, { "GL_ARB_texture_cube_map_array", "GL_EXT_texture_cube_map_array", "GL_OES_texture_cube_map_array" } },
    [feat_debug_cb] = { UNAVAIL, UNAVAIL, {} }, /* special case */
    [feat_draw_instance] = { 31, 30, { "GL_ARB_draw_instanced" } },
    [feat_dual_src_blend] = { 33, UNAVAIL, { "GL_ARB_blend_func_extended" } },
@@ -4997,6 +4999,8 @@ static int check_resource_valid(struct vrend_renderer_resource_create_args *args
       if (args->array_size != 6)
          return -1;
    } else if (args->target == PIPE_TEXTURE_CUBE_ARRAY) {
+      if (!has_feature(feat_cube_map_array))
+         return -1;
       if (args->array_size % 6)
          return -1;
    } else if (args->array_size > 1) {
@@ -7672,13 +7676,13 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
    if (has_feature(feat_indep_blend_func))
       caps->v1.bset.indep_blend_func = 1;
 
-   if (gl_ver >= 40) {
+   if (has_feature(feat_cube_map_array))
       caps->v1.bset.cube_map_array = 1;
+
+   if (gl_ver >= 40) {
       caps->v1.bset.texture_query_lod = 1;
       caps->v1.bset.has_fp64 = 1;
    } else {
-      if (epoxy_has_gl_extension("GL_ARB_texture_cube_map_array"))
-         caps->v1.bset.cube_map_array = 1;
       if (epoxy_has_gl_extension("GL_ARB_texture_query_lod"))
          caps->v1.bset.texture_query_lod = 1;
       /* need gpu shader 5 for bitfield insert */
