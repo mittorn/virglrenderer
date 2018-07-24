@@ -121,6 +121,7 @@ enum features_id
    feat_texture_view,
    feat_transform_feedback2,
    feat_transform_feedback3,
+   feat_transform_feedback_overflow_query,
    feat_viewport_array,
    feat_last,
 };
@@ -165,6 +166,7 @@ static const  struct {
    [feat_texture_view] = { 43, UNAVAIL, { "GL_ARB_texture_view" } },
    [feat_transform_feedback2] = { 40, 30, { "GL_ARB_transform_feedback2" } },
    [feat_transform_feedback3] = { 40, UNAVAIL, { "GL_ARB_transform_feedback3" } },
+   [feat_transform_feedback_overflow_query] = { 46, UNAVAIL, { "GL_ARB_transform_feedback_overflow_query" } },
    [feat_viewport_array] = { 41, UNAVAIL, { "GL_ARB_viewport_array" } },
 };
 
@@ -7105,11 +7107,14 @@ int vrend_create_query(struct vrend_context *ctx, uint32_t handle,
       q->gltype = GL_ANY_SAMPLES_PASSED_CONSERVATIVE;
       break;
    case PIPE_QUERY_SO_OVERFLOW_PREDICATE:
+      if (!has_feature(feat_transform_feedback_overflow_query))
+         return EINVAL;
       q->gltype = GL_TRANSFORM_FEEDBACK_STREAM_OVERFLOW_ARB;
       break;
    case PIPE_QUERY_SO_OVERFLOW_ANY_PREDICATE:
+      if (!has_feature(feat_transform_feedback_overflow_query))
+         return EINVAL;
       q->gltype = GL_TRANSFORM_FEEDBACK_OVERFLOW_ARB;
-      break;
       break;
    default:
       fprintf(stderr,"unknown query object received %d\n", q->type);
@@ -7696,12 +7701,8 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
    if (has_feature(feat_polygon_offset_clamp))
       caps->v1.bset.polygon_offset_clamp = 1;
 
-   if (gl_ver >= 46) {
+   if (has_feature(feat_transform_feedback_overflow_query))
      caps->v1.bset.transform_feedback_overflow_query = 1;
-   } else {
-     if (epoxy_has_gl_extension("GL_ARB_transform_feedback_overflow_query"))
-       caps->v1.bset.transform_feedback_overflow_query = 1;
-   }
 
    if (epoxy_has_gl_extension("GL_EXT_texture_mirror_clamp") ||
        epoxy_has_gl_extension("GL_ARB_texture_mirror_clamp_to_edge")) {
