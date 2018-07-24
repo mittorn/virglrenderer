@@ -97,6 +97,7 @@ enum features_id
    feat_debug_cb,
    feat_draw_instance,
    feat_dual_src_blend,
+   feat_geometry_shader,
    feat_gl_conditional_render,
    feat_gl_prim_restart,
    feat_gles_khr_robustness,
@@ -140,6 +141,7 @@ static const  struct {
    [feat_debug_cb] = { UNAVAIL, UNAVAIL, {} }, /* special case */
    [feat_draw_instance] = { 31, 30, { "GL_ARB_draw_instanced" } },
    [feat_dual_src_blend] = { 33, UNAVAIL, { "GL_ARB_blend_func_extended" } },
+   [feat_geometry_shader] = { 32, UNAVAIL, {} },
    [feat_gl_conditional_render] = { 30, UNAVAIL, {} },
    [feat_gl_prim_restart] = { 31, UNAVAIL, {} },
    [feat_gles_khr_robustness] = { UNAVAIL, UNAVAIL, { "GL_KHR_robustness" } },
@@ -2649,6 +2651,10 @@ int vrend_create_shader(struct vrend_context *ctx,
    int ret;
 
    if (type > PIPE_SHADER_TESS_EVAL)
+      return EINVAL;
+
+   if (!has_feature(feat_geometry_shader) &&
+       type == PIPE_SHADER_GEOMETRY)
       return EINVAL;
 
    if (!has_feature(feat_tessellation) &&
@@ -7765,7 +7771,7 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
    glGetIntegerv(GL_MAX_VERTEX_OUTPUT_COMPONENTS, &max);
    caps->v2.max_vertex_outputs = max / 4;
 
-   if (gl_ver >= 32) {
+   if (has_feature(feat_geometry_shader)) {
       glGetIntegerv(GL_MAX_GEOMETRY_OUTPUT_VERTICES, (GLint*)&caps->v2.max_geom_output_vertices);
       glGetIntegerv(GL_MAX_GEOMETRY_TOTAL_OUTPUT_COMPONENTS, (GLint*)&caps->v2.max_geom_total_output_components);
    }
