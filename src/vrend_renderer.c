@@ -7505,17 +7505,11 @@ static bool vrend_renderer_fill_caps_common(uint32_t set, UNUSED uint32_t versio
    return false;
 }
 
-static void vrend_renderer_fill_caps_gles(uint32_t set, UNUSED uint32_t version,
+static void vrend_renderer_fill_caps_gles(bool fill_capset2, int gles_ver,
 					  union virgl_caps *caps)
 {
    GLint max;
    GLfloat range[2];
-   bool fill_capset2 = false;
-   int gles_ver = epoxy_gl_version();
-
-   if (set == 2) {
-      fill_capset2 = true;
-   }
 
    caps->v1.max_viewports = 1;
 
@@ -7583,8 +7577,19 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
 {
    GLint max;
    GLfloat range[2];
-   int gl_ver = epoxy_gl_version();
+   int gl_ver, gles_ver;
+   if (vrend_state.use_gles) {
+      gles_ver = epoxy_gl_version();
+      gl_ver = 0;
+   } else {
+      gles_ver = 0;
+      gl_ver = epoxy_gl_version();
+   }
    bool fill_capset2 = false;
+
+   if (set == 2) {
+      fill_capset2 = true;
+   }
 
    /* Returns true if we should early out. */
    if (vrend_renderer_fill_caps_common(set, version, caps)) {
@@ -7593,12 +7598,8 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
 
    /* GLES has it's own path */
    if (vrend_state.use_gles) {
-      vrend_renderer_fill_caps_gles(set, version, caps);
+      vrend_renderer_fill_caps_gles(fill_capset2, gles_ver, caps);
       return;
-   }
-
-   if (set == 2) {
-      fill_capset2 = true;
    }
 
    if (has_feature(feat_nv_conditional_render) ||
