@@ -7392,28 +7392,11 @@ static void vrender_get_glsl_version(int *glsl_version)
  * Does all of the common caps setting,
  * if it dedects a early out returns true.
  */
-static bool vrend_renderer_fill_caps_common(uint32_t set, UNUSED uint32_t version,
-					    union virgl_caps *caps)
+static void vrend_renderer_fill_caps_common(union virgl_caps *caps)
 {
    int i, gl_ver;
    GLint max;
 
-   if (!caps) {
-      return true;
-   }
-
-   if (set > 2) {
-      caps->max_version = 0;
-      return true;
-   }
-
-   if (set == 1) {
-      memset(caps, 0, sizeof(struct virgl_caps_v1));
-      caps->max_version = 1;
-   } else if (set == 2) {
-      memset(caps, 0, sizeof(*caps));
-      caps->max_version = 2;
-   }
 
    gl_ver = epoxy_gl_version();
 
@@ -7501,8 +7484,6 @@ static bool vrend_renderer_fill_caps_common(uint32_t set, UNUSED uint32_t versio
        has_feature(feat_gl_prim_restart)) {
       caps->v1.bset.primitive_restart = 1;
    }
-
-   return false;
 }
 
 static void vrend_renderer_fill_caps_gles(bool fill_capset2, int gles_ver,
@@ -7572,12 +7553,31 @@ static void vrend_renderer_fill_caps_gles(bool fill_capset2, int gles_ver,
       caps->v2.capability_bits |= VIRGL_CAP_COPY_IMAGE;
 }
 
-void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
+void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
                               union virgl_caps *caps)
 {
    GLint max;
    GLfloat range[2];
    int gl_ver, gles_ver;
+   bool fill_capset2 = false;
+
+   if (!caps)
+      return;
+
+   if (set > 2) {
+      caps->max_version = 0;
+      return;
+   }
+
+   if (set == 1) {
+      memset(caps, 0, sizeof(struct virgl_caps_v1));
+      caps->max_version = 1;
+   } else if (set == 2) {
+      memset(caps, 0, sizeof(*caps));
+      caps->max_version = 2;
+      fill_capset2 = true;
+   }
+
    if (vrend_state.use_gles) {
       gles_ver = epoxy_gl_version();
       gl_ver = 0;
@@ -7585,16 +7585,8 @@ void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
       gles_ver = 0;
       gl_ver = epoxy_gl_version();
    }
-   bool fill_capset2 = false;
 
-   if (set == 2) {
-      fill_capset2 = true;
-   }
-
-   /* Returns true if we should early out. */
-   if (vrend_renderer_fill_caps_common(set, version, caps)) {
-      return;
-   }
+   vrend_renderer_fill_caps_common(caps);
 
    /* GLES has it's own path */
    if (vrend_state.use_gles) {
