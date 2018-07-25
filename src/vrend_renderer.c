@@ -166,7 +166,7 @@ static const  struct {
    [feat_framebuffer_fetch] = { UNAVAIL, UNAVAIL, { "GL_EXT_shader_framebuffer_fetch" } },
    [feat_geometry_shader] = { 32, UNAVAIL, {} },
    [feat_gl_conditional_render] = { 30, UNAVAIL, {} },
-   [feat_gl_prim_restart] = { 31, UNAVAIL, {} },
+   [feat_gl_prim_restart] = { 31, 30, {} },
    [feat_gles_khr_robustness] = { UNAVAIL, UNAVAIL, { "GL_KHR_robustness" } },
    [feat_gles31_vertex_attrib_binding] = { 43, 31, { "GL_ARB_vertex_attrib_binding" } },
    [feat_images] = { 42, 31, { "GL_ARB_shader_image_load_store" } },
@@ -7863,10 +7863,6 @@ static void vrend_renderer_fill_caps_gles(int gles_ver, union virgl_caps *caps)
       caps->v1.glsl_level = 130;
    } else {
       caps->v1.glsl_level = 120;
-   }
-
-   if (gles_ver >= 30) {
-      caps->v1.bset.primitive_restart = 1;
    }
 }
 
