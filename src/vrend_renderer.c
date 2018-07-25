@@ -7517,43 +7517,6 @@ static void vrend_renderer_fill_caps_gles(uint32_t set, UNUSED uint32_t version,
       fill_capset2 = true;
    }
 
-   caps->v1.bset.indep_blend_enable = 0;
-   caps->v1.bset.conditional_render = 0;
-
-   caps->v1.bset.poly_stipple = 0;
-   caps->v1.bset.color_clamping = 0;
-
-   caps->v1.bset.instanceid = 0;
-
-   caps->v1.bset.primitive_restart = 0;
-
-   caps->v1.bset.fragment_coord_conventions = 0;
-   caps->v1.bset.depth_clip_disable = 0;
-   caps->v1.bset.seamless_cube_map = 0;
-
-   caps->v1.bset.seamless_cube_map_per_texture = 0;
-
-   caps->v1.bset.mirror_clamp = 0;
-   caps->v1.bset.indep_blend_func = 0;
-   caps->v1.bset.cube_map_array = 0;
-   caps->v1.bset.texture_query_lod = 0;
-   caps->v1.bset.has_indirect_draw = 0;
-   caps->v1.bset.has_sample_shading = 0;
-
-   caps->v1.bset.start_instance = 0;
-
-   caps->v1.bset.shader_stencil_export = 0;
-
-   caps->v1.bset.streamout_pause_resume = 0;
-
-   caps->v1.max_dual_source_render_targets = 0;
-
-   caps->v1.max_dual_source_render_targets = 0;
-
-   caps->v1.max_tbo_size = 0;
-
-   caps->v1.max_texture_gather_components = 0;
-
    caps->v1.max_viewports = 1;
 
    if (gles_ver >= 30) {
@@ -7589,31 +7552,14 @@ static void vrend_renderer_fill_caps_gles(uint32_t set, UNUSED uint32_t version,
    caps->v2.min_aliased_point_size = range[0];
    caps->v2.max_aliased_point_size = range[1];
 
-   /* Not available on GLES */
-   caps->v2.min_smooth_point_size = 0.0f;
-   caps->v2.max_smooth_point_size = 0.0f;
-
    glGetFloatv(GL_ALIASED_LINE_WIDTH_RANGE, range);
    caps->v2.min_aliased_line_width = range[0];
    caps->v2.max_aliased_line_width = range[1];
-
-   /* Not available on GLES */
-   caps->v2.min_smooth_line_width = 0.0f;
-   caps->v2.max_smooth_line_width = 0.0f;
 
    glGetFloatv(GL_MAX_TEXTURE_LOD_BIAS, &caps->v2.max_texture_lod_bias);
    glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, (GLint*)&caps->v2.max_vertex_attribs);
    glGetIntegerv(GL_MAX_VERTEX_OUTPUT_COMPONENTS, &max);
    caps->v2.max_vertex_outputs = max / 4;
-
-   /* Not available on GLES */
-   caps->v2.max_geom_output_vertices = 0;
-   caps->v2.max_geom_total_output_components = 0;
-   caps->v2.max_shader_patch_varyings = 0;
-
-   /* Not available on GLES */
-   caps->v2.min_texture_gather_offset = 0;
-   caps->v2.max_texture_gather_offset = 0;
 
    glGetIntegerv(GL_MIN_PROGRAM_TEXEL_OFFSET, &caps->v2.min_texel_offset);
    glGetIntegerv(GL_MAX_PROGRAM_TEXEL_OFFSET, &caps->v2.max_texel_offset);
@@ -7625,9 +7571,6 @@ static void vrend_renderer_fill_caps_gles(uint32_t set, UNUSED uint32_t version,
 
    if (gles_ver >= 31)
       glGetIntegerv(GL_MAX_VERTEX_ATTRIB_STRIDE, (GLint*)&caps->v2.max_vertex_attrib_stride);
-
-   /* Not available on GLES */
-   caps->v2.texture_buffer_offset_alignment = 0;
 
    caps->v1.max_samples = vrend_renderer_query_multisample_caps(max, &caps->v2);
 
