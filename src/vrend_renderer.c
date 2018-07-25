@@ -7857,13 +7857,8 @@ static void vrend_renderer_fill_caps_v2_common(union virgl_caps *caps)
    glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, (GLint*)&caps->v2.uniform_buffer_offset_alignment);
 }
 
-static void vrend_renderer_fill_caps_gles(bool fill_capset2, int gles_ver,
-					  union virgl_caps *caps)
+static void vrend_renderer_fill_caps_gles(int gles_ver, union virgl_caps *caps)
 {
-   GLint max;
-
-   caps->v1.max_viewports = 1;
-
    if (gles_ver >= 30) {
       caps->v1.glsl_level = 130;
    } else {
@@ -7871,47 +7866,8 @@ static void vrend_renderer_fill_caps_gles(bool fill_capset2, int gles_ver,
    }
 
    if (gles_ver >= 30) {
-      glGetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS, &max);
-      caps->v1.max_texture_array_layers = max;
       caps->v1.bset.primitive_restart = 1;
    }
-
-   if (gles_ver >= 30) {
-      caps->v1.bset.instanceid = 1;
-      glGetIntegerv(GL_MAX_VERTEX_UNIFORM_BLOCKS, &max);
-      vrend_state.max_uniform_blocks = max;
-      caps->v1.max_uniform_blocks = max + 1;
-   }
-
-   if (has_feature(feat_transform_feedback)) {
-      glGetIntegerv(GL_MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS, &max);
-      /* As with the earlier version of transform feedback this min 4. */
-      if (max >= 4) {
-         caps->v1.max_streamout_buffers = 4;
-      }
-   }
-
-   if (gles_ver >= 30) {
-      caps->v1.bset.texture_multisample = 1;
-   }
-
-   if (!fill_capset2) {
-      return;
-   }
-
-   if (gles_ver >= 31)
-      glGetIntegerv(GL_SHADER_STORAGE_BUFFER_OFFSET_ALIGNMENT, (GLint*)&caps->v2.shader_buffer_offset_alignment);
-
-   if (gles_ver >= 31)
-      glGetIntegerv(GL_MAX_VERTEX_ATTRIB_STRIDE, (GLint*)&caps->v2.max_vertex_attrib_stride);
-
-   caps->v1.max_samples = vrend_renderer_query_multisample_caps(max, &caps->v2);
-
-   if (has_feature(feat_copy_image))
-      caps->v2.capability_bits |= VIRGL_CAP_COPY_IMAGE;
-
-   if (fill_capset2)
-      vrend_renderer_fill_caps_v2_common(caps);
 }
 
 static void vrend_renderer_fill_caps_gl(bool fill_capset2, int gl_ver,
@@ -7990,8 +7946,7 @@ void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
 
    /* GLES has it's own path */
    if (vrend_state.use_gles) {
-      vrend_renderer_fill_caps_gles(fill_capset2, gles_ver, caps);
-      return;
+      vrend_renderer_fill_caps_gles(gles_ver, caps);
    } else
       vrend_renderer_fill_caps_gl(fill_capset2, gl_ver, caps);
 
@@ -8116,6 +8071,12 @@ void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
       if (has_feature(feat_transform_feedback3)) {
          glGetIntegerv(GL_MAX_TRANSFORM_FEEDBACK_BUFFERS, &max);
          caps->v1.max_streamout_buffers = max;
+      } else if (gles_ver > 0) {
+         glGetIntegerv(GL_MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS, &max);
+         /* As with the earlier version of transform feedback this min 4. */
+         if (max >= 4) {
+            caps->v1.max_streamout_buffers = 4;
+         }
       } else
          caps->v1.max_streamout_buffers = 4;
    }
@@ -8197,7 +8158,7 @@ void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
 
    caps->v2.capability_bits |= VIRGL_CAP_TGSI_INVARIANT | VIRGL_CAP_SET_MIN_SAMPLES | VIRGL_CAP_TGSI_PRECISE;
 
-   if (gl_ver >= 44)
+   if (gl_ver >= 44 || gles_ver >= 31)
       glGetIntegerv(GL_MAX_VERTEX_ATTRIB_STRIDE, (GLint*)&caps->v2.max_vertex_attrib_stride);
 
    if (has_feature(feat_compute_shader)) {
