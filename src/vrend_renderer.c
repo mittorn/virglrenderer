@@ -129,6 +129,7 @@ enum features_id
    feat_texture_array,
    feat_texture_buffer_range,
    feat_texture_multisample,
+   feat_texture_srgb_decode,
    feat_texture_storage,
    feat_texture_view,
    feat_transform_feedback,
@@ -189,6 +190,7 @@ static const  struct {
    [feat_texture_array] = { 30, 30, { "GL_EXT_texture_array" } },
    [feat_texture_buffer_range] = { 43, UNAVAIL, { "GL_ARB_texture_buffer_range" } },
    [feat_texture_multisample] = { 32, 30, { "GL_ARB_texture_multisample" } },
+   [feat_texture_srgb_decode] = { UNAVAIL, UNAVAIL, { "GL_EXT_texture_sRGB_decode" } },
    [feat_texture_storage] = { 42, UNAVAIL, { "GL_ARB_texture_storage" } },
    [feat_texture_view] = { 43, UNAVAIL, { "GL_ARB_texture_view" } },
    [feat_transform_feedback] = { 30, 30, { "GL_EXT_transform_feedback" } },
@@ -2514,7 +2516,7 @@ void vrend_set_single_sampler_view(struct vrend_context *ctx,
          if (view->cur_srgb_decode != view->srgb_decode && util_format_is_srgb(view->format)) {
             if (has_feature(feat_samplers))
                ctx->sub->sampler_state_dirty = true;
-            else {
+            else if (has_feature(feat_texture_srgb_decode)) {
                glTexParameteri(view->texture->target, GL_TEXTURE_SRGB_DECODE_EXT,
                                view->srgb_decode);
                view->cur_srgb_decode = view->srgb_decode;
@@ -4809,8 +4811,9 @@ static void vrend_apply_sampler_state(struct vrend_context *ctx,
          glSamplerParameterIuiv(vstate->id, GL_TEXTURE_BORDER_COLOR, border_color.ui);
       }
       glBindSampler(sampler_id, vstate->id);
-      glSamplerParameteri(vstate->id, GL_TEXTURE_SRGB_DECODE_EXT,
-                          srgb_decode);
+      if (has_feature(feat_texture_srgb_decode))
+         glSamplerParameteri(vstate->id, GL_TEXTURE_SRGB_DECODE_EXT,
+                             srgb_decode);
       return;
    }
 
