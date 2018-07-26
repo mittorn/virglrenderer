@@ -7394,11 +7394,8 @@ static void vrender_get_glsl_version(int *glsl_version)
  */
 static void vrend_renderer_fill_caps_common(union virgl_caps *caps)
 {
-   int i, gl_ver;
+   int i;
    GLint max;
-
-
-   gl_ver = epoxy_gl_version();
 
    /*
     * We can't fully support this feature on GLES,
@@ -7406,47 +7403,14 @@ static void vrend_renderer_fill_caps_common(union virgl_caps *caps)
     */
    caps->v1.bset.occlusion_query = 1;
 
-
-   /* Some checks looks at v1.glsl_level so set it here. */
-   if (vrend_state.use_gles) {
-      if (gl_ver >= 30) {
-         caps->v1.glsl_level = 130;
-      } else {
-         caps->v1.glsl_level = 120;
-      }
-   } else if (vrend_state.use_core_profile) {
-      if (gl_ver == 31)
-         caps->v1.glsl_level = 140;
-      else if (gl_ver == 32)
-         caps->v1.glsl_level = 150;
-      else if (gl_ver == 33)
-         caps->v1.glsl_level = 330;
-      else if (gl_ver == 40)
-         caps->v1.glsl_level = 400;
-      else if (gl_ver >= 41)
-         caps->v1.glsl_level = 410;
-   } else {
-      caps->v1.glsl_level = 130;
-   }
-
+   /* Set an initial level here, will be updated later */
+   caps->v1.glsl_level = 130;
 
    /* Set supported prims here as we now know what shaders we support. */
-   caps->v1.prim_mask = (1 << PIPE_PRIM_POINTS) | (1 << PIPE_PRIM_LINES) | (1 << PIPE_PRIM_LINE_STRIP) | (1 << PIPE_PRIM_LINE_LOOP) | (1 << PIPE_PRIM_TRIANGLES) | (1 << PIPE_PRIM_TRIANGLE_STRIP) | (1 << PIPE_PRIM_TRIANGLE_FAN);
-
-   if (vrend_state.use_gles == false &&
-       vrend_state.use_core_profile == false) {
-      caps->v1.prim_mask |= (1 << PIPE_PRIM_QUADS) | (1 << PIPE_PRIM_QUAD_STRIP) | (1 << PIPE_PRIM_POLYGON);
-   }
-
-   if (!vrend_state.use_gles && caps->v1.glsl_level >= 150) {
-      caps->v1.prim_mask |= (1 << PIPE_PRIM_LINES_ADJACENCY) |
-         (1 << PIPE_PRIM_LINE_STRIP_ADJACENCY) |
-         (1 << PIPE_PRIM_TRIANGLES_ADJACENCY) |
-         (1 << PIPE_PRIM_TRIANGLE_STRIP_ADJACENCY);
-   }
-   if (!vrend_state.use_gles && caps->v1.glsl_level >= 400)
-      caps->v1.prim_mask |= (1 << PIPE_PRIM_PATCHES);
-
+   caps->v1.prim_mask = (1 << PIPE_PRIM_POINTS) | (1 << PIPE_PRIM_LINES) |
+                        (1 << PIPE_PRIM_LINE_STRIP) | (1 << PIPE_PRIM_LINE_LOOP) |
+                        (1 << PIPE_PRIM_TRIANGLES) | (1 << PIPE_PRIM_TRIANGLE_STRIP) |
+                        (1 << PIPE_PRIM_TRIANGLE_FAN);
 
    /* Common limits for all backends. */
    caps->v1.max_render_targets = vrend_state.max_draw_buffers;
@@ -7469,16 +7433,6 @@ static void vrend_renderer_fill_caps_common(union virgl_caps *caps)
       }
    }
 
-   if (!vrend_state.use_gles &&
-       epoxy_has_gl_extension("GL_ARB_vertex_type_10f_11f_11f_rev")) {
-      int val = VIRGL_FORMAT_R11G11B10_FLOAT;
-      uint32_t offset = val / 32;
-      uint32_t index = val % 32;
-
-      caps->v1.vertexbuffer.bitmask[offset] |= (1 << index);
-   }
-
-
    /* These are filled in by the init code, so are common. */
    if (has_feature(feat_nv_prim_restart) ||
        has_feature(feat_gl_prim_restart)) {
@@ -7493,6 +7447,12 @@ static void vrend_renderer_fill_caps_gles(bool fill_capset2, int gles_ver,
    GLfloat range[2];
 
    caps->v1.max_viewports = 1;
+
+   if (gles_ver >= 30) {
+      caps->v1.glsl_level = 130;
+   } else {
+      caps->v1.glsl_level = 120;
+   }
 
    if (gles_ver >= 30) {
       glGetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS, &max);
@@ -7553,6 +7513,42 @@ static void vrend_renderer_fill_caps_gles(bool fill_capset2, int gles_ver,
       caps->v2.capability_bits |= VIRGL_CAP_COPY_IMAGE;
 }
 
+static void vrend_renderer_fill_caps_gl(bool fill_capset2, int gl_ver,
+					  union virgl_caps *caps)
+{
+   GLfloat range[2];
+
+   if (gl_ver == 31)
+      caps->v1.glsl_level = 140;
+   else if (gl_ver == 32)
+      caps->v1.glsl_level = 150;
+   else if (gl_ver == 33)
+      caps->v1.glsl_level = 330;
+   else if (gl_ver == 40)
+      caps->v1.glsl_level = 400;
+   else if (gl_ver >= 41)
+      caps->v1.glsl_level = 410;
+
+   if (!vrend_state.use_core_profile) {
+      caps->v1.bset.poly_stipple = 1;
+      caps->v1.bset.color_clamping = 1;
+      caps->v1.prim_mask |= (1 << PIPE_PRIM_QUADS) |
+                            (1 << PIPE_PRIM_QUAD_STRIP) |
+                            (1 << PIPE_PRIM_POLYGON);
+   }
+
+   if (!fill_capset2)
+      return;
+
+   glGetFloatv(GL_SMOOTH_POINT_SIZE_RANGE, range);
+   caps->v2.min_smooth_point_size = range[0];
+   caps->v2.max_smooth_point_size = range[1];
+
+   glGetFloatv(GL_SMOOTH_LINE_WIDTH_RANGE, range);
+   caps->v2.min_smooth_line_width = range[0];
+   caps->v2.max_smooth_line_width = range[1];
+}
+
 void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
                               union virgl_caps *caps)
 {
@@ -7592,6 +7588,23 @@ void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
    if (vrend_state.use_gles) {
       vrend_renderer_fill_caps_gles(fill_capset2, gles_ver, caps);
       return;
+   } else
+      vrend_renderer_fill_caps_gl(fill_capset2, gl_ver, caps);
+
+   if (caps->v1.glsl_level >= 150) {
+      caps->v1.prim_mask |= (1 << PIPE_PRIM_LINES_ADJACENCY) |
+                            (1 << PIPE_PRIM_LINE_STRIP_ADJACENCY) |
+                            (1 << PIPE_PRIM_TRIANGLES_ADJACENCY) |
+                            (1 << PIPE_PRIM_TRIANGLE_STRIP_ADJACENCY);
+   }
+   if (caps->v1.glsl_level >= 400)
+      caps->v1.prim_mask |= (1 << PIPE_PRIM_PATCHES);
+
+   if (epoxy_has_gl_extension("GL_ARB_vertex_type_10f_11f_11f_rev")) {
+      int val = VIRGL_FORMAT_R11G11B10_FLOAT;
+      uint32_t offset = val / 32;
+      uint32_t index = val % 32;
+      caps->v1.vertexbuffer.bitmask[offset] |= (1 << index);
    }
 
    if (has_feature(feat_nv_conditional_render) ||
@@ -7600,14 +7613,6 @@ void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
 
    if (has_feature(feat_indep_blend))
       caps->v1.bset.indep_blend_enable = 1;
-
-   if (vrend_state.use_core_profile) {
-      caps->v1.bset.poly_stipple = 0;
-      caps->v1.bset.color_clamping = 0;
-   } else {
-      caps->v1.bset.poly_stipple = 1;
-      caps->v1.bset.color_clamping = 1;
-   }
 
    if (has_feature(feat_draw_instance))
       caps->v1.bset.instanceid = 1;
@@ -7740,17 +7745,9 @@ void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
    caps->v2.min_aliased_point_size = range[0];
    caps->v2.max_aliased_point_size = range[1];
 
-   glGetFloatv(GL_SMOOTH_POINT_SIZE_RANGE, range);
-   caps->v2.min_smooth_point_size = range[0];
-   caps->v2.max_smooth_point_size = range[1];
-
    glGetFloatv(GL_ALIASED_LINE_WIDTH_RANGE, range);
    caps->v2.min_aliased_line_width = range[0];
    caps->v2.max_aliased_line_width = range[1];
-
-   glGetFloatv(GL_SMOOTH_LINE_WIDTH_RANGE, range);
-   caps->v2.min_smooth_line_width = range[0];
-   caps->v2.max_smooth_line_width = range[1];
 
    glGetFloatv(GL_MAX_TEXTURE_LOD_BIAS, &caps->v2.max_texture_lod_bias);
    glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, (GLint*)&caps->v2.max_vertex_attribs);
