@@ -2929,6 +2929,9 @@ int vrend_create_shader(struct vrend_context *ctx,
    bool finished = false;
    int ret;
 
+   if (pkt_length == 0 || shd_text[pkt_length - 1] != '\0')
+      return EINVAL;
+
    if (type > PIPE_SHADER_COMPUTE)
       return EINVAL;
 
