@@ -30,11 +30,14 @@ int vtest_create_renderer(int in_fd, int out_fd, uint32_t length);
 int vtest_send_caps(void);
 int vtest_send_caps2(void);
 int vtest_create_resource(void);
+int vtest_create_resource2(void);
 int vtest_resource_unref(void);
 int vtest_submit_cmd(uint32_t length_dw);
 
 int vtest_transfer_get(uint32_t length_dw);
+int vtest_transfer_get2(void);
 int vtest_transfer_put(uint32_t length_dw);
+int vtest_transfer_put2(void);
 
 int vtest_block_read(int fd, void *buf, int size);
 

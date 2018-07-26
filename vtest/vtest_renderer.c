@@ -36,6 +36,8 @@
 #include "util.h"
 #include "util/u_debug.h"
 #include "util/u_math.h"
+#include "util/u_memory.h"
+#include "util/u_hash_table.h"
 
 static int ctx_id = 1;
 static int fence_id = 1;
@@ -55,6 +57,7 @@ struct vtest_renderer {
   int in_fd;
   int out_fd;
   unsigned protocol_version;
+  struct util_hash_table *iovec_hash;
 };
 
 struct vtest_renderer renderer;
@@ -63,6 +66,32 @@ struct virgl_box {
 	uint32_t x, y, z;
 	uint32_t w, h, d;
 };
+
+static unsigned
+hash_func(void *key)
+{
+   intptr_t ip = pointer_to_intptr(key);
+   return (unsigned)(ip & 0xffffffff);
+}
+
+static int
+compare_iovecs(void *key1, void *key2)
+{
+   if (key1 < key2)
+      return -1;
+   if (key1 > key2)
+      return 1;
+   else
+      return 0;
+}
+
+static void free_iovec(void *value)
+{
+   struct iovec *iovec = value;
+
+   free(iovec->iov_base);
+   free(iovec);
+}
 
 static int vtest_block_write(int fd, void *buf, int size)
 {
@@ -118,6 +147,7 @@ int vtest_create_renderer(int in_fd, int out_fd, uint32_t length)
     int ret;
     int ctx = VIRGL_RENDERER_USE_EGL;
 
+    renderer.iovec_hash = util_hash_table_create(hash_func, compare_iovecs, free_iovec);
     renderer.in_fd = in_fd;
     renderer.out_fd = out_fd;
 
@@ -306,6 +336,52 @@ int vtest_create_resource(void)
     return ret;
 }
 
+int vtest_create_resource2(void)
+{
+    uint32_t res_create_buf[VCMD_RES_CREATE2_SIZE];
+    struct virgl_renderer_resource_create_args args;
+    struct iovec *iovec;
+    int ret;
+
+    ret = vtest_block_read(renderer.in_fd, &res_create_buf, sizeof(res_create_buf));
+    if (ret != sizeof(res_create_buf))
+	return -1;
+
+    args.handle = res_create_buf[VCMD_RES_CREATE2_RES_HANDLE];
+    args.target = res_create_buf[VCMD_RES_CREATE2_TARGET];
+    args.format = res_create_buf[VCMD_RES_CREATE2_FORMAT];
+    args.bind = res_create_buf[VCMD_RES_CREATE2_BIND];
+
+    args.width = res_create_buf[VCMD_RES_CREATE2_WIDTH];
+    args.height = res_create_buf[VCMD_RES_CREATE2_HEIGHT];
+    args.depth = res_create_buf[VCMD_RES_CREATE2_DEPTH];
+    args.array_size = res_create_buf[VCMD_RES_CREATE2_ARRAY_SIZE];
+    args.last_level = res_create_buf[VCMD_RES_CREATE2_LAST_LEVEL];
+    args.nr_samples = res_create_buf[VCMD_RES_CREATE2_NR_SAMPLES];
+    args.flags = 0;
+
+    ret = virgl_renderer_resource_create(&args, NULL, 0);
+    if (ret)
+      return ret;
+
+    virgl_renderer_ctx_attach_resource(ctx_id, args.handle);
+
+    iovec = CALLOC_STRUCT(iovec);
+    if (!iovec)
+      return -ENOMEM;
+
+    iovec->iov_len = res_create_buf[VCMD_RES_CREATE2_DATA_SIZE];
+    iovec->iov_base = calloc(1, iovec->iov_len);
+    if (!iovec->iov_base)
+      return -ENOMEM;
+
+    virgl_renderer_resource_attach_iov(args.handle, iovec, 1);
+    assert(!util_hash_table_get(renderer.iovec_hash, intptr_to_pointer(args.handle)));
+    util_hash_table_set(renderer.iovec_hash, intptr_to_pointer(args.handle), iovec);
+
+    return ret;
+}
+
 int vtest_resource_unref(void)
 {
     uint32_t res_unref_buf[VCMD_RES_UNREF_SIZE];
@@ -318,6 +394,10 @@ int vtest_resource_unref(void)
 
     handle = res_unref_buf[VCMD_RES_UNREF_RES_HANDLE];
     virgl_renderer_ctx_attach_resource(ctx_id, handle);
+
+    virgl_renderer_resource_detach_iov(handle, NULL, NULL);
+    util_hash_table_remove(renderer.iovec_hash, intptr_to_pointer(handle));
+
     virgl_renderer_resource_unref(handle);
     return 0;
 }
@@ -439,6 +519,93 @@ int vtest_transfer_put(UNUSED uint32_t length_dw)
     if (ret)
       fprintf(stderr," transfer write failed %d\n", ret);
     free(ptr);
+    return 0;
+}
+
+#define DECODE_TRANSFER2 \
+  do {							\
+  handle = thdr_buf[VCMD_TRANSFER2_RES_HANDLE];		\
+  level = thdr_buf[VCMD_TRANSFER2_LEVEL];		\
+  box.x = thdr_buf[VCMD_TRANSFER2_X];			\
+  box.y = thdr_buf[VCMD_TRANSFER2_Y];			\
+  box.z = thdr_buf[VCMD_TRANSFER2_Z];			\
+  box.w = thdr_buf[VCMD_TRANSFER2_WIDTH];		\
+  box.h = thdr_buf[VCMD_TRANSFER2_HEIGHT];		\
+  box.d = thdr_buf[VCMD_TRANSFER2_DEPTH];		\
+  data_size = thdr_buf[VCMD_TRANSFER2_DATA_SIZE];		\
+  offset = thdr_buf[VCMD_TRANSFER2_OFFSET];		\
+  } while(0)
+
+
+int vtest_transfer_get2(void)
+{
+    uint32_t thdr_buf[VCMD_TRANSFER2_HDR_SIZE];
+    int ret;
+    int level;
+    uint32_t handle;
+    struct virgl_box box;
+    uint32_t data_size;
+    uint32_t offset;
+    struct iovec *iovec;
+
+    ret = vtest_block_read(renderer.in_fd, thdr_buf, sizeof(thdr_buf));
+    if (ret != sizeof(thdr_buf))
+      return ret;
+
+    DECODE_TRANSFER2;
+
+    ret = virgl_renderer_transfer_read_iov(handle,
+				     ctx_id,
+				     level,
+				     0,
+				     0,
+				     &box,
+				     offset,
+				     NULL, 0);
+    if (ret)
+      fprintf(stderr," transfer read failed %d\n", ret);
+
+    iovec = util_hash_table_get(renderer.iovec_hash, intptr_to_pointer(handle));
+    assert(iovec);
+    ret = vtest_block_write(renderer.out_fd,
+                            iovec->iov_base + offset,
+                            data_size);
+    return ret < 0 ? ret : 0;
+}
+
+int vtest_transfer_put2(void)
+{
+    uint32_t thdr_buf[VCMD_TRANSFER2_HDR_SIZE];
+    int ret;
+    int level;
+    uint32_t handle;
+    struct virgl_box box;
+    uint32_t data_size;
+    uint32_t offset;
+    struct iovec *iovec;
+
+    ret = vtest_block_read(renderer.in_fd, thdr_buf, sizeof(thdr_buf));
+    if (ret != sizeof(thdr_buf))
+      return ret;
+
+    DECODE_TRANSFER2;
+
+    iovec = util_hash_table_get(renderer.iovec_hash, intptr_to_pointer(handle));
+    assert(iovec);
+    ret = vtest_block_read(renderer.in_fd, iovec->iov_base + offset, data_size);
+    if (ret < 0)
+      return ret;
+
+    ret = virgl_renderer_transfer_write_iov(handle,
+					    ctx_id,
+					    level,
+					    0,
+					    0,
+					    &box,
+					    offset,
+					    NULL, 0);
+    if (ret)
+      fprintf(stderr," transfer write failed %d\n", ret);
     return 0;
 }
 

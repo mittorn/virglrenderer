@@ -113,6 +113,9 @@ again:
       case VCMD_RESOURCE_CREATE:
 	ret = vtest_create_resource();
 	break;
+      case VCMD_RESOURCE_CREATE2:
+	ret = vtest_create_resource2();
+	break;
       case VCMD_RESOURCE_UNREF:
 	ret = vtest_resource_unref();
 	break;
@@ -124,6 +127,12 @@ again:
 	break;
       case VCMD_TRANSFER_PUT:
 	ret = vtest_transfer_put(header[0]);
+	break;
+      case VCMD_TRANSFER_GET2:
+	ret = vtest_transfer_get2();
+	break;
+      case VCMD_TRANSFER_PUT2:
+	ret = vtest_transfer_put2();
 	break;
       case VCMD_RESOURCE_BUSY_WAIT:
         vtest_renderer_create_fence();
