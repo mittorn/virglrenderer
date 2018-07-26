@@ -113,6 +113,7 @@ enum features_id
    feat_nv_conditional_render,
    feat_nv_prim_restart,
    feat_polygon_offset_clamp,
+   feat_sample_mask,
    feat_sample_shading,
    feat_samplers,
    feat_ssbo,
@@ -164,6 +165,7 @@ static const  struct {
    [feat_nv_conditional_render] = { UNAVAIL, UNAVAIL, { "GL_NV_conditional_render" } },
    [feat_nv_prim_restart] = { UNAVAIL, UNAVAIL, { "GL_NV_primitive_restart" } },
    [feat_polygon_offset_clamp] = { 46, UNAVAIL, { "GL_ARB_polygon_offset_clamp" } },
+   [feat_sample_mask] = { 32, 31, { "GL_ARB_texture_multisample" } },
    [feat_sample_shading] = { 40, UNAVAIL, { "GL_ARB_sample_shading" } },
    [feat_samplers] = { 33, UNAVAIL, { "GL_ARB_sampler_objects" } },
    [feat_ssbo] = { 43, 31, { "GL_ARB_shader_storage_buffer_object" } },
@@ -4304,10 +4306,12 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
    }
 
    if (has_feature(feat_multisample)) {
-      if (state->multisample)
-         glEnable(GL_SAMPLE_MASK);
-      else
-         glDisable(GL_SAMPLE_MASK);
+      if (has_feature(feat_sample_mask)) {
+	 if (state->multisample)
+	    glEnable(GL_SAMPLE_MASK);
+	 else
+	    glDisable(GL_SAMPLE_MASK);
+      }
 
       /* GLES doesn't have GL_MULTISAMPLE */
       if (!vrend_state.use_gles) {
@@ -6299,7 +6303,8 @@ void vrend_set_clip_state(struct vrend_context *ctx, struct pipe_clip_state *ucp
 
 void vrend_set_sample_mask(UNUSED struct vrend_context *ctx, unsigned sample_mask)
 {
-   glSampleMaski(0, sample_mask);
+   if (has_feature(feat_sample_mask))
+      glSampleMaski(0, sample_mask);
 }
 
 void vrend_set_min_samples(struct vrend_context *ctx, unsigned min_samples)
