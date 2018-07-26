@@ -7129,7 +7129,8 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
       use_gl = true;
 
    if (use_gl) {
-      vrend_renderer_blit_gl(ctx, src_res, dst_res, info);
+      vrend_renderer_blit_gl(ctx, src_res, dst_res, info,
+                             has_feature(feat_texture_srgb_decode));
       vrend_clicbs->make_current(0, ctx->sub->gl_context);
       return;
    }
@@ -7247,6 +7248,13 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
       glBindFramebuffer(GL_FRAMEBUFFER_EXT, ctx->sub->blit_fb_ids[1]);
       vrend_fb_bind_texture(dst_res, 0, info->dst.level, info->dst.box.z + i);
       glBindFramebuffer(GL_DRAW_FRAMEBUFFER, ctx->sub->blit_fb_ids[1]);
+
+      if (!vrend_state.use_gles) {
+         if (util_format_is_srgb(dst_res->base.format))
+            glEnable(GL_FRAMEBUFFER_SRGB);
+         else
+            glDisable(GL_FRAMEBUFFER_SRGB);
+      }
 
       glBindFramebuffer(GL_READ_FRAMEBUFFER, intermediate_fbo);
 

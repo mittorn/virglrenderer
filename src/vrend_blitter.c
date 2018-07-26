@@ -55,6 +55,7 @@ struct vrend_blitter_ctx {
    virgl_gl_context gl_context;
    bool initialised;
    bool use_gles;
+   int framebuffer_srgb_enabled;
 
    GLuint vaoid;
 
@@ -460,6 +461,10 @@ static void vrend_renderer_init_blit_ctx(struct vrend_blitter_ctx *blit_ctx)
       blit_ctx->vertices[i][0][3] = 1; /*v.w*/
    glBindVertexArray(blit_ctx->vaoid);
    glBindBuffer(GL_ARRAY_BUFFER, blit_ctx->vbo_id);
+
+   if (!blit_ctx->use_gles)
+      glEnable(GL_FRAMEBUFFER_SRGB);
+   blit_ctx->framebuffer_srgb_enabled = true;
 }
 
 static inline GLenum convert_mag_filter(unsigned int filter)
@@ -686,7 +691,8 @@ static void calc_dst_deltas_from_src(const struct pipe_blit_info *info,
 void vrend_renderer_blit_gl(UNUSED struct vrend_context *ctx,
                             struct vrend_resource *src_res,
                             struct vrend_resource *dst_res,
-                            const struct pipe_blit_info *info)
+                            const struct pipe_blit_info *info,
+                            bool has_texture_srgb_decode)
 {
    struct vrend_blitter_ctx *blit_ctx = &vrend_blit_ctx;
    GLuint buffers;
@@ -787,6 +793,9 @@ void vrend_renderer_blit_gl(UNUSED struct vrend_context *ctx,
                       to_gl_swizzle(src_entry->swizzle[3]));
    }
 
+   /* Just make sure that no stale state disabled decoding */
+   if (has_texture_srgb_decode && util_format_is_srgb(src_res->base.format))
+         glTexParameteri(src_res->target, GL_TEXTURE_SRGB_DECODE_EXT, GL_DECODE_EXT);
 
    glTexParameteri(src_res->target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
    glTexParameteri(src_res->target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);

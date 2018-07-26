@@ -391,7 +391,8 @@ boolean format_is_copy_compatible(enum pipe_format src, enum pipe_format dst);
 void vrend_renderer_blit_gl(struct vrend_context *ctx,
                             struct vrend_resource *src_res,
                             struct vrend_resource *dst_res,
-                            const struct pipe_blit_info *info);
+                            const struct pipe_blit_info *info,
+                            bool has_texture_srgb_decode);
 
 void vrend_renderer_reset(void);
 int vrend_renderer_get_poll_fd(void);
