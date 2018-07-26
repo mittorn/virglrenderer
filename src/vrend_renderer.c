@@ -5912,7 +5912,7 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
    uint32_t h = u_minify(res->base.height0, info->level);
    int elsize = util_format_get_blocksize(res->base.format);
    float depth_scale;
-   int row_stride = info->stride;
+   int row_stride = info->stride / elsize;
 
    vrend_use_program(ctx, 0);
 
