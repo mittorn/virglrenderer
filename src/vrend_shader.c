@@ -60,6 +60,7 @@ extern int vrend_dump_shaders;
 #define SHADER_REQ_ES31_COMPAT        (1 << 16)
 #define SHADER_REQ_IMAGE_SIZE         (1 << 17)
 #define SHADER_REQ_TXQS               (1 << 18)
+#define SHADER_REQ_FBFETCH            (1 << 19)
 
 struct vrend_shader_io {
    unsigned                name;
@@ -76,6 +77,7 @@ struct vrend_shader_io {
    bool glsl_gl_block;
    bool override_no_wm;
    bool is_int;
+   bool fbfetch_used;
    char glsl_name[64];
    unsigned stream;
 };
@@ -234,6 +236,7 @@ static const struct vrend_shader_table shader_req_table[] = {
     { SHADER_REQ_ES31_COMPAT, "GL_ARB_ES3_1_compatibility" },
     { SHADER_REQ_IMAGE_SIZE, "GL_ARB_shader_image_size" },
     { SHADER_REQ_TXQS, "GL_ARB_shader_texture_image_samples" },
+    { SHADER_REQ_FBFETCH, "GL_EXT_shader_framebuffer_fetch" },
 };
 
 enum vrend_type_qualifier {
@@ -929,6 +932,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
       ctx->outputs[i].glsl_no_index = false;
       ctx->outputs[i].override_no_wm = false;
       ctx->outputs[i].is_int = false;
+      ctx->outputs[i].fbfetch_used = false;
 
       switch (ctx->outputs[i].name) {
       case TGSI_SEMANTIC_POSITION:
@@ -2948,6 +2952,11 @@ get_source_info(struct dump_ctx *ctx,
       } else if (src->Register.File == TGSI_FILE_OUTPUT) {
          for (uint32_t j = 0; j < ctx->num_outputs; j++) {
             if (ctx->outputs[j].first == src->Register.Index) {
+               if (inst->Instruction.Opcode == TGSI_OPCODE_FBFETCH) {
+                  ctx->outputs[j].fbfetch_used = true;
+                  ctx->shader_req_bits |= SHADER_REQ_FBFETCH;
+               }
+
                enum vrend_type_qualifier srcstypeprefix = stypeprefix;
                if (stype == TGSI_TYPE_UNSIGNED && ctx->outputs[j].is_int)
                   srcstypeprefix = TYPE_CONVERSION_NONE;
@@ -3436,6 +3445,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
       snprintf(buf, 255, "%s = %s(inversesqrt(%s.x));\n", dsts[0], get_string(dinfo.dstconv), srcs[0]);
       EMIT_BUF_WITH_RET(ctx, buf);
       break;
+   case TGSI_OPCODE_FBFETCH:
    case TGSI_OPCODE_MOV:
       snprintf(buf, 255, "%s = %s(%s(%s%s));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0], sinfo.override_no_wm[0] ? "" : writemask);
       EMIT_BUF_WITH_RET(ctx, buf);
@@ -4404,9 +4414,11 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
                         ctx->outputs[i].invariant ? "invariant " : "",
                         ctx->outputs[i].glsl_name);
             else
-               snprintf(buf, 255, "%s%s%sout vec4 %s;\n", prefix,
+               snprintf(buf, 255, "%s%s%s%s vec4 %s;\n",
+                        prefix,
                         ctx->outputs[i].precise ? "precise " : "",
                         ctx->outputs[i].invariant ? "invariant " : "",
+                        ctx->outputs[i].fbfetch_used ? "inout" : "out",
                         ctx->outputs[i].glsl_name);
             STRCAT_WITH_RET(glsl_hdr, buf);
          } else if (ctx->outputs[i].invariant || ctx->outputs[i].precise) {
