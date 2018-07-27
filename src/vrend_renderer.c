@@ -102,6 +102,7 @@ enum features_id
    feat_draw_instance,
    feat_dual_src_blend,
    feat_fb_no_attach,
+   feat_framebuffer_fetch,
    feat_geometry_shader,
    feat_gl_conditional_render,
    feat_gl_prim_restart,
@@ -161,6 +162,7 @@ static const  struct {
    [feat_draw_instance] = { 31, 30, { "GL_ARB_draw_instanced" } },
    [feat_dual_src_blend] = { 33, UNAVAIL, { "GL_ARB_blend_func_extended" } },
    [feat_fb_no_attach] = { 43, 31, { "GL_ARB_framebuffer_no_attachments" } },
+   [feat_framebuffer_fetch] = { UNAVAIL, UNAVAIL, { "GL_EXT_shader_framebuffer_fetch" } },
    [feat_geometry_shader] = { 32, UNAVAIL, {} },
    [feat_gl_conditional_render] = { 30, UNAVAIL, {} },
    [feat_gl_prim_restart] = { 31, UNAVAIL, {} },
@@ -8226,6 +8228,9 @@ void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
 
    if (has_feature(feat_robust_buffer_access))
       caps->v2.capability_bits |= VIRGL_CAP_ROBUST_BUFFER_ACCESS;
+
+   if (has_feature(feat_framebuffer_fetch))
+      caps->v2.capability_bits |= VIRGL_CAP_TGSI_FBFETCH;
 }
 
 GLint64 vrend_renderer_get_timestamp(void)
