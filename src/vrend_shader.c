@@ -156,10 +156,10 @@ struct dump_ctx {
    struct vrend_shader_image images[32];
    uint32_t images_used_mask;
 
-   struct vrend_image_array *image_arrays;
+   struct vrend_array *image_arrays;
    uint32_t num_image_arrays;
 
-   struct vrend_sampler_array *sampler_arrays;
+   struct vrend_array *sampler_arrays;
    uint32_t num_sampler_arrays;
 
    int num_consts;
@@ -533,7 +533,7 @@ static int add_images(struct dump_ctx *ctx, int first, int last,
 
    if (ctx->info.indirect_files & (1 << TGSI_FILE_IMAGE)) {
       if (ctx->num_image_arrays) {
-         struct vrend_image_array *last_array = &ctx->image_arrays[ctx->num_image_arrays - 1];
+         struct vrend_array *last_array = &ctx->image_arrays[ctx->num_image_arrays - 1];
          /*
           * If this set of images is consecutive to the last array,
           * and has compatible return and decls, then increase the array size.
@@ -548,7 +548,7 @@ static int add_images(struct dump_ctx *ctx, int first, int last,
 
       /* allocate a new image array for this range of images */
       ctx->num_image_arrays++;
-      ctx->image_arrays = realloc(ctx->image_arrays, sizeof(struct vrend_image_array) * ctx->num_image_arrays);
+      ctx->image_arrays = realloc(ctx->image_arrays, sizeof(struct vrend_array) * ctx->num_image_arrays);
       if (!ctx->image_arrays)
          return -1;
       ctx->image_arrays[ctx->num_image_arrays - 1].first = first;
@@ -561,7 +561,7 @@ static int add_sampler_array(struct dump_ctx *ctx, int first, int last)
 {
    int idx = ctx->num_sampler_arrays;
    ctx->num_sampler_arrays++;
-   ctx->sampler_arrays = realloc(ctx->sampler_arrays, sizeof(struct vrend_sampler_array) * ctx->num_sampler_arrays);
+   ctx->sampler_arrays = realloc(ctx->sampler_arrays, sizeof(struct vrend_array) * ctx->num_sampler_arrays);
    if (!ctx->sampler_arrays)
       return -1;
 
@@ -609,7 +609,7 @@ static int add_samplers(struct dump_ctx *ctx, int first, int last, int sview_typ
 
    if (ctx->info.indirect_files & (1 << TGSI_FILE_SAMPLER)) {
       if (ctx->num_sampler_arrays) {
-         struct vrend_sampler_array *last_array = &ctx->sampler_arrays[ctx->num_sampler_arrays - 1];
+         struct vrend_array *last_array = &ctx->sampler_arrays[ctx->num_sampler_arrays - 1];
          if ((last_array->first + last_array->array_size == first) &&
              ctx->samplers[last_array->first].tgsi_sampler_type == sview_type &&
              ctx->samplers[last_array->first].tgsi_sampler_return == sview_rtype) {

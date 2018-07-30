@@ -36,12 +36,7 @@ struct vrend_interp_info {
    unsigned location;
 };
 
-struct vrend_sampler_array {
-   int first;
-   int array_size;
-};
-
-struct vrend_image_array {
+struct vrend_array {
    int first;
    int array_size;
 };
@@ -73,10 +68,10 @@ struct vrend_shader_info {
    bool tes_point_mode;
    uint32_t attrib_input_mask;
 
-   struct vrend_sampler_array *sampler_arrays;
+   struct vrend_array *sampler_arrays;
    int num_sampler_arrays;
 
-   struct vrend_image_array *image_arrays;
+   struct vrend_array *image_arrays;
    int num_image_arrays;
 
    struct pipe_stream_output_info so_info;

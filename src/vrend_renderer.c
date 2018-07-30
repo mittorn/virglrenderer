@@ -1150,7 +1150,7 @@ static void bind_image_locs(struct vrend_linked_shader_program *sprog,
    if (sprog->ss[id]->sel->sinfo.num_image_arrays) {
       int idx;
       for (i = 0; i < sprog->ss[id]->sel->sinfo.num_image_arrays; i++) {
-         struct vrend_image_array *img_array = &sprog->ss[id]->sel->sinfo.image_arrays[i];
+         struct vrend_array *img_array = &sprog->ss[id]->sel->sinfo.image_arrays[i];
          for (int j = 0; j < img_array->array_size; j++) {
             snprintf(name, 32, "%simg%d[%d]", prefix, img_array->first, j);
             sprog->img_locs[id][img_array->first + j] = glGetUniformLocation(sprog->id, name);
