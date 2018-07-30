@@ -167,6 +167,8 @@ struct dump_ctx {
    struct immed imm[MAX_IMMEDIATE];
    unsigned fragcoord_input;
 
+   uint32_t req_local_mem;
+
    uint32_t num_ubo;
    int ubo_idx[32];
    int ubo_sizes[32];
@@ -208,6 +210,8 @@ struct dump_ctx {
    int tes_spacing;
    int tes_vertex_order;
    int tes_point_mode;
+
+   uint16_t local_cs_block_size[3];
 };
 
 static const struct vrend_shader_table shader_req_table[] = {
@@ -267,6 +271,7 @@ struct source_info {
    uint32_t sreg_index;
    bool tg4_has_component;
    bool override_no_wm[3];
+   bool override_no_cast[3];
 };
 
 static const struct vrend_shader_table conversion_table[] =
@@ -331,6 +336,7 @@ static inline const char *tgsi_proc_to_prefix(int shader_type)
    case TGSI_PROCESSOR_GEOMETRY: return "gs";
    case TGSI_PROCESSOR_TESS_CTRL: return "tc";
    case TGSI_PROCESSOR_TESS_EVAL: return "te";
+   case TGSI_PROCESSOR_COMPUTE: return "cs";
    default:
       return NULL;
    };
@@ -1240,11 +1246,22 @@ iter_declaration(struct tgsi_iterate_context *iter,
          name_prefix = "gl_TessLevelOuter";
       } else if (decl->Semantic.Name == TGSI_SEMANTIC_TESSINNER) {
          name_prefix = "gl_TessLevelInner";
+      } else if (decl->Semantic.Name == TGSI_SEMANTIC_THREAD_ID) {
+         name_prefix = "gl_LocalInvocationID";
+         ctx->system_values[i].override_no_wm = false;
+      } else if (decl->Semantic.Name == TGSI_SEMANTIC_BLOCK_ID) {
+         name_prefix = "gl_WorkGroupID";
+         ctx->system_values[i].override_no_wm = false;
+      } else if (decl->Semantic.Name == TGSI_SEMANTIC_GRID_SIZE) {
+         name_prefix = "gl_NumWorkGroups";
+         ctx->system_values[i].override_no_wm = false;
       } else {
          fprintf(stderr, "unsupported system value %d\n", decl->Semantic.Name);
          name_prefix = "unknown";
       }
       snprintf(ctx->system_values[i].glsl_name, 64, "%s", name_prefix);
+      break;
+   case TGSI_FILE_MEMORY:
       break;
    default:
       fprintf(stderr,"unsupported file %d declaration\n", decl->Declaration.File);
@@ -1323,6 +1340,12 @@ iter_property(struct tgsi_iterate_context *iter,
          ctx->shader_req_bits |= SHADER_REQ_IMAGE_LOAD_STORE;
    }
 
+   if (prop->Property.PropertyName == TGSI_PROPERTY_CS_FIXED_BLOCK_WIDTH)
+      ctx->local_cs_block_size[0] = prop->u[0].Data;
+   if (prop->Property.PropertyName == TGSI_PROPERTY_CS_FIXED_BLOCK_HEIGHT)
+      ctx->local_cs_block_size[1] = prop->u[0].Data;
+   if (prop->Property.PropertyName == TGSI_PROPERTY_CS_FIXED_BLOCK_DEPTH)
+      ctx->local_cs_block_size[2] = prop->u[0].Data;
    return TRUE;
 }
 
@@ -2318,6 +2341,7 @@ static enum vrend_type_qualifier get_coord_prefix(int resource, bool *is_ms)
 static int
 translate_store(struct dump_ctx *ctx,
                 struct tgsi_full_instruction *inst,
+                struct source_info *sinfo,
                 char srcs[4][255],
                 char dsts[3][255])
 {
@@ -2346,8 +2370,8 @@ translate_store(struct dump_ctx *ctx,
       }
       snprintf(buf, 512, "imageStore(%s,%s(floatBitsToInt(%s)),%s%s(%s));\n", dsts[0], get_string(coord_prefix), srcs[0], ms_str, get_string(stypeprefix), srcs[1]);
       EMIT_BUF_WITH_RET(ctx, buf);
-   } else if (dst->Register.File == TGSI_FILE_BUFFER) {
-      const char *conversion = get_string(FLOAT_BITS_TO_UINT);
+   } else if (dst->Register.File == TGSI_FILE_BUFFER || dst->Register.File == TGSI_FILE_MEMORY) {
+      const char *conversion = sinfo->override_no_cast[1] ? "" : get_string(FLOAT_BITS_TO_UINT);
       if (inst->Dst[0].Register.WriteMask & 0x1) {
          snprintf(buf, 255, "%s[uint(floatBitsToUint(%s))>>2] = %s(%s).x;\n", dsts[0], srcs[0], conversion, srcs[1]);
          EMIT_BUF_WITH_RET(ctx, buf);
@@ -2402,7 +2426,8 @@ translate_load(struct dump_ctx *ctx,
       }
       snprintf(buf, 512, "%s = %s(imageLoad(%s, %s(floatBitsToInt(%s))%s)%s);\n", dsts[0], get_string(dtypeprefix), srcs[0], get_string(coord_prefix), srcs[1], ms_str, wm);
       EMIT_BUF_WITH_RET(ctx, buf);
-   } else if (src->Register.File == TGSI_FILE_BUFFER) {
+   } else if (src->Register.File == TGSI_FILE_BUFFER ||
+              src->Register.File == TGSI_FILE_MEMORY) {
       char mydst[255], atomic_op[9], atomic_src[10];
       strcpy(mydst, dsts[0]);
       char *wmp = strchr(mydst, '.');
@@ -2566,7 +2591,8 @@ translate_atomic(struct dump_ctx *ctx,
       snprintf(buf, 512, "%s = %s(imageAtomic%s(%s, %s(floatBitsToInt(%s))%s, %s(%s(%s))%s));\n", dsts[0], get_string(dtypeprefix), opname, srcs[0], get_string(coord_prefix), srcs[1], ms_str, get_string(stypecast), get_string(stypeprefix), srcs[2], cas_str);
       EMIT_BUF_WITH_RET(ctx, buf);
    }
-   if (src->Register.File == TGSI_FILE_BUFFER) {
+   if (src->Register.File == TGSI_FILE_BUFFER ||
+       src->Register.File == TGSI_FILE_MEMORY) {
       snprintf(buf, 512, "%s = %s(atomic%s(%s[int(floatBitsToInt(%s)) >> 2], uint(%s(%s).x)%s));\n", dsts[0], get_string(dtypeprefix), opname, srcs[0], srcs[1], get_string(stypeprefix), srcs[2], cas_str);
       EMIT_BUF_WITH_RET(ctx, buf);
    }
@@ -2758,6 +2784,8 @@ get_destination_info(struct dump_ctx *ctx,
                snprintf(dsts[i], 255, "%sssboarr%s[%d].%sssbocontents%d", cname, atomic_str, dst_reg->Register.Index - base, cname, base);
          } else
             snprintf(dsts[i], 255, "%sssbocontents%d", cname, dst_reg->Register.Index);
+      } else if (dst_reg->Register.File == TGSI_FILE_MEMORY) {
+         snprintf(dsts[i], 255, "values");
       } else if (dst_reg->Register.File == TGSI_FILE_ADDRESS) {
          snprintf(dsts[i], 255, "addr%d", dst_reg->Register.Index);
       }
@@ -2836,6 +2864,7 @@ get_source_info(struct dump_ctx *ctx,
       boolean isfloatabsolute = src->Register.Absolute && stype != TGSI_TYPE_DOUBLE;
 
       sinfo->override_no_wm[i] = false;
+      sinfo->override_no_cast[i] = false;
       if (isfloatabsolute)
          swizzle[swz_idx++] = ')';
 
@@ -3040,6 +3069,9 @@ get_source_info(struct dump_ctx *ctx,
             snprintf(srcs[i], 255, "%sssbocontents%d%s", cname, src->Register.Index, swizzle);
          }
          sinfo->sreg_index = src->Register.Index;
+      } else if (src->Register.File == TGSI_FILE_MEMORY) {
+         snprintf(srcs[i], 255, "values");
+         sinfo->sreg_index = src->Register.Index;
       } else if (src->Register.File == TGSI_FILE_IMMEDIATE) {
          if (src->Register.Index >= (int)ARRAY_SIZE(ctx->imm)) {
             fprintf(stderr, "Immediate exceeded, max is %lu\n", ARRAY_SIZE(ctx->imm));
@@ -3159,6 +3191,15 @@ get_source_info(struct dump_ctx *ctx,
                            ctx->system_values[j].glsl_name, get_swiz_char(src->Register.SwizzleY),
                            ctx->system_values[j].glsl_name, get_swiz_char(src->Register.SwizzleZ),
                            ctx->system_values[j].glsl_name, get_swiz_char(src->Register.SwizzleW));
+               } else if (ctx->system_values[j].name == TGSI_SEMANTIC_GRID_SIZE ||
+                          ctx->system_values[j].name == TGSI_SEMANTIC_THREAD_ID ||
+                          ctx->system_values[j].name == TGSI_SEMANTIC_BLOCK_ID) {
+                  snprintf(srcs[i], 255, "uvec4(%s.%c, %s.%c, %s.%c, %s.%c)",
+                           ctx->system_values[j].glsl_name, get_swiz_char(src->Register.SwizzleX),
+                           ctx->system_values[j].glsl_name, get_swiz_char(src->Register.SwizzleY),
+                           ctx->system_values[j].glsl_name, get_swiz_char(src->Register.SwizzleZ),
+                           ctx->system_values[j].glsl_name, get_swiz_char(src->Register.SwizzleW));
+                  sinfo->override_no_cast[i] = true;
                } else if (ctx->system_values[j].name == TGSI_SEMANTIC_SAMPLEMASK) {
                   snprintf(srcs[i], 255, "ivec4(%s, %s, %s, %s)",
                      src->Register.SwizzleX == TGSI_SWIZZLE_X ? ctx->system_values[j].glsl_name : "0",
@@ -3813,7 +3854,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
       break;
    }
    case TGSI_OPCODE_STORE:
-      ret = translate_store(ctx, inst, srcs, dsts);
+      ret = translate_store(ctx, inst, &sinfo, srcs, dsts);
       if (ret)
          return FALSE;
       break;
@@ -3893,19 +3934,24 @@ static char *emit_header(struct dump_ctx *ctx, char *glsl_hdr)
       STRCAT_WITH_RET(glsl_hdr, "precision highp int;\n");
    } else {
       char buf[128];
-      if (ctx->prog_type == TGSI_PROCESSOR_GEOMETRY ||
-          ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL ||
-          ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL ||
-          ctx->glsl_ver_required == 150)
-         STRCAT_WITH_RET(glsl_hdr, "#version 150\n");
-      else if (ctx->glsl_ver_required == 140)
-         STRCAT_WITH_RET(glsl_hdr, "#version 140\n");
-      else
-         STRCAT_WITH_RET(glsl_hdr, "#version 130\n");
-      if (ctx->prog_type == TGSI_PROCESSOR_VERTEX ||
-          ctx->prog_type == TGSI_PROCESSOR_GEOMETRY ||
-          ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL)
-         PAD_GPU_SHADER5(glsl_hdr);
+      if (ctx->prog_type == TGSI_PROCESSOR_COMPUTE) {
+         STRCAT_WITH_RET(glsl_hdr, "#version 330\n");
+         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_compute_shader : require\n");
+      } else {
+         if (ctx->prog_type == TGSI_PROCESSOR_GEOMETRY ||
+             ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL ||
+             ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL ||
+             ctx->glsl_ver_required == 150)
+            STRCAT_WITH_RET(glsl_hdr, "#version 150\n");
+         else if (ctx->glsl_ver_required == 140)
+            STRCAT_WITH_RET(glsl_hdr, "#version 140\n");
+         else
+            STRCAT_WITH_RET(glsl_hdr, "#version 130\n");
+         if (ctx->prog_type == TGSI_PROCESSOR_VERTEX ||
+             ctx->prog_type == TGSI_PROCESSOR_GEOMETRY ||
+             ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL)
+            PAD_GPU_SHADER5(glsl_hdr);
+      }
 
       if (ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL ||
           ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL)
@@ -4209,6 +4255,18 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
          STRCAT_WITH_RET(glsl_hdr, buf);
       }
    }
+
+   if (ctx->prog_type == TGSI_PROCESSOR_COMPUTE) {
+      snprintf(buf, 255, "layout (local_size_x = %d, local_size_y = %d, local_size_z = %d) in;\n",
+               ctx->local_cs_block_size[0], ctx->local_cs_block_size[1], ctx->local_cs_block_size[2]);
+      STRCAT_WITH_RET(glsl_hdr, buf);
+
+      if (ctx->req_local_mem) {
+         snprintf(buf, 255, "shared uint values[%d];\n", ctx->req_local_mem / 4);
+         STRCAT_WITH_RET(glsl_hdr, buf);
+      }
+   }
+
    if (ctx->prog_type == TGSI_PROCESSOR_GEOMETRY) {
       char invocbuf[25];
 
@@ -4709,6 +4767,7 @@ static boolean fill_interpolants(struct dump_ctx *ctx, struct vrend_shader_info 
 
 char *vrend_convert_shader(struct vrend_shader_cfg *cfg,
                            const struct tgsi_token *tokens,
+                           uint32_t req_local_mem,
                            struct vrend_shader_key *key,
                            struct vrend_shader_info *sinfo)
 {
@@ -4734,6 +4793,7 @@ char *vrend_convert_shader(struct vrend_shader_cfg *cfg,
    ctx.ssbo_array_base = 0xffffffff;
    ctx.ssbo_atomic_array_base = 0xffffffff;
    ctx.has_sample_input = false;
+   ctx.req_local_mem = req_local_mem;
    tgsi_scan_shader(tokens, &ctx.info);
    /* if we are in core profile mode we should use GLSL 1.40 */
    if (cfg->use_core_profile && cfg->glsl_version >= 140)
