@@ -161,7 +161,6 @@ struct dump_ctx {
 
    struct vrend_sampler_array *sampler_arrays;
    uint32_t num_sampler_arrays;
-   int last_sampler_array_idx;
 
    int num_consts;
    int num_imm;
@@ -558,7 +557,7 @@ static int add_images(struct dump_ctx *ctx, int first, int last,
    return 0;
 }
 
-static int add_sampler_array(struct dump_ctx *ctx, int first, int last, int sview_type, int sview_rtype)
+static int add_sampler_array(struct dump_ctx *ctx, int first, int last)
 {
    int idx = ctx->num_sampler_arrays;
    ctx->num_sampler_arrays++;
@@ -567,20 +566,18 @@ static int add_sampler_array(struct dump_ctx *ctx, int first, int last, int svie
       return -1;
 
    ctx->sampler_arrays[idx].first = first;
-   ctx->sampler_arrays[idx].last = last;
-   ctx->sampler_arrays[idx].idx = idx;
-   ctx->sampler_arrays[idx].sview_type = sview_type;
-   ctx->sampler_arrays[idx].sview_rtype = sview_rtype;
-   return idx;
+   ctx->sampler_arrays[idx].array_size = last - first + 1;
+   return 0;
 }
 
 static int lookup_sampler_array(struct dump_ctx *ctx, int index)
 {
    uint32_t i;
    for (i = 0; i < ctx->num_sampler_arrays; i++) {
+      int last = ctx->sampler_arrays[i].first + ctx->sampler_arrays[i].array_size - 1;
       if (index >= ctx->sampler_arrays[i].first &&
-          index <= ctx->sampler_arrays[i].last) {
-         return ctx->sampler_arrays[i].idx;
+          index <= last) {
+         return ctx->sampler_arrays[i].first;
       }
    }
    return -1;
@@ -590,12 +587,41 @@ int shader_lookup_sampler_array(struct vrend_shader_info *sinfo, int index)
 {
    int i;
    for (i = 0; i < sinfo->num_sampler_arrays; i++) {
+      int last = sinfo->sampler_arrays[i].first + sinfo->sampler_arrays[i].array_size - 1;
       if (index >= sinfo->sampler_arrays[i].first &&
-          index <= sinfo->sampler_arrays[i].last) {
-         return sinfo->sampler_arrays[i].idx;
+          index <= last) {
+         return sinfo->sampler_arrays[i].first;
       }
    }
    return -1;
+}
+
+static int add_samplers(struct dump_ctx *ctx, int first, int last, int sview_type, enum tgsi_return_type sview_rtype)
+{
+   if (sview_rtype == TGSI_RETURN_TYPE_SINT ||
+       sview_rtype == TGSI_RETURN_TYPE_UINT)
+      ctx->shader_req_bits |= SHADER_REQ_INTS;
+
+   for (int i = first; i <= last; i++) {
+      ctx->samplers[i].tgsi_sampler_return = sview_rtype;
+      ctx->samplers[i].tgsi_sampler_type = sview_type;
+   }
+
+   if (ctx->info.indirect_files & (1 << TGSI_FILE_SAMPLER)) {
+      if (ctx->num_sampler_arrays) {
+         struct vrend_sampler_array *last_array = &ctx->sampler_arrays[ctx->num_sampler_arrays - 1];
+         if ((last_array->first + last_array->array_size == first) &&
+             ctx->samplers[last_array->first].tgsi_sampler_type == sview_type &&
+             ctx->samplers[last_array->first].tgsi_sampler_return == sview_rtype) {
+            last_array->array_size += last - first + 1;
+            return 0;
+         }
+      }
+
+      /* allocate a new image array for this range of images */
+      return add_sampler_array(ctx, first, last);
+   }
+   return 0;
 }
 
 static bool ctx_indirect_inputs(struct dump_ctx *ctx)
@@ -1109,28 +1135,17 @@ iter_declaration(struct tgsi_iterate_context *iter,
    case TGSI_FILE_SAMPLER:
       ctx->samplers_used |= (1 << decl->Range.Last);
       break;
-   case TGSI_FILE_SAMPLER_VIEW:
-      if (decl->Range.First >= ARRAY_SIZE(ctx->samplers)) {
+   case TGSI_FILE_SAMPLER_VIEW: {
+      int ret;
+      if (decl->Range.Last >= ARRAY_SIZE(ctx->samplers)) {
          fprintf(stderr, "Sampler view exceeded, max is %lu\n", ARRAY_SIZE(ctx->samplers));
          return FALSE;
       }
-      ctx->samplers[decl->Range.First].tgsi_sampler_return = decl->SamplerView.ReturnTypeX;
-      if (decl->SamplerView.ReturnTypeX == TGSI_RETURN_TYPE_SINT ||
-          decl->SamplerView.ReturnTypeX == TGSI_RETURN_TYPE_UINT)
-         ctx->shader_req_bits |= SHADER_REQ_INTS;
-      if (ctx->info.indirect_files & (1 << TGSI_FILE_SAMPLER)) {
-         if (ctx->last_sampler_array_idx != -1) {
-            if (ctx->sampler_arrays[ctx->last_sampler_array_idx].sview_type == decl->SamplerView.Resource &&
-                ctx->sampler_arrays[ctx->last_sampler_array_idx].sview_rtype == decl->SamplerView.ReturnTypeX) {
-               ctx->sampler_arrays[ctx->last_sampler_array_idx].last = decl->Range.Last + 1;
-            } else {
-               ctx->last_sampler_array_idx = add_sampler_array(ctx, decl->Range.First, decl->Range.Last + 1, decl->SamplerView.Resource, decl->SamplerView.ReturnTypeX);
-            }
-         } else {
-            ctx->last_sampler_array_idx = add_sampler_array(ctx, decl->Range.First, decl->Range.Last + 1, decl->SamplerView.Resource, decl->SamplerView.ReturnTypeX);
-         }
-      }
+      ret = add_samplers(ctx, decl->Range.First, decl->Range.Last, decl->SamplerView.Resource, decl->SamplerView.ReturnTypeX);
+      if (ret == -1)
+         return FALSE;
       break;
+   }
    case TGSI_FILE_IMAGE: {
       int ret;
       ctx->shader_req_bits |= SHADER_REQ_IMAGE_LOAD_STORE;
@@ -2988,12 +3003,11 @@ get_source_info(struct dump_ctx *ctx,
       } else if (src->Register.File == TGSI_FILE_SAMPLER) {
          const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
          if (ctx->info.indirect_files & (1 << TGSI_FILE_SAMPLER)) {
-            int arr_idx = lookup_sampler_array(ctx, src->Register.Index);
+            int basearrayidx = lookup_sampler_array(ctx, src->Register.Index);
             if (src->Register.Indirect) {
-
-               snprintf(srcs[i], 255, "%ssamp%d[addr%d+%d]%s", cname, arr_idx, src->Indirect.Index, src->Register.Index - ctx->sampler_arrays[arr_idx].first, swizzle);
+               snprintf(srcs[i], 255, "%ssamp%d[addr%d+%d]%s", cname, basearrayidx, src->Indirect.Index, src->Register.Index - basearrayidx, swizzle);
             } else {
-               snprintf(srcs[i], 255, "%ssamp%d[%d]%s", cname, arr_idx, src->Register.Index - ctx->sampler_arrays[arr_idx].first, swizzle);
+               snprintf(srcs[i], 255, "%ssamp%d[%d]%s", cname, basearrayidx, src->Register.Index - basearrayidx, swizzle);
             }
          } else {
             snprintf(srcs[i], 255, "%ssamp%d%s", cname, src->Register.Index, swizzle);
@@ -4558,9 +4572,10 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
 
    if (ctx->info.indirect_files & (1 << TGSI_FILE_SAMPLER)) {
       for (i = 0; i < ctx->num_sampler_arrays; i++) {
-         uint32_t range = ctx->sampler_arrays[i].last - ctx->sampler_arrays[i].first;
-         glsl_hdr = emit_sampler_decl(ctx, glsl_hdr, i, range, ctx->sampler_arrays[i].sview_rtype,
-                                      ctx->sampler_arrays[i].sview_type);
+         uint32_t first = ctx->sampler_arrays[i].first;
+         uint32_t range = ctx->sampler_arrays[i].array_size;
+         glsl_hdr = emit_sampler_decl(ctx, glsl_hdr, first, range, ctx->samplers[first].tgsi_sampler_return,
+                                      ctx->samplers[first].tgsi_sampler_type);
          if (!glsl_hdr)
             return NULL;
       }
@@ -4716,7 +4731,6 @@ char *vrend_convert_shader(struct vrend_shader_cfg *cfg,
    ctx.image_arrays = NULL;
    ctx.num_sampler_arrays = 0;
    ctx.sampler_arrays = NULL;
-   ctx.last_sampler_array_idx = -1;
    ctx.ssbo_array_base = 0xffffffff;
    ctx.ssbo_atomic_array_base = 0xffffffff;
    ctx.has_sample_input = false;

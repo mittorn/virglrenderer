@@ -38,10 +38,7 @@ struct vrend_interp_info {
 
 struct vrend_sampler_array {
    int first;
-   int last;
-   int idx;
-   int sview_type;
-   int sview_rtype;
+   int array_size;
 };
 
 struct vrend_image_array {

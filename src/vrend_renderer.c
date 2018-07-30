@@ -1044,7 +1044,7 @@ static void bind_sampler_locs(struct vrend_linked_shader_program *sprog,
             char name[64];
             if (sprog->ss[id]->sel->sinfo.num_sampler_arrays) {
                int arr_idx = shader_lookup_sampler_array(&sprog->ss[id]->sel->sinfo, i);
-               snprintf(name, 32, "%ssamp%d[%d]", prefix, arr_idx, i - sprog->ss[id]->sel->sinfo.sampler_arrays[arr_idx].first);
+               snprintf(name, 32, "%ssamp%d[%d]", prefix, arr_idx, i - arr_idx);
             } else
                snprintf(name, 32, "%ssamp%d", prefix, i);
             sprog->samp_locs[id][index] = glGetUniformLocation(sprog->id, name);
