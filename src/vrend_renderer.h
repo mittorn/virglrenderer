@@ -112,6 +112,7 @@ const struct vrend_format_table *vrend_get_format_table_entry(enum virgl_formats
 int vrend_create_shader(struct vrend_context *ctx,
                         uint32_t handle,
                         const struct pipe_stream_output_info *stream_output,
+                        uint32_t req_local_mem,
                         const char *shd_text, uint32_t offlen, uint32_t num_tokens,
                         uint32_t type, uint32_t pkt_length);
 

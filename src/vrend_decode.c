@@ -68,7 +68,7 @@ static int vrend_decode_create_shader(struct vrend_decode_ctx *ctx,
    struct pipe_stream_output_info so_info;
    uint i;
    int ret;
-   uint32_t shader_offset;
+   uint32_t shader_offset, req_local_mem = 0;
    unsigned num_tokens, num_so_outputs, offlen;
    uint8_t *shd_text;
    uint32_t type;
@@ -79,12 +79,18 @@ static int vrend_decode_create_shader(struct vrend_decode_ctx *ctx,
    type = get_buf_entry(ctx, VIRGL_OBJ_SHADER_TYPE);
    num_tokens = get_buf_entry(ctx, VIRGL_OBJ_SHADER_NUM_TOKENS);
    offlen = get_buf_entry(ctx, VIRGL_OBJ_SHADER_OFFSET);
-   num_so_outputs = get_buf_entry(ctx, VIRGL_OBJ_SHADER_SO_NUM_OUTPUTS);
 
-   if (length < VIRGL_OBJ_SHADER_HDR_SIZE(num_so_outputs))
-      return EINVAL;
-   if (num_so_outputs > PIPE_MAX_SO_OUTPUTS)
-      return EINVAL;
+   if (type == PIPE_SHADER_COMPUTE) {
+      req_local_mem = get_buf_entry(ctx, VIRGL_OBJ_SHADER_SO_NUM_OUTPUTS);
+      num_so_outputs = 0;
+   } else {
+      num_so_outputs = get_buf_entry(ctx, VIRGL_OBJ_SHADER_SO_NUM_OUTPUTS);
+      if (length < VIRGL_OBJ_SHADER_HDR_SIZE(num_so_outputs))
+         return EINVAL;
+
+      if (num_so_outputs > PIPE_MAX_SO_OUTPUTS)
+         return EINVAL;
+   }
 
    shader_offset = 6;
    if (num_so_outputs) {
@@ -109,7 +115,7 @@ static int vrend_decode_create_shader(struct vrend_decode_ctx *ctx,
      memset(&so_info, 0, sizeof(so_info));
 
    shd_text = get_buf_ptr(ctx, shader_offset);
-   ret = vrend_create_shader(ctx->grctx, handle, &so_info, (const char *)shd_text, offlen, num_tokens, type, length - shader_offset + 1);
+   ret = vrend_create_shader(ctx->grctx, handle, &so_info, req_local_mem, (const char *)shd_text, offlen, num_tokens, type, length - shader_offset + 1);
 
    return ret;
 }

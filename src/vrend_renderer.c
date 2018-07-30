@@ -291,6 +291,7 @@ struct vrend_shader_selector {
    struct vrend_shader *current;
    struct tgsi_token *tokens;
 
+   uint32_t req_local_mem;
    char *tmp_buf;
    uint32_t buf_len;
    uint32_t buf_offset;
@@ -439,6 +440,7 @@ struct vrend_sub_context {
 
    bool vbo_dirty;
    bool shader_dirty;
+   bool cs_shader_dirty;
    bool sampler_state_dirty;
    bool stencil_state_dirty;
    bool image_state_dirty;
@@ -605,6 +607,7 @@ static inline const char *pipe_shader_to_prefix(int shader_type)
    case PIPE_SHADER_GEOMETRY: return "gs";
    case PIPE_SHADER_TESS_CTRL: return "tc";
    case PIPE_SHADER_TESS_EVAL: return "te";
+   case PIPE_SHADER_COMPUTE: return "cs";
    default:
       return NULL;
    };
@@ -1173,6 +1176,43 @@ static void bind_image_locs(struct vrend_linked_shader_program *sprog,
    sprog->images_used_mask[id] = mask;
 }
 
+static struct vrend_linked_shader_program *add_cs_shader_program(struct vrend_context *ctx,
+                                                                 struct vrend_shader *cs)
+{
+   struct vrend_linked_shader_program *sprog = CALLOC_STRUCT(vrend_linked_shader_program);
+   GLuint prog_id;
+   GLint lret;
+   prog_id = glCreateProgram();
+   glAttachShader(prog_id, cs->id);
+   glLinkProgram(prog_id);
+
+   glGetProgramiv(prog_id, GL_LINK_STATUS, &lret);
+   if (lret == GL_FALSE) {
+      char infolog[65536];
+      int len;
+      glGetProgramInfoLog(prog_id, 65536, &len, infolog);
+      fprintf(stderr,"got error linking\n%s\n", infolog);
+      /* dump shaders */
+      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SHADER, 0);
+      fprintf(stderr,"compute shader: %d GLSL\n%s\n", cs->id, cs->glsl_prog);
+      glDeleteProgram(prog_id);
+      free(sprog);
+      return NULL;
+   }
+   sprog->ss[PIPE_SHADER_COMPUTE] = cs;
+
+   list_add(&sprog->sl[PIPE_SHADER_COMPUTE], &cs->programs);
+   sprog->id = prog_id;
+   list_addtail(&sprog->head, &ctx->sub->programs);
+
+   bind_sampler_locs(sprog, PIPE_SHADER_COMPUTE);
+   bind_ubo_locs(sprog, PIPE_SHADER_COMPUTE);
+   bind_ssbo_locs(sprog, PIPE_SHADER_COMPUTE);
+   bind_const_locs(sprog, PIPE_SHADER_COMPUTE);
+   bind_image_locs(sprog, PIPE_SHADER_COMPUTE);
+   return sprog;
+}
+
 static struct vrend_linked_shader_program *add_shader_program(struct vrend_context *ctx,
                                                               struct vrend_shader *vs,
                                                               struct vrend_shader *fs,
@@ -1344,6 +1384,19 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
    return sprog;
 }
 
+static struct vrend_linked_shader_program *lookup_cs_shader_program(struct vrend_context *ctx,
+                                                                    GLuint cs_id)
+{
+   struct vrend_linked_shader_program *ent;
+   LIST_FOR_EACH_ENTRY(ent, &ctx->sub->programs, head) {
+      if (!ent->ss[PIPE_SHADER_COMPUTE])
+         continue;
+      if (ent->ss[PIPE_SHADER_COMPUTE]->id == cs_id)
+         return ent;
+   }
+   return NULL;
+}
+
 static struct vrend_linked_shader_program *lookup_shader_program(struct vrend_context *ctx,
                                                                  GLuint vs_id,
                                                                  GLuint fs_id,
@@ -1356,7 +1409,8 @@ static struct vrend_linked_shader_program *lookup_shader_program(struct vrend_co
    LIST_FOR_EACH_ENTRY(ent, &ctx->sub->programs, head) {
       if (ent->dual_src_linked != dual_src)
          continue;
-
+      if (ent->ss[PIPE_SHADER_COMPUTE])
+         continue;
       if (ent->ss[PIPE_SHADER_VERTEX]->id != vs_id)
         continue;
       if (ent->ss[PIPE_SHADER_FRAGMENT]->id != fs_id)
@@ -1381,7 +1435,7 @@ static void vrend_destroy_program(struct vrend_linked_shader_program *ent)
    glDeleteProgram(ent->id);
    list_del(&ent->head);
 
-   for (i = PIPE_SHADER_VERTEX; i <= PIPE_SHADER_TESS_EVAL; i++) {
+   for (i = PIPE_SHADER_VERTEX; i <= PIPE_SHADER_COMPUTE; i++) {
       if (ent->ss[i])
          list_del(&ent->sl[i]);
       free(ent->shadow_samp_mask_locs[i]);
@@ -2701,6 +2755,7 @@ static inline int conv_shader_type(int type)
    case PIPE_SHADER_GEOMETRY: return GL_GEOMETRY_SHADER;
    case PIPE_SHADER_TESS_CTRL: return GL_TESS_CONTROL_SHADER;
    case PIPE_SHADER_TESS_EVAL: return GL_TESS_EVALUATION_SHADER;
+   case PIPE_SHADER_COMPUTE: return GL_COMPUTE_SHADER;
    default:
       return 0;
    };
@@ -2718,7 +2773,7 @@ static int vrend_shader_create(struct vrend_context *ctx,
 
    shader->id = glCreateShader(conv_shader_type(shader->sel->type));
    shader->compiled_fs_id = 0;
-   shader->glsl_prog = vrend_convert_shader(&ctx->shader_cfg, shader->sel->tokens, 0, &key, &shader->sel->sinfo);
+   shader->glsl_prog = vrend_convert_shader(&ctx->shader_cfg, shader->sel->tokens, shader->sel->req_local_mem, &key, &shader->sel->sinfo);
    if (!shader->glsl_prog) {
       report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SHADER, 0);
       glDeleteShader(shader->id);
@@ -2787,6 +2842,7 @@ static int vrend_shader_select(struct vrend_context *ctx,
 
 static void *vrend_create_shader_state(UNUSED struct vrend_context *ctx,
                                        const struct pipe_stream_output_info *so_info,
+                                       uint32_t req_local_mem,
                                        unsigned pipe_shader_type)
 {
    struct vrend_shader_selector *sel = CALLOC_STRUCT(vrend_shader_selector);
@@ -2794,6 +2850,7 @@ static void *vrend_create_shader_state(UNUSED struct vrend_context *ctx,
    if (!sel)
       return NULL;
 
+   sel->req_local_mem = req_local_mem;
    sel->type = pipe_shader_type;
    sel->sinfo.so_info = *so_info;
    pipe_reference_init(&sel->reference, 1);
@@ -2819,6 +2876,7 @@ static int vrend_finish_shader(struct vrend_context *ctx,
 int vrend_create_shader(struct vrend_context *ctx,
                         uint32_t handle,
                         const struct pipe_stream_output_info *so_info,
+                        uint32_t req_local_mem,
                         const char *shd_text, uint32_t offlen, uint32_t num_tokens,
                         uint32_t type, uint32_t pkt_length)
 {
@@ -2828,7 +2886,7 @@ int vrend_create_shader(struct vrend_context *ctx,
    bool finished = false;
    int ret;
 
-   if (type > PIPE_SHADER_TESS_EVAL)
+   if (type > PIPE_SHADER_COMPUTE)
       return EINVAL;
 
    if (!has_feature(feat_geometry_shader) &&
@@ -2855,7 +2913,7 @@ int vrend_create_shader(struct vrend_context *ctx,
    }
 
    if (new_shader) {
-     sel = vrend_create_shader_state(ctx, so_info, type);
+      sel = vrend_create_shader_state(ctx, so_info, req_local_mem, type);
      if (sel == NULL)
        return ENOMEM;
 
@@ -2964,11 +3022,14 @@ void vrend_bind_shader(struct vrend_context *ctx,
 {
    struct vrend_shader_selector *sel;
 
-   if (type > PIPE_SHADER_TESS_EVAL)
+   if (type > PIPE_SHADER_COMPUTE)
       return;
 
    if (handle == 0) {
-      ctx->sub->shader_dirty = true;
+      if (type == PIPE_SHADER_COMPUTE)
+         ctx->sub->cs_shader_dirty = true;
+      else
+         ctx->sub->shader_dirty = true;
       vrend_shader_state_reference(&ctx->sub->shaders[type], NULL);
       return;
    }
@@ -2981,7 +3042,10 @@ void vrend_bind_shader(struct vrend_context *ctx,
       return;
 
    if (ctx->sub->shaders[sel->type] != sel) {
-      ctx->sub->shader_dirty = true;
+      if (type == PIPE_SHADER_COMPUTE)
+         ctx->sub->cs_shader_dirty = true;
+      else
+         ctx->sub->shader_dirty = true;
       ctx->sub->prog_ids[sel->type] = 0;
    }
 
@@ -5057,6 +5121,7 @@ static void vrend_destroy_sub_context(struct vrend_sub_context *sub)
    vrend_shader_state_reference(&sub->shaders[PIPE_SHADER_GEOMETRY], NULL);
    vrend_shader_state_reference(&sub->shaders[PIPE_SHADER_TESS_CTRL], NULL);
    vrend_shader_state_reference(&sub->shaders[PIPE_SHADER_TESS_EVAL], NULL);
+   vrend_shader_state_reference(&sub->shaders[PIPE_SHADER_COMPUTE], NULL);
 
    vrend_free_programs(sub);
    for (i = 0; i < PIPE_SHADER_TYPES; i++) {
@@ -5110,6 +5175,7 @@ bool vrend_destroy_context(struct vrend_context *ctx)
    vrend_set_num_sampler_views(ctx, PIPE_SHADER_GEOMETRY, 0, 0);
    vrend_set_num_sampler_views(ctx, PIPE_SHADER_TESS_CTRL, 0, 0);
    vrend_set_num_sampler_views(ctx, PIPE_SHADER_TESS_EVAL, 0, 0);
+   vrend_set_num_sampler_views(ctx, PIPE_SHADER_COMPUTE, 0, 0);
 
    vrend_set_streamout_targets(ctx, 0, 0, NULL);
    vrend_set_num_vbo(ctx, 0);
