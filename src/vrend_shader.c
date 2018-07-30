@@ -175,6 +175,7 @@ struct dump_ctx {
    bool integer_memory;
 
    uint32_t num_ubo;
+   uint32_t ubo_base;
    int ubo_idx[32];
    int ubo_sizes[32];
    uint32_t num_address;
@@ -1197,6 +1198,8 @@ iter_declaration(struct tgsi_iterate_context *iter,
          ctx->ubo_sizes[ctx->num_ubo] = decl->Range.Last + 1;
          ctx->num_ubo++;
       } else {
+         /* if we have a normal single const set then ubo base should be 1 */
+         ctx->ubo_base = 1;
          if (decl->Range.Last) {
             if (decl->Range.Last + 1 > ctx->num_consts)
                ctx->num_consts = decl->Range.Last + 1;
@@ -3047,9 +3050,9 @@ get_source_info(struct dump_ctx *ctx,
             } else {
                if (ctx->info.dimension_indirect_files & (1 << TGSI_FILE_CONSTANT)) {
                   if (src->Register.Indirect) {
-                     snprintf(srcs[i], 255, "%s(%s%suboarr[%d].ubocontents[addr%d + %d]%s)", get_string(stypeprefix), prefix, cname, dim, src->Indirect.Index, src->Register.Index, swizzle);
+                     snprintf(srcs[i], 255, "%s(%s%suboarr[%d].ubocontents[addr%d + %d]%s)", get_string(stypeprefix), prefix, cname, dim - ctx->ubo_base, src->Indirect.Index, src->Register.Index, swizzle);
                   } else
-                     snprintf(srcs[i], 255, "%s(%s%suboarr[%d].ubocontents[%d]%s)", get_string(stypeprefix), prefix, cname, dim, src->Register.Index, swizzle);
+                     snprintf(srcs[i], 255, "%s(%s%suboarr[%d].ubocontents[%d]%s)", get_string(stypeprefix), prefix, cname, dim - ctx->ubo_base, src->Register.Index, swizzle);
                } else {
                   if (src->Register.Indirect) {
                      snprintf(srcs[i], 255, "%s(%s%subo%dcontents[addr0 + %d]%s)", get_string(stypeprefix), prefix, cname, dim, src->Register.Index, swizzle);
