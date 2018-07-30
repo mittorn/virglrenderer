@@ -262,7 +262,8 @@ static const struct tgsi_opcode_info opcode_info[TGSI_OPCODE_LAST] =
    { 1, 1, 0, 0, 0, 0, COMP, "DFLR", TGSI_OPCODE_DFLR },
    { 1, 1, 0, 0, 0, 0, COMP, "DROUND", TGSI_OPCODE_DROUND },
    { 1, 1, 0, 0, 0, 0, COMP, "DSSG", TGSI_OPCODE_DSSG },
-   { 1, 2, 0, 0, 0, 0, COMP, "DDIV", TGSI_OPCODE_DDIV }
+   { 1, 2, 0, 0, 0, 0, COMP, "DDIV", TGSI_OPCODE_DDIV },
+   { 1, 0, 0, 0, 0, 0, OTHR, "CLOCK", TGSI_OPCODE_CLOCK }
 };
 
 const struct tgsi_opcode_info *
@@ -354,6 +355,7 @@ tgsi_opcode_infer_type( uint opcode )
    case TGSI_OPCODE_LSB:
    case TGSI_OPCODE_UMSB:
    case TGSI_OPCODE_D2U:
+   case TGSI_OPCODE_CLOCK:
       return TGSI_TYPE_UNSIGNED;
    case TGSI_OPCODE_ARL:
    case TGSI_OPCODE_ARR:

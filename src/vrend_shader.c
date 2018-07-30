@@ -61,6 +61,7 @@ extern int vrend_dump_shaders;
 #define SHADER_REQ_IMAGE_SIZE         (1 << 17)
 #define SHADER_REQ_TXQS               (1 << 18)
 #define SHADER_REQ_FBFETCH            (1 << 19)
+#define SHADER_REQ_SHADER_CLOCK       (1 << 20)
 
 struct vrend_shader_io {
    unsigned                name;
@@ -237,6 +238,7 @@ static const struct vrend_shader_table shader_req_table[] = {
     { SHADER_REQ_IMAGE_SIZE, "GL_ARB_shader_image_size" },
     { SHADER_REQ_TXQS, "GL_ARB_shader_texture_image_samples" },
     { SHADER_REQ_FBFETCH, "GL_EXT_shader_framebuffer_fetch" },
+    { SHADER_REQ_SHADER_CLOCK, "GL_ARB_shader_clock" },
 };
 
 enum vrend_type_qualifier {
@@ -3893,6 +3895,11 @@ iter_instruction(struct tgsi_iterate_context *iter,
       ret = translate_resq(ctx, inst, srcs, dsts);
       if (ret)
          return FALSE;
+      break;
+   case TGSI_OPCODE_CLOCK:
+      ctx->shader_req_bits |= SHADER_REQ_SHADER_CLOCK;
+      snprintf(buf, 255, "%s = uintBitsToFloat(clock2x32ARB());\n", dsts[0]);
+      EMIT_BUF_WITH_RET(ctx, buf);
       break;
    default:
       fprintf(stderr,"failed to convert opcode %d\n", inst->Instruction.Opcode);

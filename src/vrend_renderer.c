@@ -122,6 +122,7 @@ enum features_id
    feat_sample_mask,
    feat_sample_shading,
    feat_samplers,
+   feat_shader_clock,
    feat_ssbo,
    feat_ssbo_barrier,
    feat_stencil_texturing,
@@ -185,6 +186,7 @@ static const  struct {
    [feat_sample_mask] = { 32, 31, { "GL_ARB_texture_multisample" } },
    [feat_sample_shading] = { 40, UNAVAIL, { "GL_ARB_sample_shading" } },
    [feat_samplers] = { 33, 30, { "GL_ARB_sampler_objects" } },
+   [feat_shader_clock] = { UNAVAIL, UNAVAIL, { "GL_ARB_shader_clock" } },
    [feat_ssbo] = { 43, 31, { "GL_ARB_shader_storage_buffer_object" } },
    [feat_ssbo_barrier] = { 43, 31, {} },
    [feat_stencil_texturing] = { 43, 31, { "GL_ARB_stencil_texturing" } },
@@ -8161,6 +8163,8 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
    if (has_feature(feat_framebuffer_fetch))
       caps->v2.capability_bits |= VIRGL_CAP_TGSI_FBFETCH;
 
+   if (has_feature(feat_shader_clock))
+      caps->v2.capability_bits |= VIRGL_CAP_SHADER_CLOCK;
 }
 
 void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
