@@ -1153,6 +1153,25 @@ static int vrend_decode_memory_barrier(struct vrend_decode_ctx *ctx, uint16_t le
    return 0;
 }
 
+static int vrend_decode_launch_grid(struct vrend_decode_ctx *ctx, uint16_t length)
+{
+   uint32_t block[3], grid[3];
+   uint32_t indirect_handle, indirect_offset;
+   if (length != VIRGL_LAUNCH_GRID_SIZE)
+      return EINVAL;
+
+   block[0] = get_buf_entry(ctx, VIRGL_LAUNCH_BLOCK_X);
+   block[1] = get_buf_entry(ctx, VIRGL_LAUNCH_BLOCK_Y);
+   block[2] = get_buf_entry(ctx, VIRGL_LAUNCH_BLOCK_Z);
+   grid[0] = get_buf_entry(ctx, VIRGL_LAUNCH_GRID_X);
+   grid[1] = get_buf_entry(ctx, VIRGL_LAUNCH_GRID_Y);
+   grid[2] = get_buf_entry(ctx, VIRGL_LAUNCH_GRID_Z);
+   indirect_handle = get_buf_entry(ctx, VIRGL_LAUNCH_INDIRECT_HANDLE);
+   indirect_offset = get_buf_entry(ctx, VIRGL_LAUNCH_INDIRECT_OFFSET);
+   vrend_launch_grid(ctx->grctx, block, grid, indirect_handle, indirect_offset);
+   return 0;
+}
+
 static int vrend_decode_set_streamout_targets(struct vrend_decode_ctx *ctx,
                                               uint16_t length)
 {
@@ -1389,6 +1408,9 @@ int vrend_decode_block(uint32_t ctx_id, uint32_t *block, int ndw)
          break;
       case VIRGL_CCMD_MEMORY_BARRIER:
          ret = vrend_decode_memory_barrier(gdctx, len);
+         break;
+      case VIRGL_CCMD_LAUNCH_GRID:
+         ret = vrend_decode_launch_grid(gdctx, len);
          break;
       default:
          ret = EINVAL;

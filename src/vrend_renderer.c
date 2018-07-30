@@ -3928,6 +3928,77 @@ int vrend_draw_vbo(struct vrend_context *ctx,
    return 0;
 }
 
+void vrend_launch_grid(struct vrend_context *ctx,
+                       uint32_t *block,
+                       uint32_t *grid,
+                       uint32_t indirect_handle,
+                       uint32_t indirect_offset)
+{
+   bool new_program = false;
+   struct vrend_resource *indirect_res = NULL;
+   if (ctx->sub->cs_shader_dirty) {
+      struct vrend_linked_shader_program *prog;
+      bool same_prog, cs_dirty;
+      if (!ctx->sub->shaders[PIPE_SHADER_COMPUTE]) {
+         fprintf(stderr,"dropping rendering due to missing shaders: %s\n", ctx->debug_name);
+         return;
+      }
+
+      vrend_shader_select(ctx, ctx->sub->shaders[PIPE_SHADER_COMPUTE], &cs_dirty);
+      if (!ctx->sub->shaders[PIPE_SHADER_COMPUTE]->current) {
+         fprintf(stderr, "failure to compile shader variants: %s\n", ctx->debug_name);
+         return;
+      }
+      same_prog = true;
+      if (ctx->sub->shaders[PIPE_SHADER_COMPUTE]->current->id != (GLuint)ctx->sub->prog_ids[PIPE_SHADER_COMPUTE])
+ same_prog = false;
+      if (!same_prog) {
+         prog = lookup_cs_shader_program(ctx, ctx->sub->shaders[PIPE_SHADER_COMPUTE]->current->id);
+         if (!prog) {
+            prog = add_cs_shader_program(ctx, ctx->sub->shaders[PIPE_SHADER_COMPUTE]->current);
+            if (!prog)
+               return;
+         }
+      } else
+         prog = ctx->sub->prog;
+
+      if (ctx->sub->prog != prog) {
+         new_program = true;
+         ctx->sub->prog_ids[PIPE_SHADER_VERTEX] = -1;
+         ctx->sub->prog_ids[PIPE_SHADER_COMPUTE] = ctx->sub->shaders[PIPE_SHADER_COMPUTE]->current->id;
+         ctx->sub->prog = prog;
+      }
+      ctx->sub->shader_dirty = true;
+   }
+   vrend_use_program(ctx, ctx->sub->prog->id);
+
+   int sampler_id = 0, ubo_id = 0;
+   vrend_draw_bind_ubo_shader(ctx, PIPE_SHADER_COMPUTE, &ubo_id);
+   vrend_draw_bind_const_shader(ctx, PIPE_SHADER_COMPUTE, new_program);
+   vrend_draw_bind_samplers_shader(ctx, PIPE_SHADER_COMPUTE, &sampler_id);
+   vrend_draw_bind_images_shader(ctx, PIPE_SHADER_COMPUTE);
+   vrend_draw_bind_ssbo_shader(ctx, PIPE_SHADER_COMPUTE);
+
+   if (indirect_handle) {
+      indirect_res = vrend_renderer_ctx_res_lookup(ctx, indirect_handle);
+      if (!indirect_res) {
+         report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, indirect_handle);
+         return;
+      }
+   }
+
+   if (indirect_res)
+      glBindBuffer(GL_DISPATCH_INDIRECT_BUFFER, indirect_res->id);
+   else
+      glBindBuffer(GL_DISPATCH_INDIRECT_BUFFER, 0);
+
+   if (indirect_res) {
+      glDispatchComputeIndirect(indirect_offset);
+   } else {
+      glDispatchCompute(grid[0], grid[1], grid[2]);
+   }
+}
+
 static GLenum translate_blend_func(uint32_t pipe_blend)
 {
    switch(pipe_blend){
