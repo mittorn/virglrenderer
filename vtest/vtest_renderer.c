@@ -122,6 +122,14 @@ int vtest_create_renderer(int in_fd, int out_fd, uint32_t length)
     if (getenv("VTEST_USE_GLX"))
        ctx = VIRGL_RENDERER_USE_GLX;
 
+    if (getenv("VTEST_USE_EGL_SURFACELESS")) {
+        if (ctx & VIRGL_RENDERER_USE_GLX) {
+            fprintf(stderr, "Cannot use surfaceless with GLX.\n");
+            return -1;
+        }
+        ctx |= VIRGL_RENDERER_USE_SURFACELESS;
+    }
+
     ret = virgl_renderer_init(&renderer,
                               ctx | VIRGL_RENDERER_THREAD_SYNC, &vtest_cbs);
     if (ret) {

@@ -123,9 +123,9 @@ static bool virgl_egl_has_extension_in_string(const char *haystack, const char *
    return false;
 }
 
-struct virgl_egl *virgl_egl_init(int fd)
+struct virgl_egl *virgl_egl_init(int fd, bool surfaceless)
 {
-   static const EGLint conf_att[] = {
+   static EGLint conf_att[] = {
       EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
       EGL_RENDERABLE_TYPE, EGL_OPENGL_BIT,
       EGL_RED_SIZE, 1,
@@ -148,16 +148,22 @@ struct virgl_egl *virgl_egl_init(int fd)
    if (!d)
       return NULL;
 
-   if (fd >= 0) {
-      d->fd = fd;
+   if (surfaceless) {
+      conf_att[1] = EGL_PBUFFER_BIT;
+      d->fd = -1;
+      d->gbm_dev = NULL;
    } else {
-      d->fd = egl_rendernode_open();
+      if (fd >= 0) {
+         d->fd = fd;
+      } else {
+         d->fd = egl_rendernode_open();
+      }
+      if (d->fd == -1)
+         goto fail;
+      d->gbm_dev = gbm_create_device(d->fd);
+      if (!d->gbm_dev)
+         goto fail;
    }
-   if (d->fd == -1)
-      goto fail;
-   d->gbm_dev = gbm_create_device(d->fd);
-   if (!d->gbm_dev)
-      goto fail;
 
    const char *client_extensions = eglQueryString (NULL, EGL_EXTENSIONS);
 
@@ -165,14 +171,26 @@ struct virgl_egl *virgl_egl_init(int fd)
       PFNEGLGETPLATFORMDISPLAYEXTPROC get_platform_display =
          (PFNEGLGETPLATFORMDISPLAYEXTPROC) eglGetProcAddress ("eglGetPlatformDisplay");
 
-      if (get_platform_display)
+      if (!get_platform_display)
+        goto fail;
+
+      if (surfaceless) {
+         d->egl_display = get_platform_display (EGL_PLATFORM_SURFACELESS_MESA,
+                                                EGL_DEFAULT_DISPLAY, NULL);
+      } else
          d->egl_display = get_platform_display (EGL_PLATFORM_GBM_KHR,
                                                 (EGLNativeDisplayType)d->gbm_dev, NULL);
    } else if (strstr (client_extensions, "EGL_EXT_platform_base")) {
       PFNEGLGETPLATFORMDISPLAYEXTPROC get_platform_display =
          (PFNEGLGETPLATFORMDISPLAYEXTPROC) eglGetProcAddress ("eglGetPlatformDisplayEXT");
 
-      if (get_platform_display)
+      if (!get_platform_display)
+        goto fail;
+
+      if (surfaceless) {
+         d->egl_display = get_platform_display (EGL_PLATFORM_SURFACELESS_MESA,
+                                                EGL_DEFAULT_DISPLAY, NULL);
+      } else
          d->egl_display = get_platform_display (EGL_PLATFORM_GBM_KHR,
                                                 (EGLNativeDisplayType)d->gbm_dev, NULL);
    } else {
@@ -245,8 +263,10 @@ void virgl_egl_destroy(struct virgl_egl *d)
                   EGL_NO_CONTEXT);
    eglDestroyContext(d->egl_display, d->egl_ctx);
    eglTerminate(d->egl_display);
-   gbm_device_destroy(d->gbm_dev);
-   close(d->fd);
+   if (d->gbm_dev)
+      gbm_device_destroy(d->gbm_dev);
+   if (d->fd >= 0)
+      close(d->fd);
    free(d);
 }
 
