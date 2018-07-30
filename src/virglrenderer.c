@@ -315,7 +315,8 @@ int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks
       if (cbs->version >= 2 && cbs->get_drm_fd) {
          fd = cbs->get_drm_fd(cookie);
       }
-      egl_info = virgl_egl_init(fd, flags & VIRGL_RENDERER_USE_SURFACELESS);
+      egl_info = virgl_egl_init(fd, flags & VIRGL_RENDERER_USE_SURFACELESS,
+                                    flags & VIRGL_RENDERER_USE_GLES);
       if (!egl_info)
          return -1;
       use_context = CONTEXT_EGL;

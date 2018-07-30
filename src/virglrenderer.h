@@ -67,6 +67,7 @@ struct virgl_renderer_callbacks {
 #define VIRGL_RENDERER_THREAD_SYNC 2
 #define VIRGL_RENDERER_USE_GLX (1 << 2)
 #define VIRGL_RENDERER_USE_SURFACELESS (1 << 3)
+#define VIRGL_RENDERER_USE_GLES (1 << 4)
 
 VIRGL_EXPORT int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks *cb);
 VIRGL_EXPORT void virgl_renderer_poll(void); /* force fences */

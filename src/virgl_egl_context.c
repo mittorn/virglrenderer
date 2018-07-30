@@ -123,7 +123,7 @@ static bool virgl_egl_has_extension_in_string(const char *haystack, const char *
    return false;
 }
 
-struct virgl_egl *virgl_egl_init(int fd, bool surfaceless)
+struct virgl_egl *virgl_egl_init(int fd, bool surfaceless, bool gles)
 {
    static EGLint conf_att[] = {
       EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
@@ -147,6 +147,9 @@ struct virgl_egl *virgl_egl_init(int fd, bool surfaceless)
    d = malloc(sizeof(struct virgl_egl));
    if (!d)
       return NULL;
+
+   if (gles)
+      conf_att[3] = EGL_OPENGL_ES_BIT;
 
    if (surfaceless) {
       conf_att[1] = EGL_PBUFFER_BIT;
@@ -230,7 +233,10 @@ struct virgl_egl *virgl_egl_init(int fd, bool surfaceless)
       goto fail;
    }
 
-   api = EGL_OPENGL_API;
+   if (gles)
+      api = EGL_OPENGL_ES_API;
+   else
+      api = EGL_OPENGL_API;
    b = eglBindAPI(api);
    if (!b)
       goto fail;
