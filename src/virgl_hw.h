@@ -224,6 +224,7 @@ enum virgl_formats {
 #define VIRGL_CAP_TGSI_PRECISE         (1 << 4)
 #define VIRGL_CAP_TXQS                 (1 << 5)
 #define VIRGL_CAP_MEMORY_BARRIER       (1 << 6)
+#define VIRGL_CAP_COMPUTE_SHADER       (1 << 7)
 
 /* virgl bind flags - these are compatible with mesa 10.5 gallium.
  * but are fixed, no other should be passed to virgl either.
@@ -337,6 +338,10 @@ struct virgl_caps_v2 {
         uint32_t max_shader_image_frag_compute;
         uint32_t max_shader_image_other_stages;
         uint32_t max_image_samples;
+        uint32_t max_compute_work_group_invocations;
+        uint32_t max_compute_shared_memory_size;
+        uint32_t max_compute_grid_size[3];
+        uint32_t max_compute_block_size[3];
 };
 
 union virgl_caps {

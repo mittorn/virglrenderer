@@ -94,6 +94,7 @@ enum features_id
    feat_base_instance,
    feat_barrier,
    feat_bit_encoding,
+   feat_compute_shader,
    feat_copy_image,
    feat_conditional_render_inverted,
    feat_cube_map_array,
@@ -150,6 +151,7 @@ static const  struct {
    [feat_base_instance] = { 42, UNAVAIL, { "GL_ARB_base_instance", "GL_EXT_base_instance" } },
    [feat_barrier] = { 42, 31, {} },
    [feat_bit_encoding] = { 33, UNAVAIL, { "GL_ARB_shader_bit_encoding" } },
+   [feat_compute_shader] = { 43, 31, { "GL_ARB_compute_shader" } },
    [feat_copy_image] = { 43, 32, { "GL_ARB_copy_image", "GL_EXT_copy_image", "GL_OES_copy_image" } },
    [feat_conditional_render_inverted] = { 45, UNAVAIL, { "GL_ARB_conditional_render_inverted" } },
    [feat_cube_map_array] = { 40, UNAVAIL, { "GL_ARB_texture_cube_map_array", "GL_EXT_texture_cube_map_array", "GL_OES_texture_cube_map_array" } },
@@ -2898,6 +2900,10 @@ int vrend_create_shader(struct vrend_context *ctx,
         type == PIPE_SHADER_TESS_EVAL))
       return EINVAL;
 
+   if (!has_feature(feat_compute_shader) &&
+       type == PIPE_SHADER_COMPUTE)
+      return EINVAL;
+
    if (offlen & VIRGL_OBJ_SHADER_OFFSET_CONT)
       new_shader = false;
    else if (((offlen + 3) / 4) > pkt_length)
@@ -3936,6 +3942,10 @@ void vrend_launch_grid(struct vrend_context *ctx,
 {
    bool new_program = false;
    struct vrend_resource *indirect_res = NULL;
+
+   if (!has_feature(feat_compute_shader))
+      return;
+
    if (ctx->sub->cs_shader_dirty) {
       struct vrend_linked_shader_program *prog;
       bool same_prog, cs_dirty;
@@ -8163,6 +8173,19 @@ void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
 
    if (gl_ver >= 44)
       glGetIntegerv(GL_MAX_VERTEX_ATTRIB_STRIDE, (GLint*)&caps->v2.max_vertex_attrib_stride);
+
+   if (has_feature(feat_compute_shader)) {
+      glGetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS, (GLint*)&caps->v2.max_compute_work_group_invocations);
+      glGetIntegerv(GL_MAX_COMPUTE_SHARED_MEMORY_SIZE, (GLint*)&caps->v2.max_compute_shared_memory_size);
+      glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 0, (GLint*)&caps->v2.max_compute_grid_size[0]);
+      glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 1, (GLint*)&caps->v2.max_compute_grid_size[1]);
+      glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 2, (GLint*)&caps->v2.max_compute_grid_size[2]);
+      glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 0, (GLint*)&caps->v2.max_compute_block_size[0]);
+      glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 1, (GLint*)&caps->v2.max_compute_block_size[1]);
+      glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 2, (GLint*)&caps->v2.max_compute_block_size[2]);
+
+      caps->v2.capability_bits |= VIRGL_CAP_COMPUTE_SHADER;
+   }
 
    if (has_feature(feat_texture_view))
       caps->v2.capability_bits |= VIRGL_CAP_TEXTURE_VIEW;
