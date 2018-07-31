@@ -117,6 +117,7 @@ enum features_id
    feat_nv_conditional_render,
    feat_nv_prim_restart,
    feat_polygon_offset_clamp,
+   feat_robust_buffer_access,
    feat_sample_mask,
    feat_sample_shading,
    feat_samplers,
@@ -175,6 +176,7 @@ static const  struct {
    [feat_nv_conditional_render] = { UNAVAIL, UNAVAIL, { "GL_NV_conditional_render" } },
    [feat_nv_prim_restart] = { UNAVAIL, UNAVAIL, { "GL_NV_primitive_restart" } },
    [feat_polygon_offset_clamp] = { 46, UNAVAIL, { "GL_ARB_polygon_offset_clamp" } },
+   [feat_robust_buffer_access] = { 43, UNAVAIL, { "GL_ARB_robust_buffer_access_behaviour" } },
    [feat_sample_mask] = { 32, 31, { "GL_ARB_texture_multisample" } },
    [feat_sample_shading] = { 40, UNAVAIL, { "GL_ARB_sample_shading" } },
    [feat_samplers] = { 33, UNAVAIL, { "GL_ARB_sampler_objects" } },
@@ -8219,6 +8221,9 @@ void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
 
    if (has_feature(feat_copy_image))
       caps->v2.capability_bits |= VIRGL_CAP_COPY_IMAGE;
+
+   if (has_feature(feat_robust_buffer_access))
+      caps->v2.capability_bits |= VIRGL_CAP_ROBUST_BUFFER_ACCESS;
 }
 
 GLint64 vrend_renderer_get_timestamp(void)
