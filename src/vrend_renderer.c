@@ -8021,7 +8021,7 @@ static void vrend_renderer_fill_caps_v1(int gl_ver, int gles_ver, union virgl_ca
    }
 }
 
-static void vrend_renderer_fill_caps_v2_common(union virgl_caps *caps)
+static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_caps *caps)
 {
    GLint max;
    GLfloat range[2];
@@ -8034,6 +8034,16 @@ static void vrend_renderer_fill_caps_v2_common(union virgl_caps *caps)
    caps->v2.min_aliased_line_width = range[0];
    caps->v2.max_aliased_line_width = range[1];
 
+   if (gl_ver > 0) {
+      glGetFloatv(GL_SMOOTH_POINT_SIZE_RANGE, range);
+      caps->v2.min_smooth_point_size = range[0];
+      caps->v2.max_smooth_point_size = range[1];
+
+      glGetFloatv(GL_SMOOTH_LINE_WIDTH_RANGE, range);
+      caps->v2.min_smooth_line_width = range[0];
+      caps->v2.max_smooth_line_width = range[1];
+   }
+
    glGetFloatv(GL_MAX_TEXTURE_LOD_BIAS, &caps->v2.max_texture_lod_bias);
    glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, (GLint*)&caps->v2.max_vertex_attribs);
    glGetIntegerv(GL_MAX_VERTEX_OUTPUT_COMPONENTS, &max);
@@ -8043,66 +8053,6 @@ static void vrend_renderer_fill_caps_v2_common(union virgl_caps *caps)
    glGetIntegerv(GL_MAX_PROGRAM_TEXEL_OFFSET, &caps->v2.max_texel_offset);
 
    glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, (GLint*)&caps->v2.uniform_buffer_offset_alignment);
-}
-
-static void vrend_renderer_fill_caps_gl(bool fill_capset2, union virgl_caps *caps)
-{
-   GLfloat range[2];
-
-   if (!fill_capset2)
-      return;
-
-   glGetFloatv(GL_SMOOTH_POINT_SIZE_RANGE, range);
-   caps->v2.min_smooth_point_size = range[0];
-   caps->v2.max_smooth_point_size = range[1];
-
-   glGetFloatv(GL_SMOOTH_LINE_WIDTH_RANGE, range);
-   caps->v2.min_smooth_line_width = range[0];
-   caps->v2.max_smooth_line_width = range[1];
-}
-
-void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
-                              union virgl_caps *caps)
-{
-   GLint max;
-   int gl_ver, gles_ver;
-   bool fill_capset2 = false;
-
-   if (!caps)
-      return;
-
-   if (set > 2) {
-      caps->max_version = 0;
-      return;
-   }
-
-   if (set == 1) {
-      memset(caps, 0, sizeof(struct virgl_caps_v1));
-      caps->max_version = 1;
-   } else if (set == 2) {
-      memset(caps, 0, sizeof(*caps));
-      caps->max_version = 2;
-      fill_capset2 = true;
-   }
-
-   if (vrend_state.use_gles) {
-      gles_ver = epoxy_gl_version();
-      gl_ver = 0;
-   } else {
-      gles_ver = 0;
-      gl_ver = epoxy_gl_version();
-   }
-
-   vrend_fill_caps_glsl_version(gl_ver, gles_ver, caps);
-   vrend_renderer_fill_caps_v1(gl_ver, gles_ver, caps);
-
-   if (!vrend_state.use_gles)
-      vrend_renderer_fill_caps_gl(fill_capset2, caps);
-
-   if (!fill_capset2)
-      return;
-
-   vrend_renderer_fill_caps_v2_common(caps);
 
    if (has_feature(feat_geometry_shader)) {
       glGetIntegerv(GL_MAX_GEOMETRY_OUTPUT_VERTICES, (GLint*)&caps->v2.max_geom_output_vertices);
@@ -8190,6 +8140,47 @@ void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
 
    if (has_feature(feat_framebuffer_fetch))
       caps->v2.capability_bits |= VIRGL_CAP_TGSI_FBFETCH;
+
+}
+
+void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
+                              union virgl_caps *caps)
+{
+   int gl_ver, gles_ver;
+   bool fill_capset2 = false;
+
+   if (!caps)
+      return;
+
+   if (set > 2) {
+      caps->max_version = 0;
+      return;
+   }
+
+   if (set == 1) {
+      memset(caps, 0, sizeof(struct virgl_caps_v1));
+      caps->max_version = 1;
+   } else if (set == 2) {
+      memset(caps, 0, sizeof(*caps));
+      caps->max_version = 2;
+      fill_capset2 = true;
+   }
+
+   if (vrend_state.use_gles) {
+      gles_ver = epoxy_gl_version();
+      gl_ver = 0;
+   } else {
+      gles_ver = 0;
+      gl_ver = epoxy_gl_version();
+   }
+
+   vrend_fill_caps_glsl_version(gl_ver, gles_ver, caps);
+   vrend_renderer_fill_caps_v1(gl_ver, gles_ver, caps);
+
+   if (!fill_capset2)
+      return;
+
+   vrend_renderer_fill_caps_v2(gl_ver, gles_ver, caps);
 }
 
 GLint64 vrend_renderer_get_timestamp(void)
