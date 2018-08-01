@@ -7782,6 +7782,36 @@ static void vrender_get_glsl_version(int *glsl_version)
       *glsl_version = version;
 }
 
+static void vrend_fill_caps_glsl_version(int gl_ver, int gles_ver,
+					  union virgl_caps *caps)
+{
+   if (gles_ver > 0) {
+      caps->v1.glsl_level = 120;
+
+      if (gles_ver >= 30)
+         caps->v1.glsl_level = 130;
+   }
+
+   if (gl_ver > 0) {
+      caps->v1.glsl_level = 130;
+
+      if (gl_ver == 31)
+         caps->v1.glsl_level = 140;
+      else if (gl_ver == 32)
+         caps->v1.glsl_level = 150;
+      else if (gl_ver == 33)
+         caps->v1.glsl_level = 330;
+      else if (gl_ver == 40)
+         caps->v1.glsl_level = 400;
+      else if (gl_ver == 41)
+         caps->v1.glsl_level = 410;
+      else if (gl_ver == 42)
+         caps->v1.glsl_level = 420;
+      else if (gl_ver >= 43)
+         caps->v1.glsl_level = 430;
+   }
+}
+
 /*
  * Does all of the common caps setting,
  * if it dedects a early out returns true.
@@ -7854,36 +7884,6 @@ static void vrend_renderer_fill_caps_v2_common(union virgl_caps *caps)
    glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, (GLint*)&caps->v2.uniform_buffer_offset_alignment);
 }
 
-static void vrend_fill_caps_glsl_version(int gl_ver, int gles_ver,
-					  union virgl_caps *caps)
-{
-   if (gles_ver > 0) {
-      caps->v1.glsl_level = 120;
-
-      if (gles_ver >= 30)
-         caps->v1.glsl_level = 130;
-   }
-
-   if (gl_ver > 0) {
-      caps->v1.glsl_level = 130;
-
-      if (gl_ver == 31)
-         caps->v1.glsl_level = 140;
-      else if (gl_ver == 32)
-         caps->v1.glsl_level = 150;
-      else if (gl_ver == 33)
-         caps->v1.glsl_level = 330;
-      else if (gl_ver == 40)
-         caps->v1.glsl_level = 400;
-      else if (gl_ver == 41)
-         caps->v1.glsl_level = 410;
-      else if (gl_ver == 42)
-         caps->v1.glsl_level = 420;
-      else if (gl_ver >= 43)
-         caps->v1.glsl_level = 430;
-   }
-}
-
 static void vrend_renderer_fill_caps_gl(bool fill_capset2, union virgl_caps *caps)
 {
    GLfloat range[2];
@@ -7940,8 +7940,8 @@ void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
       gl_ver = epoxy_gl_version();
    }
 
-   vrend_renderer_fill_caps_common(caps);
    vrend_fill_caps_glsl_version(gl_ver, gles_ver, caps);
+   vrend_renderer_fill_caps_common(caps);
 
    if (!vrend_state.use_gles)
       vrend_renderer_fill_caps_gl(fill_capset2, caps);
