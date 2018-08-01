@@ -1340,8 +1340,10 @@ iter_property(struct tgsi_iterate_context *iter,
 
    if (prop->Property.PropertyName == TGSI_PROPERTY_FS_EARLY_DEPTH_STENCIL) {
       ctx->early_depth_stencil = prop->u[0].Data > 0;
-      if (ctx->early_depth_stencil)
+      if (ctx->early_depth_stencil) {
+         require_glsl_ver(ctx, 150);
          ctx->shader_req_bits |= SHADER_REQ_IMAGE_LOAD_STORE;
+      }
    }
 
    if (prop->Property.PropertyName == TGSI_PROPERTY_CS_FIXED_BLOCK_WIDTH)
