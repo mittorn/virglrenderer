@@ -1091,7 +1091,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
                color_offset = -1;
          if (indirect && ctx->outputs[i].name == TGSI_SEMANTIC_GENERIC) {
             ctx->outputs[i].glsl_predefined_no_emit = true;
-            ctx->glsl_ver_required = 150;
+            require_glsl_ver(ctx, 150);
             if (ctx->outputs[i].sid < ctx->generic_output_range.first || ctx->generic_output_range.used == false) {
                ctx->generic_output_range.array_id = i;
                ctx->generic_output_range.first = ctx->outputs[i].sid;
@@ -1104,7 +1104,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
       case TGSI_SEMANTIC_PATCH:
          if (indirect && ctx->outputs[i].name == TGSI_SEMANTIC_PATCH) {
             ctx->outputs[i].glsl_predefined_no_emit = true;
-            ctx->glsl_ver_required = 150;
+            require_glsl_ver(ctx, 150);
             if (ctx->outputs[i].sid < ctx->patch_output_range.first || ctx->patch_output_range.used == false) {
                ctx->patch_output_range.array_id = i;
                ctx->patch_output_range.first = ctx->outputs[i].sid;
