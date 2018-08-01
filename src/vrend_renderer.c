@@ -7816,7 +7816,7 @@ static void vrend_fill_caps_glsl_version(int gl_ver, int gles_ver,
  * Does all of the common caps setting,
  * if it dedects a early out returns true.
  */
-static void vrend_renderer_fill_caps_common(union virgl_caps *caps)
+static void vrend_renderer_fill_caps_v1(int gl_ver, int gles_ver, union virgl_caps *caps)
 {
    int i;
    GLint max;
@@ -7833,118 +7833,13 @@ static void vrend_renderer_fill_caps_common(union virgl_caps *caps)
                         (1 << PIPE_PRIM_TRIANGLES) | (1 << PIPE_PRIM_TRIANGLE_STRIP) |
                         (1 << PIPE_PRIM_TRIANGLE_FAN);
 
-   /* Common limits for all backends. */
-   caps->v1.max_render_targets = vrend_state.max_draw_buffers;
-
-   glGetIntegerv(GL_MAX_SAMPLES, &max);
-   caps->v1.max_samples = max;
-
-   /* All of the formats are common. */
-   for (i = 0; i < VIRGL_FORMAT_MAX; i++) {
-      uint32_t offset = i / 32;
-      uint32_t index = i % 32;
-
-      if (tex_conv_table[i].internalformat != 0) {
-         if (vrend_format_can_sample(i)) {
-            caps->v1.sampler.bitmask[offset] |= (1 << index);
-            if (vrend_format_can_render(i))
-               caps->v1.render.bitmask[offset] |= (1 << index);
-         }
-      }
-   }
-
-   /* These are filled in by the init code, so are common. */
-   if (has_feature(feat_nv_prim_restart) ||
-       has_feature(feat_gl_prim_restart)) {
-      caps->v1.bset.primitive_restart = 1;
-   }
-}
-
-static void vrend_renderer_fill_caps_v2_common(union virgl_caps *caps)
-{
-   GLint max;
-   GLfloat range[2];
-
-   glGetFloatv(GL_ALIASED_POINT_SIZE_RANGE, range);
-   caps->v2.min_aliased_point_size = range[0];
-   caps->v2.max_aliased_point_size = range[1];
-
-   glGetFloatv(GL_ALIASED_LINE_WIDTH_RANGE, range);
-   caps->v2.min_aliased_line_width = range[0];
-   caps->v2.max_aliased_line_width = range[1];
-
-   glGetFloatv(GL_MAX_TEXTURE_LOD_BIAS, &caps->v2.max_texture_lod_bias);
-   glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, (GLint*)&caps->v2.max_vertex_attribs);
-   glGetIntegerv(GL_MAX_VERTEX_OUTPUT_COMPONENTS, &max);
-   caps->v2.max_vertex_outputs = max / 4;
-
-   glGetIntegerv(GL_MIN_PROGRAM_TEXEL_OFFSET, &caps->v2.min_texel_offset);
-   glGetIntegerv(GL_MAX_PROGRAM_TEXEL_OFFSET, &caps->v2.max_texel_offset);
-
-   glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, (GLint*)&caps->v2.uniform_buffer_offset_alignment);
-}
-
-static void vrend_renderer_fill_caps_gl(bool fill_capset2, union virgl_caps *caps)
-{
-   GLfloat range[2];
-
-   if (!vrend_state.use_core_profile) {
+   if (gl_ver > 0 && !vrend_state.use_core_profile) {
       caps->v1.bset.poly_stipple = 1;
       caps->v1.bset.color_clamping = 1;
       caps->v1.prim_mask |= (1 << PIPE_PRIM_QUADS) |
                             (1 << PIPE_PRIM_QUAD_STRIP) |
                             (1 << PIPE_PRIM_POLYGON);
    }
-
-   if (!fill_capset2)
-      return;
-
-   glGetFloatv(GL_SMOOTH_POINT_SIZE_RANGE, range);
-   caps->v2.min_smooth_point_size = range[0];
-   caps->v2.max_smooth_point_size = range[1];
-
-   glGetFloatv(GL_SMOOTH_LINE_WIDTH_RANGE, range);
-   caps->v2.min_smooth_line_width = range[0];
-   caps->v2.max_smooth_line_width = range[1];
-}
-
-void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
-                              union virgl_caps *caps)
-{
-   GLint max;
-   int gl_ver, gles_ver;
-   bool fill_capset2 = false;
-
-   if (!caps)
-      return;
-
-   if (set > 2) {
-      caps->max_version = 0;
-      return;
-   }
-
-   if (set == 1) {
-      memset(caps, 0, sizeof(struct virgl_caps_v1));
-      caps->max_version = 1;
-   } else if (set == 2) {
-      memset(caps, 0, sizeof(*caps));
-      caps->max_version = 2;
-      fill_capset2 = true;
-   }
-
-   if (vrend_state.use_gles) {
-      gles_ver = epoxy_gl_version();
-      gl_ver = 0;
-   } else {
-      gles_ver = 0;
-      gl_ver = epoxy_gl_version();
-   }
-
-   vrend_fill_caps_glsl_version(gl_ver, gles_ver, caps);
-   vrend_renderer_fill_caps_common(caps);
-
-   if (!vrend_state.use_gles)
-      vrend_renderer_fill_caps_gl(fill_capset2, caps);
 
    if (caps->v1.glsl_level >= 150) {
       caps->v1.prim_mask |= (1 << PIPE_PRIM_LINES_ADJACENCY) |
@@ -8098,6 +7993,111 @@ void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
    } else {
       caps->v1.max_viewports = 1;
    }
+
+   /* Common limits for all backends. */
+   caps->v1.max_render_targets = vrend_state.max_draw_buffers;
+
+   glGetIntegerv(GL_MAX_SAMPLES, &max);
+   caps->v1.max_samples = max;
+
+   /* All of the formats are common. */
+   for (i = 0; i < VIRGL_FORMAT_MAX; i++) {
+      uint32_t offset = i / 32;
+      uint32_t index = i % 32;
+
+      if (tex_conv_table[i].internalformat != 0) {
+         if (vrend_format_can_sample(i)) {
+            caps->v1.sampler.bitmask[offset] |= (1 << index);
+            if (vrend_format_can_render(i))
+               caps->v1.render.bitmask[offset] |= (1 << index);
+         }
+      }
+   }
+
+   /* These are filled in by the init code, so are common. */
+   if (has_feature(feat_nv_prim_restart) ||
+       has_feature(feat_gl_prim_restart)) {
+      caps->v1.bset.primitive_restart = 1;
+   }
+}
+
+static void vrend_renderer_fill_caps_v2_common(union virgl_caps *caps)
+{
+   GLint max;
+   GLfloat range[2];
+
+   glGetFloatv(GL_ALIASED_POINT_SIZE_RANGE, range);
+   caps->v2.min_aliased_point_size = range[0];
+   caps->v2.max_aliased_point_size = range[1];
+
+   glGetFloatv(GL_ALIASED_LINE_WIDTH_RANGE, range);
+   caps->v2.min_aliased_line_width = range[0];
+   caps->v2.max_aliased_line_width = range[1];
+
+   glGetFloatv(GL_MAX_TEXTURE_LOD_BIAS, &caps->v2.max_texture_lod_bias);
+   glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, (GLint*)&caps->v2.max_vertex_attribs);
+   glGetIntegerv(GL_MAX_VERTEX_OUTPUT_COMPONENTS, &max);
+   caps->v2.max_vertex_outputs = max / 4;
+
+   glGetIntegerv(GL_MIN_PROGRAM_TEXEL_OFFSET, &caps->v2.min_texel_offset);
+   glGetIntegerv(GL_MAX_PROGRAM_TEXEL_OFFSET, &caps->v2.max_texel_offset);
+
+   glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, (GLint*)&caps->v2.uniform_buffer_offset_alignment);
+}
+
+static void vrend_renderer_fill_caps_gl(bool fill_capset2, union virgl_caps *caps)
+{
+   GLfloat range[2];
+
+   if (!fill_capset2)
+      return;
+
+   glGetFloatv(GL_SMOOTH_POINT_SIZE_RANGE, range);
+   caps->v2.min_smooth_point_size = range[0];
+   caps->v2.max_smooth_point_size = range[1];
+
+   glGetFloatv(GL_SMOOTH_LINE_WIDTH_RANGE, range);
+   caps->v2.min_smooth_line_width = range[0];
+   caps->v2.max_smooth_line_width = range[1];
+}
+
+void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
+                              union virgl_caps *caps)
+{
+   GLint max;
+   int gl_ver, gles_ver;
+   bool fill_capset2 = false;
+
+   if (!caps)
+      return;
+
+   if (set > 2) {
+      caps->max_version = 0;
+      return;
+   }
+
+   if (set == 1) {
+      memset(caps, 0, sizeof(struct virgl_caps_v1));
+      caps->max_version = 1;
+   } else if (set == 2) {
+      memset(caps, 0, sizeof(*caps));
+      caps->max_version = 2;
+      fill_capset2 = true;
+   }
+
+   if (vrend_state.use_gles) {
+      gles_ver = epoxy_gl_version();
+      gl_ver = 0;
+   } else {
+      gles_ver = 0;
+      gl_ver = epoxy_gl_version();
+   }
+
+   vrend_fill_caps_glsl_version(gl_ver, gles_ver, caps);
+   vrend_renderer_fill_caps_v1(gl_ver, gles_ver, caps);
+
+   if (!vrend_state.use_gles)
+      vrend_renderer_fill_caps_gl(fill_capset2, caps);
 
    if (!fill_capset2)
       return;
