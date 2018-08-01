@@ -164,9 +164,12 @@ while (__AFL_LOOP(1000)) {
 #endif
 
    if (argc > 1) {
-      if (!strcmp(argv[1], "--no-fork"))
+      if (!strcmp(argv[1], "--no-loop-or-fork")) {
+        do_fork = false;
+        loop = false;
+      } else if (!strcmp(argv[1], "--no-fork")) {
 	do_fork = false;
-      else {
+      } else {
          ret = open(argv[1], O_RDONLY);
          if (ret == -1) {
             perror(0);
