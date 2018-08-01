@@ -78,7 +78,7 @@ struct vrend_shader_io {
    bool override_no_wm;
    bool is_int;
    bool fbfetch_used;
-   char glsl_name[64];
+   char glsl_name[128];
    unsigned stream;
 };
 
@@ -868,7 +868,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
          if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
             if (ctx->key->coord_replace & (1 << ctx->inputs[i].sid)) {
                if (ctx->cfg->use_gles)
-                  name_prefix = "vec4(gl_PointCoord.x, 1.0 - gl_PointCoord.y, 0.0, 1.0)";
+                  name_prefix = "vec4(gl_PointCoord.x, mix(1.0 - gl_PointCoord.y, gl_PointCoord.y, clamp(winsys_adjust_y, 0.0, 1.0)), 0.0, 1.0)";
                else
                   name_prefix = "vec4(gl_PointCoord, 0.0, 1.0)";
                ctx->inputs[i].glsl_predefined_no_emit = true;
@@ -893,7 +893,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
       }
 
       if (ctx->inputs[i].glsl_no_index)
-         snprintf(ctx->inputs[i].glsl_name, 64, "%s", name_prefix);
+         snprintf(ctx->inputs[i].glsl_name, 128, "%s", name_prefix);
       else {
          if (ctx->inputs[i].name == TGSI_SEMANTIC_FOG)
             snprintf(ctx->inputs[i].glsl_name, 64, "%s_f%d", name_prefix, ctx->inputs[i].sid);
@@ -4250,6 +4250,12 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
       bcolor_emitted[0] = bcolor_emitted[1] = false;
    }
    if (ctx->prog_type == TGSI_PROCESSOR_FRAGMENT) {
+      if (ctx->cfg->use_gles &&
+         (ctx->key->coord_replace & (1 << ctx->inputs[i].sid))) {
+         snprintf(buf, 255, "uniform float winsys_adjust_y;\n");
+         STRCAT_WITH_RET(glsl_hdr, buf);
+      }
+
       if (fs_emit_layout(ctx)) {
          bool upper_left = !(ctx->fs_coord_origin ^ ctx->key->invert_fs_origin);
          char comma = (upper_left && ctx->fs_pixel_center) ? ',' : ' ';
