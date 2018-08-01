@@ -35,6 +35,7 @@
 #include "vtest_protocol.h"
 #include "util.h"
 #include "util/u_debug.h"
+#include "util/u_math.h"
 
 static int ctx_id = 1;
 static int fence_id = 1;
@@ -53,6 +54,7 @@ struct virgl_renderer_callbacks vtest_cbs = {
 struct vtest_renderer {
   int in_fd;
   int out_fd;
+  unsigned protocol_version;
 };
 
 struct vtest_renderer renderer;
@@ -119,6 +121,9 @@ int vtest_create_renderer(int in_fd, int out_fd, uint32_t length)
     renderer.in_fd = in_fd;
     renderer.out_fd = out_fd;
 
+    /* By default we support version 0 unless VCMD_PROTOCOL_VERSION is sent */
+    renderer.protocol_version = 0;
+
     if (getenv("VTEST_USE_GLX"))
        ctx = VIRGL_RENDERER_USE_GLX;
 
@@ -172,6 +177,35 @@ int vtest_ping_protocol_version(void)
     ret = vtest_block_write(renderer.out_fd, hdr_buf, sizeof(hdr_buf));
     if (ret < 0)
 	return ret;
+    return 0;
+}
+
+int vtest_protocol_version(void)
+{
+    uint32_t hdr_buf[VTEST_HDR_SIZE];
+    uint32_t version_buf[VCMD_PROTOCOL_VERSION_SIZE];
+    int ret;
+
+    ret = vtest_block_read(renderer.in_fd, &version_buf, sizeof(version_buf));
+    if (ret != sizeof(version_buf))
+        return -1;
+
+    renderer.protocol_version = MIN2(version_buf[VCMD_PROTOCOL_VERSION_VERSION],
+                                     VTEST_PROTOCOL_VERSION);
+
+    hdr_buf[VTEST_CMD_LEN] = VCMD_PROTOCOL_VERSION_SIZE;
+    hdr_buf[VTEST_CMD_ID] = VCMD_PROTOCOL_VERSION;
+
+    version_buf[VCMD_PROTOCOL_VERSION_VERSION] = renderer.protocol_version;
+
+    ret = vtest_block_write(renderer.out_fd, hdr_buf, sizeof(hdr_buf));
+    if (ret < 0)
+      return ret;
+
+    ret = vtest_block_write(renderer.out_fd, version_buf, sizeof(version_buf));
+    if (ret < 0)
+      return ret;
+
     return 0;
 }
 

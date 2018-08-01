@@ -135,6 +135,9 @@ again:
       case VCMD_PING_PROTOCOL_VERSION:
 	ret = vtest_ping_protocol_version();
 	break;
+      case VCMD_PROTOCOL_VERSION:
+	ret = vtest_protocol_version();
+	break;
       default:
 	break;
       }

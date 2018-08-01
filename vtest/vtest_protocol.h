@@ -25,6 +25,7 @@
 #define VTEST_PROTOCOL
 
 #define VTEST_DEFAULT_SOCKET_NAME "/tmp/.virgl_test"
+#define VTEST_PROTOCOL_VERSION 1
 
 /* 32-bit length field */
 /* 32-bit cmd field */
@@ -55,6 +56,8 @@
 /* resp VCMD_GET_CAPS + caps */
 
 #define VCMD_PING_PROTOCOL_VERSION 10
+
+#define VCMD_PROTOCOL_VERSION 11
 
 #define VCMD_RES_CREATE_SIZE 10
 #define VCMD_RES_CREATE_RES_HANDLE 0
@@ -91,5 +94,8 @@
 #define VCMD_BUSY_WAIT_FLAGS 1
 
 #define VCMD_PING_PROTOCOL_VERSION_SIZE 0
+
+#define VCMD_PROTOCOL_VERSION_SIZE 1
+#define VCMD_PROTOCOL_VERSION_VERSION 0
 
 #endif
