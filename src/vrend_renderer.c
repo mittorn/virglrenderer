@@ -3608,10 +3608,10 @@ static void vrend_draw_bind_ssbo_shader(struct vrend_context *ctx, int shader_ty
 
 static void vrend_draw_bind_images_shader(struct vrend_context *ctx, int shader_type)
 {
-   struct vrend_image_view *iview;
-   uint32_t mask;
-   uint32_t tex_id;
    GLenum access;
+   GLboolean layered;
+   struct vrend_image_view *iview;
+   uint32_t mask, tex_id, level, first_layer;
 
    if (!has_feature(feat_images))
       return;
@@ -3638,11 +3638,16 @@ static void vrend_draw_bind_images_shader(struct vrend_context *ctx, int shader_
          glBindTexture(GL_TEXTURE_BUFFER, iview->texture->tbo_tex_id);
          glTexBuffer(GL_TEXTURE_BUFFER, iview->format, iview->texture->id);
          tex_id = iview->texture->tbo_tex_id;
+         level = first_layer = 0;
+         layered = GL_TRUE;
+      } else {
+         level = iview->u.tex.level;
+         first_layer = iview->u.tex.first_layer;
+         layered = !((iview->texture->base.array_size > 1 ||
+                      iview->texture->base.depth0 > 1) && (iview->u.tex.first_layer == iview->u.tex.last_layer));
       }
 
       glUniform1i(ctx->sub->prog->img_locs[shader_type][i], i);
-      GLboolean layered = !((iview->texture->base.array_size > 1 ||
-                             iview->texture->base.depth0 > 1) && (iview->u.tex.first_layer == iview->u.tex.last_layer));
 
       switch (iview->access) {
       case PIPE_IMAGE_ACCESS_READ:
@@ -3659,12 +3664,7 @@ static void vrend_draw_bind_images_shader(struct vrend_context *ctx, int shader_
          return;
       }
 
-      glBindImageTexture(i, tex_id,
-                         iview->u.tex.level,
-                         layered,
-                         iview->u.tex.first_layer,
-                         access,
-                         iview->format);
+      glBindImageTexture(i, tex_id, level, layered, first_layer, access, iview->format);
    }
 }
 
