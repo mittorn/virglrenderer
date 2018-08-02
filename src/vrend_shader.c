@@ -2348,6 +2348,20 @@ static enum vrend_type_qualifier get_coord_prefix(int resource, bool *is_ms)
    }
 }
 
+static bool is_integer_memory(struct dump_ctx *ctx, enum tgsi_file_type file_type, uint32_t index)
+{
+   switch(file_type) {
+   case TGSI_FILE_BUFFER:
+      return !!(ctx->ssbo_integer_mask & (1 << index));
+   case TGSI_FILE_MEMORY:
+      return ctx->integer_memory;
+   default:
+      fprintf(stderr, "Invalid file type");
+   }
+
+   return false;
+}
+
 static int
 translate_store(struct dump_ctx *ctx,
                 struct tgsi_full_instruction *inst,
@@ -2381,7 +2395,9 @@ translate_store(struct dump_ctx *ctx,
       snprintf(buf, 512, "imageStore(%s,%s(floatBitsToInt(%s)),%s%s(%s));\n", dsts[0], get_string(coord_prefix), srcs[0], ms_str, get_string(stypeprefix), srcs[1]);
       EMIT_BUF_WITH_RET(ctx, buf);
    } else if (dst->Register.File == TGSI_FILE_BUFFER || dst->Register.File == TGSI_FILE_MEMORY) {
-      const char *conversion = sinfo->override_no_cast[1] ? "" : get_string(FLOAT_BITS_TO_UINT);
+      enum vrend_type_qualifier dtypeprefix;
+      dtypeprefix = (is_integer_memory(ctx, dst->Register.File, dst->Register.Index)) ? FLOAT_BITS_TO_INT : FLOAT_BITS_TO_UINT;
+      const char *conversion = sinfo->override_no_cast[1] ? "" : get_string(dtypeprefix);
       if (inst->Dst[0].Register.WriteMask & 0x1) {
          snprintf(buf, 255, "%s[uint(floatBitsToUint(%s))>>2] = %s(%s).x;\n", dsts[0], srcs[0], conversion, srcs[1]);
          EMIT_BUF_WITH_RET(ctx, buf);
@@ -2439,6 +2455,7 @@ translate_load(struct dump_ctx *ctx,
    } else if (src->Register.File == TGSI_FILE_BUFFER ||
               src->Register.File == TGSI_FILE_MEMORY) {
       char mydst[255], atomic_op[9], atomic_src[10];
+      enum vrend_type_qualifier dtypeprefix;
       strcpy(mydst, dsts[0]);
       char *wmp = strchr(mydst, '.');
       if (wmp)
@@ -2453,20 +2470,21 @@ translate_load(struct dump_ctx *ctx,
          strcpy(atomic_src, ", uint(0)");
       }
 
+      dtypeprefix = (is_integer_memory(ctx, src->Register.File, src->Register.Index)) ? INT_BITS_TO_FLOAT : UINT_BITS_TO_FLOAT;
       if (inst->Dst[0].Register.WriteMask & 0x1) {
-         snprintf(buf, 255, "%s.x = (uintBitsToFloat(%s(%s[ssbo_addr_temp]%s)));\n", mydst, atomic_op, srcs[0], atomic_src);
+         snprintf(buf, 255, "%s.x = (%s(%s(%s[ssbo_addr_temp]%s)));\n", mydst, get_string(dtypeprefix), atomic_op, srcs[0], atomic_src);
          EMIT_BUF_WITH_RET(ctx, buf);
       }
       if (inst->Dst[0].Register.WriteMask & 0x2) {
-         snprintf(buf, 255, "%s.y = (uintBitsToFloat(%s(%s[ssbo_addr_temp + 1u]%s)));\n", mydst, atomic_op, srcs[0], atomic_src);
+         snprintf(buf, 255, "%s.y = (%s(%s(%s[ssbo_addr_temp + 1u]%s)));\n", mydst, get_string(dtypeprefix), atomic_op, srcs[0], atomic_src);
          EMIT_BUF_WITH_RET(ctx, buf);
       }
       if (inst->Dst[0].Register.WriteMask & 0x4) {
-         snprintf(buf, 255, "%s.z = (uintBitsToFloat(%s(%s[ssbo_addr_temp + 2u]%s)));\n", mydst, atomic_op, srcs[0], atomic_src);
+         snprintf(buf, 255, "%s.z = (%s(%s(%s[ssbo_addr_temp + 2u]%s)));\n", mydst, get_string(dtypeprefix), atomic_op, srcs[0], atomic_src);
          EMIT_BUF_WITH_RET(ctx, buf);
       }
       if (inst->Dst[0].Register.WriteMask & 0x8) {
-         snprintf(buf, 255, "%s.w = (uintBitsToFloat(%s(%s[ssbo_addr_temp + 3u]%s)));\n", mydst, atomic_op, srcs[0], atomic_src);
+         snprintf(buf, 255, "%s.w = (%s(%s(%s[ssbo_addr_temp + 3u]%s)));\n", mydst, get_string(dtypeprefix), atomic_op, srcs[0], atomic_src);
          EMIT_BUF_WITH_RET(ctx, buf);
       }
    }
@@ -2601,9 +2619,19 @@ translate_atomic(struct dump_ctx *ctx,
       snprintf(buf, 512, "%s = %s(imageAtomic%s(%s, %s(floatBitsToInt(%s))%s, %s(%s(%s))%s));\n", dsts[0], get_string(dtypeprefix), opname, srcs[0], get_string(coord_prefix), srcs[1], ms_str, get_string(stypecast), get_string(stypeprefix), srcs[2], cas_str);
       EMIT_BUF_WITH_RET(ctx, buf);
    }
-   if (src->Register.File == TGSI_FILE_BUFFER ||
-       src->Register.File == TGSI_FILE_MEMORY) {
-      snprintf(buf, 512, "%s = %s(atomic%s(%s[int(floatBitsToInt(%s)) >> 2], uint(%s(%s).x)%s));\n", dsts[0], get_string(dtypeprefix), opname, srcs[0], srcs[1], get_string(stypeprefix), srcs[2], cas_str);
+   if (src->Register.File == TGSI_FILE_BUFFER || src->Register.File == TGSI_FILE_MEMORY) {
+      enum vrend_type_qualifier type;
+      if ((is_integer_memory(ctx, src->Register.File, src->Register.Index))) {
+	 type = INT;
+	 dtypeprefix = INT_BITS_TO_FLOAT;
+	 stypeprefix = FLOAT_BITS_TO_INT;
+      } else {
+	 type = UINT;
+	 dtypeprefix = UINT_BITS_TO_FLOAT;
+	 stypeprefix = FLOAT_BITS_TO_UINT;
+      }
+
+      snprintf(buf, 512, "%s = %s(atomic%s(%s[int(floatBitsToInt(%s)) >> 2], %s(%s(%s).x)%s));\n", dsts[0], get_string(dtypeprefix), opname, srcs[0], srcs[1], get_string(type), get_string(stypeprefix), srcs[2], cas_str);
       EMIT_BUF_WITH_RET(ctx, buf);
    }
    return 0;
@@ -4289,7 +4317,8 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
       STRCAT_WITH_RET(glsl_hdr, buf);
 
       if (ctx->req_local_mem) {
-         snprintf(buf, 255, "shared uint values[%d];\n", ctx->req_local_mem / 4);
+         enum vrend_type_qualifier type = ctx->integer_memory ? INT : UINT;
+         snprintf(buf, 255, "shared %s values[%d];\n", get_string(type), ctx->req_local_mem / 4);
          STRCAT_WITH_RET(glsl_hdr, buf);
       }
    }
@@ -4738,7 +4767,9 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
       while (mask) {
          uint32_t id = u_bit_scan(&mask);
          sname = tgsi_proc_to_prefix(ctx->prog_type);
-         snprintf(buf, 255, "layout (binding = %d, std430) buffer %sssbo%d { uint %sssbocontents%d[]; };\n", id, sname, id, sname, id);
+         enum vrend_type_qualifier type = (ctx->ssbo_integer_mask & (1 << id)) ? INT : UINT;
+         snprintf(buf, 255, "layout (binding = %d, std430) buffer %sssbo%d { %s %sssbocontents%d[]; };\n", id, sname, id,
+                  get_string(type), sname, id);
          STRCAT_WITH_RET(glsl_hdr, buf);
       }
    }
