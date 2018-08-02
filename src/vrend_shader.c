@@ -4252,12 +4252,6 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
       bcolor_emitted[0] = bcolor_emitted[1] = false;
    }
    if (ctx->prog_type == TGSI_PROCESSOR_FRAGMENT) {
-      if (ctx->cfg->use_gles &&
-         (ctx->key->coord_replace & (1 << ctx->inputs[i].sid))) {
-         snprintf(buf, 255, "uniform float winsys_adjust_y;\n");
-         STRCAT_WITH_RET(glsl_hdr, buf);
-      }
-
       if (fs_emit_layout(ctx)) {
          bool upper_left = !(ctx->fs_coord_origin ^ ctx->key->invert_fs_origin);
          char comma = (upper_left && ctx->fs_pixel_center) ? ',' : ' ';
@@ -4347,6 +4341,12 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
          } else
             postfix[0] = 0;
          snprintf(buf, 255, "%s%sin vec4 %s%s;\n", prefix, auxprefix, ctx->inputs[i].glsl_name, postfix);
+         STRCAT_WITH_RET(glsl_hdr, buf);
+      }
+
+      if (ctx->prog_type == TGSI_PROCESSOR_FRAGMENT && ctx->cfg->use_gles &&
+         (ctx->key->coord_replace & (1 << ctx->inputs[i].sid))) {
+         snprintf(buf, 255, "uniform float winsys_adjust_y;\n");
          STRCAT_WITH_RET(glsl_hdr, buf);
       }
    }
