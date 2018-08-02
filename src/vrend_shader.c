@@ -4126,7 +4126,7 @@ static void *emit_sampler_decl(struct dump_ctx *ctx, char *glsl_hdr, uint32_t i,
 
    /* GLES does not support 1D textures -- we use a 2D texture and set the parameter set to 0.5 */
    if (ctx->cfg->use_gles && texture_type == TGSI_TEXTURE_1D)
-      snprintf(buf, 255, "uniform %csampler2D %ssamp%d;\n", ptc, sname, i);
+      snprintf(buf, 255, "uniform highp %csampler2D %ssamp%d;\n", ptc, sname, i);
    else if (range)
       snprintf(buf, 255, "uniform %s%csampler%s %ssamp%d[%d];\n", precision, ptc, stc, sname, i, range);
    else
