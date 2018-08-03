@@ -129,6 +129,7 @@ enum features_id
    feat_storage_multisample,
    feat_tessellation,
    feat_texture_array,
+   feat_texture_barrier,
    feat_texture_buffer_range,
    feat_texture_gather,
    feat_texture_multisample,
@@ -193,6 +194,7 @@ static const  struct {
    [feat_storage_multisample] = { 43, 31, { "GL_ARB_texture_storage_multisample" } },
    [feat_tessellation] = { 40, UNAVAIL, { "GL_ARB_tessellation_shader" } },
    [feat_texture_array] = { 30, 30, { "GL_EXT_texture_array" } },
+   [feat_texture_barrier] = { 45, UNAVAIL, { "GL_ARB_texture_barrier" } },
    [feat_texture_buffer_range] = { 43, UNAVAIL, { "GL_ARB_texture_buffer_range" } },
    [feat_texture_gather] = { 40, 31, { "GL_ARB_texture_gather" } },
    [feat_texture_multisample] = { 32, 30, { "GL_ARB_texture_multisample" } },
@@ -2664,6 +2666,16 @@ void vrend_memory_barrier(struct vrend_context *ctx,
       }
    }
    glMemoryBarrier(gl_barrier);
+}
+
+void vrend_texture_barrier(struct vrend_context *ctx,
+                           unsigned flags)
+{
+   if (!has_feature(feat_texture_barrier))
+      return;
+
+   if (flags == PIPE_TEXTURE_BARRIER_SAMPLER)
+      glTextureBarrier();
 }
 
 static void vrend_destroy_shader_object(void *obj_ptr)
@@ -8165,6 +8177,9 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
 
    if (has_feature(feat_shader_clock))
       caps->v2.capability_bits |= VIRGL_CAP_SHADER_CLOCK;
+
+   if (has_feature(feat_texture_barrier))
+      caps->v2.capability_bits |= VIRGL_CAP_TEXTURE_BARRIER;
 }
 
 void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,

@@ -1213,6 +1213,16 @@ static int vrend_decode_set_streamout_targets(struct vrend_decode_ctx *ctx,
    return 0;
 }
 
+static int vrend_decode_texture_barrier(struct vrend_decode_ctx *ctx, uint16_t length)
+{
+   if (length != VIRGL_TEXTURE_BARRIER_SIZE)
+      return EINVAL;
+
+   unsigned flags = get_buf_entry(ctx, VIRGL_TEXTURE_BARRIER_FLAGS);
+   vrend_texture_barrier(ctx->grctx, flags);
+   return 0;
+}
+
 void vrend_renderer_context_create_internal(uint32_t handle, uint32_t nlen,
                                             const char *debug_name)
 {
@@ -1435,6 +1445,9 @@ int vrend_decode_block(uint32_t ctx_id, uint32_t *block, int ndw)
          break;
       case VIRGL_CCMD_SET_FRAMEBUFFER_STATE_NO_ATTACH:
          ret = vrend_decode_set_framebuffer_state_no_attach(gdctx, len);
+         break;
+      case VIRGL_CCMD_TEXTURE_BARRIER:
+         ret = vrend_decode_texture_barrier(gdctx, len);
          break;
       default:
          ret = EINVAL;
