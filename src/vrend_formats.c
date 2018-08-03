@@ -520,6 +520,67 @@ unsigned vrend_renderer_query_multisample_caps(unsigned max_samples, struct virg
    return max_samples_confirmed;
 }
 
+/* returns: 1 = compatible, -1 = not compatible, 0 = undecided */
+static int format_uncompressed_compressed_copy_compatible(enum pipe_format src,
+                                                          enum pipe_format dst)
+{
+   switch (src) {
+   case PIPE_FORMAT_R32G32B32A32_UINT:
+   case PIPE_FORMAT_R32G32B32A32_SINT:
+   case PIPE_FORMAT_R32G32B32A32_FLOAT:
+   case PIPE_FORMAT_R32G32B32A32_SNORM:
+   case PIPE_FORMAT_R32G32B32A32_UNORM:
+      switch (dst) {
+      case PIPE_FORMAT_DXT3_RGBA:
+      case PIPE_FORMAT_DXT3_SRGBA:
+      case PIPE_FORMAT_DXT5_RGBA:
+      case PIPE_FORMAT_DXT5_SRGBA:
+      case PIPE_FORMAT_RGTC2_UNORM:
+      case PIPE_FORMAT_RGTC2_SNORM:
+      case PIPE_FORMAT_BPTC_RGBA_UNORM:
+      case PIPE_FORMAT_BPTC_SRGBA:
+      case PIPE_FORMAT_BPTC_RGB_FLOAT:
+      case PIPE_FORMAT_BPTC_RGB_UFLOAT:
+         return 1;
+      default:
+         return -1;
+      }
+   case PIPE_FORMAT_R16G16B16A16_UINT:
+   case PIPE_FORMAT_R16G16B16A16_SINT:
+   case PIPE_FORMAT_R16G16B16A16_FLOAT:
+   case PIPE_FORMAT_R16G16B16A16_SNORM:
+   case PIPE_FORMAT_R16G16B16A16_UNORM:
+   case PIPE_FORMAT_R32G32_UINT:
+   case PIPE_FORMAT_R32G32_SINT:
+   case PIPE_FORMAT_R32G32_FLOAT:
+   case PIPE_FORMAT_R32G32_UNORM:
+   case PIPE_FORMAT_R32G32_SNORM:
+      switch (dst) {
+      case PIPE_FORMAT_DXT1_RGBA:
+      case PIPE_FORMAT_DXT1_SRGBA:
+      case PIPE_FORMAT_DXT1_RGB:
+      case PIPE_FORMAT_DXT1_SRGB:
+      case PIPE_FORMAT_RGTC1_UNORM:
+      case PIPE_FORMAT_RGTC1_SNORM:
+         return 1;
+      default:
+         return -1;
+      }
+   default:
+      return 0;
+   }
+}
+
+static boolean format_compressed_compressed_copy_compatible(enum pipe_format src, enum pipe_format dst)
+{
+   if ((src == PIPE_FORMAT_RGTC1_UNORM && dst == PIPE_FORMAT_RGTC1_SNORM) ||
+       (src == PIPE_FORMAT_RGTC2_UNORM && dst == PIPE_FORMAT_RGTC2_SNORM) ||
+       (src == PIPE_FORMAT_BPTC_RGBA_UNORM && dst == PIPE_FORMAT_BPTC_SRGBA) ||
+       (src == PIPE_FORMAT_BPTC_RGB_FLOAT && dst == PIPE_FORMAT_BPTC_RGB_UFLOAT))
+      return true;
+   return false;
+}
+
 boolean format_is_copy_compatible(enum pipe_format src, enum pipe_format dst)
 {
    int r;
@@ -533,6 +594,14 @@ boolean format_is_copy_compatible(enum pipe_format src, enum pipe_format dst)
       return util_is_format_compatible(src_desc, dst_desc);
    }
 
-   /* compressed formats will be supported later */
-   return false;
+   /* compressed-uncompressed */
+   r = format_uncompressed_compressed_copy_compatible(src, dst);
+   if (r)
+      return r > 0;
+
+   r = format_uncompressed_compressed_copy_compatible(dst, src);
+   if (r)
+      return r > 0;
+
+   return format_compressed_compressed_copy_compatible(dst, src);
 }
