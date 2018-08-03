@@ -155,6 +155,7 @@ struct dump_ctx {
    uint32_t ssbo_atomic_mask;
    uint32_t ssbo_array_base;
    uint32_t ssbo_atomic_array_base;
+   uint32_t ssbo_integer_mask;
 
    struct vrend_shader_image images[32];
    uint32_t images_used_mask;
@@ -171,6 +172,7 @@ struct dump_ctx {
    unsigned fragcoord_input;
 
    uint32_t req_local_mem;
+   bool integer_memory;
 
    uint32_t num_ubo;
    int ubo_idx[32];
@@ -4798,6 +4800,22 @@ static boolean fill_interpolants(struct dump_ctx *ctx, struct vrend_shader_info 
    return FALSE;
 }
 
+static boolean analyze_instruction(struct tgsi_iterate_context *iter,
+                                   struct tgsi_full_instruction *inst)
+{
+   struct dump_ctx *ctx = (struct dump_ctx *)iter;
+   uint32_t opcode = inst->Instruction.Opcode;
+   if (opcode == TGSI_OPCODE_ATOMIMIN || opcode == TGSI_OPCODE_ATOMIMAX) {
+       const struct tgsi_full_src_register *src = &inst->Src[0];
+       if (src->Register.File == TGSI_FILE_BUFFER)
+         ctx->ssbo_integer_mask |= 1 << src->Register.Index;
+       if (src->Register.File == TGSI_FILE_MEMORY)
+         ctx->integer_memory = true;
+   }
+
+   return true;
+}
+
 char *vrend_convert_shader(struct vrend_shader_cfg *cfg,
                            const struct tgsi_token *tokens,
                            uint32_t req_local_mem,
@@ -4810,6 +4828,13 @@ char *vrend_convert_shader(struct vrend_shader_cfg *cfg,
    char *glsl_hdr = NULL;
 
    memset(&ctx, 0, sizeof(struct dump_ctx));
+
+   /* First pass to deal with edge cases. */
+   ctx.iter.iterate_instruction = analyze_instruction;
+   bret = tgsi_iterate_shader(tokens, &ctx.iter);
+   if (bret == FALSE)
+      return NULL;
+
    ctx.iter.prolog = prolog;
    ctx.iter.iterate_instruction = iter_instruction;
    ctx.iter.iterate_declaration = iter_declaration;
