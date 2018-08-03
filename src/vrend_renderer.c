@@ -8100,7 +8100,7 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
       glGetIntegerv(GL_MAX_IMAGE_SAMPLES, (GLint*)&caps->v2.max_image_samples);
    }
 
-   caps->v1.max_samples = vrend_renderer_query_multisample_caps(max, &caps->v2);
+   caps->v1.max_samples = vrend_renderer_query_multisample_caps(caps->v1.max_samples, &caps->v2);
 
    caps->v2.capability_bits |= VIRGL_CAP_TGSI_INVARIANT | VIRGL_CAP_SET_MIN_SAMPLES | VIRGL_CAP_TGSI_PRECISE;
 
