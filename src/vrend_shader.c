@@ -683,6 +683,12 @@ iter_declaration(struct tgsi_iterate_context *iter,
 
    switch (decl->Declaration.File) {
    case TGSI_FILE_INPUT:
+      for (uint32_t j = 0; j < ctx->num_inputs; j++) {
+         if (ctx->inputs[j].name == decl->Semantic.Name &&
+             ctx->inputs[j].sid == decl->Semantic.Index &&
+             ctx->inputs[j].first == decl->Range.First)
+            return TRUE;
+      }
       i = ctx->num_inputs++;
       indirect = ctx_indirect_inputs(ctx);
       if (ctx->num_inputs > ARRAY_SIZE(ctx->inputs)) {
@@ -923,6 +929,12 @@ iter_declaration(struct tgsi_iterate_context *iter,
       }
       break;
    case TGSI_FILE_OUTPUT:
+      for (uint32_t j = 0; j < ctx->num_outputs; j++) {
+         if (ctx->outputs[j].name == decl->Semantic.Name &&
+             ctx->outputs[j].sid == decl->Semantic.Index &&
+             ctx->outputs[j].first == decl->Range.First)
+            return TRUE;
+      }
       i = ctx->num_outputs++;
       indirect = ctx_indirect_outputs(ctx);
       if (ctx->num_outputs > ARRAY_SIZE(ctx->outputs)) {

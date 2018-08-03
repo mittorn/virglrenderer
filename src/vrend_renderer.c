@@ -6750,7 +6750,9 @@ static void vrend_hw_emit_streamout_targets(UNUSED struct vrend_context *ctx, st
    uint i;
 
    for (i = 0; i < so_obj->num_targets; i++) {
-      if (so_obj->so_targets[i]->buffer_offset || so_obj->so_targets[i]->buffer_size < so_obj->so_targets[i]->buffer->base.width0)
+      if (!so_obj->so_targets[i])
+         glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, i, 0);
+      else if (so_obj->so_targets[i]->buffer_offset || so_obj->so_targets[i]->buffer_size < so_obj->so_targets[i]->buffer->base.width0)
          glBindBufferRange(GL_TRANSFORM_FEEDBACK_BUFFER, i, so_obj->so_targets[i]->buffer->id, so_obj->so_targets[i]->buffer_offset, so_obj->so_targets[i]->buffer_size);
       else
          glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, i, so_obj->so_targets[i]->buffer->id);
@@ -6793,6 +6795,8 @@ void vrend_set_streamout_targets(struct vrend_context *ctx,
       obj->num_targets = num_targets;
       for (i = 0; i < num_targets; i++) {
          obj->handles[i] = handles[i];
+         if (handles[i] == 0)
+            continue;
          target = vrend_object_lookup(ctx->sub->object_hash, handles[i], VIRGL_OBJECT_STREAMOUT_TARGET);
          if (!target) {
             report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_HANDLE, handles[i]);
@@ -8201,6 +8205,8 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
 
    if (has_feature(feat_texture_barrier))
       caps->v2.capability_bits |= VIRGL_CAP_TEXTURE_BARRIER;
+   /* always enable this since it doesn't require an ext to pass tests */
+   caps->v2.capability_bits |= VIRGL_CAP_TGSI_COMPONENTS;
 }
 
 void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
