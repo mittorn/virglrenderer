@@ -172,7 +172,7 @@ static const  struct {
    [feat_images] = { 42, 31, { "GL_ARB_shader_image_load_store" } },
    [feat_indep_blend] = { 30, UNAVAIL, { "GL_EXT_draw_buffers2" } },
    [feat_indep_blend_func] = { 40, UNAVAIL, { "GL_ARB_draw_buffers_blend" } },
-   [feat_indirect_draw] = { 40, UNAVAIL, { "GL_ARB_indirect_draw" } },
+   [feat_indirect_draw] = { 40, 31, { "GL_ARB_draw_indirect" } },
    [feat_mesa_invert] = { UNAVAIL, UNAVAIL, { "GL_MESA_pack_invert" } },
    [feat_ms_scaled_blit] = { UNAVAIL, UNAVAIL, { "GL_EXT_framebuffer_multisample_blit_scaled" } },
    [feat_multisample] = { 32, 30, { "GL_ARB_texture_multisample" } },
