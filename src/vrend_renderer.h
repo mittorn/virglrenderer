@@ -71,6 +71,8 @@ struct vrend_resource {
 };
 
 #define VIRGL_BIND_NEED_SWIZZLE (1 << 28)
+#define VIRGL_BIND_CAN_TEXTURE_STORAGE (1 << 29)
+
 
 struct vrend_format_table {
    enum virgl_formats format;
@@ -330,6 +332,7 @@ GLint64 vrend_renderer_get_timestamp(void);
 void vrend_build_format_list_common(void);
 void vrend_build_format_list_gl(void);
 void vrend_build_format_list_gles(void);
+void vrend_check_texture_storage(struct vrend_format_table *table);
 
 int vrend_renderer_resource_attach_iov(int res_handle, struct iovec *iov,
                                        int num_iovs);

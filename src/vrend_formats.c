@@ -444,6 +444,26 @@ void vrend_build_format_list_gles(void)
   add_formats(gles_z32_format);
 }
 
+/* glTexStorage may not support all that is supported by glTexImage,
+ * so add a flag to indicate when it can be used.
+ */
+void vrend_check_texture_storage(struct vrend_format_table *table)
+{
+   int i;
+   GLuint tex_id;
+   for (i = 0; i < VIRGL_FORMAT_MAX; i++) {
+
+      if (table[i].internalformat != 0) {
+         glGenTextures(1, &tex_id);
+         glBindTexture(GL_TEXTURE_2D, tex_id);
+         glTexStorage2D(GL_TEXTURE_2D, 1, table[i].internalformat, 32, 32);
+         if (glGetError() == GL_NO_ERROR)
+            table[i].bindings |= VIRGL_BIND_CAN_TEXTURE_STORAGE;
+         glDeleteTextures(1, &tex_id);
+      }
+   }
+}
+
 unsigned vrend_renderer_query_multisample_caps(unsigned max_samples, struct virgl_caps_v2 *caps)
 {
    GLuint tex;

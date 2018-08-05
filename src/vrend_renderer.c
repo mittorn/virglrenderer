@@ -191,7 +191,7 @@ static const  struct {
    [feat_texture_buffer_range] = { 43, UNAVAIL, { "GL_ARB_texture_buffer_range" } },
    [feat_texture_multisample] = { 32, 30, { "GL_ARB_texture_multisample" } },
    [feat_texture_srgb_decode] = { UNAVAIL, UNAVAIL, { "GL_EXT_texture_sRGB_decode" } },
-   [feat_texture_storage] = { 42, UNAVAIL, { "GL_ARB_texture_storage" } },
+   [feat_texture_storage] = { 42, 30, { "GL_ARB_texture_storage" } },
    [feat_texture_view] = { 43, UNAVAIL, { "GL_ARB_texture_view" } },
    [feat_transform_feedback] = { 30, 30, { "GL_EXT_transform_feedback" } },
    [feat_transform_feedback2] = { 40, 30, { "GL_ARB_transform_feedback2" } },
@@ -5149,6 +5149,8 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
       vrend_build_format_list_gl();
    }
 
+   vrend_check_texture_storage(tex_conv_table);
+
    /* disable for format testing */
    if (has_feature(feat_debug_cb)) {
       glDisable(GL_DEBUG_OUTPUT);
@@ -5498,6 +5500,9 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
    struct pipe_resource *pr = &gr->base;
    assert(pr->width0 > 0);
 
+   bool format_can_texture_storage = has_feature(feat_texture_storage) &&
+                              (tex_conv_table[pr->format].bindings & VIRGL_BIND_CAN_TEXTURE_STORAGE);
+
    gr->target = tgsitargettogltarget(pr->target, pr->nr_samples);
 
    /* ugly workaround for texture rectangle missing on GLES */
@@ -5564,7 +5569,7 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
       }
    } else if (gr->target == GL_TEXTURE_CUBE_MAP) {
          int i;
-         if (has_feature(feat_texture_storage))
+         if (format_can_texture_storage)
             glTexStorage2D(GL_TEXTURE_CUBE_MAP, pr->last_level + 1, internalformat, pr->width0, pr->height0);
          else {
             for (i = 0; i < 6; i++) {
@@ -5581,7 +5586,7 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
    } else if (gr->target == GL_TEXTURE_3D ||
               gr->target == GL_TEXTURE_2D_ARRAY ||
               gr->target == GL_TEXTURE_CUBE_MAP_ARRAY) {
-      if (has_feature(feat_texture_storage)) {
+      if (format_can_texture_storage) {
          unsigned depth_param = (gr->target == GL_TEXTURE_2D_ARRAY || gr->target == GL_TEXTURE_CUBE_MAP_ARRAY) ?
                                    pr->array_size : pr->depth0;
          glTexStorage3D(gr->target, pr->last_level + 1, internalformat, pr->width0, pr->height0, depth_param);
@@ -5598,7 +5603,7 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
    } else if (gr->target == GL_TEXTURE_1D && vrend_state.use_gles) {
       report_gles_missing_func(NULL, "glTexImage1D");
    } else if (gr->target == GL_TEXTURE_1D) {
-      if (has_feature(feat_texture_storage)) {
+      if (format_can_texture_storage) {
          glTexStorage1D(gr->target, pr->last_level + 1, internalformat, pr->width0);
       } else {
          for (level = 0; level <= pr->last_level; level++) {
@@ -5608,7 +5613,7 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
          }
       }
    } else {
-      if (has_feature(feat_texture_storage))
+      if (format_can_texture_storage)
          glTexStorage2D(gr->target, pr->last_level + 1, internalformat, pr->width0,
                         gr->target == GL_TEXTURE_1D_ARRAY ? pr->array_size : pr->height0);
       else {
@@ -5622,7 +5627,7 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
       }
    }
 
-   if (!has_feature(feat_texture_storage)) {
+   if (!format_can_texture_storage) {
       glTexParameteri(gr->target, GL_TEXTURE_BASE_LEVEL, 0);
       glTexParameteri(gr->target, GL_TEXTURE_MAX_LEVEL, pr->last_level);
    }
