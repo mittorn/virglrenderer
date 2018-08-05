@@ -3603,8 +3603,12 @@ static void vrend_draw_bind_ssbo_shader(struct vrend_context *ctx, int shader_ty
       res = (struct vrend_resource *)ssbo->res;
       glBindBufferRange(GL_SHADER_STORAGE_BUFFER, i, res->id,
                         ssbo->buffer_offset, ssbo->buffer_size);
-      if (ctx->sub->prog->ssbo_locs[shader_type][i] != GL_INVALID_INDEX)
-         glShaderStorageBlockBinding(ctx->sub->prog->id, ctx->sub->prog->ssbo_locs[shader_type][i], i);
+      if (ctx->sub->prog->ssbo_locs[shader_type][i] != GL_INVALID_INDEX) {
+         if (!vrend_state.use_gles)
+            glShaderStorageBlockBinding(ctx->sub->prog->id, ctx->sub->prog->ssbo_locs[shader_type][i], i);
+         else
+            debug_printf("glShaderStorageBlockBinding not supported on gles \n");
+      }
    }
 }
 
