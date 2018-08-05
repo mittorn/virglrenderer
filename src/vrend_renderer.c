@@ -165,7 +165,7 @@ static const  struct {
    [feat_dual_src_blend] = { 33, UNAVAIL, { "GL_ARB_blend_func_extended" } },
    [feat_fb_no_attach] = { 43, 31, { "GL_ARB_framebuffer_no_attachments" } },
    [feat_framebuffer_fetch] = { UNAVAIL, UNAVAIL, { "GL_EXT_shader_framebuffer_fetch" } },
-   [feat_geometry_shader] = { 32, UNAVAIL, {} },
+   [feat_geometry_shader] = { 32, 32, {"GL_EXT_geometry_shader", "GL_OES_geometry_shader"} },
    [feat_gl_conditional_render] = { 30, UNAVAIL, {} },
    [feat_gl_prim_restart] = { 31, 30, {} },
    [feat_gles_khr_robustness] = { UNAVAIL, UNAVAIL, { "GL_KHR_robustness" } },
