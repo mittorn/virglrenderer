@@ -128,6 +128,7 @@ enum features_id
    feat_tessellation,
    feat_texture_array,
    feat_texture_buffer_range,
+   feat_texture_gather,
    feat_texture_multisample,
    feat_texture_srgb_decode,
    feat_texture_storage,
@@ -189,6 +190,7 @@ static const  struct {
    [feat_tessellation] = { 40, UNAVAIL, { "GL_ARB_tessellation_shader" } },
    [feat_texture_array] = { 30, 30, { "GL_EXT_texture_array" } },
    [feat_texture_buffer_range] = { 43, UNAVAIL, { "GL_ARB_texture_buffer_range" } },
+   [feat_texture_gather] = { 40, 31, { "GL_ARB_texture_gather" } },
    [feat_texture_multisample] = { 32, 30, { "GL_ARB_texture_multisample" } },
    [feat_texture_srgb_decode] = { UNAVAIL, UNAVAIL, { "GL_EXT_texture_sRGB_decode" } },
    [feat_texture_storage] = { 42, 30, { "GL_ARB_texture_storage" } },
@@ -7987,9 +7989,13 @@ static void vrend_renderer_fill_caps_v1(int gl_ver, int gles_ver, union virgl_ca
       caps->v1.max_tbo_size = max;
    }
 
-   if (epoxy_has_gl_extension("GL_ARB_texture_gather")) {
-      glGetIntegerv(GL_MAX_PROGRAM_TEXTURE_GATHER_COMPONENTS_ARB, &max);
-      caps->v1.max_texture_gather_components = max;
+   if (has_feature(feat_texture_gather)) {
+      if (gl_ver > 0) {
+         glGetIntegerv(GL_MAX_PROGRAM_TEXTURE_GATHER_COMPONENTS_ARB, &max);
+         caps->v1.max_texture_gather_components = max;
+      } else {
+         caps->v1.max_texture_gather_components = 4;
+      }
    }
 
    if (has_feature(feat_viewport_array)) {
@@ -8070,7 +8076,7 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
    } else
       caps->v2.max_shader_patch_varyings = 0;
 
-   if (epoxy_has_gl_extension("GL_ARB_texture_gather")) {
+   if (has_feature(feat_texture_gather)) {
        glGetIntegerv(GL_MIN_PROGRAM_TEXTURE_GATHER_OFFSET, &caps->v2.min_texture_gather_offset);
        glGetIntegerv(GL_MAX_PROGRAM_TEXTURE_GATHER_OFFSET, &caps->v2.max_texture_gather_offset);
    }
