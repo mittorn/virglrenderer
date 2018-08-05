@@ -3940,7 +3940,9 @@ prolog(struct tgsi_iterate_context *iter)
 static char *emit_header(struct dump_ctx *ctx, char *glsl_hdr)
 {
    if (ctx->cfg->use_gles) {
-      STRCAT_WITH_RET(glsl_hdr, "#version 300 es\n");
+      char buf[32];
+      snprintf(buf, sizeof(buf), "#version %d es\n", ctx->cfg->glsl_version);
+      STRCAT_WITH_RET(glsl_hdr, buf);
       if (ctx->shader_req_bits & SHADER_REQ_SAMPLER_MS)
          STRCAT_WITH_RET(glsl_hdr, "#extension GL_OES_texture_storage_multisample_2d_array : require\n");
       PAD_GPU_SHADER5(glsl_hdr);

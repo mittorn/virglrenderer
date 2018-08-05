@@ -7795,7 +7795,9 @@ static void vrend_fill_caps_glsl_version(int gl_ver, int gles_ver,
    if (gles_ver > 0) {
       caps->v1.glsl_level = 120;
 
-      if (gles_ver >= 30)
+      if (gles_ver >= 31)
+         caps->v1.glsl_level = 310;
+      else if (gles_ver >= 30)
          caps->v1.glsl_level = 130;
    }
 
