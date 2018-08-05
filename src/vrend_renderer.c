@@ -186,7 +186,7 @@ static const  struct {
    [feat_samplers] = { 33, UNAVAIL, { "GL_ARB_sampler_objects" } },
    [feat_ssbo] = { 43, 31, { "GL_ARB_shader_storage_buffer_object" } },
    [feat_ssbo_barrier] = { 43, 31, {} },
-   [feat_stencil_texturing] = { 43, UNAVAIL, { "GL_ARB_stencil_texturing" } },
+   [feat_stencil_texturing] = { 43, 31, { "GL_ARB_stencil_texturing" } },
    [feat_tessellation] = { 40, UNAVAIL, { "GL_ARB_tessellation_shader" } },
    [feat_texture_array] = { 30, 30, { "GL_EXT_texture_array" } },
    [feat_texture_buffer_range] = { 43, UNAVAIL, { "GL_ARB_texture_buffer_range" } },
