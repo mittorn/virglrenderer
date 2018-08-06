@@ -4697,7 +4697,7 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
          formatstr = get_internalformat_string(ctx->images[idx].decl.Format, &itype);
          ptc = vrend_shader_samplerreturnconv(itype);
          sname = tgsi_proc_to_prefix(ctx->prog_type);
-         stc = vrend_shader_samplertypeconv(ctx->images[i].decl.Resource, &is_shad);
+         stc = vrend_shader_samplertypeconv(ctx->images[idx].decl.Resource, &is_shad);
          snprintf(buf, 255, "%s%s%suniform %cimage%s %simg%d[%d];\n", formatstr, writeonly, volatile_str, ptc, stc, sname, idx, ctx->image_arrays[i].array_size);
          STRCAT_WITH_RET(glsl_hdr, buf);
       }
