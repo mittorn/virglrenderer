@@ -187,7 +187,7 @@ static const  struct {
    [feat_polygon_offset_clamp] = { 46, UNAVAIL, { "GL_ARB_polygon_offset_clamp" } },
    [feat_robust_buffer_access] = { 43, UNAVAIL, { "GL_ARB_robust_buffer_access_behaviour" } },
    [feat_sample_mask] = { 32, 31, { "GL_ARB_texture_multisample" } },
-   [feat_sample_shading] = { 40, UNAVAIL, { "GL_ARB_sample_shading" } },
+   [feat_sample_shading] = { 40, 32, { "GL_ARB_sample_shading", "GL_OES_sample_shading" } },
    [feat_samplers] = { 33, 30, { "GL_ARB_sampler_objects" } },
    [feat_shader_clock] = { UNAVAIL, UNAVAIL, { "GL_ARB_shader_clock" } },
    [feat_ssbo] = { 43, 31, { "GL_ARB_shader_storage_buffer_object" } },
