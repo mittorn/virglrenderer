@@ -4284,11 +4284,16 @@ static void *emit_image_decl(const struct dump_ctx *ctx, char *glsl_hdr,
    const char *sname, *stc, *formatstr;
    enum tgsi_return_type itype;
    const char *volatile_str = image->vflag ? "volatile " : "";
-   const char *writeonly = image->decl.Format ? "" : "writeonly ";
+   const char *access = "";
    formatstr = get_internalformat_string(image->decl.Format, &itype);
    ptc = vrend_shader_samplerreturnconv(itype);
    sname = tgsi_proc_to_prefix(ctx->prog_type);
    stc = vrend_shader_samplertypeconv(image->decl.Resource, &is_shad);
+
+   if (!image->decl.Writable)
+      access = "readonly ";
+   else if (!image->decl.Format)
+      access = "writeonly ";
 
    if (ctx->cfg->use_gles) { /* TODO: enable on OpenGL 4.2 and up also */
       snprintf(buf, 255, "layout(binding=%d%s%s) ",
@@ -4301,10 +4306,10 @@ static void *emit_image_decl(const struct dump_ctx *ctx, char *glsl_hdr,
 
    if (range)
       snprintf(buf, 255, "%s%suniform %cimage%s %simg%d[%d];\n",
-               writeonly, volatile_str, ptc, stc, sname, i, range);
+               access, volatile_str, ptc, stc, sname, i, range);
    else
       snprintf(buf, 255, "%s%suniform %cimage%s %simg%d;\n",
-               writeonly, volatile_str, ptc, stc, sname, i);
+               access, volatile_str, ptc, stc, sname, i);
 
    STRCAT_WITH_RET(glsl_hdr, buf);
    return glsl_hdr;
