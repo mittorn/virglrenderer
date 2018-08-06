@@ -4150,121 +4150,121 @@ const char *get_internalformat_string(int virgl_format, enum tgsi_return_type *s
    switch (virgl_format) {
    case PIPE_FORMAT_R11G11B10_FLOAT:
       *stype = TGSI_RETURN_TYPE_FLOAT;
-      return "layout(r11f_g11f_b10f) ";
+      return "r11f_g11f_b10f";
    case PIPE_FORMAT_R10G10B10A2_UNORM:
       *stype = TGSI_RETURN_TYPE_UNORM;
-      return "layout(rgb10_a2) ";
+      return "rgb10_a2";
    case PIPE_FORMAT_R10G10B10A2_UINT:
       *stype = TGSI_RETURN_TYPE_UINT;
-      return "layout(rgb10_a2ui) ";
+      return "rgb10_a2ui";
    case PIPE_FORMAT_R8_UNORM:
       *stype = TGSI_RETURN_TYPE_UNORM;
-      return "layout(r8) ";
+      return "r8";
    case PIPE_FORMAT_R8_SNORM:
       *stype = TGSI_RETURN_TYPE_SNORM;
-      return "layout(r8_snorm) ";
+      return "r8_snorm";
    case PIPE_FORMAT_R8_UINT:
       *stype = TGSI_RETURN_TYPE_UINT;
-      return "layout(r8ui) ";
+      return "r8ui";
    case PIPE_FORMAT_R8_SINT:
       *stype = TGSI_RETURN_TYPE_SINT;
-      return "layout(r8i) ";
+      return "r8i";
    case PIPE_FORMAT_R8G8_UNORM:
       *stype = TGSI_RETURN_TYPE_UNORM;
-      return "layout(rg8) ";
+      return "rg8";
    case PIPE_FORMAT_R8G8_SNORM:
       *stype = TGSI_RETURN_TYPE_SNORM;
-      return "layout(rg8_snorm) ";
+      return "rg8_snorm";
    case PIPE_FORMAT_R8G8_UINT:
       *stype = TGSI_RETURN_TYPE_UINT;
-      return "layout(rg8ui) ";
+      return "rg8ui";
    case PIPE_FORMAT_R8G8_SINT:
       *stype = TGSI_RETURN_TYPE_SINT;
-      return "layout(rg8i) ";
+      return "rg8i";
    case PIPE_FORMAT_R8G8B8A8_UNORM:
       *stype = TGSI_RETURN_TYPE_UNORM;
-      return "layout(rgba8) ";
+      return "rgba8";
    case PIPE_FORMAT_R8G8B8A8_SNORM:
       *stype = TGSI_RETURN_TYPE_SNORM;
-      return "layout(rgba8_snorm) ";
+      return "rgba8_snorm";
    case PIPE_FORMAT_R8G8B8A8_UINT:
       *stype = TGSI_RETURN_TYPE_UINT;
-      return "layout(rgba8ui) ";
+      return "rgba8ui";
    case PIPE_FORMAT_R8G8B8A8_SINT:
       *stype = TGSI_RETURN_TYPE_SINT;
-      return "layout(rgba8i) ";
+      return "rgba8i";
    case PIPE_FORMAT_R16_UNORM:
       *stype = TGSI_RETURN_TYPE_UNORM;
-      return "layout(r16) ";
+      return "r16";
    case PIPE_FORMAT_R16_SNORM:
       *stype = TGSI_RETURN_TYPE_SNORM;
-      return "layout(r16_snorm) ";
+      return "r16_snorm";
    case PIPE_FORMAT_R16_UINT:
       *stype = TGSI_RETURN_TYPE_UINT;
-      return "layout(r16ui) ";
+      return "r16ui";
    case PIPE_FORMAT_R16_SINT:
       *stype = TGSI_RETURN_TYPE_SINT;
-      return "layout(r16i) ";
+      return "r16i";
    case PIPE_FORMAT_R16_FLOAT:
       *stype = TGSI_RETURN_TYPE_FLOAT;
-      return "layout(r16f) ";
+      return "r16f";
    case PIPE_FORMAT_R16G16_UNORM:
       *stype = TGSI_RETURN_TYPE_UNORM;
-      return "layout(rg16) ";
+      return "rg16";
    case PIPE_FORMAT_R16G16_SNORM:
       *stype = TGSI_RETURN_TYPE_SNORM;
-      return "layout(rg16_snorm) ";
+      return "rg16_snorm";
    case PIPE_FORMAT_R16G16_UINT:
       *stype = TGSI_RETURN_TYPE_UINT;
-      return "layout(rg16ui) ";
+      return "rg16ui";
    case PIPE_FORMAT_R16G16_SINT:
       *stype = TGSI_RETURN_TYPE_SINT;
-      return "layout(rg16i) ";
+      return "rg16i";
    case PIPE_FORMAT_R16G16_FLOAT:
       *stype = TGSI_RETURN_TYPE_FLOAT;
-      return "layout(rg16f) ";
+      return "rg16f";
    case PIPE_FORMAT_R16G16B16A16_UNORM:
       *stype = TGSI_RETURN_TYPE_UNORM;
-      return "layout(rgba16) ";
+      return "rgba16";
    case PIPE_FORMAT_R16G16B16A16_SNORM:
       *stype = TGSI_RETURN_TYPE_SNORM;
-      return "layout(rgba16_snorm) ";
+      return "rgba16_snorm";
    case PIPE_FORMAT_R16G16B16A16_FLOAT:
       *stype = TGSI_RETURN_TYPE_FLOAT;
-      return "layout(rgba16f) ";
+      return "rgba16f";
    case PIPE_FORMAT_R32_FLOAT:
       *stype = TGSI_RETURN_TYPE_FLOAT;
-      return "layout(r32f) ";
+      return "r32f";
    case PIPE_FORMAT_R32_UINT:
       *stype = TGSI_RETURN_TYPE_UINT;
-      return "layout(r32ui) ";
+      return "r32ui";
    case PIPE_FORMAT_R32_SINT:
       *stype = TGSI_RETURN_TYPE_SINT;
-      return "layout(r32i) ";
+      return "r32i";
    case PIPE_FORMAT_R32G32_FLOAT:
       *stype = TGSI_RETURN_TYPE_FLOAT;
-      return "layout(rg32f) ";
+      return "rg32f";
    case PIPE_FORMAT_R32G32_UINT:
       *stype = TGSI_RETURN_TYPE_UINT;
-      return "layout(rg32ui) ";
+      return "rg32ui";
    case PIPE_FORMAT_R32G32_SINT:
       *stype = TGSI_RETURN_TYPE_SINT;
-      return "layout(rg32i) ";
+      return "rg32i";
    case PIPE_FORMAT_R32G32B32A32_FLOAT:
       *stype = TGSI_RETURN_TYPE_FLOAT;
-      return "layout(rgba32f) ";
+      return "rgba32f";
    case PIPE_FORMAT_R32G32B32A32_UINT:
       *stype = TGSI_RETURN_TYPE_UINT;
-      return "layout(rgba32ui) ";
+      return "rgba32ui";
    case PIPE_FORMAT_R16G16B16A16_UINT:
       *stype = TGSI_RETURN_TYPE_UINT;
-      return "layout(rgba16ui) ";
+      return "rgba16ui";
    case PIPE_FORMAT_R16G16B16A16_SINT:
       *stype = TGSI_RETURN_TYPE_SINT;
-      return "layout(rgba16i) ";
+      return "rgba16i";
    case PIPE_FORMAT_R32G32B32A32_SINT:
       *stype = TGSI_RETURN_TYPE_SINT;
-      return "layout(rgba32i) ";
+      return "rgba32i";
    case PIPE_FORMAT_NONE:
       *stype = TGSI_RETURN_TYPE_UNORM;
       return "";
@@ -4290,12 +4290,21 @@ static void *emit_image_decl(const struct dump_ctx *ctx, char *glsl_hdr,
    sname = tgsi_proc_to_prefix(ctx->prog_type);
    stc = vrend_shader_samplertypeconv(image->decl.Resource, &is_shad);
 
+   if (ctx->cfg->use_gles) { /* TODO: enable on OpenGL 4.2 and up also */
+      snprintf(buf, 255, "layout(binding=%d%s%s) ",
+               i, formatstr[0] != '\0' ? ", " : "", formatstr);
+      STRCAT_WITH_RET(glsl_hdr, buf);
+   } else if (formatstr[0] != '\0') {
+      snprintf(buf, 255, "layout(%s) ", formatstr);
+      STRCAT_WITH_RET(glsl_hdr, buf);
+   }
+
    if (range)
-      snprintf(buf, 255, "%s%s%suniform %cimage%s %simg%d[%d];\n",
-               formatstr, writeonly, volatile_str, ptc, stc, sname, i, range);
+      snprintf(buf, 255, "%s%suniform %cimage%s %simg%d[%d];\n",
+               writeonly, volatile_str, ptc, stc, sname, i, range);
    else
-      snprintf(buf, 255, "%s%s%suniform %cimage%s %simg%d;\n",
-               formatstr, writeonly, volatile_str, ptc, stc, sname, i);
+      snprintf(buf, 255, "%s%suniform %cimage%s %simg%d;\n",
+               writeonly, volatile_str, ptc, stc, sname, i);
 
    STRCAT_WITH_RET(glsl_hdr, buf);
    return glsl_hdr;

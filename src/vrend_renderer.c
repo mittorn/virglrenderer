@@ -3671,7 +3671,8 @@ static void vrend_draw_bind_images_shader(struct vrend_context *ctx, int shader_
                       iview->texture->base.depth0 > 1) && (iview->u.tex.first_layer == iview->u.tex.last_layer));
       }
 
-      glUniform1i(ctx->sub->prog->img_locs[shader_type][i], i);
+      if (!vrend_state.use_gles)
+         glUniform1i(ctx->sub->prog->img_locs[shader_type][i], i);
 
       switch (iview->access) {
       case PIPE_IMAGE_ACCESS_READ:
