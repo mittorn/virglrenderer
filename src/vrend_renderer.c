@@ -192,7 +192,7 @@ static const  struct {
    [feat_ssbo_barrier] = { 43, 31, {} },
    [feat_stencil_texturing] = { 43, 31, { "GL_ARB_stencil_texturing" } },
    [feat_storage_multisample] = { 43, 31, { "GL_ARB_texture_storage_multisample" } },
-   [feat_tessellation] = { 40, UNAVAIL, { "GL_ARB_tessellation_shader" } },
+   [feat_tessellation] = { 40, 32, { "GL_ARB_tessellation_shader", "GL_OES_tessellation_shader", "GL_EXT_tessellation_shader" } },
    [feat_texture_array] = { 30, 30, { "GL_EXT_texture_array" } },
    [feat_texture_barrier] = { 45, UNAVAIL, { "GL_ARB_texture_barrier" } },
    [feat_texture_buffer_range] = { 43, UNAVAIL, { "GL_ARB_texture_buffer_range" } },
@@ -6737,7 +6737,7 @@ void vrend_set_min_samples(struct vrend_context *ctx, unsigned min_samples)
 
 void vrend_set_tess_state(UNUSED struct vrend_context *ctx, const float tess_factors[6])
 {
-   if (has_feature(feat_tessellation)) {
+   if (has_feature(feat_tessellation) && !vrend_state.use_gles) {
       glPatchParameterfv(GL_PATCH_DEFAULT_OUTER_LEVEL, tess_factors);
       glPatchParameterfv(GL_PATCH_DEFAULT_INNER_LEVEL, &tess_factors[4]);
    }
@@ -7881,7 +7881,7 @@ static void vrend_renderer_fill_caps_v1(int gl_ver, int gles_ver, union virgl_ca
                             (1 << PIPE_PRIM_TRIANGLES_ADJACENCY) |
                             (1 << PIPE_PRIM_TRIANGLE_STRIP_ADJACENCY);
    }
-   if (caps->v1.glsl_level >= 400)
+   if (caps->v1.glsl_level >= 400 || has_feature(feat_tessellation))
       caps->v1.prim_mask |= (1 << PIPE_PRIM_PATCHES);
 
    if (epoxy_has_gl_extension("GL_ARB_vertex_type_10f_11f_11f_rev")) {
