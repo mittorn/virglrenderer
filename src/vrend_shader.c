@@ -4397,7 +4397,7 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
    }
 
    if (ctx->write_all_cbufs) {
-      for (i = 0; i < ctx->cfg->max_draw_buffers; i++) {
+      for (i = 0; i < (uint32_t)ctx->cfg->max_draw_buffers; i++) {
          if (ctx->cfg->use_gles)
             snprintf(buf, 255, "layout (location=%d) out vec4 fsout_c%d;\n", i, i);
          else
@@ -4725,7 +4725,7 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
    if (ctx->info.indirect_files & (1 << TGSI_FILE_BUFFER)) {
       uint32_t mask = ctx->ssbo_used_mask;
       while (mask) {
-         int start, count, i;
+         int start, count;
          u_bit_scan_consecutive_range(&mask, &start, &count);
          const char *atomic = (ctx->ssbo_atomic_mask & (1 << start)) ? "atomic" : "";
          snprintf(buf, 255, "layout (binding = %d, std430) buffer %sssbo%d { uint %sssbocontents%d[]; } %sssboarr%s[%d];\n", start, sname, start, sname, start, sname, atomic, count);
