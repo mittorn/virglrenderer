@@ -7033,13 +7033,12 @@ void vrend_renderer_resource_copy_region(struct vrend_context *ctx,
       return;
    }
 
-   if (has_feature(feat_copy_image)) {
-      if (format_is_copy_compatible(src_res->base.format,dst_res->base.format) &&
-          src_res->base.nr_samples == dst_res->base.nr_samples) {
-         vrend_copy_sub_image(src_res, dst_res, src_level, src_box,
-                              dst_level, dstx, dsty, dstz);
-         return;
-      }
+   if (has_feature(feat_copy_image) &&
+       format_is_copy_compatible(src_res->base.format,dst_res->base.format, true) &&
+       src_res->base.nr_samples == dst_res->base.nr_samples) {
+      vrend_copy_sub_image(src_res, dst_res, src_level, src_box,
+                           dst_level, dstx, dsty, dstz);
+      return;
    }
 
    if (!vrend_format_can_render(src_res->base.format) ||
@@ -7325,13 +7324,16 @@ void vrend_renderer_blit(struct vrend_context *ctx,
    if (info->render_condition_enable == false)
       vrend_pause_render_condition(ctx, true);
 
-   /* The gallium blit function can be called for a general blit that may
-    * scale, convert the data, and apply some rander states or if is called via
-    * glCopyImageSubData. For the latter case forward the call to the
-    * glCopyImageSubData function, otherwise use a framebuffer blit.
-    */
+   /* The Gallium blit function can be called for a general blit that may
+    * scale, convert the data, and apply some rander states, or it is called via
+    * glCopyImageSubData. If the src or the dst image are equal, or the two
+    * images formats are the same, then Galliums such calles are redirected
+    * to resource_copy_region, in this case and if no render states etx need
+    * to be applied, forward the call to glCopyImageSubData, otherwise do a
+    * normal blit. */
    if (has_feature(feat_copy_image) && !info->render_condition_enable &&
-       format_is_copy_compatible(info->src.format,info->dst.format) &&
+       (src_res->base.format != dst_res->base.format) &&
+       format_is_copy_compatible(info->src.format,info->dst.format, false) &&
        !info->scissor_enable && (info->filter == PIPE_TEX_FILTER_NEAREST) &&
        !info->alpha_blend && (info->mask == PIPE_MASK_RGBA) &&
        (src_res->base.nr_samples == dst_res->base.nr_samples) &&

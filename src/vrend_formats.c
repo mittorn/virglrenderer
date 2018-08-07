@@ -581,7 +581,8 @@ static boolean format_compressed_compressed_copy_compatible(enum pipe_format src
    return false;
 }
 
-boolean format_is_copy_compatible(enum pipe_format src, enum pipe_format dst)
+boolean format_is_copy_compatible(enum pipe_format src, enum pipe_format dst,
+                                  boolean allow_compressed)
 {
    int r;
 
@@ -593,6 +594,9 @@ boolean format_is_copy_compatible(enum pipe_format src, enum pipe_format dst)
       const struct util_format_description *dst_desc = util_format_description(dst);
       return util_is_format_compatible(src_desc, dst_desc);
    }
+
+   if (!allow_compressed)
+      return false;
 
    /* compressed-uncompressed */
    r = format_uncompressed_compressed_copy_compatible(src, dst);
