@@ -1169,7 +1169,6 @@ static void bind_image_locs(struct vrend_linked_shader_program *sprog,
       sprog->img_locs[id] = NULL;
 
    if (sprog->ss[id]->sel->sinfo.num_image_arrays) {
-      int idx;
       for (i = 0; i < sprog->ss[id]->sel->sinfo.num_image_arrays; i++) {
          struct vrend_array *img_array = &sprog->ss[id]->sel->sinfo.image_arrays[i];
          for (int j = 0; j < img_array->array_size; j++) {
@@ -1533,7 +1532,7 @@ int vrend_create_surface(struct vrend_context *ctx,
       int last_layer = (surf->val1 >> 16) & 0xffff;
 
       if ((first_layer != last_layer &&
-           (first_layer != 0 || (last_layer != util_max_layer(&res->base, surf->val0)))) ||
+           (first_layer != 0 || (last_layer != (int)util_max_layer(&res->base, surf->val0)))) ||
           surf->format != res->base.format) {
          GLenum internalformat = tex_conv_table[surf->format].internalformat;
          glGenTextures(1, &surf->id);
@@ -2107,7 +2106,7 @@ void vrend_set_framebuffer_state(struct vrend_context *ctx,
    ctx->sub->shader_dirty = true;
 }
 
-void vrend_set_framebuffer_state_no_attach(struct vrend_context *ctx,
+void vrend_set_framebuffer_state_no_attach(UNUSED struct vrend_context *ctx,
                                            uint32_t width, uint32_t height,
                                            uint32_t layers, uint32_t samples)
 {
@@ -2630,7 +2629,7 @@ void vrend_set_single_ssbo(struct vrend_context *ctx,
    }
 }
 
-void vrend_memory_barrier(struct vrend_context *ctx,
+void vrend_memory_barrier(UNUSED struct vrend_context *ctx,
                           unsigned flags)
 {
    GLbitfield gl_barrier = 0;
@@ -3981,7 +3980,7 @@ int vrend_draw_vbo(struct vrend_context *ctx,
 }
 
 void vrend_launch_grid(struct vrend_context *ctx,
-                       uint32_t *block,
+                       UNUSED uint32_t *block,
                        uint32_t *grid,
                        uint32_t indirect_handle,
                        uint32_t indirect_offset)
