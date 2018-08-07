@@ -212,6 +212,7 @@ struct dump_ctx {
    bool write_mul_itemp;
    bool has_sample_input;
    bool early_depth_stencil;
+   bool has_file_memory;
 
    int tcs_vertices_out;
    int tes_prim_mode;
@@ -1289,6 +1290,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
       snprintf(ctx->system_values[i].glsl_name, 64, "%s", name_prefix);
       break;
    case TGSI_FILE_MEMORY:
+      ctx->has_file_memory = true;
       break;
    default:
       fprintf(stderr,"unsupported file %d declaration\n", decl->Declaration.File);
@@ -4754,7 +4756,7 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
       STRCAT_WITH_RET(glsl_hdr, buf);
    }
 
-   if (ctx->ssbo_used_mask) {
+   if (ctx->ssbo_used_mask || ctx->has_file_memory) {
      snprintf(buf, 255, "uint ssbo_addr_temp;\n");
      STRCAT_WITH_RET(glsl_hdr, buf);
    }
