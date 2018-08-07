@@ -4275,6 +4275,32 @@ const char *get_internalformat_string(int virgl_format, enum tgsi_return_type *s
    }
 }
 
+static void *emit_image_decl(const struct dump_ctx *ctx, char *glsl_hdr,
+                             uint32_t i, uint32_t range,
+                             const struct vrend_shader_image *image)
+{
+   char buf[255], ptc;
+   int is_shad = 0;
+   const char *sname, *stc, *formatstr;
+   enum tgsi_return_type itype;
+   const char *volatile_str = image->vflag ? "volatile " : "";
+   const char *writeonly = image->decl.Format ? "" : "writeonly ";
+   formatstr = get_internalformat_string(image->decl.Format, &itype);
+   ptc = vrend_shader_samplerreturnconv(itype);
+   sname = tgsi_proc_to_prefix(ctx->prog_type);
+   stc = vrend_shader_samplertypeconv(image->decl.Resource, &is_shad);
+
+   if (range)
+      snprintf(buf, 255, "%s%s%suniform %cimage%s %simg%d[%d];\n",
+               formatstr, writeonly, volatile_str, ptc, stc, sname, i, range);
+   else
+      snprintf(buf, 255, "%s%s%suniform %cimage%s %simg%d;\n",
+               formatstr, writeonly, volatile_str, ptc, stc, sname, i);
+
+   STRCAT_WITH_RET(glsl_hdr, buf);
+   return glsl_hdr;
+}
+
 static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
 {
    uint32_t i;
@@ -4716,39 +4742,19 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
 
    if (ctx->info.indirect_files & (1 << TGSI_FILE_IMAGE)) {
       for (i = 0; i < ctx->num_image_arrays; i++) {
-         int idx = ctx->image_arrays[i].first;
-         int is_shad = 0;
-         const char *stc;
-         char ptc;
-         const char *volatile_str = (ctx->images[idx].vflag) ? "volatile " : "";
-         const char *writeonly = (ctx->images[idx].decl.Format) ? "" : "writeonly ";
-         const char *formatstr;
-         enum tgsi_return_type itype;
-         formatstr = get_internalformat_string(ctx->images[idx].decl.Format, &itype);
-         ptc = vrend_shader_samplerreturnconv(itype);
-         sname = tgsi_proc_to_prefix(ctx->prog_type);
-         stc = vrend_shader_samplertypeconv(ctx->images[idx].decl.Resource, &is_shad);
-         snprintf(buf, 255, "%s%s%suniform %cimage%s %simg%d[%d];\n", formatstr, writeonly, volatile_str, ptc, stc, sname, idx, ctx->image_arrays[i].array_size);
-         STRCAT_WITH_RET(glsl_hdr, buf);
+         uint32_t first = ctx->sampler_arrays[i].first;
+         uint32_t range = ctx->sampler_arrays[i].array_size;
+         glsl_hdr = emit_image_decl(ctx, glsl_hdr, first, range, ctx->images + first);
+         if (!glsl_hdr)
+            return NULL;
       }
    } else {
       uint32_t mask = ctx->images_used_mask;
       while (mask) {
-         int is_shad = 0;
-         const char *stc;
-         char ptc;
-
          i = u_bit_scan(&mask);
-         const char *volatile_str = (ctx->images[i].vflag) ? "volatile " : "";
-         const char *writeonly = (ctx->images[i].decl.Format) ? "" : "writeonly ";
-         const char *formatstr;
-         enum tgsi_return_type itype;
-         formatstr = get_internalformat_string(ctx->images[i].decl.Format, &itype);
-         ptc = vrend_shader_samplerreturnconv(itype);
-         sname = tgsi_proc_to_prefix(ctx->prog_type);
-         stc = vrend_shader_samplertypeconv(ctx->images[i].decl.Resource, &is_shad);
-         snprintf(buf, 255, "%s%s%suniform %cimage%s %simg%d;\n", formatstr, writeonly, volatile_str, ptc, stc, sname, i);
-         STRCAT_WITH_RET(glsl_hdr, buf);
+         glsl_hdr = emit_image_decl(ctx, glsl_hdr, i, 0, ctx->images + i);
+         if (!glsl_hdr)
+            return NULL;
       }
    }
 
