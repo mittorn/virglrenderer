@@ -4110,8 +4110,9 @@ static const char *get_aux_string(unsigned location)
    }
 }
 
-static void *emit_sampler_decl(struct dump_ctx *ctx, char *glsl_hdr, uint32_t i,
-                               uint32_t range, uint32_t return_type, uint32_t texture_type)
+static void *emit_sampler_decl(struct dump_ctx *ctx, char *glsl_hdr,
+                               uint32_t i, uint32_t range,
+                               const struct vrend_shader_sampler *sampler)
 {
    char buf[255], ptc;
    int is_shad = 0;
@@ -4121,11 +4122,11 @@ static void *emit_sampler_decl(struct dump_ctx *ctx, char *glsl_hdr, uint32_t i,
 
    precision = (ctx->cfg->use_gles) ? "highp " : " ";
 
-   ptc = vrend_shader_samplerreturnconv(return_type);
-   stc = vrend_shader_samplertypeconv(texture_type, &is_shad);
+   ptc = vrend_shader_samplerreturnconv(sampler->tgsi_sampler_return);
+   stc = vrend_shader_samplertypeconv(sampler->tgsi_sampler_type, &is_shad);
 
    /* GLES does not support 1D textures -- we use a 2D texture and set the parameter set to 0.5 */
-   if (ctx->cfg->use_gles && texture_type == TGSI_TEXTURE_1D)
+   if (ctx->cfg->use_gles && sampler->tgsi_sampler_type == TGSI_TEXTURE_1D)
       snprintf(buf, 255, "uniform highp %csampler2D %ssamp%d;\n", ptc, sname, i);
    else if (range)
       snprintf(buf, 255, "uniform %s%csampler%s %ssamp%d[%d];\n", precision, ptc, stc, sname, i, range);
@@ -4696,8 +4697,7 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
       for (i = 0; i < ctx->num_sampler_arrays; i++) {
          uint32_t first = ctx->sampler_arrays[i].first;
          uint32_t range = ctx->sampler_arrays[i].array_size;
-         glsl_hdr = emit_sampler_decl(ctx, glsl_hdr, first, range, ctx->samplers[first].tgsi_sampler_return,
-                                      ctx->samplers[first].tgsi_sampler_type);
+         glsl_hdr = emit_sampler_decl(ctx, glsl_hdr, first, range, ctx->samplers + first);
          if (!glsl_hdr)
             return NULL;
       }
@@ -4708,8 +4708,7 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
          if ((ctx->samplers_used & (1 << i)) == 0)
             continue;
 
-         glsl_hdr = emit_sampler_decl(ctx, glsl_hdr, i, 0, ctx->samplers[i].tgsi_sampler_return,
-                                      ctx->samplers[i].tgsi_sampler_type);
+         glsl_hdr = emit_sampler_decl(ctx, glsl_hdr, i, 0, ctx->samplers + i);
          if (!glsl_hdr)
             return NULL;
       }
