@@ -108,6 +108,7 @@ enum features_id
    feat_gl_prim_restart,
    feat_gles_khr_robustness,
    feat_gles31_vertex_attrib_binding,
+   feat_gpu_shader5,
    feat_images,
    feat_indep_blend,
    feat_indep_blend_func,
@@ -173,6 +174,7 @@ static const  struct {
    [feat_gl_prim_restart] = { 31, 30, {} },
    [feat_gles_khr_robustness] = { UNAVAIL, UNAVAIL, { "GL_KHR_robustness" } },
    [feat_gles31_vertex_attrib_binding] = { 43, 31, { "GL_ARB_vertex_attrib_binding" } },
+   [feat_gpu_shader5] = { 40, 32, {"GL_ARB_gpu_shader5", "GL_EXT_gpu_shader5", "GL_OES_gpu_shader5" } },
    [feat_images] = { 42, 31, { "GL_ARB_shader_image_load_store" } },
    [feat_indep_blend] = { 30, UNAVAIL, { "GL_EXT_draw_buffers2" } },
    [feat_indep_blend_func] = { 40, UNAVAIL, { "GL_ARB_draw_buffers_blend" } },
@@ -7820,8 +7822,17 @@ static void vrend_fill_caps_glsl_version(int gl_ver, int gles_ver,
    if (gles_ver > 0) {
       caps->v1.glsl_level = 120;
 
-      if (gles_ver >= 31)
+      if (gles_ver >= 31) {
          caps->v1.glsl_level = 310;
+         if (has_feature(feat_tessellation) &&
+             has_feature(feat_geometry_shader) &&
+             has_feature(feat_gpu_shader5))
+            /* This is probably a lie, but Gallium enables
+             * OES_geometry_shader and ARB_gpu_shader5
+             * based on this value, apart from that it doesn't
+             * seem to be a crucial value */
+            caps->v1.glsl_level = 400;
+      }
       else if (gles_ver >= 30)
          caps->v1.glsl_level = 130;
    }
@@ -7881,7 +7892,7 @@ static void vrend_renderer_fill_caps_v1(int gl_ver, int gles_ver, union virgl_ca
                             (1 << PIPE_PRIM_TRIANGLES_ADJACENCY) |
                             (1 << PIPE_PRIM_TRIANGLE_STRIP_ADJACENCY);
    }
-   if (caps->v1.glsl_level >= 400 || has_feature(feat_tessellation))
+   if (caps->v1.glsl_level >= 400)
       caps->v1.prim_mask |= (1 << PIPE_PRIM_PATCHES);
 
    if (epoxy_has_gl_extension("GL_ARB_vertex_type_10f_11f_11f_rev")) {
