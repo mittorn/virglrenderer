@@ -5116,7 +5116,8 @@ bool vrend_patch_vertex_shader_interpolants(struct vrend_shader_cfg *cfg, char *
    if (!fs_info->interpinfo)
       return true;
 
-   if (fs_info->has_sample_input)
+   if (fs_info->has_sample_input &&
+       (!cfg->use_gles && (cfg->glsl_version >= 320)))
       require_gpu_shader5(program);
 
    for (i = 0; i < fs_info->num_interps; i++) {
