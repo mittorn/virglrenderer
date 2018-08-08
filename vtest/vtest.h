@@ -27,21 +27,21 @@
 #include <errno.h>
 int vtest_create_renderer(int in_fd, int out_fd, uint32_t length);
 
-int vtest_send_caps(void);
-int vtest_send_caps2(void);
-int vtest_create_resource(void);
-int vtest_create_resource2(void);
-int vtest_resource_unref(void);
+int vtest_send_caps(uint32_t length_dw);
+int vtest_send_caps2(uint32_t length_dw);
+int vtest_create_resource(uint32_t length_dw);
+int vtest_create_resource2(uint32_t length_dw);
+int vtest_resource_unref(uint32_t length_dw);
 int vtest_submit_cmd(uint32_t length_dw);
 
 int vtest_transfer_get(uint32_t length_dw);
-int vtest_transfer_get2(void);
+int vtest_transfer_get2(uint32_t length_dw);
 int vtest_transfer_put(uint32_t length_dw);
-int vtest_transfer_put2(void);
+int vtest_transfer_put2(uint32_t length_dw);
 
 int vtest_block_read(int fd, void *buf, int size);
 
-int vtest_resource_busy_wait(void);
+int vtest_resource_busy_wait(uint32_t length_dw);
 int vtest_renderer_create_fence(void);
 int vtest_poll(void);
 

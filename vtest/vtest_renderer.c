@@ -282,7 +282,7 @@ void vtest_destroy_renderer(void)
   renderer.out_fd = -1;
 }
 
-int vtest_send_caps2(void)
+int vtest_send_caps2(UNUSED uint32_t length_dw)
 {
     uint32_t hdr_buf[2];
     void *caps_buf;
@@ -313,7 +313,7 @@ end:
     return 0;
 }
 
-int vtest_send_caps(void)
+int vtest_send_caps(UNUSED uint32_t length_dw)
 {
     uint32_t  max_ver, max_size;
     void *caps_buf;
@@ -342,7 +342,7 @@ end:
     return 0;
 }
 
-int vtest_create_resource(void)
+int vtest_create_resource(UNUSED uint32_t length_dw)
 {
     uint32_t res_create_buf[VCMD_RES_CREATE_SIZE];
     struct virgl_renderer_resource_create_args args;
@@ -371,7 +371,7 @@ int vtest_create_resource(void)
     return ret;
 }
 
-int vtest_create_resource2(void)
+int vtest_create_resource2(UNUSED uint32_t length_dw)
 {
     uint32_t res_create_buf[VCMD_RES_CREATE2_SIZE];
     struct virgl_renderer_resource_create_args args;
@@ -420,7 +420,7 @@ int vtest_create_resource2(void)
     return ret;
 }
 
-int vtest_resource_unref(void)
+int vtest_resource_unref(UNUSED uint32_t length_dw)
 {
     uint32_t res_unref_buf[VCMD_RES_UNREF_SIZE];
     int ret;
@@ -575,7 +575,7 @@ int vtest_transfer_put(UNUSED uint32_t length_dw)
   } while(0)
 
 
-int vtest_transfer_get2(void)
+int vtest_transfer_get2(UNUSED uint32_t length_dw)
 {
     uint32_t thdr_buf[VCMD_TRANSFER2_HDR_SIZE];
     int ret;
@@ -638,7 +638,7 @@ int vtest_transfer_get2(void)
     return ret < 0 ? ret : 0;
 }
 
-int vtest_transfer_put2(void)
+int vtest_transfer_put2(UNUSED uint32_t length_dw)
 {
     uint32_t thdr_buf[VCMD_TRANSFER2_HDR_SIZE];
     int ret;
@@ -680,7 +680,7 @@ int vtest_transfer_put2(void)
     return 0;
 }
 
-int vtest_resource_busy_wait(void)
+int vtest_resource_busy_wait(UNUSED uint32_t length_dw)
 {
   uint32_t bw_buf[VCMD_BUSY_WAIT_SIZE];
   int ret, fd;
@@ -688,6 +688,8 @@ int vtest_resource_busy_wait(void)
   uint32_t hdr_buf[VTEST_HDR_SIZE];
   uint32_t reply_buf[1];
   bool busy = false;
+
+  vtest_renderer_create_fence();
   ret = vtest_block_read(renderer.in_fd, &bw_buf, sizeof(bw_buf));
   if (ret != sizeof(bw_buf))
     return -1;

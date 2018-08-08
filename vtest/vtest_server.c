@@ -33,6 +33,7 @@
 #include <fcntl.h>
 
 #include "util.h"
+#include "util/u_memory.h"
 #include "vtest.h"
 #include "vtest_protocol.h"
 
@@ -86,85 +87,83 @@ static int wait_for_socket_accept(int sock)
     return -1;
 }
 
+typedef int (*vtest_cmd_fptr_t)(uint32_t);
+
+static const vtest_cmd_fptr_t vtest_commands[] = {
+   NULL /* CMD ids starts at 1 */,
+   vtest_send_caps,
+   vtest_create_resource,
+   vtest_resource_unref,
+   vtest_transfer_get,
+   vtest_transfer_put,
+   vtest_submit_cmd,
+   vtest_resource_busy_wait,
+   NULL, /* vtest_create_renderer is a specific case */
+   vtest_send_caps2,
+   vtest_ping_protocol_version,
+   vtest_protocol_version,
+   vtest_create_resource2,
+   vtest_transfer_get2,
+   vtest_transfer_put2,
+};
+
 static int run_renderer(int in_fd, int out_fd)
 {
-    int ret;
-    uint32_t header[VTEST_HDR_SIZE];
-    bool inited = false;
-again:
-    ret = vtest_wait_for_fd_read(in_fd);
-    if (ret < 0)
-      goto fail;
+   int err, ret;
+   uint32_t header[VTEST_HDR_SIZE];
+   int initialized = 0;
 
-    ret = vtest_block_read(in_fd, &header, sizeof(header));
-
-    if (ret == 8) {
-      if (!inited) {
-	if (header[1] != VCMD_CREATE_RENDERER)
-	  goto fail;
-	ret = vtest_create_renderer(in_fd, out_fd, header[0]);
-	inited = true;
-      }
-      vtest_poll();
-      switch (header[1]) {
-      case VCMD_GET_CAPS:
-	ret = vtest_send_caps();
-	break;
-      case VCMD_RESOURCE_CREATE:
-	ret = vtest_create_resource();
-	break;
-      case VCMD_RESOURCE_CREATE2:
-	ret = vtest_create_resource2();
-	break;
-      case VCMD_RESOURCE_UNREF:
-	ret = vtest_resource_unref();
-	break;
-      case VCMD_SUBMIT_CMD:
-	ret = vtest_submit_cmd(header[0]);
-	break;
-      case VCMD_TRANSFER_GET:
-	ret = vtest_transfer_get(header[0]);
-	break;
-      case VCMD_TRANSFER_PUT:
-	ret = vtest_transfer_put(header[0]);
-	break;
-      case VCMD_TRANSFER_GET2:
-	ret = vtest_transfer_get2();
-	break;
-      case VCMD_TRANSFER_PUT2:
-	ret = vtest_transfer_put2();
-	break;
-      case VCMD_RESOURCE_BUSY_WAIT:
-        vtest_renderer_create_fence();
-	ret = vtest_resource_busy_wait();
-	break;
-      case VCMD_GET_CAPS2:
-	ret = vtest_send_caps2();
-	break;
-      case VCMD_PING_PROTOCOL_VERSION:
-	ret = vtest_ping_protocol_version();
-	break;
-      case VCMD_PROTOCOL_VERSION:
-	ret = vtest_protocol_version();
-	break;
-      default:
-	break;
-      }
-
+   do {
+      ret = vtest_wait_for_fd_read(in_fd);
       if (ret < 0) {
-	goto fail;
+         err = 1;
+         break;
       }
 
-      goto again;
-    }
-    if (ret <= 0) {
-      goto fail;
-    }
-fail:
-    fprintf(stderr, "socket failed - closing renderer\n");
-    vtest_destroy_renderer();
-    close(in_fd);
-    return 0;
+      ret = vtest_block_read(in_fd, &header, sizeof(header));
+      if (ret < 0 || (size_t)ret < sizeof(header)) {
+         err = 2;
+         break;
+      }
+
+      if (!initialized) {
+         /* The first command MUST be VCMD_CREATE_RENDERER */
+         if (header[1] != VCMD_CREATE_RENDERER) {
+            err = 3;
+            break;
+         }
+
+         ret = vtest_create_renderer(in_fd, out_fd, header[0]);
+         initialized = 1;
+         printf("%s: vtest initialized.\n", __func__);
+         vtest_poll();
+         continue;
+      }
+
+      vtest_poll();
+      if (header[1] <= 0 || header[1] >= ARRAY_SIZE(vtest_commands)) {
+         err = 4;
+         break;
+      }
+
+      if (vtest_commands[header[1]] == NULL) {
+         err = 5;
+         break;
+      }
+
+      ret = vtest_commands[header[1]](header[0]);
+      if (ret < 0) {
+         err = 6;
+         break;
+      }
+   } while (1);
+
+   fprintf(stderr, "socket failed (%d) - closing renderer\n", err);
+
+   vtest_destroy_renderer();
+   close(in_fd);
+
+   return 0;
 }
 
 int main(int argc, char **argv)
