@@ -163,7 +163,7 @@ static const  struct {
    [feat_compute_shader] = { 43, 31, { "GL_ARB_compute_shader" } },
    [feat_copy_image] = { 43, 32, { "GL_ARB_copy_image", "GL_EXT_copy_image", "GL_OES_copy_image" } },
    [feat_conditional_render_inverted] = { 45, UNAVAIL, { "GL_ARB_conditional_render_inverted" } },
-   [feat_cube_map_array] = { 40, UNAVAIL, { "GL_ARB_texture_cube_map_array", "GL_EXT_texture_cube_map_array", "GL_OES_texture_cube_map_array" } },
+   [feat_cube_map_array] = { 40, 32, { "GL_ARB_texture_cube_map_array", "GL_EXT_texture_cube_map_array", "GL_OES_texture_cube_map_array" } },
    [feat_debug_cb] = { UNAVAIL, UNAVAIL, {} }, /* special case */
    [feat_draw_instance] = { 31, 30, { "GL_ARB_draw_instanced" } },
    [feat_dual_src_blend] = { 33, UNAVAIL, { "GL_ARB_blend_func_extended" } },
@@ -176,7 +176,7 @@ static const  struct {
    [feat_gles31_vertex_attrib_binding] = { 43, 31, { "GL_ARB_vertex_attrib_binding" } },
    [feat_gpu_shader5] = { 40, 32, {"GL_ARB_gpu_shader5", "GL_EXT_gpu_shader5", "GL_OES_gpu_shader5" } },
    [feat_images] = { 42, 31, { "GL_ARB_shader_image_load_store" } },
-   [feat_indep_blend] = { 30, UNAVAIL, { "GL_EXT_draw_buffers2" } },
+   [feat_indep_blend] = { 30, 32, { "GL_EXT_draw_buffers2" } },
    [feat_indep_blend_func] = { 40, UNAVAIL, { "GL_ARB_draw_buffers_blend" } },
    [feat_indirect_draw] = { 40, 31, { "GL_ARB_draw_indirect" } },
    [feat_mesa_invert] = { UNAVAIL, UNAVAIL, { "GL_MESA_pack_invert" } },
