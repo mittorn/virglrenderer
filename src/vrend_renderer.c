@@ -7466,7 +7466,7 @@ static bool vrend_check_query(struct vrend_query *query)
    struct virgl_host_query_state *state;
    bool ret;
 
-   ret = vrend_get_one_query_result(query->id, false, &result);
+   ret = vrend_get_one_query_result(query->id, vrend_is_timer_query(query->gltype), &result);
    if (ret == false)
       return false;
 
