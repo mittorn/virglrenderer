@@ -197,7 +197,7 @@ static const  struct {
    [feat_tessellation] = { 40, 32, { "GL_ARB_tessellation_shader", "GL_OES_tessellation_shader", "GL_EXT_tessellation_shader" } },
    [feat_texture_array] = { 30, 30, { "GL_EXT_texture_array" } },
    [feat_texture_barrier] = { 45, UNAVAIL, { "GL_ARB_texture_barrier" } },
-   [feat_texture_buffer_range] = { 43, UNAVAIL, { "GL_ARB_texture_buffer_range" } },
+   [feat_texture_buffer_range] = { 43, 32, { "GL_ARB_texture_buffer_range" } },
    [feat_texture_gather] = { 40, 31, { "GL_ARB_texture_gather" } },
    [feat_texture_multisample] = { 32, 30, { "GL_ARB_texture_multisample" } },
    [feat_texture_srgb_decode] = { UNAVAIL, UNAVAIL, { "GL_EXT_texture_sRGB_decode" } },
@@ -8123,7 +8123,7 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
        glGetIntegerv(GL_MAX_PROGRAM_TEXTURE_GATHER_OFFSET, &caps->v2.max_texture_gather_offset);
    }
 
-   if (gl_ver >= 43) {
+   if (has_feature(feat_texture_buffer_range)) {
       glGetIntegerv(GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT, (GLint*)&caps->v2.texture_buffer_offset_alignment);
    }
 
