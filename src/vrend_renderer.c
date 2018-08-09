@@ -2667,7 +2667,7 @@ void vrend_memory_barrier(UNUSED struct vrend_context *ctx,
    glMemoryBarrier(gl_barrier);
 }
 
-void vrend_texture_barrier(struct vrend_context *ctx,
+void vrend_texture_barrier(UNUSED struct vrend_context *ctx,
                            unsigned flags)
 {
    if (!has_feature(feat_texture_barrier))
