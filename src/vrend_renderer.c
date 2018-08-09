@@ -3655,9 +3655,12 @@ static void vrend_draw_bind_images_shader(struct vrend_context *ctx, int shader_
          if (!iview->texture->tbo_tex_id)
             glGenTextures(1, &iview->texture->tbo_tex_id);
 
+         /* glTexBuffer doesn't accept GL_RGBA8_SNORM, find an appropriate replacement. */
+         uint32_t format = (iview->format == GL_RGBA8_SNORM) ? GL_RGBA8UI : iview->format;
+
          glBindBufferARB(GL_TEXTURE_BUFFER, iview->texture->id);
          glBindTexture(GL_TEXTURE_BUFFER, iview->texture->tbo_tex_id);
-         glTexBuffer(GL_TEXTURE_BUFFER, iview->format, iview->texture->id);
+         glTexBuffer(GL_TEXTURE_BUFFER, format, iview->texture->id);
          tex_id = iview->texture->tbo_tex_id;
          level = first_layer = 0;
          layered = GL_TRUE;
