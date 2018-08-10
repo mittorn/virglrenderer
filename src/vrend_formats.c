@@ -88,7 +88,7 @@ static struct vrend_format_table base_depth_formats[] =
     { VIRGL_FORMAT_Z32_FLOAT, GL_DEPTH_COMPONENT32F, GL_DEPTH_COMPONENT, GL_FLOAT, NO_SWIZZLE },
     /* this is probably a separate format */
     { VIRGL_FORMAT_Z32_FLOAT_S8X24_UINT, GL_DEPTH32F_STENCIL8, GL_DEPTH_STENCIL, GL_FLOAT_32_UNSIGNED_INT_24_8_REV, NO_SWIZZLE },
-    { VIRGL_FORMAT_X24S8_UINT, GL_STENCIL_INDEX8, GL_STENCIL_INDEX, GL_UNSIGNED_INT_24_8, NO_SWIZZLE },
+    { VIRGL_FORMAT_X24S8_UINT, GL_STENCIL_INDEX8, GL_STENCIL_INDEX, GL_UNSIGNED_BYTE, NO_SWIZZLE },
   };
 
 static struct vrend_format_table base_la_formats[] = {
@@ -310,7 +310,7 @@ static void vrend_add_formats(struct vrend_format_table *table, int num_entries)
 
     glTexImage2D(GL_TEXTURE_2D, 0, table[i].internalformat, 32, 32, 0, table[i].glformat, table[i].gltype, NULL);
     status = glGetError();
-    if (status == GL_INVALID_VALUE || status == GL_INVALID_ENUM) {
+    if (status == GL_INVALID_VALUE || status == GL_INVALID_ENUM || status == GL_INVALID_OPERATION) {
       struct vrend_format_table *entry = NULL;
       uint8_t swizzle[4];
       binding = VIRGL_BIND_SAMPLER_VIEW | VIRGL_BIND_RENDER_TARGET | VIRGL_BIND_NEED_SWIZZLE;
