@@ -2381,6 +2381,7 @@ translate_store(struct dump_ctx *ctx,
       enum tgsi_return_type itype;
       char ms_str[32] = {};
       enum vrend_type_qualifier stypeprefix = TYPE_CONVERSION_NONE;
+      const char *conversion = sinfo->override_no_cast[0] ? "" : get_string(FLOAT_BITS_TO_INT);
       get_internalformat_string(inst->Memory.Format, &itype);
       if (is_ms) {
          snprintf(ms_str, 32, "int(%s.w),", srcs[0]);
@@ -2395,7 +2396,8 @@ translate_store(struct dump_ctx *ctx,
       default:
          break;
       }
-      snprintf(buf, 512, "imageStore(%s,%s(floatBitsToInt(%s)),%s%s(%s));\n", dsts[0], get_string(coord_prefix), srcs[0], ms_str, get_string(stypeprefix), srcs[1]);
+      snprintf(buf, 512, "imageStore(%s,%s(%s(%s)),%s%s(%s));\n", dsts[0], get_string(coord_prefix),
+               conversion, srcs[0], ms_str, get_string(stypeprefix), srcs[1]);
       EMIT_BUF_WITH_RET(ctx, buf);
    } else if (dst->Register.File == TGSI_FILE_BUFFER || dst->Register.File == TGSI_FILE_MEMORY) {
       enum vrend_type_qualifier dtypeprefix;
@@ -2436,6 +2438,7 @@ translate_load(struct dump_ctx *ctx,
       bool is_ms = false;
       enum vrend_type_qualifier coord_prefix = get_coord_prefix(ctx->images[sinfo->sreg_index].decl.Resource, &is_ms);
       enum vrend_type_qualifier dtypeprefix = TYPE_CONVERSION_NONE;
+      const char *conversion = sinfo->override_no_cast[1] ? "" : get_string(FLOAT_BITS_TO_INT);
       enum tgsi_return_type itype;
       get_internalformat_string(ctx->images[sinfo->sreg_index].decl.Format, &itype);
       char ms_str[32] = {};
@@ -2453,7 +2456,8 @@ translate_load(struct dump_ctx *ctx,
       default:
          break;
       }
-      snprintf(buf, 512, "%s = %s(imageLoad(%s, %s(floatBitsToInt(%s))%s)%s);\n", dsts[0], get_string(dtypeprefix), srcs[0], get_string(coord_prefix), srcs[1], ms_str, wm);
+      snprintf(buf, 512, "%s = %s(imageLoad(%s, %s(%s(%s))%s)%s);\n", dsts[0], get_string(dtypeprefix), srcs[0],
+               get_string(coord_prefix), conversion, srcs[1], ms_str, wm);
       EMIT_BUF_WITH_RET(ctx, buf);
    } else if (src->Register.File == TGSI_FILE_BUFFER ||
               src->Register.File == TGSI_FILE_MEMORY) {
@@ -2615,11 +2619,14 @@ translate_atomic(struct dump_ctx *ctx,
    if (src->Register.File == TGSI_FILE_IMAGE) {
       bool is_ms = false;
       enum vrend_type_qualifier coord_prefix = get_coord_prefix(ctx->images[sinfo->sreg_index].decl.Resource, &is_ms);
+      const char *conversion = sinfo->override_no_cast[1] ? "" : get_string(FLOAT_BITS_TO_INT);
       char ms_str[32] = {};
       if (is_ms) {
          snprintf(ms_str, 32, ", int(%s.w)", srcs[1]);
       }
-      snprintf(buf, 512, "%s = %s(imageAtomic%s(%s, %s(floatBitsToInt(%s))%s, %s(%s(%s))%s));\n", dsts[0], get_string(dtypeprefix), opname, srcs[0], get_string(coord_prefix), srcs[1], ms_str, get_string(stypecast), get_string(stypeprefix), srcs[2], cas_str);
+      snprintf(buf, 512, "%s = %s(imageAtomic%s(%s, %s(%s(%s))%s, %s(%s(%s))%s));\n", dsts[0],
+               get_string(dtypeprefix), opname, srcs[0], get_string(coord_prefix), conversion,
+               srcs[1], ms_str, get_string(stypecast), get_string(stypeprefix), srcs[2], cas_str);
       EMIT_BUF_WITH_RET(ctx, buf);
    }
    if (src->Register.File == TGSI_FILE_BUFFER || src->Register.File == TGSI_FILE_MEMORY) {
