@@ -207,7 +207,8 @@ struct dump_ctx {
    bool has_clipvertex;
    bool has_clipvertex_so;
    bool vs_has_pervertex;
-   bool write_mul_temp;
+   bool write_mul_utemp;
+   bool write_mul_itemp;
    bool has_sample_input;
    bool early_depth_stencil;
 
@@ -3815,20 +3816,20 @@ iter_instruction(struct tgsi_iterate_context *iter,
       ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
       break;
    case TGSI_OPCODE_UMUL_HI:
-      snprintf(buf, 255, "umulExtended(%s, %s, umul_temp, mul_temp);\n", srcs[0], srcs[1]);
+      snprintf(buf, 255, "umulExtended(%s, %s, umul_temp, mul_utemp);\n", srcs[0], srcs[1]);
       EMIT_BUF_WITH_RET(ctx, buf);
       snprintf(buf, 255, "%s = %s(%s(umul_temp));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix));
       EMIT_BUF_WITH_RET(ctx, buf);
       ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
-      ctx->write_mul_temp = true;
+      ctx->write_mul_utemp = true;
       break;
    case TGSI_OPCODE_IMUL_HI:
-      snprintf(buf, 255, "imulExtended(%s, %s, imul_temp, mul_temp);\n", srcs[0], srcs[1]);
+      snprintf(buf, 255, "imulExtended(%s, %s, imul_temp, mul_itemp);\n", srcs[0], srcs[1]);
       EMIT_BUF_WITH_RET(ctx, buf);
       snprintf(buf, 255, "%s = %s(%s(imul_temp));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix));
       EMIT_BUF_WITH_RET(ctx, buf);
       ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
-      ctx->write_mul_temp = true;
+      ctx->write_mul_itemp = true;
       break;
 
    case TGSI_OPCODE_IBFE:
@@ -4688,10 +4689,15 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
       STRCAT_WITH_RET(glsl_hdr, buf);
    }
 
-   if (ctx->write_mul_temp) {
-      snprintf(buf, 255, "uvec4 mul_temp;\n");
+   if (ctx->write_mul_utemp) {
+      snprintf(buf, 255, "uvec4 mul_utemp;\n");
       STRCAT_WITH_RET(glsl_hdr, buf);
       snprintf(buf, 255, "uvec4 umul_temp;\n");
+      STRCAT_WITH_RET(glsl_hdr, buf);
+   }
+
+   if (ctx->write_mul_itemp) {
+      snprintf(buf, 255, "ivec4 mul_itemp;\n");
       STRCAT_WITH_RET(glsl_hdr, buf);
       snprintf(buf, 255, "ivec4 imul_temp;\n");
       STRCAT_WITH_RET(glsl_hdr, buf);
