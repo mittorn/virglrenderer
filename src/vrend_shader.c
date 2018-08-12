@@ -2961,7 +2961,7 @@ get_source_info(struct dump_ctx *ctx,
                   create_swizzled_clipdist(ctx, srcs[i], src, j, false, get_string(stypeprefix), prefix, arrayname);
                } else {
                   enum vrend_type_qualifier srcstypeprefix = stypeprefix;
-                  if (stype == TGSI_TYPE_UNSIGNED &&
+                  if ((stype == TGSI_TYPE_UNSIGNED || stype == TGSI_TYPE_SIGNED) &&
                       ctx->inputs[j].is_int)
                      srcstypeprefix = TYPE_CONVERSION_NONE;
 
