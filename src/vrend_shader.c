@@ -4757,8 +4757,8 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
 
    if (ctx->info.indirect_files & (1 << TGSI_FILE_IMAGE)) {
       for (i = 0; i < ctx->num_image_arrays; i++) {
-         uint32_t first = ctx->sampler_arrays[i].first;
-         uint32_t range = ctx->sampler_arrays[i].array_size;
+         uint32_t first = ctx->image_arrays[i].first;
+         uint32_t range = ctx->image_arrays[i].array_size;
          glsl_hdr = emit_image_decl(ctx, glsl_hdr, first, range, ctx->images + first);
          if (!glsl_hdr)
             return NULL;
