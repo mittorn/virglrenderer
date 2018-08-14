@@ -3024,6 +3024,13 @@ int vrend_create_shader(struct vrend_context *ctx,
    if (finished) {
       struct tgsi_token *tokens;
 
+      /* check for null termination */
+      int last_chunk_offset = sel->buf_offset ? sel->buf_offset : pkt_length * 4;
+      if (!memchr(shd_text + last_chunk_offset - 4, '\0', 4)) {
+         ret = EINVAL;
+         goto error;
+      }
+
       tokens = calloc(num_tokens + 10, sizeof(struct tgsi_token));
       if (!tokens) {
          ret = ENOMEM;
