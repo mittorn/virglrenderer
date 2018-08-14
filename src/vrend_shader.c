@@ -4000,6 +4000,7 @@ static char *emit_header(struct dump_ctx *ctx, char *glsl_hdr)
            ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL)) {
          if (ctx->cfg->glsl_version < 320)
             STRCAT_WITH_RET(glsl_hdr, "#extension GL_OES_tessellation_shader : require\n");
+         STRCAT_WITH_RET(glsl_hdr, "#extension GL_OES_tessellation_point_size : enable\n");
       }
 
       PAD_GPU_SHADER5(glsl_hdr);
