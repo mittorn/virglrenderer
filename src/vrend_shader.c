@@ -62,6 +62,7 @@ extern int vrend_dump_shaders;
 #define SHADER_REQ_TXQS               (1 << 18)
 #define SHADER_REQ_FBFETCH            (1 << 19)
 #define SHADER_REQ_SHADER_CLOCK       (1 << 20)
+#define SHADER_REQ_PSIZE              (1 << 21)
 
 struct vrend_shader_io {
    unsigned                name;
@@ -808,6 +809,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
             ctx->inputs[i].glsl_no_index = true;
             ctx->inputs[i].override_no_wm = true;
             ctx->inputs[i].glsl_gl_block = true;
+            ctx->shader_req_bits |= SHADER_REQ_PSIZE;
             break;
          }
          /* fallthrough */
@@ -1035,6 +1037,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
             ctx->outputs[i].glsl_predefined_no_emit = true;
             ctx->outputs[i].glsl_no_index = true;
             ctx->outputs[i].override_no_wm = true;
+            ctx->shader_req_bits |= SHADER_REQ_PSIZE;
             name_prefix = "gl_PointSize";
             if (iter->processor.Processor == TGSI_PROCESSOR_TESS_CTRL)
                ctx->outputs[i].glsl_gl_block = true;
@@ -3993,8 +3996,12 @@ static char *emit_header(struct dump_ctx *ctx, char *glsl_hdr)
       STRCAT_WITH_RET(glsl_hdr, buf);
       if (ctx->shader_req_bits & SHADER_REQ_SAMPLER_MS)
          STRCAT_WITH_RET(glsl_hdr, "#extension GL_OES_texture_storage_multisample_2d_array : require\n");
-      if (ctx->prog_type == TGSI_PROCESSOR_GEOMETRY)
+
+      if (ctx->prog_type == TGSI_PROCESSOR_GEOMETRY) {
          STRCAT_WITH_RET(glsl_hdr, "#extension GL_EXT_geometry_shader : require\n");
+         if (ctx->shader_req_bits & SHADER_REQ_PSIZE)
+            STRCAT_WITH_RET(glsl_hdr, "#extension GL_OES_geometry_point_size : enable\n");
+      }
 
       if ((ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL ||
            ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL)) {
