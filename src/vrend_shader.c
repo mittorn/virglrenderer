@@ -4004,6 +4004,11 @@ static char *emit_header(struct dump_ctx *ctx, char *glsl_hdr)
       if (ctx->shader_req_bits & SHADER_REQ_SAMPLER_MS)
          STRCAT_WITH_RET(glsl_hdr, "#extension GL_OES_texture_storage_multisample_2d_array : require\n");
 
+      if (ctx->prog_type == TGSI_PROCESSOR_FRAGMENT) {
+         if (ctx->shader_req_bits & SHADER_REQ_FBFETCH)
+            STRCAT_WITH_RET(glsl_hdr, "#extension GL_EXT_shader_framebuffer_fetch : require\n");
+      }
+
       if (ctx->prog_type == TGSI_PROCESSOR_GEOMETRY) {
          STRCAT_WITH_RET(glsl_hdr, "#extension GL_EXT_geometry_shader : require\n");
          if (ctx->shader_req_bits & SHADER_REQ_PSIZE)
