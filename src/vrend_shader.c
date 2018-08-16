@@ -3258,6 +3258,7 @@ get_source_info(struct dump_ctx *ctx,
                            ctx->system_values[j].glsl_name, get_swiz_char(src->Register.SwizzleW));
                   sinfo->override_no_cast[i] = true;
                } else if (ctx->system_values[j].name == TGSI_SEMANTIC_SAMPLEMASK) {
+                  ctx->shader_req_bits |= SHADER_REQ_SAMPLE_SHADING | SHADER_REQ_INTS;
                   snprintf(srcs[i], 255, "ivec4(%s, %s, %s, %s)",
                      src->Register.SwizzleX == TGSI_SWIZZLE_X ? ctx->system_values[j].glsl_name : "0",
                      src->Register.SwizzleY == TGSI_SWIZZLE_X ? ctx->system_values[j].glsl_name : "0",
@@ -4009,6 +4010,14 @@ static char *emit_header(struct dump_ctx *ctx, char *glsl_hdr)
             STRCAT_WITH_RET(glsl_hdr, "#extension GL_OES_tessellation_shader : require\n");
          STRCAT_WITH_RET(glsl_hdr, "#extension GL_OES_tessellation_point_size : enable\n");
       }
+
+      if (ctx->cfg->glsl_version < 320) {
+         if (ctx->shader_req_bits & SHADER_REQ_SAMPLE_SHADING)
+            STRCAT_WITH_RET(glsl_hdr, "#extension GL_OES_sample_variables : require\n");
+         if (ctx->shader_req_bits & SHADER_REQ_GPU_SHADER5)
+            STRCAT_WITH_RET(glsl_hdr, "#extension GL_OES_gpu_shader5 : require\n");
+      }
+
 
       PAD_GPU_SHADER5(glsl_hdr);
       STRCAT_WITH_RET(glsl_hdr, "precision highp float;\n");
