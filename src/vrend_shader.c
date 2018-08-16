@@ -4334,7 +4334,11 @@ static void *emit_image_decl(const struct dump_ctx *ctx, char *glsl_hdr,
 
    if (!image->decl.Writable)
       access = "readonly ";
-   else if (!image->decl.Format)
+   else if (!image->decl.Format ||
+            (ctx->cfg->use_gles &&
+             (image->decl.Format != PIPE_FORMAT_R32_FLOAT) &&
+             (image->decl.Format != PIPE_FORMAT_R32_SINT) &&
+             (image->decl.Format != PIPE_FORMAT_R32_UINT)))
       access = "writeonly ";
 
    if (ctx->cfg->use_gles) { /* TODO: enable on OpenGL 4.2 and up also */
