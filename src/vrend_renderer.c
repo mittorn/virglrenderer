@@ -8139,7 +8139,8 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
          max = PIPE_MAX_SHADER_IMAGES;
       caps->v2.max_shader_image_frag_compute = max;
 
-      glGetIntegerv(GL_MAX_IMAGE_SAMPLES, (GLint*)&caps->v2.max_image_samples);
+      if (gl_ver > 0) /* Seems GLES doesn't support multisample images */
+         glGetIntegerv(GL_MAX_IMAGE_SAMPLES, (GLint*)&caps->v2.max_image_samples);
    }
 
    if (has_feature(feat_storage_multisample))
