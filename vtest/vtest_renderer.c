@@ -360,6 +360,10 @@ int vtest_create_resource2(void)
     args.nr_samples = res_create_buf[VCMD_RES_CREATE2_NR_SAMPLES];
     args.flags = 0;
 
+    // Check that the handle doesn't already exist.
+    if (util_hash_table_get(renderer.iovec_hash, intptr_to_pointer(args.handle)))
+      return -EEXIST;
+
     ret = virgl_renderer_resource_create(&args, NULL, 0);
     if (ret)
       return ret;
@@ -376,7 +380,6 @@ int vtest_create_resource2(void)
       return -ENOMEM;
 
     virgl_renderer_resource_attach_iov(args.handle, iovec, 1);
-    assert(!util_hash_table_get(renderer.iovec_hash, intptr_to_pointer(args.handle)));
     util_hash_table_set(renderer.iovec_hash, intptr_to_pointer(args.handle), iovec);
 
     return ret;
@@ -554,6 +557,10 @@ int vtest_transfer_get2(void)
 
     DECODE_TRANSFER2;
 
+    iovec = util_hash_table_get(renderer.iovec_hash, intptr_to_pointer(handle));
+    if (!iovec)
+      return -ESRCH;
+
     ret = virgl_renderer_transfer_read_iov(handle,
 				     ctx_id,
 				     level,
@@ -565,8 +572,6 @@ int vtest_transfer_get2(void)
     if (ret)
       fprintf(stderr," transfer read failed %d\n", ret);
 
-    iovec = util_hash_table_get(renderer.iovec_hash, intptr_to_pointer(handle));
-    assert(iovec);
     ret = vtest_block_write(renderer.out_fd,
                             iovec->iov_base + offset,
                             data_size);
@@ -591,7 +596,9 @@ int vtest_transfer_put2(void)
     DECODE_TRANSFER2;
 
     iovec = util_hash_table_get(renderer.iovec_hash, intptr_to_pointer(handle));
-    assert(iovec);
+    if (!iovec)
+      return -ESRCH;
+
     ret = vtest_block_read(renderer.in_fd, iovec->iov_base + offset, data_size);
     if (ret < 0)
       return ret;
