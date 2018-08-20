@@ -54,6 +54,8 @@
 /* 0 length cmd */
 /* resp VCMD_GET_CAPS + caps */
 
+#define VCMD_PING_PROTOCOL_VERSION 10
+
 #define VCMD_RES_CREATE_SIZE 10
 #define VCMD_RES_CREATE_RES_HANDLE 0
 #define VCMD_RES_CREATE_TARGET 1
@@ -87,5 +89,7 @@
 #define VCMD_BUSY_WAIT_SIZE 2
 #define VCMD_BUSY_WAIT_HANDLE 0
 #define VCMD_BUSY_WAIT_FLAGS 1
+
+#define VCMD_PING_PROTOCOL_VERSION_SIZE 0
 
 #endif

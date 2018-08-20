@@ -162,6 +162,19 @@ end:
     return ret;
 }
 
+int vtest_ping_protocol_version(void)
+{
+    uint32_t hdr_buf[VTEST_HDR_SIZE];
+    int ret;
+
+    hdr_buf[VTEST_CMD_LEN] = VCMD_PING_PROTOCOL_VERSION_SIZE;
+    hdr_buf[VTEST_CMD_ID] = VCMD_PING_PROTOCOL_VERSION;
+    ret = vtest_block_write(renderer.out_fd, hdr_buf, sizeof(hdr_buf));
+    if (ret < 0)
+	return ret;
+    return 0;
+}
+
 void vtest_destroy_renderer(void)
 {
   virgl_renderer_context_destroy(ctx_id);

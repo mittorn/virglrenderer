@@ -132,6 +132,9 @@ again:
       case VCMD_GET_CAPS2:
 	ret = vtest_send_caps2();
 	break;
+      case VCMD_PING_PROTOCOL_VERSION:
+	ret = vtest_ping_protocol_version();
+	break;
       default:
 	break;
       }
