@@ -4565,9 +4565,8 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
                         ctx->outputs[i].fbfetch_used ? "inout" : "out",
                         ctx->outputs[i].glsl_name);
             STRCAT_WITH_RET(glsl_hdr, buf);
-         } else if (ctx->outputs[i].invariant || ctx->outputs[i].precise) {
-            snprintf(buf, 255, "%s%s %s;\n",
-               ctx->outputs[i].precise ? "precise " : "",
+         } else if (ctx->outputs[i].invariant) {
+            snprintf(buf, 255, "%s %s;\n",
                ctx->outputs[i].invariant ? "invariant " : "",
                ctx->outputs[i].glsl_name);
             STRCAT_WITH_RET(glsl_hdr, buf);
