@@ -608,7 +608,7 @@ bool vrend_is_ds_format(enum virgl_formats format)
 
 bool vrend_format_is_emulated_alpha(enum virgl_formats format)
 {
-   if (!vrend_state.use_core_profile)
+   if (vrend_state.use_gles || !vrend_state.use_core_profile)
       return false;
    return (format == VIRGL_FORMAT_A8_UNORM ||
            format == VIRGL_FORMAT_A16_UNORM);
