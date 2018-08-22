@@ -5211,6 +5211,7 @@ vrend_renderer_fini(void)
       vrend_state.eventfd = -1;
    }
 
+   vrend_blitter_fini();
    vrend_decode_reset(false);
    vrend_object_fini_resource_table();
    vrend_decode_reset(true);
@@ -8579,6 +8580,7 @@ void vrend_renderer_reset(void)
       vrend_state.stop_sync_thread = false;
    }
    vrend_reset_fences();
+   vrend_blitter_fini();
    vrend_decode_reset(false);
    vrend_object_fini_resource_table();
    vrend_decode_reset(true);
