@@ -797,14 +797,19 @@ void vrend_renderer_blit_gl(UNUSED struct vrend_context *ctx,
    if (has_texture_srgb_decode && util_format_is_srgb(src_res->base.format))
          glTexParameteri(src_res->target, GL_TEXTURE_SRGB_DECODE_EXT, GL_DECODE_EXT);
 
-   glTexParameteri(src_res->target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-   glTexParameteri(src_res->target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-   glTexParameteri(src_res->target, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+   if (src_res->base.nr_samples <= 1) {
+      glTexParameteri(src_res->target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+      glTexParameteri(src_res->target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+      glTexParameteri(src_res->target, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+   }
 
    glTexParameteri(src_res->target, GL_TEXTURE_BASE_LEVEL, info->src.level);
    glTexParameteri(src_res->target, GL_TEXTURE_MAX_LEVEL, info->src.level);
-   glTexParameterf(src_res->target, GL_TEXTURE_MAG_FILTER, filter);
-   glTexParameterf(src_res->target, GL_TEXTURE_MIN_FILTER, filter);
+
+   if (src_res->base.nr_samples <= 1) {
+      glTexParameterf(src_res->target, GL_TEXTURE_MAG_FILTER, filter);
+      glTexParameterf(src_res->target, GL_TEXTURE_MIN_FILTER, filter);
+   }
    pos_loc = glGetAttribLocation(prog_id, "arg0");
    tc_loc = glGetAttribLocation(prog_id, "arg1");
    samp_loc = glGetUniformLocation(prog_id, "samp");
