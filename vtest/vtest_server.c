@@ -219,6 +219,7 @@ start:
       }
     } else {
       run_renderer(in_fd, out_fd);
+      vtest_destroy_renderer();
       if (loop)
          goto restart;
     }
