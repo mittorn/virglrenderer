@@ -258,7 +258,6 @@ struct global_renderer_state {
 
    /* these appeared broken on at least one driver */
    bool use_explicit_locations;
-   uint32_t max_uniform_blocks;
    uint32_t max_draw_buffers;
    struct list_head active_ctx_list;
 
@@ -8688,7 +8687,6 @@ static void vrend_renderer_fill_caps_v1(int gl_ver, int gles_ver, union virgl_ca
 
    if (has_feature(feat_ubo)) {
       glGetIntegerv(GL_MAX_VERTEX_UNIFORM_BLOCKS, &max);
-      vrend_state.max_uniform_blocks = max;
       caps->v1.max_uniform_blocks = max + 1;
    }
 
