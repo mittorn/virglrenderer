@@ -512,7 +512,6 @@ struct vrend_sub_context {
 
    struct pipe_clip_state ucp_state;
 
-   bool blend_enabled;
    bool depth_test_enabled;
    bool alpha_test_enabled;
    bool stencil_test_enabled;
@@ -888,17 +887,6 @@ static void vrend_init_pstipple_texture(struct vrend_context *ctx)
    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
    ctx->pstip_inited = true;
-}
-
-static void vrend_blend_enable(struct vrend_context *ctx, bool blend_enable)
-{
-   if (ctx->sub->blend_enabled != blend_enable) {
-      ctx->sub->blend_enabled = blend_enable;
-      if (blend_enable)
-         glEnable(GL_BLEND);
-      else
-         glDisable(GL_BLEND);
-   }
 }
 
 static void vrend_depth_test_enable(struct vrend_context *ctx, bool depth_test_enable)
@@ -4262,10 +4250,10 @@ static void vrend_hw_emit_blend(struct vrend_context *ctx, struct pipe_blend_sta
                              translate_blend_factor(state->rt[0].alpha_dst_factor));
          glBlendEquationSeparate(translate_blend_func(state->rt[0].rgb_func),
                                  translate_blend_func(state->rt[0].alpha_func));
-         vrend_blend_enable(ctx, true);
+         glEnable(GL_BLEND);
       }
       else
-         vrend_blend_enable(ctx, false);
+         glDisable(GL_BLEND);
 
       if (state->rt[0].colormask != ctx->sub->hw_blend_state.rt[0].colormask) {
          int i;
@@ -4367,7 +4355,7 @@ void vrend_object_bind_blend(struct vrend_context *ctx,
 
    if (handle == 0) {
       memset(&ctx->sub->blend_state, 0, sizeof(ctx->sub->blend_state));
-      vrend_blend_enable(ctx, false);
+      glDisable(GL_BLEND);
       return;
    }
    state = vrend_object_lookup(ctx->sub->object_hash, handle, VIRGL_OBJECT_BLEND);
@@ -6122,7 +6110,7 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
 
          buffers = GL_COLOR_ATTACHMENT0_EXT;
          glDrawBuffers(1, &buffers);
-         vrend_blend_enable(ctx, false);
+         glDisable(GL_BLEND);
          vrend_depth_test_enable(ctx, false);
          vrend_alpha_test_enable(ctx, false);
          vrend_stencil_test_enable(ctx, false);
