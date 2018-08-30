@@ -8140,6 +8140,8 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
       if (max > PIPE_MAX_SHADER_BUFFERS)
          max = PIPE_MAX_SHADER_BUFFERS;
       caps->v2.max_shader_buffer_frag_compute = max;
+      glGetIntegerv(GL_MAX_COMBINED_SHADER_STORAGE_BLOCKS,
+                    (GLint*)&caps->v2.max_combined_shader_buffers);
    }
 
    if (has_feature(feat_images)) {

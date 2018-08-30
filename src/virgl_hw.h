@@ -351,6 +351,7 @@ struct virgl_caps_v2 {
         uint32_t max_texture_2d_size;
         uint32_t max_texture_3d_size;
         uint32_t max_texture_cube_size;
+        uint32_t max_combined_shader_buffers;
 };
 
 union virgl_caps {
