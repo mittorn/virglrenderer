@@ -77,6 +77,16 @@ __failed_call(const char* func, const char *called, int ret)
 #define report_failed_call(called, ret) \
   __failed_call(__FUNCTION__, called, ret)
 
+static int
+__failure(const char* func, const char *reason, int ret)
+{
+  fprintf(stderr, "%s %s (%d)\n", func, reason, ret);
+  return ret;
+}
+
+#define report_failure(reason, ret) \
+  __failure(__FUNCTION__, reason, ret)
+
 static unsigned
 hash_func(void *key)
 {
@@ -115,6 +125,21 @@ static int vtest_block_write(int fd, void *buf, int size)
          return -errno;
       left -= ret;
       ptr += ret;
+   } while (left);
+   return size;
+}
+
+static int vtest_block_write_zero(int fd, int size)
+{
+   char zero[256] = {0};
+   int left;
+   int ret;
+   left = size;
+   do {
+      ret = write(fd, zero, MIN2(left, 256));
+      if (ret < 0)
+         return -errno;
+      left -= ret;
    } while (left);
    return size;
 }
@@ -559,6 +584,7 @@ int vtest_transfer_get2(void)
     struct virgl_box box;
     uint32_t data_size;
     uint32_t offset;
+    uint32_t extra_data = 0;
     struct iovec *iovec;
 
     ret = vtest_block_read(renderer.in_fd, thdr_buf, sizeof(thdr_buf));
@@ -573,6 +599,10 @@ int vtest_transfer_get2(void)
       return report_failed_call("util_hash_table_get", -ESRCH);
     }
 
+    if (offset >= iovec->iov_len) {
+      return report_failure("offset larger then length of backing store", -EFAULT);
+    }
+
     ret = virgl_renderer_transfer_read_iov(handle,
 				     ctx_id,
 				     level,
@@ -585,11 +615,24 @@ int vtest_transfer_get2(void)
       return report_failed_call("virgl_renderer_transfer_read_iov", ret);
     }
 
+    /* Make sure we don't read out of bounds. */
+    if (data_size > (iovec->iov_len - offset)) {
+      extra_data = data_size - (iovec->iov_len - offset);
+      data_size -= extra_data;
+    }
+
     ret = vtest_block_write(renderer.out_fd,
                             iovec->iov_base + offset,
                             data_size);
     if (ret < 0) {
       return report_failed_call("vtest_block_write", ret);
+    }
+
+    if (extra_data) {
+      ret = vtest_block_write_zero(renderer.out_fd, extra_data);
+      if (ret < 0) {
+        return report_failed_call("vtest_block_write_zero", ret);
+      }
     }
 
     return ret < 0 ? ret : 0;
