@@ -67,6 +67,16 @@ struct virgl_box {
 	uint32_t w, h, d;
 };
 
+static int
+__failed_call(const char* func, const char *called, int ret)
+{
+  fprintf(stderr, "%s called %s which failed (%d)\n", func, called, ret);
+  return ret;
+}
+
+#define report_failed_call(called, ret) \
+  __failed_call(__FUNCTION__, called, ret)
+
 static unsigned
 hash_func(void *key)
 {
@@ -552,14 +562,16 @@ int vtest_transfer_get2(void)
     struct iovec *iovec;
 
     ret = vtest_block_read(renderer.in_fd, thdr_buf, sizeof(thdr_buf));
-    if (ret != sizeof(thdr_buf))
+    if (ret != sizeof(thdr_buf)) {
       return ret;
+    }
 
     DECODE_TRANSFER2;
 
     iovec = util_hash_table_get(renderer.iovec_hash, intptr_to_pointer(handle));
-    if (!iovec)
-      return -ESRCH;
+    if (!iovec) {
+      return report_failed_call("util_hash_table_get", -ESRCH);
+    }
 
     ret = virgl_renderer_transfer_read_iov(handle,
 				     ctx_id,
@@ -569,12 +581,17 @@ int vtest_transfer_get2(void)
 				     &box,
 				     offset,
 				     NULL, 0);
-    if (ret)
-      fprintf(stderr," transfer read failed %d\n", ret);
+    if (ret) {
+      return report_failed_call("virgl_renderer_transfer_read_iov", ret);
+    }
 
     ret = vtest_block_write(renderer.out_fd,
                             iovec->iov_base + offset,
                             data_size);
+    if (ret < 0) {
+      return report_failed_call("vtest_block_write", ret);
+    }
+
     return ret < 0 ? ret : 0;
 }
 
@@ -596,12 +613,14 @@ int vtest_transfer_put2(void)
     DECODE_TRANSFER2;
 
     iovec = util_hash_table_get(renderer.iovec_hash, intptr_to_pointer(handle));
-    if (!iovec)
-      return -ESRCH;
+    if (!iovec) {
+      return report_failed_call("util_hash_table_get", -ESRCH);
+    }
 
     ret = vtest_block_read(renderer.in_fd, iovec->iov_base + offset, data_size);
-    if (ret < 0)
-      return ret;
+    if (ret < 0) {
+      return report_failed_call("vtest_block_read", ret);
+    }
 
     ret = virgl_renderer_transfer_write_iov(handle,
 					    ctx_id,
@@ -611,8 +630,10 @@ int vtest_transfer_put2(void)
 					    &box,
 					    offset,
 					    NULL, 0);
-    if (ret)
-      fprintf(stderr," transfer write failed %d\n", ret);
+    if (ret) {
+      return report_failed_call("virgl_renderer_transfer_write_iov", ret);
+    }
+
     return 0;
 }
 
