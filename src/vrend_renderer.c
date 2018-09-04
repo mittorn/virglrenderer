@@ -3053,8 +3053,8 @@ int vrend_create_shader(struct vrend_context *ctx,
       struct tgsi_token *tokens;
 
       /* check for null termination */
-      int last_chunk_offset = sel->buf_offset ? sel->buf_offset : pkt_length * 4;
-      if (!memchr(shd_text + last_chunk_offset - 4, '\0', 4)) {
+      uint32_t last_chunk_offset = sel->buf_offset ? sel->buf_offset : pkt_length * 4;
+      if (last_chunk_offset < 4 || !memchr(shd_text + last_chunk_offset - 4, '\0', 4)) {
          ret = EINVAL;
          goto error;
       }
