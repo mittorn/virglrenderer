@@ -7894,7 +7894,7 @@ static void vrend_renderer_fill_caps_v1(int gl_ver, int gles_ver, union virgl_ca
                             (1 << PIPE_PRIM_TRIANGLES_ADJACENCY) |
                             (1 << PIPE_PRIM_TRIANGLE_STRIP_ADJACENCY);
    }
-   if (caps->v1.glsl_level >= 400)
+   if (caps->v1.glsl_level >= 400 || has_feature(feat_tessellation))
       caps->v1.prim_mask |= (1 << PIPE_PRIM_PATCHES);
 
    if (epoxy_has_gl_extension("GL_ARB_vertex_type_10f_11f_11f_rev")) {
