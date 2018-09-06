@@ -133,9 +133,6 @@ if test "x$os_win32" = xno; then
 	])
 fi
 
-
-AM_CONDITIONAL([HAVE_EPOXY_EGL], [test "x$epoxy_has_egl" = "xyes"])
-
 AC_ARG_WITH([glx], AS_HELP_STRING([--with-glx], [Build with the x11/glx backend]))
 AS_IF([test "x$with_glx" = "xyes"], [
   PKG_CHECK_MODULES([X11], [x11])
