@@ -39,7 +39,7 @@ libvrend_la_SOURCES += \
         virgl_egl_context.c
 endif
 
-if WITH_GLX
+if HAVE_EPOXY_GLX
 libvrend_la_SOURCES += \
 	virgl_glx.h \
 	virgl_glx_context.c

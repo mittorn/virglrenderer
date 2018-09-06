@@ -1,3 +1,5 @@
+
+AM_LDFLAGS = $(X11_LIBS)
 AM_CFLAGS = \
         -I$(top_srcdir)/src/gallium/drivers/virgl \
 	-I$(top_srcdir)/src/gallium/include \

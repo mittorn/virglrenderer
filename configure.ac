@@ -83,6 +83,7 @@ AC_ARG_ENABLE(tests,
 	      [build_tests="auto"])
 
 AC_ARG_ENABLE([egl], AS_HELP_STRING([--disable-egl], [Disable EGL]))
+AC_ARG_ENABLE([glx], AS_HELP_STRING([--disable-glx], [Disable GLX]))
 
 PKG_CHECK_MODULES(CHECK, [check >= 0.9.4], [HAVE_CHECK="yes"], [HAVE_CHECK="no"])
 
@@ -133,12 +134,15 @@ if test "x$os_win32" = xno; then
 	])
 fi
 
-AC_ARG_WITH([glx], AS_HELP_STRING([--with-glx], [Build with the x11/glx backend]))
-AS_IF([test "x$with_glx" = "xyes"], [
+PKG_CHECK_VAR(epoxy_has_glx, [epoxy], [epoxy_has_glx])
+AS_IF([test "x$epoxy_has_glx" = "x1" && test "x$enable_glx" != "xno"], [
   PKG_CHECK_MODULES([X11], [x11])
-  AC_CHECK_HEADER([epoxy/glx.h])
+  epoxy_has_glx=yes
+  AC_DEFINE([HAVE_EPOXY_GLX_H], [1], [Libepoxy has GLX support.])
+],[
+  epoxy_has_glx=no
 ])
-AM_CONDITIONAL([WITH_GLX], [test "x$with_glx" = "xyes"])
+AM_CONDITIONAL([HAVE_EPOXY_GLX], [test "x$epoxy_has_glx" = "xyes"])
 
 AC_SUBST([DEFINES])
 AC_CONFIG_FILES([
@@ -161,7 +165,7 @@ AC_MSG_NOTICE([
       c compiler:               $CC
       win32:                    $os_win32
 
-      glx:                      $with_glx
+      glx:                      $epoxy_has_glx
       egl:                      $epoxy_has_egl
       debug:                    $enable_debug
       tests:                    $build_tests
