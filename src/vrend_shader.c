@@ -4089,6 +4089,8 @@ static char *emit_header(struct dump_ctx *ctx, char *glsl_hdr)
             STRCAT_WITH_RET(glsl_hdr, "#extension GL_OES_sample_variables : require\n");
          if (ctx->shader_req_bits & SHADER_REQ_GPU_SHADER5)
             STRCAT_WITH_RET(glsl_hdr, "#extension GL_OES_gpu_shader5 : require\n");
+         if (ctx->shader_req_bits & SHADER_REQ_CUBE_ARRAY)
+            STRCAT_WITH_RET(glsl_hdr, "#extension GL_OES_texture_cube_map_array : require\n");
       }
 
 
