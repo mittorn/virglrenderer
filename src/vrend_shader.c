@@ -4058,6 +4058,8 @@ prolog(struct tgsi_iterate_context *iter)
 /* reserve space for: "#extension GL_ARB_gpu_shader5 : require\n" */
 #define PAD_GPU_SHADER5(s) \
    STRCAT_WITH_RET(s, "                                       \n")
+#define PAD_GPU_MSINTERPOL(s) \
+   STRCAT_WITH_RET(s, "                                                            \n")
 
 static char *emit_header(struct dump_ctx *ctx, char *glsl_hdr)
 {
@@ -4065,6 +4067,15 @@ static char *emit_header(struct dump_ctx *ctx, char *glsl_hdr)
       char buf[32];
       snprintf(buf, sizeof(buf), "#version %d es\n", ctx->cfg->glsl_version);
       STRCAT_WITH_RET(glsl_hdr, buf);
+
+      if (ctx->cfg->glsl_version < 320 &&
+          (ctx->prog_type == TGSI_PROCESSOR_VERTEX ||
+           ctx->prog_type == TGSI_PROCESSOR_GEOMETRY ||
+           ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL)) {
+         PAD_GPU_SHADER5(glsl_hdr);
+         PAD_GPU_MSINTERPOL(glsl_hdr);
+      }
+
       if (ctx->shader_req_bits & SHADER_REQ_SAMPLER_MS)
          STRCAT_WITH_RET(glsl_hdr, "#extension GL_OES_texture_storage_multisample_2d_array : require\n");
 
@@ -4089,8 +4100,10 @@ static char *emit_header(struct dump_ctx *ctx, char *glsl_hdr)
       if (ctx->cfg->glsl_version < 320) {
          if (ctx->shader_req_bits & SHADER_REQ_SAMPLE_SHADING)
             STRCAT_WITH_RET(glsl_hdr, "#extension GL_OES_sample_variables : require\n");
-         if (ctx->shader_req_bits & SHADER_REQ_GPU_SHADER5)
+         if (ctx->shader_req_bits & SHADER_REQ_GPU_SHADER5) {
             STRCAT_WITH_RET(glsl_hdr, "#extension GL_OES_gpu_shader5 : require\n");
+            STRCAT_WITH_RET(glsl_hdr, "#extension GL_OES_shader_multisample_interpolation : require\n");
+         }
          if (ctx->shader_req_bits & SHADER_REQ_CUBE_ARRAY)
             STRCAT_WITH_RET(glsl_hdr, "#extension GL_OES_texture_cube_map_array : require\n");
          if (ctx->shader_req_bits & SHADER_REQ_LAYER)
@@ -5187,6 +5200,21 @@ static void require_gpu_shader5(char *program)
    memcpy(ptr, gpu_shader5_string, strlen(gpu_shader5_string));
 }
 
+static const char *gpu_shader5_and_msinterp_string =
+      "#extension GL_OES_gpu_shader5 : require\n"
+      "#extension GL_OES_shader_multisample_interpolation : require\n";
+
+static void require_gpu_shader5_and_msinterp(char *program)
+{
+   /* the first line is the #version line */
+   char *ptr = strchr(program, '\n');
+   if (!ptr)
+      return;
+   ptr++;
+
+   memcpy(ptr, gpu_shader5_and_msinterp_string, strlen(gpu_shader5_and_msinterp_string));
+}
+
 bool vrend_patch_vertex_shader_interpolants(struct vrend_shader_cfg *cfg, char *program,
                                             struct vrend_shader_info *vs_info,
                                             struct vrend_shader_info *fs_info, const char *oprefix, bool flatshade)
@@ -5200,9 +5228,13 @@ bool vrend_patch_vertex_shader_interpolants(struct vrend_shader_cfg *cfg, char *
    if (!fs_info->interpinfo)
       return true;
 
-   if (fs_info->has_sample_input &&
-       (!cfg->use_gles && (cfg->glsl_version >= 320)))
-      require_gpu_shader5(program);
+   if (fs_info->has_sample_input) {
+      if (!cfg->use_gles && (cfg->glsl_version >= 320))
+          require_gpu_shader5(program);
+
+      if (cfg->use_gles && (cfg->glsl_version < 320))
+         require_gpu_shader5_and_msinterp(program);
+   }
 
    for (i = 0; i < fs_info->num_interps; i++) {
       pstring = get_interp_string(cfg, fs_info->interpinfo[i].interpolate, flatshade);
