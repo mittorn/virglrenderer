@@ -63,6 +63,7 @@ extern int vrend_dump_shaders;
 #define SHADER_REQ_FBFETCH            (1 << 19)
 #define SHADER_REQ_SHADER_CLOCK       (1 << 20)
 #define SHADER_REQ_PSIZE              (1 << 21)
+#define SHADER_REQ_IMAGE_ATOMIC       (1 << 22)
 
 struct vrend_shader_io {
    unsigned                name;
@@ -2665,6 +2666,7 @@ translate_atomic(struct dump_ctx *ctx,
                get_string(dtypeprefix), opname, srcs[0], get_string(coord_prefix), conversion,
                srcs[1], ms_str, get_string(stypecast), get_string(stypeprefix), srcs[2], cas_str);
       EMIT_BUF_WITH_RET(ctx, buf);
+      ctx->shader_req_bits |= SHADER_REQ_IMAGE_ATOMIC;
    }
    if (src->Register.File == TGSI_FILE_BUFFER || src->Register.File == TGSI_FILE_MEMORY) {
       enum vrend_type_qualifier type;
@@ -4091,6 +4093,8 @@ static char *emit_header(struct dump_ctx *ctx, char *glsl_hdr)
             STRCAT_WITH_RET(glsl_hdr, "#extension GL_OES_gpu_shader5 : require\n");
          if (ctx->shader_req_bits & SHADER_REQ_CUBE_ARRAY)
             STRCAT_WITH_RET(glsl_hdr, "#extension GL_OES_texture_cube_map_array : require\n");
+         if (ctx->shader_req_bits & SHADER_REQ_IMAGE_ATOMIC)
+            STRCAT_WITH_RET(glsl_hdr, "#extension GL_OES_shader_image_atomic : require\n");
       }
 
 
