@@ -15,8 +15,8 @@ AM_CFLAGS = \
 bin_PROGRAMS = virgl_test_server
 
 virgl_test_server_SOURCES =			\
-	util.c					\
-	util.h					\
+	ring.c					\
+	ring.h					\
 	vtest_server.c				\
 	vtest_renderer.c			\
 	vtest_protocol.h			\

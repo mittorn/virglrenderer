@@ -31,8 +31,6 @@
 #include <netinet/in.h>
 #include <sys/un.h>
 #include <fcntl.h>
-
-#include "util.h"
 #include "vtest.h"
 #include "vtest_protocol.h"
 

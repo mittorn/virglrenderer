@@ -33,8 +33,8 @@
 #include <sys/uio.h>
 #include "vtest.h"
 #include "vtest_protocol.h"
-#include "util.h"
 #include "util/u_debug.h"
+#include "ring.h"
 
 static int ctx_id = 1;
 static int fence_id = 1;
@@ -53,6 +53,8 @@ struct virgl_renderer_callbacks vtest_cbs = {
 struct vtest_renderer {
   int in_fd;
   int out_fd;
+  int use_ring;
+  ring_t ring;
 };
 
 struct vtest_renderer renderer;
@@ -62,11 +64,48 @@ struct virgl_box {
 	uint32_t w, h, d;
 };
 
+int vtest_wait_for_fd_read(int fd)
+{
+   fd_set read_fds;
+   int ret;
+
+   if( !renderer.ring.size )
+   {
+       static int ring;
+       if( !ring )
+       {
+           if(getenv( "VTEST_RING" ) )
+           {
+               ring_setup( &renderer.ring, fd );
+               ring_server_handshake( &renderer.ring );
+               return 0;
+           }
+       ring = 1;
+   }
+   else return 0;
+
+   FD_ZERO(&read_fds);
+   FD_SET(fd, &read_fds);
+
+   ret = select(fd + 1, &read_fds, NULL, NULL, NULL);
+   if (ret < 0)
+      return ret;
+
+   if (FD_ISSET(fd, &read_fds)) {
+      return 0;
+   }
+   return -1;
+}
+
 static int vtest_block_write(int fd, void *buf, int size)
 {
    void *ptr = buf;
    int left;
    int ret;
+
+   if( renderer.ring.size )
+      return ring_write( &renderer.ring, buf, size );
+
    left = size;
    do {
       ret = write(fd, ptr, left);
@@ -84,6 +123,10 @@ int vtest_block_read(int fd, void *buf, int size)
    int left;
    int ret;
    static int savefd = -1;
+
+
+   if( renderer.ring.size )
+       return ring_read(&renderer.ring, buf, size);
 
    left = size;
    do {

@@ -26,6 +26,7 @@
 
 #include <errno.h>
 int vtest_create_renderer(int in_fd, int out_fd, uint32_t length);
+int vtest_wait_for_fd_read(int fd);
 
 int vtest_send_caps(void);
 int vtest_send_caps2(void);
