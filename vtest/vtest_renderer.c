@@ -80,7 +80,8 @@ int vtest_wait_for_fd_read(int fd)
                ring_server_handshake( &renderer.ring );
                return 0;
            }
-       ring = 1;
+           ring = 1;
+       }
    }
    else return 0;
 
