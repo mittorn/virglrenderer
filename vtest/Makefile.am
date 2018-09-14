@@ -22,4 +22,4 @@ virgl_test_server_SOURCES =			\
 	vtest_protocol.h			\
 	vtest.h
 
-virgl_test_server_LDADD = $(top_builddir)/src/libvirglrenderer.la
+virgl_test_server_LDADD = $(top_builddir)/src/libvirglrenderer.la -lrt
