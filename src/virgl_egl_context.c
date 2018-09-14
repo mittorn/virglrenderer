@@ -40,7 +40,9 @@
 #include <errno.h>
 #include <stdbool.h>
 #include <epoxy/egl.h>
+#ifdef USE_GBM
 #include <gbm.h>
+#endif
 #include <xf86drm.h>
 #include "virglrenderer.h"
 #include "virgl_egl.h"
@@ -55,7 +57,7 @@ struct virgl_egl {
    bool have_mesa_drm_image;
    bool have_mesa_dma_buf_img_export;
 };
-
+#ifdef USE_GBM
 static int egl_rendernode_open(void)
 {
    DIR *dir;
@@ -93,6 +95,7 @@ static int egl_rendernode_open(void)
       return -1;
    return fd;
 }
+#endif
 
 static bool virgl_egl_has_extension_in_string(const char *haystack, const char *needle)
 {
@@ -156,6 +159,8 @@ struct virgl_egl *virgl_egl_init(int fd, bool surfaceless, bool gles)
       d->fd = -1;
       d->gbm_dev = NULL;
    } else {
+
+#ifdef USE_GBM
       if (fd >= 0) {
          d->fd = fd;
       } else {
@@ -166,10 +171,11 @@ struct virgl_egl *virgl_egl_init(int fd, bool surfaceless, bool gles)
       d->gbm_dev = gbm_create_device(d->fd);
       if (!d->gbm_dev)
          goto fail;
+#endif
    }
 
    const char *client_extensions = eglQueryString (NULL, EGL_EXTENSIONS);
-
+#ifdef USE_GBM
    if (strstr (client_extensions, "EGL_KHR_platform_base")) {
       PFNEGLGETPLATFORMDISPLAYEXTPROC get_platform_display =
          (PFNEGLGETPLATFORMDISPLAYEXTPROC) eglGetProcAddress ("eglGetPlatformDisplay");
@@ -199,7 +205,9 @@ struct virgl_egl *virgl_egl_init(int fd, bool surfaceless, bool gles)
    } else {
       d->egl_display = eglGetDisplay((EGLNativeDisplayType)d->gbm_dev);
    }
-
+#else
+      d->egl_display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+#endif
    if (!d->egl_display)
       goto fail;
 
@@ -227,12 +235,12 @@ struct virgl_egl *virgl_egl_init(int fd, bool surfaceless, bool gles)
 
    if (virgl_egl_has_extension_in_string(extension_list, "EGL_MESA_image_dma_buf_export"))
       d->have_mesa_dma_buf_img_export = true;
-
+#if 0
    if (d->have_mesa_drm_image == false && d->have_mesa_dma_buf_img_export == false) {
       fprintf(stderr, "failed to find drm image extensions\n");
       goto fail;
    }
-
+#endif
    if (gles)
       api = EGL_OPENGL_ES_API;
    else
@@ -269,10 +277,12 @@ void virgl_egl_destroy(struct virgl_egl *d)
                   EGL_NO_CONTEXT);
    eglDestroyContext(d->egl_display, d->egl_ctx);
    eglTerminate(d->egl_display);
+#ifdef USE_GBM
    if (d->gbm_dev)
       gbm_device_destroy(d->gbm_dev);
    if (d->fd >= 0)
       close(d->fd);
+#endif
    free(d);
 }
 
@@ -384,7 +394,7 @@ int virgl_egl_get_fd_for_texture(struct virgl_egl *ve, uint32_t tex_id, int *fd)
 
    ret = EINVAL;
    if (ve->have_mesa_dma_buf_img_export) {
-#ifdef EGL_MESA_image_dma_buf_export
+#if defined EGL_MESA_image_dma_buf_export && defined USE_GBM
       b = eglExportDMABUFImageMESA(ve->egl_display,
                                    image,
                                    fd,
@@ -396,7 +406,7 @@ int virgl_egl_get_fd_for_texture(struct virgl_egl *ve, uint32_t tex_id, int *fd)
       goto out_destroy;
 #endif
    } else {
-#ifdef EGL_MESA_drm_image
+#if defined EGL_MESA_drm_image && defined USE_GBM
       EGLint handle;
       int r;
       b = eglExportDRMImageMESA(ve->egl_display,
@@ -424,6 +434,7 @@ int virgl_egl_get_fd_for_texture(struct virgl_egl *ve, uint32_t tex_id, int *fd)
 
 uint32_t virgl_egl_get_gbm_format(uint32_t format)
 {
+#if USE_GBM
    switch (format) {
    case VIRGL_FORMAT_B8G8R8X8_UNORM:
       return GBM_FORMAT_XRGB8888;
@@ -433,4 +444,7 @@ uint32_t virgl_egl_get_gbm_format(uint32_t format)
       fprintf(stderr, "unknown format to convert to GBM %d\n", format);
       return 0;
    }
+#else
+return 0;
+#endif
 }
