@@ -6499,7 +6499,8 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
       if (format != GL_RGBA && format != GL_RGBA_INTEGER) {
          glGetIntegerv(GL_IMPLEMENTATION_COLOR_READ_FORMAT, &imp);
          if (imp != (GLint)format) {
-            fprintf(stderr, "GL_IMPLEMENTATION_COLOR_READ_FORMAT is not expected native format 0x%x != imp 0x%x\n", format, imp);
+//            fprintf(stderr, "GL_IMPLEMENTATION_COLOR_READ_FORMAT is not expected native format 0x%x != imp 0x%x\n", format, imp);
+              format = imp; // force using implemented format
          }
       }
    }
