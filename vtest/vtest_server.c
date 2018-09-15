@@ -130,6 +130,8 @@ again:
       case VCMD_GET_CAPS2:
 	ret = vtest_send_caps2();
 	break;
+      case VCMD_FLUSH_FRONTBUFFER:
+        ret = vtest_flush_frontbuffer();
       default:
 	break;
       }

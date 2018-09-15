@@ -50,6 +50,9 @@
 #define VCMD_CREATE_RENDERER 8
 
 #define VCMD_GET_CAPS2 9
+
+#define VCMD_FLUSH_FRONTBUFFER 10
+
 /* get caps */
 /* 0 length cmd */
 /* resp VCMD_GET_CAPS + caps */
@@ -87,5 +90,14 @@
 #define VCMD_BUSY_WAIT_SIZE 2
 #define VCMD_BUSY_WAIT_HANDLE 0
 #define VCMD_BUSY_WAIT_FLAGS 1
+
+#define VCMD_FLUSH_SIZE 7
+#define VCMD_FLUSH_DRAWABLE 0
+#define VCMD_FLUSH_X 1
+#define VCMD_FLUSH_Y 2
+#define VCMD_FLUSH_WIDTH 3
+#define VCMD_FLUSH_HEIGHT 4
+#define VCMD_FLUSH_W_X 5
+#define VCMD_FLUSH_W_Y 6
 
 #endif

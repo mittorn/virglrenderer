@@ -27,15 +27,22 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <limits.h>
-
 #include "virglrenderer.h"
-
+#include <X11/Xlib.h>
+#include <X11/Xutil.h>
 #include <sys/uio.h>
 #include "vtest.h"
 #include "vtest_protocol.h"
 #include "util/u_debug.h"
 #include "ring.h"
-
+#include <epoxy/egl.h>
+#include "vrend_renderer.h"
+#include "vrend_object.h"
+#include <X11/extensions/shape.h>
+#include <X11/extensions/Xfixes.h>
+#include <X11/Xlib.h>
+#include <X11/Xatom.h>
+#include <X11/Xutil.h>
 static int ctx_id = 1;
 static int fence_id = 1;
 
@@ -45,9 +52,203 @@ static void vtest_write_fence(UNUSED void *cookie, uint32_t fence_id_in)
   last_fence = fence_id_in;
 }
 
+static EGLSurface drawable_surf;
+static EGLContext drawable_ctx;
+static Drawable drawable_win;
+static EGLConfig drawable_conf;
+static Display *dpy;
+struct vtest_egl {
+   EGLDisplay egl_display;
+   EGLConfig egl_conf;
+   EGLContext egl_ctx;
+   bool have_mesa_drm_image;
+   bool have_mesa_dma_buf_img_export;
+};
+
+static bool virgl_egl_has_extension_in_string(const char *haystack, const char *needle)
+{
+   const unsigned needle_len = strlen(needle);
+
+   if (needle_len == 0)
+      return false;
+
+   while (true) {
+      const char *const s = strstr(haystack, needle);
+
+      if (s == NULL)
+         return false;
+
+      if (s[needle_len] == ' ' || s[needle_len] == '\0') {
+         return true;
+      }
+
+      /* strstr found an extension whose name begins with
+       * needle, but whose name is not equal to needle.
+       * Restart the search at s + needle_len so that we
+       * don't just find the same extension again and go
+       * into an infinite loop.
+       */
+      haystack = s + needle_len;
+   }
+
+   return false;
+}
+
+static struct vtest_egl *vtest_egl_init(bool surfaceless, bool gles)
+{
+   static EGLint conf_att[] = {
+      EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
+      EGL_RENDERABLE_TYPE, EGL_OPENGL_BIT,
+      EGL_RED_SIZE, 1,
+      EGL_GREEN_SIZE, 1,
+      EGL_BLUE_SIZE, 1,
+      EGL_ALPHA_SIZE, 0,
+      EGL_NONE,
+   };
+   static const EGLint ctx_att[] = {
+      EGL_CONTEXT_CLIENT_VERSION, 2,
+      EGL_NONE
+   };
+   EGLBoolean b;
+   EGLenum api;
+   EGLint major, minor, n;
+   const char *extension_list;
+   struct vtest_egl *d;
+
+   d = malloc(sizeof(struct vtest_egl));
+   if (!d)
+      return NULL;
+
+   if (gles)
+      conf_att[3] = EGL_OPENGL_ES_BIT;
+
+   if (surfaceless) {
+      conf_att[1] = EGL_PBUFFER_BIT;
+   }
+   if( !dpy) dpy = XOpenDisplay(NULL);
+   const char *client_extensions = eglQueryString (NULL, EGL_EXTENSIONS);
+   d->egl_display = eglGetDisplay(dpy);
+
+   if (!d->egl_display)
+      goto fail;
+
+   b = eglInitialize(d->egl_display, &major, &minor);
+   if (!b)
+      goto fail;
+
+   extension_list = eglQueryString(d->egl_display, EGL_EXTENSIONS);
+#ifdef VIRGL_EGL_DEBUG
+   fprintf(stderr, "EGL major/minor: %d.%d\n", major, minor);
+   fprintf(stderr, "EGL version: %s\n",
+           eglQueryString(d->egl_display, EGL_VERSION));
+   fprintf(stderr, "EGL vendor: %s\n",
+           eglQueryString(d->egl_display, EGL_VENDOR));
+   fprintf(stderr, "EGL extensions: %s\n", extension_list);
+#endif
+   /* require surfaceless context */
+   if (!virgl_egl_has_extension_in_string(extension_list, "EGL_KHR_surfaceless_context"))
+      goto fail;
+
+   d->have_mesa_drm_image = false;
+   d->have_mesa_dma_buf_img_export = false;
+   if (virgl_egl_has_extension_in_string(extension_list, "EGL_MESA_drm_image"))
+      d->have_mesa_drm_image = true;
+
+   if (virgl_egl_has_extension_in_string(extension_list, "EGL_MESA_image_dma_buf_export"))
+      d->have_mesa_dma_buf_img_export = true;
+
+   if (gles)
+      api = EGL_OPENGL_ES_API;
+   else
+      api = EGL_OPENGL_API;
+   b = eglBindAPI(api);
+   if (!b)
+      goto fail;
+
+   b = eglChooseConfig(d->egl_display, conf_att, &d->egl_conf,
+                       1, &n);
+   drawable_conf = d->egl_conf;
+
+   if (!b || n != 1)
+      goto fail;
+
+   d->egl_ctx = eglCreateContext(d->egl_display,
+                                 d->egl_conf,
+                                 EGL_NO_CONTEXT,
+                                 ctx_att);
+   if (!d->egl_ctx)
+      goto fail;
+
+
+   eglMakeCurrent(d->egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE,
+                  d->egl_ctx);
+   return d;
+ fail:
+   free(d);
+   return NULL;
+}
+
+static void vtest_egl_destroy(struct vtest_egl *d)
+{
+   eglMakeCurrent(d->egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE,
+                  EGL_NO_CONTEXT);
+   eglDestroyContext(d->egl_display, d->egl_ctx);
+   eglTerminate(d->egl_display);
+   free(d);
+}
+
+static virgl_renderer_gl_context vtest_egl_create_context(void *cookie, int scanout_idx, struct virgl_renderer_gl_ctx_param *param)
+{
+   struct vtest_egl *ve = cookie;
+   EGLContext eglctx;
+   EGLint ctx_att[] = {
+      EGL_CONTEXT_CLIENT_VERSION, param->major_ver,
+      EGL_CONTEXT_MINOR_VERSION_KHR, param->minor_ver,
+      EGL_NONE
+   };
+   eglctx = eglCreateContext(ve->egl_display,
+                             ve->egl_conf,
+                             param->shared ? eglGetCurrentContext() : EGL_NO_CONTEXT,
+                             ctx_att);
+
+   printf("create_context %d %d %d %d %x\n", scanout_idx, param->shared, param->major_ver, param->minor_ver, eglctx);
+
+   return (virgl_renderer_gl_context)eglctx;
+}
+
+static void vtest_egl_destroy_context(void *cookie, virgl_renderer_gl_context ctx)
+{
+   struct vtest_egl *ve = cookie;
+   EGLContext eglctx = (EGLContext)ctx;
+
+   printf("destroy_context %x\n", ctx);
+
+   eglDestroyContext(ve->egl_display, eglctx);
+}
+
+static int vtest_egl_make_context_current(void *cookie, int scanout_idx, virgl_renderer_gl_context ctx)
+{
+   struct vtest_egl *ve = cookie;
+   EGLContext eglctx = (EGLContext)ctx;
+//   printf("make_current %d %x\n", scanout_idx, ctx);
+   if( ctx == drawable_ctx )
+   {
+//       printf("flush drawable make current %d\n", drawable_win );
+   return eglMakeCurrent(ve->egl_display, drawable_surf , drawable_surf,
+                         eglctx);
+
+   }
+
+   return eglMakeCurrent(ve->egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE,
+                         eglctx);
+}
+
 struct virgl_renderer_callbacks vtest_cbs = {
     .version = 1,
     .write_fence = vtest_write_fence,
+   .create_gl_context = vtest_egl_create_context,
+   .destroy_gl_context = vtest_egl_destroy_context,
+   .make_current = vtest_egl_make_context_current,
 };
 
 struct vtest_renderer {
@@ -59,10 +260,10 @@ struct vtest_renderer {
 
 struct vtest_renderer renderer;
 
-struct virgl_box {
+/*struct virgl_box {
 	uint32_t x, y, z;
 	uint32_t w, h, d;
-};
+};*/
 
 int vtest_wait_for_fd_read(int fd)
 {
@@ -158,13 +359,13 @@ int vtest_create_renderer(int in_fd, int out_fd, uint32_t length)
 {
     char *vtestname;
     int ret;
-    int ctx = VIRGL_RENDERER_USE_EGL;
+    int ctx = 0;
 
     renderer.in_fd = in_fd;
     renderer.out_fd = out_fd;
 
-    if (getenv("VTEST_USE_GLX"))
-       ctx = VIRGL_RENDERER_USE_GLX;
+//    if (getenv("VTEST_USE_GLX"))
+//       ctx = VIRGL_RENDERER_USE_GLX;
 
     if (getenv("VTEST_USE_EGL_SURFACELESS")) {
         if (ctx & VIRGL_RENDERER_USE_GLX) {
@@ -182,7 +383,7 @@ int vtest_create_renderer(int in_fd, int out_fd, uint32_t length)
         ctx |= VIRGL_RENDERER_USE_GLES;
     }
 
-    ret = virgl_renderer_init(&renderer,
+    ret = virgl_renderer_init(vtest_egl_init(0,!!(ctx & VIRGL_RENDERER_USE_GLES)),
                               ctx | VIRGL_RENDERER_THREAD_SYNC, &vtest_cbs);
     if (ret) {
       fprintf(stderr, "failed to initialise renderer.\n");
@@ -271,6 +472,78 @@ int vtest_send_caps(void)
 
 end:
     free(caps_buf);
+    return 0;
+}
+
+
+int vtest_flush_frontbuffer(void)
+{
+    uint32_t flush_buf[VCMD_FLUSH_SIZE];
+    struct virgl_renderer_resource_create_args args;
+    int ret;
+    uint32_t w_x, w_y, x, y, w, h;
+    Drawable drawable;
+    static int use_overlay;
+
+    ret = vtest_block_read(renderer.in_fd, &flush_buf, sizeof(flush_buf));
+    if (ret != sizeof(flush_buf))
+	return -1;
+
+//    printf("flush drawable %x\n", flush_buf[VCMD_FLUSH_DRAWABLE]);
+    EGLContext ctx = eglGetCurrentContext();
+    drawable = flush_buf[VCMD_FLUSH_DRAWABLE];
+    x = flush_buf[VCMD_FLUSH_X];
+    y = flush_buf[VCMD_FLUSH_Y];
+    w = flush_buf[VCMD_FLUSH_WIDTH];
+    h = flush_buf[VCMD_FLUSH_HEIGHT];
+    w_x = flush_buf[VCMD_FLUSH_W_X];
+    w_y = flush_buf[VCMD_FLUSH_W_Y];
+
+    if( ctx != drawable_ctx )
+    {
+        static EGLint const window_attribute_list[] = {
+            EGL_RENDER_BUFFER, EGL_BACK_BUFFER,
+            EGL_NONE,
+        };
+        drawable_ctx = ctx;
+	drawable_win = flush_buf[VCMD_FLUSH_DRAWABLE];
+	if( getenv("VTEST_OVERLAY") )
+	{
+	use_overlay = 1;
+	drawable_win = XCreateSimpleWindow(dpy, RootWindow(dpy, 0), w_x, w_y, w, h, 0, BlackPixel(dpy, 0),BlackPixel(dpy, 0));
+	XRectangle rect;
+	XserverRegion region = XFixesCreateRegion(dpy, &rect, 1);
+	Atom window_type = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE", False);
+	long value = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE_DOCK", False);
+	XChangeProperty(dpy, (Window)drawable_win, window_type, XA_ATOM, 32, PropModeReplace, (unsigned char *) &value, 1);
+	XFixesSetWindowShapeRegion(dpy, (Window)drawable_win, ShapeInput, 0, 0, region);
+	XFixesDestroyRegion(dpy, region);
+	XSetWindowAttributes attributes;
+	attributes.override_redirect = True;
+	XChangeWindowAttributes(dpy,drawable,CWOverrideRedirect,&attributes);
+	XMapWindow(dpy, (Window)drawable_win);
+	XFlush(dpy);
+	}
+	drawable_surf = eglCreateWindowSurface(eglGetCurrentDisplay(), drawable_conf, drawable_win, window_attribute_list);
+	eglMakeCurrent(eglGetCurrentDisplay(), drawable_surf, drawable_surf, ctx);
+	
+    }
+//    struct vrend_resource *res = vrend_resource_lookup(flush_buf[1], 0);
+    int buf;
+//	eglMakeCurrent(eglGetCurrentDisplay(), drawable_surf, drawable_surf, ctx);
+    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &buf);
+//    printf("res:%d\n",buf);
+    glBindFramebufferEXT(GL_DRAW_FRAMEBUFFER_EXT, 0);
+/*    glClearColor(255,0,0,255);
+    glClear(GL_COLOR_BUFFER_BIT);*/
+    
+    glBlitFramebuffer(x,y+h,w+x,y,x,y,w+x,h+y,GL_COLOR_BUFFER_BIT,GL_NEAREST);
+    if( use_overlay )
+      XMoveWindow(dpy,drawable_win,w_x,w_y);
+    eglSwapBuffers(eglGetCurrentDisplay(), drawable_surf);
+    glBindFramebufferEXT(GL_DRAW_FRAMEBUFFER_EXT, buf);
+
+	
     return 0;
 }
 
