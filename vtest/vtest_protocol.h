@@ -91,7 +91,7 @@
 #define VCMD_BUSY_WAIT_HANDLE 0
 #define VCMD_BUSY_WAIT_FLAGS 1
 
-#define VCMD_FLUSH_SIZE 7
+#define VCMD_FLUSH_SIZE 8
 #define VCMD_FLUSH_DRAWABLE 0
 #define VCMD_FLUSH_X 1
 #define VCMD_FLUSH_Y 2
@@ -99,5 +99,7 @@
 #define VCMD_FLUSH_HEIGHT 4
 #define VCMD_FLUSH_W_X 5
 #define VCMD_FLUSH_W_Y 6
+#define VCMD_FLUSH_HANDLE 7
+
 
 #endif

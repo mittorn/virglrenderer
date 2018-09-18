@@ -34,26 +34,51 @@
 #include "vtest.h"
 #include "vtest_protocol.h"
 
-static int vtest_open_socket(const char *path)
+static int vtest_open_socket(const char *path_)
 {
-    struct sockaddr_un un;
     int sock;
+    const char *path = getenv("VTEST_SOCK");
 
-    sock = socket(PF_UNIX, SOCK_STREAM, 0);
-    if (sock < 0) {
-	return -1;
-    }
-
-    memset(&un, 0, sizeof(un));
-    un.sun_family = AF_UNIX;
+    if( !path ) path = "/tmp/.virgl_test";
     
-    snprintf(un.sun_path, sizeof(un.sun_path), "%s", path);
+	if( path[0] == ':' )
+	{         
+	    struct sockaddr_in in;
 
-    unlink(un.sun_path);
+    	sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP );
+        if (sock < 0) {
+			return -1;
+	    }
 
-    if (bind(sock, (struct sockaddr *)&un, sizeof(un)) < 0) {
-	goto err;
+	    memset(&in, 0, sizeof(in));
+    	in.sin_family = AF_INET;
+    	in.sin_port = htons(atoi(path + 1));
+//    	inet_pton(PF_INET, "192.168.1.3", &stSockAddr.sin_addr);
+    
+    	if (bind(sock, (struct sockaddr *)&in, sizeof(in)) < 0) {
+			goto err;
+		}
     }
+    else
+    {
+	    struct sockaddr_un un;
+
+	    sock = socket(PF_UNIX, SOCK_STREAM, 0);
+    	if (sock < 0) {
+		return -1;
+    	}
+
+    	memset(&un, 0, sizeof(un));
+    	un.sun_family = AF_UNIX;
+    
+    	snprintf(un.sun_path, sizeof(un.sun_path), "%s", path);
+
+	    unlink(un.sun_path);
+
+    	if (bind(sock, (struct sockaddr *)&un, sizeof(un)) < 0) {
+			goto err;
+	    }
+	}
     
     if (listen(sock, 1) < 0){
 	goto err;
@@ -131,7 +156,8 @@ again:
 	ret = vtest_send_caps2();
 	break;
       case VCMD_FLUSH_FRONTBUFFER:
-        ret = vtest_flush_frontbuffer();
+	ret = vtest_flush_frontbuffer();
+	break;
       default:
 	break;
       }
@@ -198,7 +224,7 @@ while (__AFL_LOOP(1000)) {
       }
     }
 
-    sock = vtest_open_socket("/tmp/.virgl_test");
+    sock = vtest_open_socket(getenv("VTEST_SOCK"));
 restart:
     in_fd = wait_for_socket_accept(sock);
     out_fd = in_fd;

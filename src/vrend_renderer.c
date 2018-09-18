@@ -575,7 +575,7 @@ struct vrend_context {
    struct vrend_shader_cfg shader_cfg;
 };
 
-static struct vrend_resource *vrend_renderer_ctx_res_lookup(struct vrend_context *ctx, int res_handle);
+struct vrend_resource *vrend_renderer_ctx_res_lookup(struct vrend_context *ctx, int res_handle);
 static void vrend_pause_render_condition(struct vrend_context *ctx, bool pause);
 static void vrend_update_viewport_state(struct vrend_context *ctx);
 static void vrend_update_scissor_state(struct vrend_context *ctx);
@@ -8515,7 +8515,7 @@ void vrend_renderer_detach_res_ctx(int ctx_id, int res_handle)
    vrend_renderer_detach_res_ctx_p(ctx, res_handle);
 }
 
-static struct vrend_resource *vrend_renderer_ctx_res_lookup(struct vrend_context *ctx, int res_handle)
+struct vrend_resource *vrend_renderer_ctx_res_lookup(struct vrend_context *ctx, int res_handle)
 {
    struct vrend_resource *res = vrend_object_lookup(ctx->res_hash, res_handle, 1);
 

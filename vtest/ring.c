@@ -60,8 +60,7 @@ void ring_wait_read(ring_t *ring) {
 
 void ring_sync_write(ring_t *ring)
 {
-    while( (*ring->write_out& (ring->size - 1)) != (*ring->read_out& (ring->size - 1)) )
-        sched_yield();
+    SYNC_WHILE( (*ring->write_out& (ring->size - 1)) != (*ring->read_out& (ring->size - 1)));
 }
 
 
@@ -110,7 +109,8 @@ int ring_read_partial(ring_t *ring, void *buf, size_t bufsize) {
 
     if( readsize == 0 )
     {
-        ring_wait(ring);
+        //ring_wait(ring);
+        SYNC_WHILE(((*ring->write_in& (ring->size - 1)- *ring->read_in& (ring->size - 1)) & (ring->size - 1) ) == 0)
         writemark = *ring->write_in& (ring->size - 1);
         readmark = *ring->read_in& (ring->size - 1);
         readsize = (writemark - readmark) & (ring->size - 1);
