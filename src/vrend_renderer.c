@@ -5847,7 +5847,6 @@ void vrend_renderer_resource_unref(uint32_t res_handle)
    vrend_resource_remove(res->handle);
 }
 
-static int use_sub_data = 0;
 struct virgl_sub_upload_data {
    GLenum target;
    struct pipe_box *box;
@@ -6075,17 +6074,13 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
       d.target = res->target;
 
       glBindBufferARB(res->target, res->id);
-      if (use_sub_data == 1) {
-         vrend_read_from_iovec_cb(iov, num_iovs, info->offset, info->box->width, &iov_buffer_upload, &d);
+      data = glMapBufferRange(res->target, info->box->x, info->box->width, GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_UNSYNCHRONIZED_BIT | GL_MAP_WRITE_BIT);
+      if (data == NULL) {
+	 fprintf(stderr,"map failed for element buffer\n");
+	 vrend_read_from_iovec_cb(iov, num_iovs, info->offset, info->box->width, &iov_buffer_upload, &d);
       } else {
-         data = glMapBufferRange(res->target, info->box->x, info->box->width, GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_UNSYNCHRONIZED_BIT | GL_MAP_WRITE_BIT);
-         if (data == NULL) {
-            fprintf(stderr,"map failed for element buffer\n");
-            vrend_read_from_iovec_cb(iov, num_iovs, info->offset, info->box->width, &iov_buffer_upload, &d);
-         } else {
-            vrend_read_from_iovec(iov, num_iovs, info->offset, data, info->box->width);
-            glUnmapBuffer(res->target);
-         }
+	 vrend_read_from_iovec(iov, num_iovs, info->offset, data, info->box->width);
+	 glUnmapBuffer(res->target);
       }
    } else {
       GLenum glformat;
