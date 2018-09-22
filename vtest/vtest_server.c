@@ -109,11 +109,21 @@ static int wait_for_socket_accept(int sock)
     return -1;
 }
 
+void *renderer_thread(void *arg)
+{
+    int fd = *(int*)arg;
+    static int ctx_id = 0;
+    ctx_id++;
+
+    run_renderer(fd, ctx_id);
+    return NULL;
+}
+
 int main(int argc, char **argv)
 {
     int ret, sock = -1, in_fd, out_fd;
     pid_t pid;
-    bool do_fork = true, loop = true;
+    bool do_fork = true, loop = true, threads = false;
     struct sigaction sa;
 
 #ifdef __AFL_LOOP
@@ -126,6 +136,9 @@ while (__AFL_LOOP(1000)) {
         loop = false;
       } else if (!strcmp(argv[1], "--no-fork")) {
 	do_fork = false;
+      } else if (!strcmp(argv[1], "--threads")) {
+        do_fork = false;
+        threads = true;
       } else {
          ret = open(argv[1], O_RDONLY);
          if (ret == -1) {
@@ -154,6 +167,7 @@ while (__AFL_LOOP(1000)) {
 	exit(1);
       }
     }
+  XInitThreads();
 
     sock = vtest_open_socket(getenv("VTEST_SOCK"));
 restart:
@@ -174,6 +188,14 @@ start:
         if (loop)
            goto restart;
       }
+    } else if(threads)
+    {
+      pthread_t thread;
+//      static int ctx_id;
+//      ctx_id++;
+//      void *d = create_renderer( in_fd, ctx_id);
+      pthread_create(&thread, NULL, renderer_thread, &in_fd);
+      goto restart;
     } else {
       run_renderer(in_fd, 1);
       if (loop)
