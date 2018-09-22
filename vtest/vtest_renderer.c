@@ -43,34 +43,45 @@
 #include <X11/Xlib.h>
 #include <X11/Xatom.h>
 #include <X11/Xutil.h>
-static int ctx_id = 1;
-static int fence_id = 1;
 
-static int last_fence;
-static void vtest_write_fence(UNUSED void *cookie, uint32_t fence_id_in)
-{
-  last_fence = fence_id_in;
-}
+struct vtest_renderer {
+  // pipe
+  int fd;
+  int use_ring;
+  ring_t ring;
 
-static EGLSurface drawable_surf;
-static Drawable drawable_win;
-static EGLConfig drawable_conf;
-static EGLDisplay drawable_disp;
-static Drawable fake_win;
-static EGLSurface fake_surf;
-//static EGLContext last_ctx;
-static EGLContext first_ctx;
+  // egl
+  EGLDisplay egl_display;
+  EGLConfig egl_conf;
+  EGLContext egl_ctx;
+  EGLSurface egl_drawable_surf;
+  EGLSurface egl_fake_surf;
 
-static Display *dpy;
-struct vtest_egl {
-   EGLDisplay egl_display;
-   EGLConfig egl_conf;
-   EGLContext egl_ctx;
-   bool have_mesa_drm_image;
-   bool have_mesa_dma_buf_img_export;
+  // renderer
+  int ctx_id;
+  int fence_id;
+  int last_fence;
+  int res_id; // res id of scanout texture
+  int fb_id; // fb for blitting scanout texture
+
+  // x11
+  Drawable x11_fake_win;
+  Drawable x11_drawable_win;
+  Display *x11_dpy;
+
+  // glx
+  //GLXFBConfig* fbConfigs;
+  //GLXPbuffer pbuffer;
+
 };
 
-static bool virgl_egl_has_extension_in_string(const char *haystack, const char *needle)
+static void vtest_write_fence(void *cookie, uint32_t fence_id_in)
+{
+  struct vtest_renderer *r = cookie;
+  r->last_fence = fence_id_in;
+}
+
+static bool vtest_egl_has_extension_in_string(const char *haystack, const char *needle)
 {
    const unsigned needle_len = strlen(needle);
 
@@ -99,7 +110,7 @@ static bool virgl_egl_has_extension_in_string(const char *haystack, const char *
    return false;
 }
 
-static struct vtest_egl *vtest_egl_init(bool surfaceless, bool gles)
+static bool vtest_egl_init(struct vtest_renderer *d, bool surfaceless, bool gles)
 {
    static EGLint conf_att[] = {
       EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
@@ -118,11 +129,6 @@ static struct vtest_egl *vtest_egl_init(bool surfaceless, bool gles)
    EGLenum api;
    EGLint major, minor, n;
    const char *extension_list;
-   struct vtest_egl *d;
-
-   d = malloc(sizeof(struct vtest_egl));
-   if (!d)
-      return NULL;
 
    if (gles)
       conf_att[3] = EGL_OPENGL_ES_BIT;
@@ -130,9 +136,9 @@ static struct vtest_egl *vtest_egl_init(bool surfaceless, bool gles)
    if (surfaceless) {
       conf_att[1] = EGL_PBUFFER_BIT;
    }
-   if( !dpy) dpy = XOpenDisplay(NULL);
+   if( !d->x11_dpy) d->x11_dpy = XOpenDisplay(NULL);
    const char *client_extensions = eglQueryString (NULL, EGL_EXTENSIONS);
-   d->egl_display = drawable_disp = eglGetDisplay(dpy);
+   d->egl_display = eglGetDisplay(d->x11_dpy);
 
    if (!d->egl_display)
       goto fail;
@@ -149,15 +155,15 @@ static struct vtest_egl *vtest_egl_init(bool surfaceless, bool gles)
    fprintf(stderr, "EGL vendor: %s\n",
            eglQueryString(d->egl_display, EGL_VENDOR));
    fprintf(stderr, "EGL extensions: %s\n", extension_list);
-
+#if 0
    d->have_mesa_drm_image = false;
    d->have_mesa_dma_buf_img_export = false;
-   if (virgl_egl_has_extension_in_string(extension_list, "EGL_MESA_drm_image"))
+   if (vtest_egl_has_extension_in_string(extension_list, "EGL_MESA_drm_image"))
       d->have_mesa_drm_image = true;
 
-   if (virgl_egl_has_extension_in_string(extension_list, "EGL_MESA_image_dma_buf_export"))
+   if (vtest_egl_has_extension_in_string(extension_list, "EGL_MESA_image_dma_buf_export"))
       d->have_mesa_dma_buf_img_export = true;
-
+#endif
    if (gles)
       api = EGL_OPENGL_ES_API;
    else
@@ -168,7 +174,6 @@ static struct vtest_egl *vtest_egl_init(bool surfaceless, bool gles)
 
    b = eglChooseConfig(d->egl_display, conf_att, &d->egl_conf,
                        1, &n);
-   drawable_conf = d->egl_conf;
 
    if (!b || n != 1)
       goto fail;
@@ -184,19 +189,17 @@ static struct vtest_egl *vtest_egl_init(bool surfaceless, bool gles)
         EGL_RENDER_BUFFER, EGL_BACK_BUFFER,
         EGL_NONE,
     };
-    fake_win = XCreateSimpleWindow(dpy, RootWindow(dpy, 0), 0, 0, 100, 100, 0, BlackPixel(dpy, 0),BlackPixel(dpy, 0));
-    fake_surf = eglCreateWindowSurface(drawable_disp, drawable_conf, fake_win, window_attribute_list);
-    first_ctx = d->egl_ctx;
+    d->x11_fake_win = XCreateSimpleWindow(d->x11_dpy, RootWindow(d->x11_dpy, 0), 0, 0, 100, 100, 0, BlackPixel(d->x11_dpy, 0),BlackPixel(d->x11_dpy, 0));
+    d->egl_fake_surf = eglCreateWindowSurface(d->egl_display, d->egl_conf, d->x11_fake_win, window_attribute_list);
 
-   eglMakeCurrent(d->egl_display, fake_surf, fake_surf, d->egl_ctx);
+   eglMakeCurrent(d->egl_display, d->egl_fake_surf, d->egl_fake_surf, d->egl_ctx);
  //  eglMakeCurrent(d->egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, d->egl_ctx);
-   return d;
+   return true;
  fail:
-   free(d);
-   return NULL;
+   return false;
 }
 
-static void vtest_egl_destroy(struct vtest_egl *d)
+static void vtest_egl_destroy(struct vtest_renderer *d)
 {
    eglMakeCurrent(d->egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE,
                   EGL_NO_CONTEXT);
@@ -207,7 +210,7 @@ static void vtest_egl_destroy(struct vtest_egl *d)
 
 static virgl_renderer_gl_context vtest_egl_create_context(void *cookie, int scanout_idx, struct virgl_renderer_gl_ctx_param *param)
 {
-   struct vtest_egl *ve = cookie;
+   struct vtest_renderer *ve = cookie;
    EGLContext eglctx;
    EGLint ctx_att[] = {
       EGL_CONTEXT_CLIENT_VERSION, param->major_ver,
@@ -220,7 +223,7 @@ static virgl_renderer_gl_context vtest_egl_create_context(void *cookie, int scan
                              ve->egl_conf,
                              param->shared ? eglGetCurrentContext() : 
 //EGL_NO_CONTEXT,
-first_ctx,
+ve->egl_ctx,
                              ctx_att);
 
   
@@ -231,7 +234,7 @@ first_ctx,
 
 static void vtest_egl_destroy_context(void *cookie, virgl_renderer_gl_context ctx)
 {
-   struct vtest_egl *ve = cookie;
+   struct vtest_renderer *ve = cookie;
    EGLContext eglctx = (EGLContext)ctx;
 
    printf("destroy_context %x\n", ctx);
@@ -241,10 +244,10 @@ static void vtest_egl_destroy_context(void *cookie, virgl_renderer_gl_context ct
 
 static int vtest_egl_make_context_current(void *cookie, int scanout_idx, virgl_renderer_gl_context ctx)
 {
-   struct vtest_egl *ve = cookie;
+   struct vtest_renderer *ve = cookie;
    EGLContext eglctx = (EGLContext)ctx;
-   if( ctx == first_ctx )
-       return eglMakeCurrent(ve->egl_display, fake_surf ,fake_surf, eglctx);
+   if( ctx == ve->egl_ctx )
+       return eglMakeCurrent(ve->egl_display, ve->egl_fake_surf ,ve->egl_fake_surf, eglctx);
    else
        return eglMakeCurrent(ve->egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, eglctx);
 
@@ -253,71 +256,48 @@ static int vtest_egl_make_context_current(void *cookie, int scanout_idx, virgl_r
 struct virgl_renderer_callbacks vtest_cbs = {
     .version = 1,
     .write_fence = vtest_write_fence,
-   .create_gl_context = vtest_egl_create_context,
-   .destroy_gl_context = vtest_egl_destroy_context,
-   .make_current = vtest_egl_make_context_current,
+    .create_gl_context = vtest_egl_create_context,
+    .destroy_gl_context = vtest_egl_destroy_context,
+    .make_current = vtest_egl_make_context_current,
 };
-
-struct vtest_renderer {
-  int in_fd;
-  int out_fd;
-  int use_ring;
-  ring_t ring;
-};
-
-struct vtest_renderer renderer;
 
 /*struct virgl_box {
 	uint32_t x, y, z;
 	uint32_t w, h, d;
 };*/
 
-int vtest_wait_for_fd_read(int fd)
+int vtest_wait_for_fd_read(struct vtest_renderer *r)
 {
    fd_set read_fds;
    int ret;
 
-   if( !renderer.ring.size )
-   {
-       static int ring;
-       if( !ring )
-       {
-           if(getenv( "VTEST_RING" ) )
-           {
-               ring_setup( &renderer.ring, fd );
-               ring_server_handshake( &renderer.ring );
-               return 0;
-           }
-           ring = 1;
-       }
-   }
-   else return 0;
+   if(r->ring.size) return 0;
 
    FD_ZERO(&read_fds);
-   FD_SET(fd, &read_fds);
+   FD_SET(r->fd, &read_fds);
 
-   ret = select(fd + 1, &read_fds, NULL, NULL, NULL);
+   ret = select(r->fd + 1, &read_fds, NULL, NULL, NULL);
    if (ret < 0)
       return ret;
 
-   if (FD_ISSET(fd, &read_fds)) {
+   if (FD_ISSET(r->fd, &read_fds)) {
       return 0;
    }
    return -1;
 }
 
-static int vtest_block_write(int fd, void *buf, int size)
+static int vtest_block_write(struct vtest_renderer *r, void *buf, int size)
 {
    void *ptr = buf;
    int left;
    int ret;
 
-   if( renderer.ring.size )
-      return ring_write( &renderer.ring, buf, size );
+   if( r->ring.size )
+      return ring_write( &r->ring, buf, size );
 
    left = size;
    do {
-      ret = write(fd, ptr, left);
+      ret = write(r->fd, ptr, left);
       if (ret < 0)
          return -errno;
       left -= ret;
@@ -326,7 +306,7 @@ static int vtest_block_write(int fd, void *buf, int size)
    return size;
 }
 
-int vtest_block_read(int fd, void *buf, int size)
+int vtest_block_read(struct vtest_renderer *r, void *buf, int size)
 {
    void *ptr = buf;
    int left;
@@ -334,12 +314,12 @@ int vtest_block_read(int fd, void *buf, int size)
    static int savefd = -1;
 
 
-   if( renderer.ring.size )
-       return ring_read(&renderer.ring, buf, size);
+   if( r->ring.size )
+       return ring_read(&r->ring, buf, size);
 
    left = size;
    do {
-      ret = read(fd, ptr, left);
+      ret = read(r->fd, ptr, left);
       if (ret <= 0)
 	return ret == -1 ? -errno : 0;
       left -= ret;
@@ -362,14 +342,11 @@ int vtest_block_read(int fd, void *buf, int size)
    return size;
 }
 
-int vtest_create_renderer(int in_fd, int out_fd, uint32_t length)
+int vtest_create_renderer(struct vtest_renderer *r, uint32_t length)
 {
     char *vtestname;
     int ret;
     int ctx = 0;
-
-    renderer.in_fd = in_fd;
-    renderer.out_fd = out_fd;
 
 //    if (getenv("VTEST_USE_GLX"))
 //       ctx = VIRGL_RENDERER_USE_GLX;
@@ -390,8 +367,9 @@ int vtest_create_renderer(int in_fd, int out_fd, uint32_t length)
         ctx |= VIRGL_RENDERER_USE_GLES;
     }
 
-    ret = virgl_renderer_init(vtest_egl_init(0,!!(ctx & VIRGL_RENDERER_USE_GLES)),
-                              ctx | VIRGL_RENDERER_THREAD_SYNC, &vtest_cbs);
+    vtest_egl_init(r, false,!!(ctx & VIRGL_RENDERER_USE_GLES));
+
+    ret = virgl_renderer_init(r, ctx | VIRGL_RENDERER_THREAD_SYNC, &vtest_cbs);
     if (ret) {
       fprintf(stderr, "failed to initialise renderer.\n");
       return -1;
@@ -401,28 +379,26 @@ int vtest_create_renderer(int in_fd, int out_fd, uint32_t length)
     if (!vtestname)
       return -1;
 
-    ret = vtest_block_read(renderer.in_fd, vtestname, length);
+    ret = vtest_block_read(r, vtestname, length);
     if (ret != (int)length) {
        ret = -1;
        goto end;
     }
 
-    ret = virgl_renderer_context_create(ctx_id, strlen(vtestname), vtestname);
+    ret = virgl_renderer_context_create(r->ctx_id, strlen(vtestname), vtestname);
 
 end:
     free(vtestname);
     return ret;
 }
 
-void vtest_destroy_renderer(void)
+void vtest_destroy_renderer(struct vtest_renderer *r)
 {
-  virgl_renderer_context_destroy(ctx_id);
-  virgl_renderer_cleanup(&renderer);
-  renderer.in_fd = -1;
-  renderer.out_fd = -1;
+  virgl_renderer_context_destroy(r->ctx_id);
+  virgl_renderer_cleanup(r);
 }
 
-int vtest_send_caps2(void)
+int vtest_send_caps2(struct vtest_renderer *r)
 {
     uint32_t hdr_buf[2];
     void *caps_buf;
@@ -441,10 +417,10 @@ int vtest_send_caps2(void)
 
     hdr_buf[0] = max_size + 1;
     hdr_buf[1] = 2;
-    ret = vtest_block_write(renderer.out_fd, hdr_buf, 8);
+    ret = vtest_block_write(r, hdr_buf, 8);
     if (ret < 0)
 	goto end;
-    vtest_block_write(renderer.out_fd, caps_buf, max_size);
+    vtest_block_write(r, caps_buf, max_size);
     if (ret < 0)
 	goto end;
 
@@ -453,7 +429,7 @@ end:
     return 0;
 }
 
-int vtest_send_caps(void)
+int vtest_send_caps(struct vtest_renderer *r)
 {
     uint32_t  max_ver, max_size;
     void *caps_buf;
@@ -470,10 +446,10 @@ int vtest_send_caps(void)
 
     hdr_buf[0] = max_size + 1;
     hdr_buf[1] = 1;
-    ret = vtest_block_write(renderer.out_fd, hdr_buf, 8);
+    ret = vtest_block_write(r, hdr_buf, 8);
     if (ret < 0)
        goto end;
-    vtest_block_write(renderer.out_fd, caps_buf, max_size);
+    vtest_block_write(r, caps_buf, max_size);
     if (ret < 0)
        goto end;
 
@@ -483,16 +459,16 @@ end:
 }
 
 
-int vtest_flush_frontbuffer(void)
+int vtest_flush_frontbuffer(struct vtest_renderer *r)
 {
     uint32_t flush_buf[VCMD_FLUSH_SIZE];
     struct virgl_renderer_resource_create_args args;
     int ret;
-    uint32_t w_x, w_y, x, y, w, h;
+    uint32_t w_x, w_y, x, y, w, h, handle;
     Drawable drawable;
     static int use_overlay;
 
-    ret = vtest_block_read(renderer.in_fd, &flush_buf, sizeof(flush_buf));
+    ret = vtest_block_read(r, &flush_buf, sizeof(flush_buf));
     if (ret != sizeof(flush_buf))
 	return -1;
 
@@ -506,49 +482,54 @@ int vtest_flush_frontbuffer(void)
     h = flush_buf[VCMD_FLUSH_HEIGHT];
     w_x = flush_buf[VCMD_FLUSH_W_X];
     w_y = flush_buf[VCMD_FLUSH_W_Y];
+    handle = flush_buf[VCMD_FLUSH_HANDLE];
 
-    if( !drawable_surf )
+    if( !r->egl_drawable_surf )
     {
         static EGLint const window_attribute_list[] = {
             EGL_RENDER_BUFFER, EGL_BACK_BUFFER,
             EGL_NONE,
         };
-//        drawable_ctx = ctx;
-	drawable_win = flush_buf[VCMD_FLUSH_DRAWABLE];
+
+	r->x11_drawable_win = drawable;
 	if( getenv("VTEST_OVERLAY") )
 	{
 	use_overlay = 1;
-	drawable_win = XCreateSimpleWindow(dpy, RootWindow(dpy, 0), w_x, w_y, w, h, 0, BlackPixel(dpy, 0),BlackPixel(dpy, 0));
+	r->x11_drawable_win = XCreateSimpleWindow(r->x11_dpy, RootWindow(r->x11_dpy, 0), w_x, w_y, w, h, 0, BlackPixel(r->x11_dpy, 0),BlackPixel(r->x11_dpy, 0));
 	XRectangle rect;
-	XserverRegion region = XFixesCreateRegion(dpy, &rect, 1);
-	Atom window_type = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE", False);
-	long value = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE_DOCK", False);
-	XChangeProperty(dpy, (Window)drawable_win, window_type, XA_ATOM, 32, PropModeReplace, (unsigned char *) &value, 1);
-	XFixesSetWindowShapeRegion(dpy, (Window)drawable_win, ShapeInput, 0, 0, region);
-	XFixesDestroyRegion(dpy, region);
+	XserverRegion region = XFixesCreateRegion(r->x11_dpy, &rect, 1);
+	Atom window_type = XInternAtom(r->x11_dpy, "_NET_WM_WINDOW_TYPE", False);
+	long value = XInternAtom(r->x11_dpy, "_NET_WM_WINDOW_TYPE_DOCK", False);
+	XChangeProperty(r->x11_dpy, (Window)r->x11_drawable_win, window_type, XA_ATOM, 32, PropModeReplace, (unsigned char *) &value, 1);
+	XFixesSetWindowShapeRegion(r->x11_dpy, (Window)r->x11_drawable_win, ShapeInput, 0, 0, region);
+	XFixesDestroyRegion(r->x11_dpy, region);
 	XSetWindowAttributes attributes;
 	attributes.override_redirect = True;
-	XChangeWindowAttributes(dpy,drawable,CWOverrideRedirect,&attributes);
-	XMapWindow(dpy, (Window)drawable_win);
-	XFlush(dpy);
+	XChangeWindowAttributes(r->x11_dpy,r->x11_drawable_win,CWOverrideRedirect,&attributes);
+	XMapWindow(r->x11_dpy, (Window)r->x11_drawable_win);
+	XFlush(r->x11_dpy);
 	}
-	drawable_surf = eglCreateWindowSurface(drawable_disp, drawable_conf, drawable_win, window_attribute_list);
+	r->egl_drawable_surf = eglCreateWindowSurface(r->egl_display, r->egl_conf, r->x11_drawable_win, window_attribute_list);
     }
 
-    struct vrend_resource *res = vrend_resource_lookup(flush_buf[VCMD_FLUSH_HANDLE],0);//vrend_renderer_ctx_res_lookup(vrend_lookup_renderer_ctx(1), flush_buf[VCMD_FLUSH_HANDLE]);
+    eglMakeCurrent(r->egl_display, r->egl_drawable_surf, r->egl_drawable_surf, r->egl_ctx);
 
-    eglMakeCurrent(drawable_disp, drawable_surf, drawable_surf, first_ctx);
+    if(!r->fb_id)
+	glGenFramebuffersEXT(1,&r->fb_id);
 
-    static int fb = 0, last_res = 0;
+    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, r->fb_id );
 
-    if(!fb)
-	glGenFramebuffers(1,&fb);
+    // use internal API here to get texture id
+    if( handle != r->res_id)
+    {
+        struct vrend_resource *res;
 
-    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fb);
-    if( flush_buf[VCMD_FLUSH_HANDLE] != last_res)
+        res = vrend_resource_lookup(handle,0);//vrend_renderer_ctx_res_lookup(vrend_lookup_renderer_ctx(1), flush_buf[VCMD_FLUSH_HANDLE]);
+
         glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT,
                                 GL_TEXTURE_2D, res->id, 0);
-    last_res = flush_buf[VCMD_FLUSH_HANDLE];
+        r->res_id = handle;
+    }
 
     glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
 
@@ -556,20 +537,20 @@ int vtest_flush_frontbuffer(void)
     glBlitFramebuffer(x,y+h,w+x,y,x,y,w+x,h+y,GL_COLOR_BUFFER_BIT,GL_NEAREST);
 
     if( use_overlay )
-      XMoveResizeWindow(dpy,drawable_win,w_x,w_y,w,h);
+      XMoveResizeWindow(r->x11_dpy,r->x11_drawable_win,w_x,w_y,w,h);
 
-    eglSwapBuffers(eglGetCurrentDisplay(), drawable_surf);
+    eglSwapBuffers(r->egl_display, r->egl_drawable_surf);
 
     return 0;
 }
 
-int vtest_create_resource(void)
+int vtest_create_resource(struct vtest_renderer *r)
 {
     uint32_t res_create_buf[VCMD_RES_CREATE_SIZE];
     struct virgl_renderer_resource_create_args args;
     int ret;
 
-    ret = vtest_block_read(renderer.in_fd, &res_create_buf, sizeof(res_create_buf));
+    ret = vtest_block_read(r, &res_create_buf, sizeof(res_create_buf));
     if (ret != sizeof(res_create_buf))
 	return -1;
 	
@@ -588,27 +569,27 @@ int vtest_create_resource(void)
 
     ret = virgl_renderer_resource_create(&args, NULL, 0);
 
-    virgl_renderer_ctx_attach_resource(ctx_id, args.handle);
+    virgl_renderer_ctx_attach_resource(r->ctx_id, args.handle);
     return ret;
 }
 
-int vtest_resource_unref(void)
+int vtest_resource_unref(struct vtest_renderer *r)
 {
     uint32_t res_unref_buf[VCMD_RES_UNREF_SIZE];
     int ret;
     uint32_t handle;
 
-    ret = vtest_block_read(renderer.in_fd, &res_unref_buf, sizeof(res_unref_buf));
+    ret = vtest_block_read(r, &res_unref_buf, sizeof(res_unref_buf));
     if (ret != sizeof(res_unref_buf))
       return -1;
 
     handle = res_unref_buf[VCMD_RES_UNREF_RES_HANDLE];
-    virgl_renderer_ctx_attach_resource(ctx_id, handle);
+    virgl_renderer_ctx_attach_resource(r->ctx_id, handle);
     virgl_renderer_resource_unref(handle);
     return 0;
 }
 
-int vtest_submit_cmd(uint32_t length_dw)
+int vtest_submit_cmd(struct vtest_renderer *r, uint32_t length_dw)
 {
     uint32_t *cbuf;
     int ret;
@@ -620,13 +601,13 @@ int vtest_submit_cmd(uint32_t length_dw)
     if (!cbuf)
 	return -1;
 
-    ret = vtest_block_read(renderer.in_fd, cbuf, length_dw * 4);
+    ret = vtest_block_read(r, cbuf, length_dw * 4);
     if (ret != (int)length_dw * 4) {
        free(cbuf);
        return -1;
     }
 
-    virgl_renderer_submit_cmd(cbuf, ctx_id, length_dw);
+    virgl_renderer_submit_cmd(cbuf, r->ctx_id, length_dw);
 
     free(cbuf);
     return 0;
@@ -648,7 +629,7 @@ int vtest_submit_cmd(uint32_t length_dw)
   } while(0)
 
 
-int vtest_transfer_get(UNUSED uint32_t length_dw)
+int vtest_transfer_get(struct vtest_renderer *r, UNUSED uint32_t length_dw)
 {
     uint32_t thdr_buf[VCMD_TRANSFER_HDR_SIZE];
     int ret;
@@ -659,7 +640,7 @@ int vtest_transfer_get(UNUSED uint32_t length_dw)
     void *ptr;
     struct iovec iovec;
 
-    ret = vtest_block_read(renderer.in_fd, thdr_buf, VCMD_TRANSFER_HDR_SIZE * 4);
+    ret = vtest_block_read(r, thdr_buf, VCMD_TRANSFER_HDR_SIZE * 4);
     if (ret != VCMD_TRANSFER_HDR_SIZE * 4)
       return ret;
 
@@ -672,7 +653,7 @@ int vtest_transfer_get(UNUSED uint32_t length_dw)
     iovec.iov_len = data_size;
     iovec.iov_base = ptr;
     ret = virgl_renderer_transfer_read_iov(handle,
-				     ctx_id,
+				     r->ctx_id,
 				     level,
 				     stride,
 				     layer_stride,
@@ -681,13 +662,13 @@ int vtest_transfer_get(UNUSED uint32_t length_dw)
 				     &iovec, 1);
     if (ret)
       fprintf(stderr," transfer read failed %d\n", ret);
-    ret = vtest_block_write(renderer.out_fd, ptr, data_size);
+    ret = vtest_block_write(r, ptr, data_size);
 
     free(ptr);
     return ret < 0 ? ret : 0;
 }
 
-int vtest_transfer_put(UNUSED uint32_t length_dw)
+int vtest_transfer_put(struct vtest_renderer *r, UNUSED uint32_t length_dw)
 {
     uint32_t thdr_buf[VCMD_TRANSFER_HDR_SIZE];
     int ret;
@@ -698,7 +679,7 @@ int vtest_transfer_put(UNUSED uint32_t length_dw)
     void *ptr;
     struct iovec iovec;
 
-    ret = vtest_block_read(renderer.in_fd, thdr_buf, VCMD_TRANSFER_HDR_SIZE * 4);
+    ret = vtest_block_read(r, thdr_buf, VCMD_TRANSFER_HDR_SIZE * 4);
     if (ret != VCMD_TRANSFER_HDR_SIZE * 4)
       return ret;
 
@@ -708,14 +689,14 @@ int vtest_transfer_put(UNUSED uint32_t length_dw)
     if (!ptr)
       return -ENOMEM;
 
-    ret = vtest_block_read(renderer.in_fd, ptr, data_size);
+    ret = vtest_block_read(r, ptr, data_size);
     if (ret < 0)
       return ret;
 
     iovec.iov_len = data_size;
     iovec.iov_base = ptr;
     ret = virgl_renderer_transfer_write_iov(handle,
-					    ctx_id,
+					    r->ctx_id,
 					    level,
 					    stride,
 					    layer_stride,
@@ -728,7 +709,7 @@ int vtest_transfer_put(UNUSED uint32_t length_dw)
     return 0;
 }
 
-int vtest_resource_busy_wait(void)
+int vtest_resource_busy_wait(struct vtest_renderer *r)
 {
   uint32_t bw_buf[VCMD_BUSY_WAIT_SIZE];
   int ret, fd;
@@ -736,7 +717,7 @@ int vtest_resource_busy_wait(void)
   uint32_t hdr_buf[VTEST_HDR_SIZE];
   uint32_t reply_buf[1];
   bool busy = false;
-  ret = vtest_block_read(renderer.in_fd, &bw_buf, sizeof(bw_buf));
+  ret = vtest_block_read(r, &bw_buf, sizeof(bw_buf));
   if (ret != sizeof(bw_buf))
     return -1;
 
@@ -745,42 +726,129 @@ int vtest_resource_busy_wait(void)
 
   if (flags == VCMD_BUSY_WAIT_FLAG_WAIT) {
     do {
-       if (last_fence == (fence_id - 1))
+       if (r->last_fence == (r->fence_id - 1))
           break;
 
        fd = virgl_renderer_get_poll_fd();
        if (fd != -1)
-          vtest_wait_for_fd_read(fd);
+          vtest_wait_for_fd_read(r);
        virgl_renderer_poll();
     } while (1);
     busy = false;
   } else {
-    busy = last_fence != (fence_id - 1);
+    busy = r->last_fence != (r->fence_id - 1);
   }
 
   hdr_buf[VTEST_CMD_LEN] = 1;
   hdr_buf[VTEST_CMD_ID] = VCMD_RESOURCE_BUSY_WAIT;
   reply_buf[0] = busy ? 1 : 0;
 
-  ret = vtest_block_write(renderer.out_fd, hdr_buf, sizeof(hdr_buf));
+  ret = vtest_block_write(r, hdr_buf, sizeof(hdr_buf));
   if (ret < 0)
     return ret;
 
-  ret = vtest_block_write(renderer.out_fd, reply_buf, sizeof(reply_buf));
+  ret = vtest_block_write(r, reply_buf, sizeof(reply_buf));
   if (ret < 0)
     return ret;
 
   return 0;
 }
 
-int vtest_renderer_create_fence(void)
+int vtest_renderer_create_fence(struct vtest_renderer *r)
 {
-  virgl_renderer_create_fence(fence_id++, ctx_id);
+  virgl_renderer_create_fence(r->fence_id++, r->ctx_id);
   return 0;
 }
 
-int vtest_poll(void)
+int vtest_poll()
 {
   virgl_renderer_poll();
   return 0;
 }
+
+int run_renderer(int in_fd, int ctx_id)
+{
+    int ret;
+    uint32_t header[VTEST_HDR_SIZE];
+    bool inited = false;
+    struct vtest_renderer *r;
+
+    r = calloc(1, sizeof(struct vtest_renderer));
+
+    r->ctx_id = ctx_id;
+    r->fence_id = 1;
+    r->fd = in_fd;
+
+    if(getenv( "VTEST_RING" ) )
+    {
+       ring_setup( &r->ring, r->fd );
+       ring_server_handshake( &r->ring );
+    }
+
+again:
+    ret = vtest_wait_for_fd_read(r);
+    if (ret < 0)
+      goto fail;
+
+    ret = vtest_block_read(r, &header, sizeof(header));
+
+    if (ret == 8) {
+      if (!inited) {
+	if (header[1] != VCMD_CREATE_RENDERER)
+	  goto fail;
+	ret = vtest_create_renderer(r, header[0]);
+	inited = true;
+      }
+      vtest_poll();
+      switch (header[1]) {
+      case VCMD_GET_CAPS:
+	ret = vtest_send_caps(r);
+	break;
+      case VCMD_RESOURCE_CREATE:
+	ret = vtest_create_resource(r);
+	break;
+      case VCMD_RESOURCE_UNREF:
+	ret = vtest_resource_unref(r);
+	break;
+      case VCMD_SUBMIT_CMD:
+	ret = vtest_submit_cmd(r, header[0]);
+	break;
+      case VCMD_TRANSFER_GET:
+	ret = vtest_transfer_get(r, header[0]);
+	break;
+      case VCMD_TRANSFER_PUT:
+	ret = vtest_transfer_put(r, header[0]);
+	break;
+      case VCMD_RESOURCE_BUSY_WAIT:
+        vtest_renderer_create_fence(r);
+	ret = vtest_resource_busy_wait(r);
+	break;
+      case VCMD_GET_CAPS2:
+	ret = vtest_send_caps2(r);
+	break;
+      case VCMD_FLUSH_FRONTBUFFER:
+	ret = vtest_flush_frontbuffer(r);
+	break;
+      default:
+	break;
+      }
+
+      if (ret < 0) {
+	goto fail;
+      }
+
+      goto again;
+    }
+    if (ret <= 0) {
+      goto fail;
+    }
+fail:
+    fprintf(stderr, "socket failed - closing renderer\n");
+
+    vtest_destroy_renderer(r);
+    close(r->fd);
+    free(r);
+
+    return 0;
+}
+

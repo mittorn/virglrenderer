@@ -109,75 +109,6 @@ static int wait_for_socket_accept(int sock)
     return -1;
 }
 
-static int run_renderer(int in_fd, int out_fd)
-{
-    int ret;
-    uint32_t header[VTEST_HDR_SIZE];
-    bool inited = false;
-again:
-    ret = vtest_wait_for_fd_read(in_fd);
-    if (ret < 0)
-      goto fail;
-
-    ret = vtest_block_read(in_fd, &header, sizeof(header));
-
-    if (ret == 8) {
-      if (!inited) {
-	if (header[1] != VCMD_CREATE_RENDERER)
-	  goto fail;
-	ret = vtest_create_renderer(in_fd, out_fd, header[0]);
-	inited = true;
-      }
-      vtest_poll();
-      switch (header[1]) {
-      case VCMD_GET_CAPS:
-	ret = vtest_send_caps();
-	break;
-      case VCMD_RESOURCE_CREATE:
-	ret = vtest_create_resource();
-	break;
-      case VCMD_RESOURCE_UNREF:
-	ret = vtest_resource_unref();
-	break;
-      case VCMD_SUBMIT_CMD:
-	ret = vtest_submit_cmd(header[0]);
-	break;
-      case VCMD_TRANSFER_GET:
-	ret = vtest_transfer_get(header[0]);
-	break;
-      case VCMD_TRANSFER_PUT:
-	ret = vtest_transfer_put(header[0]);
-	break;
-      case VCMD_RESOURCE_BUSY_WAIT:
-        vtest_renderer_create_fence();
-	ret = vtest_resource_busy_wait();
-	break;
-      case VCMD_GET_CAPS2:
-	ret = vtest_send_caps2();
-	break;
-      case VCMD_FLUSH_FRONTBUFFER:
-	ret = vtest_flush_frontbuffer();
-	break;
-      default:
-	break;
-      }
-
-      if (ret < 0) {
-	goto fail;
-      }
-
-      goto again;
-    }
-    if (ret <= 0) {
-      goto fail;
-    }
-fail:
-    fprintf(stderr, "socket failed - closing renderer\n");
-    vtest_destroy_renderer();
-    close(in_fd);
-    return 0;
-}
-
 int main(int argc, char **argv)
 {
     int ret, sock = -1, in_fd, out_fd;
@@ -234,7 +165,7 @@ start:
       /* fork a renderer process */
       switch ((pid = fork())) {
       case 0:
-        run_renderer(in_fd, out_fd);
+        run_renderer(in_fd, 1);
 	exit(0);
 	break;
       case -1:
@@ -244,8 +175,7 @@ start:
            goto restart;
       }
     } else {
-      run_renderer(in_fd, out_fd);
-      vtest_destroy_renderer();
+      run_renderer(in_fd, 1);
       if (loop)
          goto restart;
     }
