@@ -21,6 +21,7 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  *
  **************************************************************************/
+#include <pthread.h>
 #include <stdio.h>
 #include <signal.h>
 #include <stdbool.h>
@@ -33,7 +34,6 @@
 #include <fcntl.h>
 #include "vtest.h"
 #include "vtest_protocol.h"
-
 static int vtest_open_socket(const char *path_)
 {
     int sock;
@@ -78,6 +78,7 @@ static int vtest_open_socket(const char *path_)
     	if (bind(sock, (struct sockaddr *)&un, sizeof(un)) < 0) {
 			goto err;
 	    }
+	    chmod(un.sun_path,0777);
 	}
     
     if (listen(sock, 1) < 0){
@@ -167,8 +168,9 @@ while (__AFL_LOOP(1000)) {
 	exit(1);
       }
     }
+#ifdef X11
   XInitThreads();
-
+#endif
     sock = vtest_open_socket(getenv("VTEST_SOCK"));
 restart:
     in_fd = wait_for_socket_accept(sock);

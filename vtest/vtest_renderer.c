@@ -29,30 +29,24 @@
 #include <fcntl.h>
 #include <limits.h>
 #include "virglrenderer.h"
-#include <X11/Xlib.h>
-#include <X11/Xutil.h>
 #include <sys/uio.h>
 #include "vtest.h"
 #include "vtest_protocol.h"
 #include "util/u_debug.h"
 #include "ring.h"
 #include <epoxy/egl.h>
-#include <epoxy/glx.h>
 #include "vrend_renderer.h"
 #include "vrend_object.h"
+#ifdef X11
 #include <X11/extensions/shape.h>
 #include <X11/extensions/Xfixes.h>
 #include <X11/Xlib.h>
 #include <X11/Xatom.h>
 #include <X11/Xutil.h>
-
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-struct thread_shared
-{
-    Display *x11_dpy;
-    GLXFBConfig* fbConfigs;
-} shared;
-
+#include <X11/Xlib.h>
+#include <X11/Xutil.h>
+#include <epoxy/glx.h>
+#endif
 #define FL_RING (1<<0)
 #define FL_GLX (1<<1)
 #define FL_GLES (1<<2)
@@ -77,7 +71,7 @@ struct vtest_renderer {
   int last_fence;
   int res_id; // res id of scanout texture
   int fb_id; // fb for blitting scanout texture
-
+#ifdef X11
   // x11
   Drawable x11_fake_win;
   Drawable x11_drawable_win;
@@ -87,6 +81,7 @@ struct vtest_renderer {
   GLXFBConfig* fbConfigs;
   GLXPbuffer pbuffer;
   GLXContext glx_ctx;
+#endif
 };
 
 static void vtest_write_fence(void *cookie, uint32_t fence_id_in)
@@ -150,10 +145,14 @@ static bool vtest_egl_init(struct vtest_renderer *d, bool surfaceless, bool gles
    if (surfaceless) {
       conf_att[1] = EGL_PBUFFER_BIT;
    }
-   if( !d->x11_dpy) d->x11_dpy = XOpenDisplay(NULL);
+   
    const char *client_extensions = eglQueryString (NULL, EGL_EXTENSIONS);
+#ifdef X11
+   if( !d->x11_dpy) d->x11_dpy = XOpenDisplay(NULL);
    d->egl_display = eglGetDisplay(d->x11_dpy);
-
+#else
+   d->egl_display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+#endif
    if (!d->egl_display)
       goto fail;
 
@@ -203,9 +202,12 @@ static bool vtest_egl_init(struct vtest_renderer *d, bool surfaceless, bool gles
         EGL_RENDER_BUFFER, EGL_BACK_BUFFER,
         EGL_NONE,
     };
+#ifdef X11
     d->x11_fake_win = XCreateSimpleWindow(d->x11_dpy, RootWindow(d->x11_dpy, 0), 0, 0, 100, 100, 0, BlackPixel(d->x11_dpy, 0),BlackPixel(d->x11_dpy, 0));
     d->egl_fake_surf = eglCreateWindowSurface(d->egl_display, d->egl_conf, d->x11_fake_win, window_attribute_list);
-
+#else
+    d->egl_fake_surf = EGL_NO_SURFACE;
+#endif
    eglMakeCurrent(d->egl_display, d->egl_fake_surf, d->egl_fake_surf, d->egl_ctx);
  //  eglMakeCurrent(d->egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, d->egl_ctx);
    return true;
@@ -266,10 +268,17 @@ static int vtest_egl_make_context_current(void *cookie, int scanout_idx, virgl_r
        return eglMakeCurrent(ve->egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, eglctx);
 
 }
+#ifdef X11
+/// TODO: debug it with various implementations
+static struct thread_shared
+{
+    Display *x11_dpy;
+    GLXFBConfig* fbConfigs;
+} shared;
+
 
 bool vtest_glx_init(struct vtest_renderer *d)
 {
-   pthread_mutex_lock(&mutex);
    if( !shared.x11_dpy )
    {
        int visualAttribs[] = { None };
@@ -291,7 +300,6 @@ bool vtest_glx_init(struct vtest_renderer *d)
    d->x11_fake_win = XCreateSimpleWindow(d->x11_dpy, RootWindow(d->x11_dpy, 0), 0, 0, 100, 100, 0, BlackPixel(d->x11_dpy, 0),BlackPixel(d->x11_dpy, 0));
    d->glx_ctx = glXCreateNewContext(d->x11_dpy, d->fbConfigs[0], GLX_RGBA_TYPE, NULL, True);
    glXMakeContextCurrent(d->x11_dpy, d->x11_fake_win, d->x11_fake_win, d->glx_ctx);
-   pthread_mutex_unlock(&mutex);
    return d;
 }
 
@@ -339,7 +347,7 @@ virgl_renderer_gl_context vtest_glx_get_current_context(struct vtest_renderer *d
 {
    return glXGetCurrentContext();
 }
-
+#endif
 struct virgl_renderer_callbacks vtest_cbs = {
     .version = 1,
     .write_fence = vtest_write_fence,
@@ -457,6 +465,7 @@ int vtest_create_renderer(struct vtest_renderer *r, uint32_t length)
 
     
     if( !(r->flags & FL_GLX) ) vtest_egl_init(r, false,!!(ctx & VIRGL_RENDERER_USE_GLES));
+#ifdef X11
     else
     {
     vtest_cbs.create_gl_context = vtest_glx_create_context;
@@ -465,7 +474,7 @@ int vtest_create_renderer(struct vtest_renderer *r, uint32_t length)
 
       vtest_glx_init(r);
      }
-
+#endif
     ret = virgl_renderer_init(r, ctx | VIRGL_RENDERER_THREAD_SYNC, &vtest_cbs);
     if (ret) {
       fprintf(stderr, "failed to initialise renderer.\n");
@@ -562,7 +571,7 @@ int vtest_flush_frontbuffer(struct vtest_renderer *r)
     struct virgl_renderer_resource_create_args args;
     int ret;
     uint32_t w_x, w_y, x, y, w, h, handle;
-    Drawable drawable;
+    uint32_t drawable;
     static int use_overlay;
 
     ret = vtest_block_read(r, &flush_buf, sizeof(flush_buf));
@@ -581,7 +590,8 @@ int vtest_flush_frontbuffer(struct vtest_renderer *r)
     w_x = flush_buf[VCMD_FLUSH_W_X];
     w_y = flush_buf[VCMD_FLUSH_W_Y];
     handle = flush_buf[VCMD_FLUSH_HANDLE];
-    pthread_mutex_lock(&mutex);
+
+#ifdef X11
     if( !r->x11_drawable_win )
     {
         static EGLint const window_attribute_list[] = {
@@ -609,10 +619,13 @@ int vtest_flush_frontbuffer(struct vtest_renderer *r)
 	}
 	if(!(r->flags &FL_GLX))r->egl_drawable_surf = eglCreateWindowSurface(r->egl_display, r->egl_conf, r->x11_drawable_win, window_attribute_list);
     }
-
-    if(!(r->flags &FL_GLX))eglMakeCurrent(r->egl_display, r->egl_drawable_surf, r->egl_drawable_surf, r->egl_ctx);
-    else glXMakeContextCurrent(r->x11_dpy, r->x11_drawable_win, r->x11_drawable_win, r->glx_ctx);
-
+    if((r->flags &FL_GLX)) glXMakeContextCurrent(r->x11_dpy, r->x11_drawable_win, r->x11_drawable_win, r->glx_ctx);
+    else 
+#else
+// useless
+r->egl_drawable_surf = EGL_NO_SURFACE;
+#endif
+	eglMakeCurrent(r->egl_display, r->egl_drawable_surf, r->egl_drawable_surf, r->egl_ctx);
     if(!r->fb_id)
 	glGenFramebuffersEXT(1,&r->fb_id);
 
@@ -634,13 +647,14 @@ int vtest_flush_frontbuffer(struct vtest_renderer *r)
 
     glBindFramebufferEXT(GL_DRAW_FRAMEBUFFER_EXT, 0);
     glBlitFramebuffer(x,y+h,w+x,y,x,y,w+x,h+y,GL_COLOR_BUFFER_BIT,GL_NEAREST);
-
+#ifdef X11
     if( use_overlay )
       XMoveResizeWindow(r->x11_dpy,r->x11_drawable_win,w_x,w_y,w,h);
 
-    if(!(r->flags &FL_GLX))eglSwapBuffers(r->egl_display, r->egl_drawable_surf);
-    else glXSwapBuffers(r->x11_dpy, r->x11_drawable_win);
-    pthread_mutex_unlock(&mutex);
+    if((r->flags &FL_GLX)) glXSwapBuffers(r->x11_dpy, r->x11_drawable_win);
+    else
+#endif
+    eglSwapBuffers(r->egl_display, r->egl_drawable_surf);
     return 0;
 }
 

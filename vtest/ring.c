@@ -9,7 +9,16 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
+#ifdef __APPLE__
 #include <sys/sysctl.h>
+#endif
+#ifndef SHM_OPEN
+#define shm_open open
+#define shm_unlink unlink
+#define SHM_PREFIX "/dev/shm"
+#else
+#define SHM_PREFIX
+#endif
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -294,7 +303,7 @@ int ring_client_handshake(ring_t *ring, char *title) {
     int fd = -1;
     char buf[32] = {0};
     while (fd < 0) {
-        snprintf(buf, 32, "/%s.%d", title, i++);
+        snprintf(buf, 32, SHM_PREFIX"/%s.%d", title, i++);
         fd = shm_open(buf, O_RDWR | O_CREAT, 0700);
         if (i > 65535) {
             memset(buf, 0, 32);
