@@ -46,6 +46,9 @@
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <epoxy/glx.h>
+#elif defined ANDROID_JNI
+#include <jni.h>
+#include <android/native_window.h>
 #endif
 #define FL_RING (1<<0)
 #define FL_GLX (1<<1)
@@ -83,6 +86,29 @@ struct vtest_renderer {
   GLXContext glx_ctx;
 #endif
 };
+
+
+#ifdef ANDROID_JNI
+static struct jni_static
+{
+  jclass cls;
+  JNIEnv *env;
+  jmethodID create;
+  jmethodID resize;
+} jni;
+#endif
+
+JNIEXPORT void JNICALL Java_common_overlay_nativeRun(JNIEnv *env, jclass cls)
+{
+  jni.env = env;
+  jni.cls = cls;
+  jni.create = (*env)->GetStaticMethodID(env,cls, "create", "(IIIII)Landroid/view/Surface;");
+  jni.resize = (*env)->GetStaticMethodID(env,cls, "resize", "(IIIII)V");
+  int fd = vtest_open_socket("/data/media/0/multirom/roms/Linux4TegraR231/root/tmp/.virgl_test");
+  fd = wait_for_socket_accept(fd);
+  run_renderer(fd,1);
+  exit(0);
+}
 
 static void vtest_write_fence(void *cookie, uint32_t fence_id_in)
 {
@@ -206,7 +232,14 @@ static bool vtest_egl_init(struct vtest_renderer *d, bool surfaceless, bool gles
     d->x11_fake_win = XCreateSimpleWindow(d->x11_dpy, RootWindow(d->x11_dpy, 0), 0, 0, 100, 100, 0, BlackPixel(d->x11_dpy, 0),BlackPixel(d->x11_dpy, 0));
     d->egl_fake_surf = eglCreateWindowSurface(d->egl_display, d->egl_conf, d->x11_fake_win, window_attribute_list);
 #else
-    d->egl_fake_surf = EGL_NO_SURFACE;
+       jobject surf = (*jni.env)->CallStaticObjectMethod(jni.env, jni.cls, jni.create, 0, 0, 0, 0, 0);
+       if(surf == 0)exit(0);
+       ANativeWindow *window = ANativeWindow_fromSurface(jni.env, surf);
+       int format;
+       eglGetConfigAttrib(d->egl_display, d->egl_conf, EGL_NATIVE_VISUAL_ID, &format);
+       ANativeWindow_setBuffersGeometry(window, 0, 0, format);
+       d->egl_fake_surf = eglCreateWindowSurface(d->egl_display, d->egl_conf, window, 0);
+//    d->egl_fake_surf = EGL_NO_SURFACE;
 #endif
    eglMakeCurrent(d->egl_display, d->egl_fake_surf, d->egl_fake_surf, d->egl_ctx);
  //  eglMakeCurrent(d->egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, d->egl_ctx);
@@ -454,7 +487,7 @@ int vtest_create_renderer(struct vtest_renderer *r, uint32_t length)
         ctx |= VIRGL_RENDERER_USE_SURFACELESS;
     }
 
-    if (getenv("VTEST_USE_GLES")) {
+    if (1||getenv("VTEST_USE_GLES")) {
         if (ctx & VIRGL_RENDERER_USE_GLX) {
             fprintf(stderr, "Cannot use GLES with GLX.\n");
             return -1;
@@ -621,6 +654,17 @@ int vtest_flush_frontbuffer(struct vtest_renderer *r)
     }
     if((r->flags &FL_GLX)) glXMakeContextCurrent(r->x11_dpy, r->x11_drawable_win, r->x11_drawable_win, r->glx_ctx);
     else 
+#elif defined ANDROID_JNI
+    if(!r->egl_drawable_surf)
+    {
+       jobject surf = (*jni.env)->CallStaticObjectMethod(jni.env, jni.cls, jni.create, drawable, x, y, w, h);
+       ANativeWindow *window = ANativeWindow_fromSurface(jni.env, surf);
+       int format;
+       eglGetConfigAttrib(r->egl_display, r->egl_conf, EGL_NATIVE_VISUAL_ID, &format);
+       ANativeWindow_setBuffersGeometry(window, 0, 0, format);
+       r->egl_drawable_surf = eglCreateWindowSurface(r->egl_display, r->egl_conf, window, 0);
+       //r->egl_drawable_surf = r->egl_fake_surf;
+    }
 #else
 // useless
 r->egl_drawable_surf = EGL_NO_SURFACE;
@@ -653,6 +697,8 @@ r->egl_drawable_surf = EGL_NO_SURFACE;
 
     if((r->flags &FL_GLX)) glXSwapBuffers(r->x11_dpy, r->x11_drawable_win);
     else
+#elif defined ANDROID_JNI
+    (*jni.env)->CallStaticVoidMethod(jni.env, jni.cls, jni.resize, drawable, w_x, w_y, w, h);
 #endif
     eglSwapBuffers(r->egl_display, r->egl_drawable_surf);
     return 0;

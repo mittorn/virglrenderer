@@ -34,10 +34,9 @@
 #include <fcntl.h>
 #include "vtest.h"
 #include "vtest_protocol.h"
-static int vtest_open_socket(const char *path_)
+int vtest_open_socket(const char *path)
 {
     int sock;
-    const char *path = getenv("VTEST_SOCK");
 
     if( !path ) path = "/tmp/.virgl_test";
     
@@ -91,7 +90,7 @@ static int vtest_open_socket(const char *path_)
     return -1;
 }
 
-static int wait_for_socket_accept(int sock)
+int wait_for_socket_accept(int sock)
 {
     fd_set read_fds;
     int new_fd;
@@ -109,7 +108,7 @@ static int wait_for_socket_accept(int sock)
     }
     return -1;
 }
-
+#ifndef ANDROID_JNI
 void *renderer_thread(void *arg)
 {
     int fd = *(int*)arg;
@@ -213,3 +212,4 @@ start:
 }
 #endif
 }
+#endif

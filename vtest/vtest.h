@@ -46,6 +46,7 @@
 
 //void vtest_destroy_renderer(void);
 int run_renderer(int in_fd, int ctx_id);
-
+int wait_for_socket_accept(int sock);
+int vtest_open_socket(const char *path);
 #endif
 
