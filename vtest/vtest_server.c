@@ -28,6 +28,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <sys/un.h>
@@ -109,7 +110,7 @@ int wait_for_socket_accept(int sock)
     return -1;
 }
 #ifndef ANDROID_JNI
-void *renderer_thread(void *arg)
+static void *renderer_thread(void *arg)
 {
     int fd = *(int*)arg;
     static int ctx_id = 0;

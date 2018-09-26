@@ -45,8 +45,9 @@
 //int vtest_flush_frontbuffer(void);
 
 //void vtest_destroy_renderer(void);
-//int run_renderer(int in_fd, int ctx_id);
+int run_renderer(int in_fd, int ctx_id);
 int wait_for_socket_accept(int sock);
 int vtest_open_socket(const char *path);
+int renderer_loop( void *d);
 #endif
 
