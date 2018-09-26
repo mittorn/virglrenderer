@@ -2304,7 +2304,10 @@ static int translate_tex(struct dump_ctx *ctx,
        * so we use a 2D texture with a parameter set to 0.5
        */
       if (ctx->cfg->use_gles && inst->Texture.Texture == TGSI_TEXTURE_1D) {
-         snprintf(buf, 255, "%s = %s(%s(texture2D(%s, vec2(%s%s%s%s, 0.5))%s));\n", dsts[0], get_string(dinfo->dstconv), get_string(dtypeprefix), srcs[sampler_index], srcs[0], get_wm_string(twm), offbuf, bias, dinfo->dst_override_no_wm[0] ? "" : writemask);
+         if (inst->Instruction.Opcode == TGSI_OPCODE_TXP)
+            snprintf(buf, 255, "%s = %s(%s(texture2D(%s, vec2(%s.x / %s.w, 0.5))%s));\n", dsts[0], get_string(dinfo->dstconv), get_string(dtypeprefix), srcs[sampler_index], srcs[0], srcs[0], dinfo->dst_override_no_wm[0] ? "" : writemask);
+         else
+            snprintf(buf, 255, "%s = %s(%s(texture2D(%s, vec2(%s%s%s%s, 0.5))%s));\n", dsts[0], get_string(dinfo->dstconv), get_string(dtypeprefix), srcs[sampler_index], srcs[0], get_wm_string(twm), offbuf, bias, dinfo->dst_override_no_wm[0] ? "" : writemask);
       } else {
          snprintf(buf, 255, "%s = %s(%s(texture%s(%s, %s%s%s%s)%s));\n", dsts[0], get_string(dinfo->dstconv), get_string(dtypeprefix), tex_ext, srcs[sampler_index], srcs[0], get_wm_string(twm), offbuf, bias, dinfo->dst_override_no_wm[0] ? "" : writemask);
       }
