@@ -15,9 +15,7 @@
 #ifndef SHM_OPEN
 #define shm_open open
 #define shm_unlink unlink
-#define SHM_PREFIX "/dev/shm"
-#else
-#define SHM_PREFIX
+
 #endif
 #include <sys/types.h>
 #include <unistd.h>
@@ -190,8 +188,11 @@ else
 #undef next_line
 }
 
-void ring_setup(ring_t *ring, int sync_fd) {
+void ring_setup(ring_t *ring, int sync_fd, const char *shm_prefix) {
     ring->fd = sync_fd;
+#ifndef SHM_OPEN
+    strncpy(ring->shm_prefix, shm_prefix, sizeof(ring->shm_prefix) - 1);
+#endif
 }
 
 static void *ring_map(ring_t *ring, int fd, uint32_t header_size, uint32_t ring_size, uint32_t line_size, int server) {
@@ -303,7 +304,7 @@ int ring_client_handshake(ring_t *ring, char *title) {
     int fd = -1;
     char buf[32] = {0};
     while (fd < 0) {
-        snprintf(buf, 32, SHM_PREFIX"/%s.%d", title, i++);
+        snprintf(buf, 32, "%s/%s.%d", ring->shm_prefix, title, i++);
         fd = shm_open(buf, O_RDWR | O_CREAT, 0700);
         if (i > 65535) {
             memset(buf, 0, 32);

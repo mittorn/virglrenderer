@@ -7867,6 +7867,10 @@ static void vrender_get_glsl_version(int *glsl_version)
    int version;
 
    version_str = glGetString(GL_SHADING_LANGUAGE_VERSION);
+   if(!version_str)
+   {
+      version_str = "t t t t 3.00";
+   }
    if (vrend_state.use_gles) {
       char tmp[20];
       c = sscanf((const char *)version_str, "%s %s %s %s %i.%i",

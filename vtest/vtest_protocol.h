@@ -51,7 +51,7 @@
 
 #define VCMD_GET_CAPS2 9
 
-#define VCMD_FLUSH_FRONTBUFFER 10
+#define VCMD_DT_COMMAND 10
 
 /* get caps */
 /* 0 length cmd */
@@ -91,15 +91,20 @@
 #define VCMD_BUSY_WAIT_HANDLE 0
 #define VCMD_BUSY_WAIT_FLAGS 1
 
-#define VCMD_FLUSH_SIZE 8
-#define VCMD_FLUSH_DRAWABLE 0
-#define VCMD_FLUSH_X 1
-#define VCMD_FLUSH_Y 2
-#define VCMD_FLUSH_WIDTH 3
-#define VCMD_FLUSH_HEIGHT 4
-#define VCMD_FLUSH_W_X 5
-#define VCMD_FLUSH_W_Y 6
-#define VCMD_FLUSH_HANDLE 7
+#define VCMD_DT_SIZE 8
+#define VCMD_DT_CMD 0
+#define VCMD_DT_X 1
+#define VCMD_DT_Y 2
+#define VCMD_DT_WIDTH 3
+#define VCMD_DT_HEIGHT 4
+#define VCMD_DT_ID 5
+#define VCMD_DT_HANDLE 6
+#define VCMD_DT_DRAWABLE 7
+
+#define VCMD_DT_CMD_CREATE 0
+#define VCMD_DT_CMD_DESTROY 1
+#define VCMD_DT_CMD_SET_RECT 2
+#define VCMD_DT_CMD_FLUSH 3
 
 
 #endif

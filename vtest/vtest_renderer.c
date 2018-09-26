@@ -49,12 +49,39 @@
 #elif defined ANDROID_JNI
 #include <jni.h>
 #include <android/native_window.h>
+#include <android/log.h>
+#define printf(...) __android_log_print(ANDROID_LOG_DEBUG, "virgl", __VA_ARGS__) 
 #endif
 #define FL_RING (1<<0)
 #define FL_GLX (1<<1)
 #define FL_GLES (1<<2)
 #define FL_OVERLAY (1<<3)
 
+
+
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+EGLDisplay disp;
+#ifdef ANDROID_JNI
+struct jni_s
+{
+  jclass cls;
+  JNIEnv *env;
+  jmethodID create;
+  jmethodID get_surface;
+  jmethodID set_rect;
+  jmethodID destroy;
+};
+#endif
+
+struct dt_record
+{
+uint32_t used;
+EGLSurface egl_surf;
+jobject java_surf;
+int fb_id;
+int res_id;
+
+};
 struct vtest_renderer {
   // pipe
   int fd;
@@ -65,15 +92,14 @@ struct vtest_renderer {
   EGLDisplay egl_display;
   EGLConfig egl_conf;
   EGLContext egl_ctx;
-  EGLSurface egl_drawable_surf;
   EGLSurface egl_fake_surf;
 
   // renderer
   int ctx_id;
   int fence_id;
   int last_fence;
-  int res_id; // res id of scanout texture
-  int fb_id; // fb for blitting scanout texture
+  
+  struct dt_record dts[32];
 #ifdef X11
   // x11
   Drawable x11_fake_win;
@@ -85,29 +111,58 @@ struct vtest_renderer {
   GLXPbuffer pbuffer;
   GLXContext glx_ctx;
 #endif
+  struct jni_s jni;
 };
 
-
-#ifdef ANDROID_JNI
-static struct jni_static
+void *renderer_thread(void *arg)
 {
-  jclass cls;
-  JNIEnv *env;
-  jmethodID create;
-  jmethodID resize;
-} jni;
-#endif
+    int fd = *(int*)arg;
+    static int ctx_id = 0;
+    ctx_id++;
+    printf("renderer thread\n");
+    run_renderer(fd, ctx_id);
+    return NULL;
+}
 
-JNIEXPORT void JNICALL Java_common_overlay_nativeRun(JNIEnv *env, jclass cls)
+void *create_renderer(int in_fd, int ctx_id);
+JNIEXPORT jint JNICALL Java_common_overlay_nativeOpen(JNIEnv *env, jclass cls)
 {
-  jni.env = env;
-  jni.cls = cls;
-  jni.create = (*env)->GetStaticMethodID(env,cls, "create", "(IIIII)Landroid/view/Surface;");
-  jni.resize = (*env)->GetStaticMethodID(env,cls, "resize", "(IIIII)V");
-  int fd = vtest_open_socket("/data/media/0/multirom/roms/Linux4TegraR231/root/tmp/.virgl_test");
-  fd = wait_for_socket_accept(fd);
-  run_renderer(fd,1);
-  exit(0);
+  disp = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+return vtest_open_socket("/data/media/0/multirom/roms/Linux4TegraR231/root/tmp/.virgl_test");
+}
+
+
+
+JNIEXPORT void JNICALL Java_common_overlay_nativeUnlink(JNIEnv *env, jclass cls)
+{
+unlink("/data/media/0/multirom/roms/Linux4TegraR231/root/tmp/.virgl_test");
+}
+JNIEXPORT jint JNICALL Java_common_overlay_nativeAccept(JNIEnv *env, jclass cls, jint fd)
+{
+return wait_for_socket_accept(fd);
+}
+JNIEXPORT jint JNICALL Java_common_overlay_nativeInit(JNIEnv *env, jclass cls, jstring settings)
+{
+return 0;
+}
+
+JNIEXPORT void JNICALL Java_common_overlay_nativeRun(JNIEnv *env, jclass cls, jint fd)
+{
+//int fd1;
+
+  //volatile int fd2 = fd;
+  static int ctx_id;
+      ctx_id++;
+  struct vtest_renderer *r = create_renderer( fd, ctx_id);
+  r->jni.env = env;
+  r->jni.cls = cls;
+  r->jni.create = (*env)->GetStaticMethodID(env,cls, "create", "(IIII)Landroid/view/SurfaceView;");
+  r->jni.get_surface = (*env)->GetStaticMethodID(env,cls, "get_surface", "(Landroid/view/SurfaceView;)Landroid/view/Surface;");
+  r->jni.set_rect = (*env)->GetStaticMethodID(env,cls, "set_rect", "(Landroid/view/SurfaceView;IIIII)V");
+  r->jni.destroy = (*env)->GetStaticMethodID(env,cls, "destroy", "(Landroid/view/SurfaceView;)V");
+  //int fd = vtest_open_socket("/data/media/0/multirom/roms/Linux4TegraR231/root/tmp/.virgl_test");
+  renderer_loop(r);
+  //exit(0);
 }
 
 static void vtest_write_fence(void *cookie, uint32_t fence_id_in)
@@ -177,7 +232,7 @@ static bool vtest_egl_init(struct vtest_renderer *d, bool surfaceless, bool gles
    if( !d->x11_dpy) d->x11_dpy = XOpenDisplay(NULL);
    d->egl_display = eglGetDisplay(d->x11_dpy);
 #else
-   d->egl_display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+   d->egl_display =disp;// eglGetDisplay(EGL_DEFAULT_DISPLAY);
 #endif
    if (!d->egl_display)
       goto fail;
@@ -232,9 +287,10 @@ static bool vtest_egl_init(struct vtest_renderer *d, bool surfaceless, bool gles
     d->x11_fake_win = XCreateSimpleWindow(d->x11_dpy, RootWindow(d->x11_dpy, 0), 0, 0, 100, 100, 0, BlackPixel(d->x11_dpy, 0),BlackPixel(d->x11_dpy, 0));
     d->egl_fake_surf = eglCreateWindowSurface(d->egl_display, d->egl_conf, d->x11_fake_win, window_attribute_list);
 #else
-       jobject surf = (*jni.env)->CallStaticObjectMethod(jni.env, jni.cls, jni.create, 0, 0, 0, 0, 0);
+struct vtest_renderer *r = d;
+       jobject surf = (*r->jni.env)->CallStaticObjectMethod(r->jni.env, r->jni.cls, r->jni.get_surface,(*r->jni.env)->CallStaticObjectMethod(r->jni.env, r->jni.cls, r->jni.create, 0, 0, 0, 0));
        if(surf == 0)exit(0);
-       ANativeWindow *window = ANativeWindow_fromSurface(jni.env, surf);
+       ANativeWindow *window = ANativeWindow_fromSurface(r->jni.env, surf);
        int format;
        eglGetConfigAttrib(d->egl_display, d->egl_conf, EGL_NATIVE_VISUAL_ID, &format);
        ANativeWindow_setBuffersGeometry(window, 0, 0, format);
@@ -598,85 +654,111 @@ end:
 }
 
 
-int vtest_flush_frontbuffer(struct vtest_renderer *r)
+
+int vtest_dt_cmd(struct vtest_renderer *r)
 {
-    uint32_t flush_buf[VCMD_FLUSH_SIZE];
+    uint32_t flush_buf[VCMD_DT_SIZE];
     struct virgl_renderer_resource_create_args args;
     int ret;
-    uint32_t w_x, w_y, x, y, w, h, handle;
-    uint32_t drawable;
+    uint32_t cmd, x, y, w, h, handle;
+    uint32_t drawable, id;
     static int use_overlay;
 
     ret = vtest_block_read(r, &flush_buf, sizeof(flush_buf));
     if (ret != sizeof(flush_buf))
 	return -1;
 
-    printf("flush drawable %x\n", flush_buf[VCMD_FLUSH_DRAWABLE]);
-
     //EGLContext ctx = eglGetCurrentContext();
     
-    drawable = flush_buf[VCMD_FLUSH_DRAWABLE];
-    x = flush_buf[VCMD_FLUSH_X];
-    y = flush_buf[VCMD_FLUSH_Y];
-    w = flush_buf[VCMD_FLUSH_WIDTH];
-    h = flush_buf[VCMD_FLUSH_HEIGHT];
-    w_x = flush_buf[VCMD_FLUSH_W_X];
-    w_y = flush_buf[VCMD_FLUSH_W_Y];
-    handle = flush_buf[VCMD_FLUSH_HANDLE];
+    drawable = flush_buf[VCMD_DT_DRAWABLE];
+    x = flush_buf[VCMD_DT_X];
+    y = flush_buf[VCMD_DT_Y];
+    w = flush_buf[VCMD_DT_WIDTH];
+    h = flush_buf[VCMD_DT_HEIGHT];
+    id = flush_buf[VCMD_DT_ID];
+    cmd = flush_buf[VCMD_DT_CMD];
+    handle = flush_buf[VCMD_DT_HANDLE];
+
+    printf("dt_cmd %d %d %d %d %d %d %d %d\n", cmd, x, y, w, h, id, handle, drawable);
+    
+    struct dt_record *dt = &r->dts[id]; 
+
+    if( cmd == VCMD_DT_CMD_CREATE )
+    {
 
 #ifdef X11
-    if( !r->x11_drawable_win )
+    if( !dt->x11_win )
     {
         static EGLint const window_attribute_list[] = {
             EGL_RENDER_BUFFER, EGL_BACK_BUFFER,
             EGL_NONE,
         };
 
-	r->x11_drawable_win = drawable;
+	dt->x11_win = drawable;
 	if( getenv("VTEST_OVERLAY") )
 	{
 	use_overlay = 1;
-	r->x11_drawable_win = XCreateSimpleWindow(r->x11_dpy, RootWindow(r->x11_dpy, 0), w_x, w_y, w, h, 0, BlackPixel(r->x11_dpy, 0),BlackPixel(r->x11_dpy, 0));
+	dt->x11_win = XCreateSimpleWindow(r->x11_dpy, RootWindow(r->x11_dpy, 0), x, y, w, h, 0, BlackPixel(r->x11_dpy, 0),BlackPixel(r->x11_dpy, 0));
 	XRectangle rect;
 	XserverRegion region = XFixesCreateRegion(r->x11_dpy, &rect, 1);
 	Atom window_type = XInternAtom(r->x11_dpy, "_NET_WM_WINDOW_TYPE", False);
 	long value = XInternAtom(r->x11_dpy, "_NET_WM_WINDOW_TYPE_DOCK", False);
-	XChangeProperty(r->x11_dpy, (Window)r->x11_drawable_win, window_type, XA_ATOM, 32, PropModeReplace, (unsigned char *) &value, 1);
-	XFixesSetWindowShapeRegion(r->x11_dpy, (Window)r->x11_drawable_win, ShapeInput, 0, 0, region);
+	XChangeProperty(r->x11_dpy, (Window)dt->x11_win, window_type, XA_ATOM, 32, PropModeReplace, (unsigned char *) &value, 1);
+	XFixesSetWindowShapeRegion(r->x11_dpy, (Window)dt->x11e_win, ShapeInput, 0, 0, region);
 	XFixesDestroyRegion(r->x11_dpy, region);
 	XSetWindowAttributes attributes;
 	attributes.override_redirect = True;
-	XChangeWindowAttributes(r->x11_dpy,r->x11_drawable_win,CWOverrideRedirect,&attributes);
-	XMapWindow(r->x11_dpy, (Window)r->x11_drawable_win);
+	XChangeWindowAttributes(r->x11_dpy,dt->x11_win,CWOverrideRedirect,&attributes);
+	XMapWindow(r->x11_dpy, (Window)dt->x11_win);
 	XFlush(r->x11_dpy);
 	}
-	if(!(r->flags &FL_GLX))r->egl_drawable_surf = eglCreateWindowSurface(r->egl_display, r->egl_conf, r->x11_drawable_win, window_attribute_list);
+	if(!(r->flags &FL_GLX))dt->egl_surf = eglCreateWindowSurface(r->egl_display, r->egl_conf, dt->x11_win, window_attribute_list);
     }
-    if((r->flags &FL_GLX)) glXMakeContextCurrent(r->x11_dpy, r->x11_drawable_win, r->x11_drawable_win, r->glx_ctx);
+    if((r->flags &FL_GLX)) glXMakeContextCurrent(r->x11_dpy, dt->x11_win, dt->x11_win, r->glx_ctx);
     else 
 #elif defined ANDROID_JNI
-    if(!r->egl_drawable_surf)
+    if(!dt->egl_surf)
     {
-       jobject surf = (*jni.env)->CallStaticObjectMethod(jni.env, jni.cls, jni.create, drawable, x, y, w, h);
-       ANativeWindow *window = ANativeWindow_fromSurface(jni.env, surf);
+       dt->java_surf = (*r->jni.env)->CallStaticObjectMethod(r->jni.env, r->jni.cls, r->jni.create, x, y, w, h);
+       jobject surf = (*r->jni.env)->CallStaticObjectMethod(r->jni.env, r->jni.cls, r->jni.get_surface, dt->java_surf);
+       ANativeWindow *window = ANativeWindow_fromSurface(r->jni.env, surf);
        int format;
        eglGetConfigAttrib(r->egl_display, r->egl_conf, EGL_NATIVE_VISUAL_ID, &format);
        ANativeWindow_setBuffersGeometry(window, 0, 0, format);
-       r->egl_drawable_surf = eglCreateWindowSurface(r->egl_display, r->egl_conf, window, 0);
+       dt->egl_surf = eglCreateWindowSurface(r->egl_display, r->egl_conf, window, 0);
        //r->egl_drawable_surf = r->egl_fake_surf;
     }
 #else
 // useless
-r->egl_drawable_surf = EGL_NO_SURFACE;
+dt->egl_surf = EGL_NO_SURFACE;
 #endif
-	eglMakeCurrent(r->egl_display, r->egl_drawable_surf, r->egl_drawable_surf, r->egl_ctx);
-    if(!r->fb_id)
-	glGenFramebuffersEXT(1,&r->fb_id);
+return 0;
+}
+else if(cmd == VCMD_DT_CMD_DESTROY)
+    {
+       if( dt->java_surf )
+       	  (*r->jni.env)->CallStaticVoidMethod(r->jni.env, r->jni.cls, r->jni.destroy, dt->java_surf);
+       dt->java_surf = 0;
+       eglMakeCurrent( r->egl_display, r->egl_fake_surf, r->egl_fake_surf, r->egl_ctx);
+       eglDestroySurface(r->egl_display, dt->egl_surf);
+       dt->egl_surf = 0;
+       return 0;
+    }
+else if(cmd == VCMD_DT_CMD_SET_RECT)
+{
+       (*r->jni.env)->CallStaticVoidMethod(r->jni.env, r->jni.cls, r->jni.set_rect, dt->java_surf,x,y,w,h,drawable);
+       return 0;
+}
+    if( cmd != VCMD_DT_CMD_FLUSH )
+    return -1;
+	eglMakeCurrent(r->egl_display, dt->egl_surf, dt->egl_surf, r->egl_ctx);
+    if(!dt->fb_id)
+	glGenFramebuffersEXT(1,&dt->fb_id);
 
-    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, r->fb_id );
+    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, dt->fb_id );
 
     // use internal API here to get texture id
-    if( handle != r->res_id)
+    if( handle != dt->res_id)
     {
         struct vrend_resource *res;
 
@@ -684,7 +766,7 @@ r->egl_drawable_surf = EGL_NO_SURFACE;
 
         glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT,
                                 GL_TEXTURE_2D, res->id, 0);
-        r->res_id = handle;
+        dt->res_id = handle;
     }
 
     glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
@@ -692,15 +774,10 @@ r->egl_drawable_surf = EGL_NO_SURFACE;
     glBindFramebufferEXT(GL_DRAW_FRAMEBUFFER_EXT, 0);
     glBlitFramebuffer(x,y+h,w+x,y,x,y,w+x,h+y,GL_COLOR_BUFFER_BIT,GL_NEAREST);
 #ifdef X11
-    if( use_overlay )
-      XMoveResizeWindow(r->x11_dpy,r->x11_drawable_win,w_x,w_y,w,h);
-
     if((r->flags &FL_GLX)) glXSwapBuffers(r->x11_dpy, r->x11_drawable_win);
     else
-#elif defined ANDROID_JNI
-    (*jni.env)->CallStaticVoidMethod(jni.env, jni.cls, jni.resize, drawable, w_x, w_y, w, h);
 #endif
-    eglSwapBuffers(r->egl_display, r->egl_drawable_surf);
+    eglSwapBuffers(r->egl_display, dt->egl_surf);
     return 0;
 }
 
@@ -928,37 +1005,51 @@ int vtest_poll()
 
 
 
-/*
-void *create_renderer
+
+void *create_renderer(int in_fd, int ctx_id)
 {
     struct vtest_renderer *r = calloc(1, sizeof(struct vtest_renderer));
 
     r->ctx_id = ctx_id;
     r->fence_id = 1;
     r->fd = in_fd;
-    vtest_glx_init(r);
+
+//    vtest_glx_init(r);
     return r;
 }
-*/
 
-int run_renderer(int in_fd, int ctx_id) //(void *d)
+
+int run_renderer(int fd, int ctx_id)
+{
+    struct vtest_renderer *r = create_renderer(fd, ctx_id);
+    const char ring =getenv( "VTEST_RING" );
+    if(ring )
+    {
+       ring_setup( &r->ring, r->fd, ring );
+       ring_server_handshake( &r->ring );
+    }
+    return renderer_loop(r);
+}
+
+
+
+int renderer_loop( void *d)
 {
     int ret;
     uint32_t header[VTEST_HDR_SIZE];
     bool inited = false;
-//    struct vtest_renderer *r = d;
-    struct vtest_renderer *r = calloc(1, sizeof(struct vtest_renderer));
-
+    struct vtest_renderer *r = d;
+    EGLContext ctx = 0;
+    EGLSurface surf = 0;
+    //EGLDisplay disp = 0;
+    //struct vtest_renderer *r = calloc(1, sizeof(struct vtest_renderer));
+/*
     r->ctx_id = ctx_id;
     r->fence_id = 1;
-    r->fd = in_fd;
+    r->fd = in_fd;*/
 
 //    glXMakeContextCurrent(r->x11_dpy, r->x11_fake_win, r->x11_fake_win, r->glx_ctx);
-    if(getenv( "VTEST_RING" ) )
-    {
-       ring_setup( &r->ring, r->fd );
-       ring_server_handshake( &r->ring );
-    }
+
 
 again:
     ret = vtest_wait_for_fd_read(r);
@@ -966,6 +1057,9 @@ again:
       goto fail;
 
     ret = vtest_block_read(r, &header, sizeof(header));
+    pthread_mutex_lock(&mutex);
+    if(ctx)
+    eglMakeCurrent(disp, surf, surf, ctx);
 
     if (ret == 8) {
       if (!inited) {
@@ -1001,17 +1095,20 @@ again:
       case VCMD_GET_CAPS2:
 	ret = vtest_send_caps2(r);
 	break;
-      case VCMD_FLUSH_FRONTBUFFER:
-	ret = vtest_flush_frontbuffer(r);
+      case VCMD_DT_COMMAND:
+	ret = vtest_dt_cmd(r);
 	break;
       default:
 	break;
       }
-
+      ctx = eglGetCurrentContext();
+    //  disp = eglGetCurrentDisplay();
+      surf = EGL_NO_SURFACE;
+      eglMakeCurrent( disp, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+pthread_mutex_unlock(&mutex);
       if (ret < 0) {
 	goto fail;
       }
-
       goto again;
     }
     if (ret <= 0) {
