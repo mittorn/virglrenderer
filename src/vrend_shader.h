@@ -122,7 +122,8 @@ char *vrend_convert_shader(struct vrend_shader_cfg *cfg,
                            uint32_t req_local_mem,
                            struct vrend_shader_key *key,
                            struct vrend_shader_info *sinfo);
-const char *vrend_shader_samplertypeconv(int sampler_type, int *is_shad);
+
+const char *vrend_shader_samplertypeconv(bool use_gles, int sampler_type, int *is_shad);
 char vrend_shader_samplerreturnconv(enum tgsi_return_type type);
 
 int shader_lookup_sampler_array(struct vrend_shader_info *sinfo, int index);

@@ -59,9 +59,20 @@
    "   FragColor = cvec4(%s);\n"                \
    "}\n"
 
+#define FS_TEXFETCH_COL_GLES_1D_BODY            \
+   "%s"                                         \
+   "#define cvec4 %s\n"                         \
+   "uniform mediump %csampler%s samp;\n"        \
+   "in vec4 tc;\n"                              \
+   "out cvec4 FragColor;\n"                     \
+   "void main() {\n"                            \
+   "   cvec4 texel = texture(samp, vec2(tc%s, 0.5));\n"    \
+   "   FragColor = cvec4(%s);\n"                \
+   "}\n"
+
 #define FS_TEXFETCH_COL_GL HEADER_GL FS_TEXFETCH_COL_BODY
 #define FS_TEXFETCH_COL_GLES HEADER_GLES FS_TEXFETCH_COL_BODY
-
+#define FS_TEXFETCH_COL_GLES_1D HEADER_GLES FS_TEXFETCH_COL_GLES_1D_BODY
 
 #define FS_TEXFETCH_COL_MSAA_BODY                       \
    "%s"                                                 \
