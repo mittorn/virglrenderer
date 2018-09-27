@@ -462,6 +462,8 @@ static int vtest_wait_for_fd_read(struct vtest_renderer *r)
    int ret;
 
    if(r->ring.size) return 0;
+ /// TODO: fix eventfd polling
+   return 0;
 
    FD_ZERO(&read_fds);
    FD_SET(r->fd, &read_fds);
@@ -752,10 +754,11 @@ else if(cmd == VCMD_DT_CMD_DESTROY)
             XUnmapWindow(r->x11_dpy, dt->x11_win);
             XDestroyWindow(r->x11_dpy, dt->x11_win);
         }
+        dt->x11_win = 0;
         if(r->flags &FL_GLX)
         {
             glXMakeCurrent(r->x11_dpy, r->x11_fake_win, r->glx_ctx);
-            dt->x11_win = 0;
+
         }
         else
 #endif
@@ -779,7 +782,12 @@ else if(cmd == VCMD_DT_CMD_SET_RECT)
            XMapWindow( r->x11_dpy, dt->x11_win );
            XMoveResizeWindow(r->x11_dpy,dt->x11_win, x, y, w, h );
        }
-       else XUnmapWindow( r->x11_dpy, dt->x11_win);
+       else
+       {
+            XMoveResizeWindow(r->x11_dpy,dt->x11_win, 0, 0, 32, 32 );
+           XUnmapWindow( r->x11_dpy, dt->x11_win);
+       }
+       XFlush(r->x11_dpy);
        }
 #endif
 
