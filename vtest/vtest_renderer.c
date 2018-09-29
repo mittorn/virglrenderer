@@ -37,7 +37,7 @@
 #include <epoxy/egl.h>
 #include "vrend_renderer.h"
 #include "vrend_object.h"
-#define X11
+
 #ifdef X11
 #include <X11/extensions/shape.h>
 #include <X11/extensions/Xfixes.h>
@@ -57,7 +57,7 @@
 #define FL_GLX (1<<1)
 #define FL_GLES (1<<2)
 #define FL_OVERLAY (1<<3)
-
+#define FL_MULTITHREAD (1<<4)
 
 
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -131,17 +131,20 @@ static void *renderer_thread(void *arg)
 }
 
 
+
+static char sock_path[128], ring_path[128];
+int flags;
+
 JNIEXPORT jint JNICALL Java_common_overlay_nativeOpen(JNIEnv *env, jclass cls)
 {
-  disp = eglGetDisplay(EGL_DEFAULT_DISPLAY);
-return vtest_open_socket("/data/media/0/multirom/roms/Linux4TegraR231/root/tmp/.virgl_test");
+  //disp = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+return vtest_open_socket(sock_path);
 }
-
 
 
 JNIEXPORT void JNICALL Java_common_overlay_nativeUnlink(JNIEnv *env, jclass cls)
 {
-unlink("/data/media/0/multirom/roms/Linux4TegraR231/root/tmp/.virgl_test");
+unlink(sock_path);
 }
 JNIEXPORT jint JNICALL Java_common_overlay_nativeAccept(JNIEnv *env, jclass cls, jint fd)
 {
@@ -149,7 +152,15 @@ return wait_for_socket_accept(fd);
 }
 JNIEXPORT jint JNICALL Java_common_overlay_nativeInit(JNIEnv *env, jclass cls, jstring settings)
 {
-return 0;
+   char *utf = (*env)->GetStringUTFChars(env, settings, 0);
+   if (utf) {
+      FILE *f = fopen(utf, "r");
+      if(!f)exit(1);
+      fscanf(f, "%d %[^ ] %[^ ]", &flags, sock_path, ring_path);
+      printf("'%d', '%s', '%s'", flags, sock_path, ring_path);
+      (*env)->ReleaseStringUTFChars(env, settings, utf);
+   }
+   return flags & FL_MULTITHREAD;
 }
 
 JNIEXPORT void JNICALL Java_common_overlay_nativeRun(JNIEnv *env, jclass cls, jint fd)
@@ -167,6 +178,12 @@ JNIEXPORT void JNICALL Java_common_overlay_nativeRun(JNIEnv *env, jclass cls, ji
   r->jni.set_rect = (*env)->GetStaticMethodID(env,cls, "set_rect", "(Landroid/view/SurfaceView;IIIII)V");
   r->jni.destroy = (*env)->GetStaticMethodID(env,cls, "destroy", "(Landroid/view/SurfaceView;)V");
   //int fd = vtest_open_socket("/data/media/0/multirom/roms/Linux4TegraR231/root/tmp/.virgl_test");
+  r->flags = flags;
+  if( r->flags & FL_RING )
+  {
+    ring_setup( &r->ring, r->fd, ring_path );
+    ring_server_handshake( &r->ring );
+  }
   renderer_loop(r);
   //exit(0);
 }
@@ -238,7 +255,7 @@ static bool vtest_egl_init(struct vtest_renderer *d, bool surfaceless, bool gles
    if( !d->x11_dpy) d->x11_dpy = XOpenDisplay(NULL);
    d->egl_display = eglGetDisplay(d->x11_dpy);
 #else
-   d->egl_display =disp;// eglGetDisplay(EGL_DEFAULT_DISPLAY);
+   d->egl_display =  eglGetDisplay(EGL_DEFAULT_DISPLAY);
 #endif
    if (!d->egl_display)
       goto fail;
