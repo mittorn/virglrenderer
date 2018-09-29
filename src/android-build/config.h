@@ -1,0 +1,3 @@
+#define HAVE_PTHREAD 1
+#define PIPE_OS_ANDROID 1
+//#define HAVE_EPOXY_EGL_H
