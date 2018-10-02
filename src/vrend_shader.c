@@ -3289,8 +3289,20 @@ get_source_info(struct dump_ctx *ctx,
                            ctx->system_values[j].glsl_name, src->Register.SwizzleY,
                            ctx->system_values[j].glsl_name, src->Register.SwizzleZ,
                            ctx->system_values[j].glsl_name, src->Register.SwizzleW);
-               } else if (ctx->system_values[j].name == TGSI_SEMANTIC_SAMPLEPOS ||
-                          ctx->system_values[j].name == TGSI_SEMANTIC_TESSCOORD) {
+               } else if (ctx->system_values[j].name == TGSI_SEMANTIC_SAMPLEPOS) {
+                  /* gl_SamplePosition is a vec2, but TGSI_SEMANTIC_SAMPLEPOS
+                   * is a vec4 with z = w = 0
+                   */
+                  const char *components[4] = {
+                     "gl_SamplePosition.x", "gl_SamplePosition.y", "0.0", "0.0"
+                  };
+                  snprintf(srcs[i], 255, "%s(vec4(%s, %s, %s, %s))",
+                           prefix,
+                           components[src->Register.SwizzleX],
+                           components[src->Register.SwizzleY],
+                           components[src->Register.SwizzleZ],
+                           components[src->Register.SwizzleW]);
+               } else if (ctx->system_values[j].name == TGSI_SEMANTIC_TESSCOORD) {
                   snprintf(srcs[i], 255, "%s(vec4(%s.%c, %s.%c, %s.%c, %s.%c))",
                            prefix,
                            ctx->system_values[j].glsl_name, get_swiz_char(src->Register.SwizzleX),
