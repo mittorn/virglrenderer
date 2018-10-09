@@ -35,6 +35,8 @@
 #include "virgl_hw.h"
 #include "virglrenderer.h"
 
+int context_flags = VIRGL_RENDERER_USE_EGL;
+
 void testvirgl_init_simple_1d_resource(struct virgl_renderer_resource_create_args *res, int handle)
 {
     res->handle = handle;
@@ -116,7 +118,7 @@ int testvirgl_init_single_ctx(void)
 
     test_cbs.version = 1;
     test_cbs.write_fence = testvirgl_write_fence;
-    ret = virgl_renderer_init(&mystruct, VIRGL_RENDERER_USE_EGL, &test_cbs);
+    ret = virgl_renderer_init(&mystruct, context_flags, &test_cbs);
     ck_assert_int_eq(ret, 0);
     if (ret)
 	return ret;

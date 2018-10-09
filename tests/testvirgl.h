@@ -30,6 +30,8 @@
 
 #define VIRGL_MAX_CMDBUF_DWORDS (16*1024)
 
+extern int context_flags;
+
 struct virgl_cmd_buf {
     unsigned cdw;
     uint32_t *buf;

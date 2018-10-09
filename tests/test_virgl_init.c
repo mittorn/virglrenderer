@@ -74,7 +74,7 @@ START_TEST(virgl_init_egl)
 {
   int ret;
   test_cbs.version = 1;
-  ret = virgl_renderer_init(&mystruct, VIRGL_RENDERER_USE_EGL, &test_cbs);
+  ret = virgl_renderer_init(&mystruct, context_flags, &test_cbs);
   ck_assert_int_eq(ret, 0);
   virgl_renderer_cleanup(&mystruct);
 }
@@ -85,7 +85,7 @@ START_TEST(virgl_init_egl_create_ctx)
 {
   int ret;
   test_cbs.version = 1;
-  ret = virgl_renderer_init(&mystruct, VIRGL_RENDERER_USE_EGL, &test_cbs);
+  ret = virgl_renderer_init(&mystruct, context_flags, &test_cbs);
   ck_assert_int_eq(ret, 0);
   ret = virgl_renderer_context_create(1, strlen("test1"), "test1");
   ck_assert_int_eq(ret, 0);
@@ -100,7 +100,7 @@ START_TEST(virgl_init_egl_create_ctx_0)
   int ret;
 
   test_cbs.version = 1;
-  ret = virgl_renderer_init(&mystruct, VIRGL_RENDERER_USE_EGL, &test_cbs);
+  ret = virgl_renderer_init(&mystruct, context_flags, &test_cbs);
   ck_assert_int_eq(ret, 0);
   ret = virgl_renderer_context_create(0, strlen("test1"), "test1");
   ck_assert_int_eq(ret, EINVAL);
@@ -113,7 +113,7 @@ START_TEST(virgl_init_egl_destroy_ctx_illegal)
 {
   int ret;
   test_cbs.version = 1;
-  ret = virgl_renderer_init(&mystruct, VIRGL_RENDERER_USE_EGL, &test_cbs);
+  ret = virgl_renderer_init(&mystruct, context_flags, &test_cbs);
   ck_assert_int_eq(ret, 0);
 
   virgl_renderer_context_destroy(1);
@@ -259,7 +259,7 @@ START_TEST(virgl_init_get_caps_set0)
   uint32_t max_ver, max_size;
 
   test_cbs.version = 1;
-  ret = virgl_renderer_init(&mystruct, VIRGL_RENDERER_USE_EGL, &test_cbs);
+  ret = virgl_renderer_init(&mystruct, context_flags, &test_cbs);
   ck_assert_int_eq(ret, 0);
 
   virgl_renderer_get_cap_set(0, &max_ver, &max_size);
@@ -276,7 +276,7 @@ START_TEST(virgl_init_get_caps_set1)
   uint32_t max_ver, max_size;
   void *caps;
   test_cbs.version = 1;
-  ret = virgl_renderer_init(&mystruct, VIRGL_RENDERER_USE_EGL, &test_cbs);
+  ret = virgl_renderer_init(&mystruct, context_flags, &test_cbs);
   ck_assert_int_eq(ret, 0);
 
   virgl_renderer_get_cap_set(1, &max_ver, &max_size);
@@ -299,7 +299,7 @@ START_TEST(virgl_init_get_caps_null)
   uint32_t max_ver, max_size;
 
   test_cbs.version = 1;
-  ret = virgl_renderer_init(&mystruct, VIRGL_RENDERER_USE_EGL, &test_cbs);
+  ret = virgl_renderer_init(&mystruct, context_flags, &test_cbs);
   ck_assert_int_eq(ret, 0);
 
   virgl_renderer_get_cap_set(1, &max_ver, &max_size);
@@ -432,7 +432,7 @@ START_TEST(virgl_init_egl_create_ctx_create_attach_res_illegal_res)
   struct iovec iovs[1];
 
   test_cbs.version = 1;
-  ret = virgl_renderer_init(&mystruct, VIRGL_RENDERER_USE_EGL, &test_cbs);
+  ret = virgl_renderer_init(&mystruct, context_flags, &test_cbs);
   ck_assert_int_eq(ret, 0);
 
   ret = virgl_renderer_resource_attach_iov(1, iovs, 1);
@@ -494,6 +494,9 @@ int main(void)
   Suite *s;
   SRunner *sr;
   int number_failed;
+
+  if (getenv("VRENDTEST_USE_EGL_SURFACELESS"))
+     context_flags |= VIRGL_RENDERER_USE_SURFACELESS;
 
   s = virgl_init_suite();
   sr = srunner_create(s);

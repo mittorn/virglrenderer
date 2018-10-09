@@ -781,6 +781,9 @@ int main(void)
   SRunner *sr;
   int number_failed;
 
+  if (getenv("VRENDTEST_USE_EGL_SURFACELESS"))
+     context_flags |= VIRGL_RENDERER_USE_SURFACELESS;
+
   s = virgl_init_suite();
   sr = srunner_create(s);
 
