@@ -315,15 +315,13 @@ int virgl_egl_get_fourcc_for_texture(struct virgl_egl *ve, uint32_t tex_id, uint
 {
    int ret = EINVAL;
 
-#ifndef EGL_MESA_image_dma_buf_export
-   ret = 0;
-   goto fallback;
-#else
    EGLImageKHR image;
    EGLBoolean b;
 
-   if (!ve->have_mesa_dma_buf_img_export)
+   if (!ve->have_mesa_dma_buf_img_export) {
+      ret = 0;
       goto fallback;
+   }
 
    image = eglCreateImageKHR(ve->egl_display, eglGetCurrentContext(), EGL_GL_TEXTURE_2D_KHR, (EGLClientBuffer)(unsigned long)tex_id, NULL);
 
@@ -337,8 +335,6 @@ int virgl_egl_get_fourcc_for_texture(struct virgl_egl *ve, uint32_t tex_id, uint
  out_destroy:
    eglDestroyImageKHR(ve->egl_display, image);
    return ret;
-
-#endif
 
  fallback:
    *fourcc = virgl_egl_get_gbm_format(format);
@@ -426,7 +422,6 @@ uint32_t virgl_egl_get_gbm_format(uint32_t format)
 {
    switch (format) {
    case VIRGL_FORMAT_B8G8R8X8_UNORM:
-      return GBM_FORMAT_XRGB8888;
    case VIRGL_FORMAT_B8G8R8A8_UNORM:
       return GBM_FORMAT_ARGB8888;
    default:
