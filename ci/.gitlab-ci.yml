@@ -1,0 +1,43 @@
+image: docker:latest
+
+cache:
+  paths:
+    - ccache
+
+variables:
+  DOCKER_DRIVER: overlay2
+  RENDER_DEVICE: /dev/dri/renderD128
+stages:
+  - build_and_test
+
+build_and_test:
+  stage: build_and_test
+  services:
+    - docker:dind
+  before_script:
+    - mkdir -p ccache
+    - mkdir -p results
+  script:
+    - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN $CI_REGISTRY
+    - time docker pull $CI_REGISTRY_IMAGE:latest || true
+
+    - time docker build -t $CI_REGISTRY_IMAGE --cache-from $CI_REGISTRY_IMAGE:latest ci
+    - docker history $CI_REGISTRY_IMAGE:latest
+
+    - time docker push $CI_REGISTRY_IMAGE:latest
+
+    - echo core > /proc/sys/kernel/core_pattern
+    - echo 0 > /proc/sys/kernel/core_uses_pid
+    - if test -e $RENDER_DEVICE; then RD_CONFIG="--device=$RENDER_DEVICE"; fi 
+    - echo RD_CONFIG=$RD_CONFIG
+    - time docker run
+             --ulimit core=99999999999:99999999999
+             $RD_CONFIG 
+             -v $PWD:/virglrenderer
+             $CI_REGISTRY_IMAGE:latest
+             /virglrenderer/ci/run-tests.sh 2>&1 | tee results/log.txt
+
+  artifacts:
+   when: always
+   paths:
+     - results/
