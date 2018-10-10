@@ -219,6 +219,12 @@ struct virgl_egl *virgl_egl_init(int fd, bool surfaceless, bool gles)
    /* require surfaceless context */
    if (!virgl_egl_has_extension_in_string(extension_list, "EGL_KHR_surfaceless_context"))
       goto fail;
+   }
+
+   if (!virgl_egl_has_extension_in_string(extension_list, "EGL_KHR_create_context")) {
+      fprintf(stderr, "failed to find EGL_KHR_create_context extensions\n");
+      goto fail;
+   }
 
    d->have_mesa_drm_image = false;
    d->have_mesa_dma_buf_img_export = false;
