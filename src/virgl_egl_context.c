@@ -368,9 +368,7 @@ int virgl_egl_get_fd_for_texture(struct virgl_egl *ve, uint32_t tex_id, int *fd)
 {
    EGLImageKHR image;
    EGLint stride;
-#ifdef EGL_MESA_image_dma_buf_export
    EGLint offset;
-#endif
    EGLBoolean b;
    int ret;
    image = eglCreateImageKHR(ve->egl_display, eglGetCurrentContext(), EGL_GL_TEXTURE_2D_KHR, (EGLClientBuffer)(unsigned long)tex_id, NULL);
@@ -380,7 +378,6 @@ int virgl_egl_get_fd_for_texture(struct virgl_egl *ve, uint32_t tex_id, int *fd)
 
    ret = EINVAL;
    if (ve->have_mesa_dma_buf_img_export) {
-#ifdef EGL_MESA_image_dma_buf_export
       b = eglExportDMABUFImageMESA(ve->egl_display,
                                    image,
                                    fd,
@@ -388,9 +385,6 @@ int virgl_egl_get_fd_for_texture(struct virgl_egl *ve, uint32_t tex_id, int *fd)
                                    &offset);
       if (!b)
          goto out_destroy;
-#else
-      goto out_destroy;
-#endif
    } else {
 #ifdef EGL_MESA_drm_image
       EGLint handle;
