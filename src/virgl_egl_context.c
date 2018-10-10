@@ -217,7 +217,8 @@ struct virgl_egl *virgl_egl_init(int fd, bool surfaceless, bool gles)
    fprintf(stderr, "EGL extensions: %s\n", extension_list);
 #endif
    /* require surfaceless context */
-   if (!virgl_egl_has_extension_in_string(extension_list, "EGL_KHR_surfaceless_context"))
+   if (!virgl_egl_has_extension_in_string(extension_list, "EGL_KHR_surfaceless_context")) {
+      fprintf(stderr, "failed to find support for surfaceless context\n");
       goto fail;
    }
 
