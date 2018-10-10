@@ -385,8 +385,9 @@ int virgl_egl_get_fd_for_texture(struct virgl_egl *ve, uint32_t tex_id, int *fd)
                                    &offset);
       if (!b)
          goto out_destroy;
-   } else {
-#ifdef EGL_MESA_drm_image
+   } else  {
+      /* No need to check have_mesa_drm_image, because if we come here
+       * it is supported (imposed by virgl_egl_init) */
       EGLint handle;
       int r;
       b = eglExportDRMImageMESA(ve->egl_display,
@@ -402,9 +403,6 @@ int virgl_egl_get_fd_for_texture(struct virgl_egl *ve, uint32_t tex_id, int *fd)
       r = drmPrimeHandleToFD(ve->fd, handle, DRM_CLOEXEC, fd);
       if (r < 0)
 	 goto out_destroy;
-#else
-      goto out_destroy;
-#endif
    }
    ret = 0;
  out_destroy:
