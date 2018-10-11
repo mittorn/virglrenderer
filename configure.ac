@@ -35,6 +35,10 @@ AX_CHECK_COMPILE_FLAG([-Werror=missing-prototypes],            [CFLAGS="$CFLAGS 
 AX_CHECK_COMPILE_FLAG([-Wmissing-prototypes],                  [CFLAGS="$CFLAGS -Wmissing-prototypes"])
 AX_CHECK_COMPILE_FLAG([-Werror=int-to-pointer-cast],           [CFLAGS="$CFLAGS -Werror=int-to-pointer-cast"])
 
+AX_GCC_FUNC_ATTRIBUTE([visibility])
+AX_CHECK_COMPILE_FLAG([-fvisibility=hidden],                   [VISIBILITY_CFLAGS="-fvisibility=hidden"])
+
+
 AC_MSG_CHECKING([for native Win32])
 case "$host_os" in
      *mingw*|*cygwin*)
@@ -145,6 +149,15 @@ AS_IF([test "x$epoxy_has_glx" = "x1" && test "x$enable_glx" != "xno"], [
 AM_CONDITIONAL([HAVE_EPOXY_GLX], [test "x$epoxy_has_glx" = "xyes"])
 
 AC_SUBST([DEFINES])
+
+case "$host_os" in
+cygwin*)
+    VISIBILITY_CFLAGS=""
+    ;;
+esac
+
+AC_SUBST([VISIBILITY_CFLAGS])
+
 AC_CONFIG_FILES([
 		virglrenderer.pc
 		Makefile
