@@ -2237,8 +2237,10 @@ static int translate_tex(struct dump_ctx *ctx,
    } else if (inst->Instruction.Opcode == TGSI_OPCODE_TG4) {
       sampler_index = 2;
       ctx->shader_req_bits |= SHADER_REQ_TG4;
-      if (inst->Texture.NumOffsets > 1 || is_shad || (ctx->shader_req_bits & SHADER_REQ_SAMPLER_RECT))
-         ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
+      if (!ctx->cfg->use_gles) {
+         if (inst->Texture.NumOffsets > 1 || is_shad || (ctx->shader_req_bits & SHADER_REQ_SAMPLER_RECT))
+            ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
+      }
       if (inst->Texture.NumOffsets == 1) {
          if (inst->TexOffsets[0].File != TGSI_FILE_IMMEDIATE)
             ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
@@ -3232,7 +3234,8 @@ get_source_info(struct dump_ctx *ctx,
             if (inst->Instruction.Opcode == TGSI_OPCODE_TG4 && i == 1 && j == 0) {
                if (imd->val[idx].ui > 0) {
                   sinfo->tg4_has_component = true;
-                  ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
+                  if (!ctx->cfg->use_gles)
+                     ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
                }
             }
 
