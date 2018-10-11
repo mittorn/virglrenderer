@@ -4974,7 +4974,7 @@ static GLenum tgsitargettogltarget(const enum pipe_texture_target target, int nr
    case PIPE_TEXTURE_1D:
       return GL_TEXTURE_1D;
    case PIPE_TEXTURE_2D:
-      return (nr_samples > 1) ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D;
+      return (nr_samples > 0) ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D;
    case PIPE_TEXTURE_3D:
       return GL_TEXTURE_3D;
    case PIPE_TEXTURE_RECT:
@@ -4985,7 +4985,7 @@ static GLenum tgsitargettogltarget(const enum pipe_texture_target target, int nr
    case PIPE_TEXTURE_1D_ARRAY:
       return GL_TEXTURE_1D_ARRAY;
    case PIPE_TEXTURE_2D_ARRAY:
-      return (nr_samples > 1) ? GL_TEXTURE_2D_MULTISAMPLE_ARRAY : GL_TEXTURE_2D_ARRAY;
+      return (nr_samples > 0) ? GL_TEXTURE_2D_MULTISAMPLE_ARRAY : GL_TEXTURE_2D_ARRAY;
    case PIPE_TEXTURE_CUBE_ARRAY:
       return GL_TEXTURE_CUBE_MAP_ARRAY;
    case PIPE_BUFFER:
@@ -5635,7 +5635,7 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
 	 FREE(gr);
 	 return EINVAL;
       }
-   } else if (pr->nr_samples > 1) {
+   } else if (pr->nr_samples > 0) {
       if (vrend_state.use_gles || has_feature(feat_texture_storage)) {
          if (gr->target == GL_TEXTURE_2D_MULTISAMPLE) {
             glTexStorage2DMultisample(gr->target, pr->nr_samples,
