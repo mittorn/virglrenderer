@@ -5560,6 +5560,7 @@ static void vrend_create_buffer(struct vrend_resource *gr, uint32_t width)
    glBindBufferARB(gr->target, gr->id);
    glBufferData(gr->target, width, NULL, GL_STREAM_DRAW);
    gr->is_buffer = true;
+   glBindBufferARB(gr->target, 0);
 }
 
 static inline void
@@ -6068,7 +6069,9 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
        res->target == GL_ELEMENT_ARRAY_BUFFER_ARB ||
        res->target == GL_ARRAY_BUFFER_ARB ||
        res->target == GL_TEXTURE_BUFFER ||
-       res->target == GL_UNIFORM_BUFFER) {
+       res->target == GL_UNIFORM_BUFFER ||
+       res->target == GL_PIXEL_PACK_BUFFER ||
+       res->target == GL_PIXEL_UNPACK_BUFFER) {
       struct virgl_sub_upload_data d;
       d.box = info->box;
       d.target = res->target;
@@ -6082,6 +6085,7 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
 	 vrend_read_from_iovec(iov, num_iovs, info->offset, data, info->box->width);
 	 glUnmapBuffer(res->target);
       }
+      glBindBufferARB(res->target, 0);
    } else {
       GLenum glformat;
       GLenum gltype;
@@ -6574,7 +6578,9 @@ static int vrend_renderer_transfer_send_iov(struct vrend_context *ctx,
        res->target == GL_ARRAY_BUFFER_ARB ||
        res->target == GL_TRANSFORM_FEEDBACK_BUFFER ||
        res->target == GL_TEXTURE_BUFFER ||
-       res->target == GL_UNIFORM_BUFFER) {
+       res->target == GL_UNIFORM_BUFFER ||
+       res->target == GL_PIXEL_PACK_BUFFER ||
+       res->target == GL_PIXEL_UNPACK_BUFFER) {
       uint32_t send_size = info->box->width * util_format_get_blocksize(res->base.format);
       void *data;
 
@@ -6585,6 +6591,7 @@ static int vrend_renderer_transfer_send_iov(struct vrend_context *ctx,
       else
          vrend_write_to_iovec(iov, num_iovs, info->offset, data, send_size);
       glUnmapBuffer(res->target);
+      glBindBufferARB(res->target, 0);
    } else {
       int ret = -1;
       bool can_readpixels = true;
