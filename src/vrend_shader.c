@@ -2784,8 +2784,10 @@ get_destination_info(struct dump_ctx *ctx,
             if (ctx->outputs[j].first == dst_reg->Register.Index) {
 
                if (inst->Instruction.Precise) {
-                  ctx->outputs[j].precise = true;
-                  ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
+                  if (!ctx->outputs[j].invariant) {
+                     ctx->outputs[j].precise = true;
+                     ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
+                  }
                }
 
                if (ctx->glsl_ver_required >= 140 && ctx->outputs[j].name == TGSI_SEMANTIC_CLIPVERTEX) {
