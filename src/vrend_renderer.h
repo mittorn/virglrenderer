@@ -418,6 +418,8 @@ unsigned vrend_context_has_debug_flag(struct vrend_context *ctx,
 unsigned vrend_renderer_query_multisample_caps(unsigned max_samples,
                                                struct virgl_caps_v2 *caps);
 
+int virgl_has_gl_colorspace(void);
+
 struct gl_version {
    uint32_t major;
    uint32_t minor;

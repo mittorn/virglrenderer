@@ -54,6 +54,7 @@ struct virgl_egl {
    EGLContext egl_ctx;
    bool have_mesa_drm_image;
    bool have_mesa_dma_buf_img_export;
+   bool have_egl_khr_gl_colorspace;
 };
 
 static int egl_rendernode_open(void)
@@ -240,6 +241,9 @@ struct virgl_egl *virgl_egl_init(int fd, bool surfaceless, bool gles)
       goto fail;
    }
 
+   d->have_egl_khr_gl_colorspace =
+         virgl_egl_has_extension_in_string(extension_list, "EGL_KHR_gl_colorspace");
+
    if (gles)
       api = EGL_OPENGL_ES_API;
    else
@@ -415,6 +419,11 @@ int virgl_egl_get_fd_for_texture(struct virgl_egl *ve, uint32_t tex_id, int *fd)
  out_destroy:
    eglDestroyImageKHR(ve->egl_display, image);
    return ret;
+}
+
+bool virgl_has_egl_khr_gl_colorspace(struct virgl_egl *ve)
+{
+   return ve->have_egl_khr_gl_colorspace;
 }
 
 uint32_t virgl_egl_get_gbm_format(uint32_t format)

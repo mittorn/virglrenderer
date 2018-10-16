@@ -201,6 +201,13 @@ int virgl_renderer_resource_get_info(int res_handle,
    return ret;
 }
 
+int virgl_has_gl_colorspace(void)
+{
+   return use_context == CONTEXT_GLX ||
+         (use_context == CONTEXT_EGL &&
+          virgl_has_egl_khr_gl_colorspace(egl_info));
+}
+
 void virgl_renderer_get_cap_set(uint32_t cap_set, uint32_t *max_ver,
                                 uint32_t *max_size)
 {
