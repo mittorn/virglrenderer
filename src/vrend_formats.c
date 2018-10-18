@@ -308,6 +308,37 @@ static void vrend_add_formats(struct vrend_format_table *table, int num_entries)
     glBindTexture(GL_TEXTURE_2D, tex_id);
     glBindFramebuffer(GL_FRAMEBUFFER, fb_id);
 
+    /* we can't probe compressed formats, as we'd need valid payloads to
+     * glCompressedTexImage2D. Let's just check for extensions instead.
+     */
+    const struct util_format_description *desc = util_format_description(table[i].format);
+    switch (desc->layout) {
+    case UTIL_FORMAT_LAYOUT_S3TC:
+      if (epoxy_has_gl_extension("GL_EXT_texture_compression_s3tc"))
+        vrend_insert_format(&table[i], VIRGL_BIND_SAMPLER_VIEW);
+      continue;
+
+    case UTIL_FORMAT_LAYOUT_RGTC:
+      if (epoxy_has_gl_extension("GL_ARB_texture_compression_rgtc") ||
+          epoxy_has_gl_extension("GL_EXT_texture_compression_rgtc") )
+        vrend_insert_format(&table[i], VIRGL_BIND_SAMPLER_VIEW);
+      continue;
+
+    case UTIL_FORMAT_LAYOUT_ETC:
+      if (epoxy_has_gl_extension("GL_OES_compressed_ETC1_RGB8_texture"))
+        vrend_insert_format(&table[i], VIRGL_BIND_SAMPLER_VIEW);
+      continue;
+
+    case UTIL_FORMAT_LAYOUT_BPTC:
+      if (epoxy_has_gl_extension("GL_ARB_texture_compression_bptc") ||
+          epoxy_has_gl_extension("GL_EXT_texture_compression_bptc"))
+        vrend_insert_format(&table[i], VIRGL_BIND_SAMPLER_VIEW);
+      continue;
+
+    default:
+      ;/* do logic below */
+    }
+
     glTexImage2D(GL_TEXTURE_2D, 0, table[i].internalformat, 32, 32, 0, table[i].glformat, table[i].gltype, NULL);
     status = glGetError();
     if (status == GL_INVALID_VALUE || status == GL_INVALID_ENUM || status == GL_INVALID_OPERATION) {
