@@ -1984,7 +1984,7 @@ static void vrend_hw_emit_framebuffer_state(struct vrend_context *ctx)
       GL_COLOR_ATTACHMENT6_EXT,
       GL_COLOR_ATTACHMENT7_EXT,
    };
-   glBindFramebufferEXT(GL_FRAMEBUFFER, ctx->sub->fb_id);
+   glBindFramebuffer(GL_FRAMEBUFFER, ctx->sub->fb_id);
 
    if (ctx->sub->nr_cbufs == 0) {
       glReadBuffer(GL_NONE);
@@ -2024,7 +2024,7 @@ void vrend_set_framebuffer_state(struct vrend_context *ctx,
    GLint new_height = -1;
    bool new_ibf = false;
 
-   glBindFramebufferEXT(GL_FRAMEBUFFER, ctx->sub->fb_id);
+   glBindFramebuffer(GL_FRAMEBUFFER, ctx->sub->fb_id);
 
    if (zsurf_handle) {
       zsurf = vrend_object_lookup(ctx->sub->object_hash, zsurf_handle, VIRGL_OBJECT_SURFACE);
@@ -3152,7 +3152,7 @@ void vrend_clear(struct vrend_context *ctx,
    if (ctx->ctx_switch_pending)
       vrend_finish_context_switch(ctx);
 
-   glBindFramebufferEXT(GL_FRAMEBUFFER, ctx->sub->fb_id);
+   glBindFramebuffer(GL_FRAMEBUFFER, ctx->sub->fb_id);
 
    vrend_update_frontface_state(ctx);
    if (ctx->sub->stencil_state_dirty)
@@ -3903,7 +3903,7 @@ int vrend_draw_vbo(struct vrend_context *ctx,
       fprintf(stderr,"dropping rendering due to missing shaders: %s\n", ctx->debug_name);
       return 0;
    }
-   glBindFramebufferEXT(GL_FRAMEBUFFER, ctx->sub->fb_id);
+   glBindFramebuffer(GL_FRAMEBUFFER, ctx->sub->fb_id);
 
    vrend_use_program(ctx, ctx->sub->prog->id);
 
@@ -6162,13 +6162,13 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
                glDeleteFramebuffers(1, &res->readback_fb_id);
 
             glGenFramebuffers(1, &fb_id);
-            glBindFramebufferEXT(GL_FRAMEBUFFER, fb_id);
+            glBindFramebuffer(GL_FRAMEBUFFER, fb_id);
             vrend_fb_bind_texture(res, 0, info->level, 0);
 
             res->readback_fb_id = fb_id;
             res->readback_fb_level = info->level;
          } else {
-            glBindFramebufferEXT(GL_FRAMEBUFFER, res->readback_fb_id);
+            glBindFramebuffer(GL_FRAMEBUFFER, res->readback_fb_id);
          }
 
          buffers = GL_COLOR_ATTACHMENT0_EXT;
@@ -6428,7 +6428,7 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
          glDeleteFramebuffers(1, &res->readback_fb_id);
 
       glGenFramebuffers(1, &fb_id);
-      glBindFramebufferEXT(GL_FRAMEBUFFER, fb_id);
+      glBindFramebuffer(GL_FRAMEBUFFER, fb_id);
 
       vrend_fb_bind_texture(res, 0, info->level, info->box->z);
 
@@ -6436,7 +6436,7 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
       res->readback_fb_level = info->level;
       res->readback_fb_z = info->box->z;
    } else
-      glBindFramebufferEXT(GL_FRAMEBUFFER, res->readback_fb_id);
+      glBindFramebuffer(GL_FRAMEBUFFER, res->readback_fb_id);
    if (actually_invert)
       y1 = h - info->box->y - info->box->height;
    else
@@ -8411,7 +8411,7 @@ void *vrend_renderer_get_cursor_contents(uint32_t res_handle, uint32_t *width, u
             glDeleteFramebuffers(1, &res->readback_fb_id);
 
          glGenFramebuffers(1, &fb_id);
-         glBindFramebufferEXT(GL_FRAMEBUFFER, fb_id);
+         glBindFramebuffer(GL_FRAMEBUFFER, fb_id);
 
          vrend_fb_bind_texture(res, 0, 0, 0);
 
@@ -8419,7 +8419,7 @@ void *vrend_renderer_get_cursor_contents(uint32_t res_handle, uint32_t *width, u
          res->readback_fb_level = 0;
          res->readback_fb_z = 0;
       } else {
-         glBindFramebufferEXT(GL_FRAMEBUFFER, res->readback_fb_id);
+         glBindFramebuffer(GL_FRAMEBUFFER, res->readback_fb_id);
       }
 
       if (has_feature(feat_arb_robustness)) {
