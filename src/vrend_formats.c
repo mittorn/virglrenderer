@@ -383,9 +383,9 @@ static void vrend_add_formats(struct vrend_format_table *table, int num_entries)
       buffers = GL_NONE;
       glDrawBuffers(1, &buffers);
     } else {
-      glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, tex_id, 0);
+      glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, tex_id, 0);
 
-      buffers = GL_COLOR_ATTACHMENT0_EXT;
+      buffers = GL_COLOR_ATTACHMENT0;
       glDrawBuffers(1, &buffers);
     }
 

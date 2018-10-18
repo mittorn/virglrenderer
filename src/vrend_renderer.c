@@ -1859,7 +1859,7 @@ static void vrend_fb_bind_texture_id(struct vrend_resource *res,
                                      uint32_t level, uint32_t layer)
 {
    const struct util_format_description *desc = util_format_description(res->base.format);
-   GLenum attachment = GL_COLOR_ATTACHMENT0_EXT + idx;
+   GLenum attachment = GL_COLOR_ATTACHMENT0 + idx;
 
    if (vrend_format_is_ds(res->base.format)) {
       if (util_format_has_stencil(desc)) {
@@ -1975,14 +1975,14 @@ static void vrend_hw_set_color_surface(struct vrend_context *ctx, int index)
 static void vrend_hw_emit_framebuffer_state(struct vrend_context *ctx)
 {
    static const GLenum buffers[8] = {
-      GL_COLOR_ATTACHMENT0_EXT,
-      GL_COLOR_ATTACHMENT1_EXT,
-      GL_COLOR_ATTACHMENT2_EXT,
-      GL_COLOR_ATTACHMENT3_EXT,
-      GL_COLOR_ATTACHMENT4_EXT,
-      GL_COLOR_ATTACHMENT5_EXT,
-      GL_COLOR_ATTACHMENT6_EXT,
-      GL_COLOR_ATTACHMENT7_EXT,
+      GL_COLOR_ATTACHMENT0,
+      GL_COLOR_ATTACHMENT1,
+      GL_COLOR_ATTACHMENT2,
+      GL_COLOR_ATTACHMENT3,
+      GL_COLOR_ATTACHMENT4,
+      GL_COLOR_ATTACHMENT5,
+      GL_COLOR_ATTACHMENT6,
+      GL_COLOR_ATTACHMENT7,
    };
    glBindFramebuffer(GL_FRAMEBUFFER, ctx->sub->fb_id);
 
@@ -6171,7 +6171,7 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
             glBindFramebuffer(GL_FRAMEBUFFER, res->readback_fb_id);
          }
 
-         buffers = GL_COLOR_ATTACHMENT0_EXT;
+         buffers = GL_COLOR_ATTACHMENT0;
          glDrawBuffers(1, &buffers);
          glDisable(GL_BLEND);
          vrend_depth_test_enable(ctx, false);
@@ -6445,7 +6445,7 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
    if (has_feature(feat_mesa_invert) && actually_invert)
       glPixelStorei(GL_PACK_INVERT_MESA, 1);
    if (!vrend_format_is_ds(res->base.format))
-      glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
+      glReadBuffer(GL_COLOR_ATTACHMENT0);
    if (!need_temp && row_stride)
       glPixelStorei(GL_PACK_ROW_LENGTH, row_stride);
 
