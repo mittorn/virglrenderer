@@ -782,7 +782,7 @@ void vrend_renderer_blit_gl(UNUSED struct vrend_context *ctx,
 
    glUseProgram(prog_id);
 
-   glBindFramebuffer(GL_FRAMEBUFFER_EXT, blit_ctx->fb_id);
+   glBindFramebuffer(GL_FRAMEBUFFER, blit_ctx->fb_id);
    vrend_fb_bind_texture(dst_res, 0, info->dst.level, info->dst.box.z);
 
    buffers = GL_COLOR_ATTACHMENT0_EXT;
@@ -839,7 +839,7 @@ void vrend_renderer_blit_gl(UNUSED struct vrend_context *ctx,
       float src_z = (dst_z + dst_offset) * dst2src_scale;
       uint32_t layer = (dst_res->target == GL_TEXTURE_CUBE_MAP) ? info->dst.box.z : dst_z;
 
-      glBindFramebuffer(GL_FRAMEBUFFER_EXT, blit_ctx->fb_id);
+      glBindFramebuffer(GL_FRAMEBUFFER, blit_ctx->fb_id);
       vrend_fb_bind_texture(dst_res, 0, info->dst.level, layer);
 
       buffers = GL_COLOR_ATTACHMENT0_EXT;
@@ -854,9 +854,9 @@ void vrend_renderer_blit_gl(UNUSED struct vrend_context *ctx,
 
    glUseProgram(0);
    glDeleteProgram(prog_id);
-   glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_STENCIL_ATTACHMENT,
+   glFramebufferTexture2DEXT(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
                              GL_TEXTURE_2D, 0, 0);
-   glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0,
+   glFramebufferTexture2DEXT(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
                              GL_TEXTURE_2D, 0, 0);
 }
 

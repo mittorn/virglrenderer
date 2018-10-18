@@ -376,14 +376,14 @@ static void vrend_add_formats(struct vrend_format_table *table, int num_entries)
         attachment = GL_DEPTH_ATTACHMENT;
       else
         attachment = GL_DEPTH_STENCIL_ATTACHMENT;
-      glFramebufferTexture2D(GL_FRAMEBUFFER_EXT, attachment, GL_TEXTURE_2D, tex_id, 0);
+      glFramebufferTexture2D(GL_FRAMEBUFFER, attachment, GL_TEXTURE_2D, tex_id, 0);
 
       is_depth = true;
 
       buffers = GL_NONE;
       glDrawBuffers(1, &buffers);
     } else {
-      glFramebufferTexture2D(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, tex_id, 0);
+      glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, tex_id, 0);
 
       buffers = GL_COLOR_ATTACHMENT0_EXT;
       glDrawBuffers(1, &buffers);
