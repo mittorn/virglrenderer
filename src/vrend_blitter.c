@@ -854,9 +854,9 @@ void vrend_renderer_blit_gl(UNUSED struct vrend_context *ctx,
 
    glUseProgram(0);
    glDeleteProgram(prog_id);
-   glFramebufferTexture2DEXT(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
+   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
                              GL_TEXTURE_2D, 0, 0);
-   glFramebufferTexture2DEXT(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
                              GL_TEXTURE_2D, 0, 0);
 }
 
