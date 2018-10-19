@@ -232,7 +232,7 @@ end:
     return ret;
 }
 
-int vtest_ping_protocol_version(void)
+int vtest_ping_protocol_version(UNUSED uint32_t length_dw)
 {
     uint32_t hdr_buf[VTEST_HDR_SIZE];
     int ret;
@@ -245,7 +245,7 @@ int vtest_ping_protocol_version(void)
     return 0;
 }
 
-int vtest_protocol_version(void)
+int vtest_protocol_version(UNUSED uint32_t length_dw)
 {
     uint32_t hdr_buf[VTEST_HDR_SIZE];
     uint32_t version_buf[VCMD_PROTOCOL_VERSION_SIZE];

@@ -45,8 +45,8 @@ int vtest_resource_busy_wait(uint32_t length_dw);
 int vtest_renderer_create_fence(void);
 int vtest_poll(void);
 
-int vtest_ping_protocol_version(void);
-int vtest_protocol_version(void);
+int vtest_ping_protocol_version(uint32_t length_dw);
+int vtest_protocol_version(uint32_t length_dw);
 
 void vtest_destroy_renderer(void);
 #endif
