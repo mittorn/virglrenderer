@@ -27,6 +27,8 @@
 #define VIRGL_QUERY_STATE_DONE 1
 #define VIRGL_QUERY_STATE_WAIT_HOST 2
 
+#include <stdint.h>
+
 struct virgl_host_query_state {
    uint32_t query_state;
    uint32_t result_size;
@@ -92,6 +94,7 @@ enum virgl_context_cmd {
    VIRGL_CCMD_SET_FRAMEBUFFER_STATE_NO_ATTACH,
    VIRGL_CCMD_TEXTURE_BARRIER,
    VIRGL_CCMD_SET_ATOMIC_BUFFERS,
+   VIRGL_MAX_COMMANDS,
 };
 
 /*

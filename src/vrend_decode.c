@@ -33,6 +33,7 @@
 #include "vrend_renderer.h"
 #include "vrend_object.h"
 #include "tgsi/tgsi_text.h"
+#include "vrend_debug.h"
 
 /* decode side */
 #define DECODE_MAX_TOKENS 8000
@@ -712,6 +713,9 @@ static int vrend_decode_create_object(struct vrend_decode_ctx *ctx, int length)
    if (handle == 0)
       return EINVAL;
 
+   VREND_DEBUG(dbg_object, ctx->grctx,"  CREATE %-18s handle:0x%x len:%d\n",
+               vrend_get_object_type_name(obj_type), handle, length);
+
    switch (obj_type){
    case VIRGL_OBJECT_BLEND:
       ret = vrend_decode_create_blend(ctx, handle, length);
@@ -759,6 +763,10 @@ static int vrend_decode_bind_object(struct vrend_decode_ctx *ctx, uint16_t lengt
    uint32_t handle = get_buf_entry(ctx, VIRGL_OBJ_BIND_HANDLE);
    uint8_t obj_type = (header >> 8) & 0xff;
 
+   VREND_DEBUG(dbg_object, ctx->grctx,
+               "  BIND %-20s handle:0x%x len:%d\n",
+               vrend_get_object_type_name(obj_type), handle, length);
+
    switch (obj_type) {
    case VIRGL_OBJECT_BLEND:
       vrend_object_bind_blend(ctx->grctx, handle);
@@ -785,6 +793,11 @@ static int vrend_decode_destroy_object(struct vrend_decode_ctx *ctx, int length)
       return EINVAL;
 
    uint32_t handle = get_buf_entry(ctx, VIRGL_OBJ_DESTROY_HANDLE);
+
+   VREND_DEBUG_EXT(dbg_object, ctx->grctx,
+               uint32_t obj = (get_buf_entry(ctx, 0) >> 8) & 0xFF;
+               fprintf(stderr, "  DESTROY %-17s handle:0x%x\n",
+                       vrend_get_object_type_name(obj), handle));
 
    vrend_renderer_object_destroy(ctx->grctx, handle);
    return 0;
@@ -1355,7 +1368,9 @@ int vrend_decode_block(uint32_t ctx_id, uint32_t *block, int ndw)
          vrend_report_buffer_error(gdctx->grctx, 0);
          break;
       }
-//      fprintf(stderr,"[%d] cmd is %d (obj %d) len %d\n", gdctx->ds->buf_offset, header & 0xff, (header >> 8 & 0xff), (len));
+
+      VREND_DEBUG(dbg_cmd, gdctx->grctx,"%-4d %-20s len:%d\n",
+                  gdctx->ds->buf_offset, vrend_get_comand_name(header & 0xff), len);
 
       switch (header & 0xff) {
       case VIRGL_CCMD_CREATE_OBJECT:
