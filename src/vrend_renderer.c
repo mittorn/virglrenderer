@@ -57,9 +57,6 @@
 #include <sys/eventfd.h>
 #endif
 
-/* debugging aid to dump shaders */
-int vrend_dump_shaders;
-
 /* debugging via KHR_debug extension */
 int vrend_use_debug_cb = 0;
 
@@ -991,7 +988,8 @@ static char *get_skip_str(int *skip_val)
    return start_skip;
 }
 
-static void set_stream_out_varyings(int prog_id, struct vrend_shader_info *sinfo)
+static void set_stream_out_varyings(struct vrend_context *ctx, int prog_id,
+                                    struct vrend_shader_info *sinfo)
 {
    struct pipe_stream_output_info *so = &sinfo->so_info;
    char *varyings[PIPE_MAX_SHADER_OUTPUTS*2];
@@ -1004,8 +1002,7 @@ static void set_stream_out_varyings(int prog_id, struct vrend_shader_info *sinfo
    if (!so->num_outputs)
       return;
 
-   if (vrend_dump_shaders)
-      dump_stream_out(so);
+   VREND_DEBUG_EXT(dbg_shader_streamout, ctx, dump_stream_out(so));
 
    for (i = 0; i < so->num_outputs; i++) {
       if (last_buffer != so->output[i].output_buffer) {
@@ -1271,15 +1268,15 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
       bool ret;
 
       if (gs)
-         vrend_patch_vertex_shader_interpolants(&ctx->shader_cfg, gs->glsl_prog,
+         vrend_patch_vertex_shader_interpolants(ctx, &ctx->shader_cfg, gs->glsl_prog,
                                                 &gs->sel->sinfo,
                                                 &fs->sel->sinfo, "gso", fs->key.flatshade);
       else if (tes)
-         vrend_patch_vertex_shader_interpolants(&ctx->shader_cfg, tes->glsl_prog,
+         vrend_patch_vertex_shader_interpolants(ctx, &ctx->shader_cfg, tes->glsl_prog,
                                                 &tes->sel->sinfo,
                                                 &fs->sel->sinfo, "teo", fs->key.flatshade);
       else
-         vrend_patch_vertex_shader_interpolants(&ctx->shader_cfg, vs->glsl_prog,
+         vrend_patch_vertex_shader_interpolants(ctx, &ctx->shader_cfg, vs->glsl_prog,
                                                 &vs->sel->sinfo,
                                                 &fs->sel->sinfo, "vso", fs->key.flatshade);
       ret = vrend_compile_shader(ctx, gs ? gs : (tes ? tes : vs));
@@ -1306,11 +1303,11 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
    if (gs) {
       if (gs->id > 0)
          glAttachShader(prog_id, gs->id);
-      set_stream_out_varyings(prog_id, &gs->sel->sinfo);
+      set_stream_out_varyings(ctx, prog_id, &gs->sel->sinfo);
    } else if (tes)
-      set_stream_out_varyings(prog_id, &tes->sel->sinfo);
+      set_stream_out_varyings(ctx, prog_id, &tes->sel->sinfo);
    else
-      set_stream_out_varyings(prog_id, &vs->sel->sinfo);
+      set_stream_out_varyings(ctx, prog_id, &vs->sel->sinfo);
    glAttachShader(prog_id, fs->id);
 
    if (fs->sel->sinfo.num_outputs > 1) {
@@ -2859,7 +2856,8 @@ static int vrend_shader_create(struct vrend_context *ctx,
 
    shader->id = glCreateShader(conv_shader_type(shader->sel->type));
    shader->compiled_fs_id = 0;
-   shader->glsl_prog = vrend_convert_shader(&ctx->shader_cfg, shader->sel->tokens, shader->sel->req_local_mem, &key, &shader->sel->sinfo);
+   shader->glsl_prog = vrend_convert_shader(ctx, &ctx->shader_cfg, shader->sel->tokens,
+                                            shader->sel->req_local_mem, &key, &shader->sel->sinfo);
    if (!shader->glsl_prog) {
       report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SHADER, 0);
       glDeleteShader(shader->id);
@@ -3075,8 +3073,8 @@ int vrend_create_shader(struct vrend_context *ctx,
          goto error;
       }
 
-      if (vrend_dump_shaders)
-         fprintf(stderr,"shader\n%s\n", shd_text);
+      VREND_DEBUG(dbg_shader_tgsi, ctx, "shader\n%s\n", shd_text);
+
       if (!tgsi_text_translate((const char *)shd_text, tokens, num_tokens + 10)) {
          free(tokens);
          ret = EINVAL;

@@ -111,19 +111,24 @@ struct vrend_shader_cfg {
    bool use_explicit_locations;
 };
 
-bool vrend_patch_vertex_shader_interpolants(struct vrend_shader_cfg *cfg,
+struct vrend_context;
+
+bool vrend_patch_vertex_shader_interpolants(struct vrend_context *rctx,
+                                            struct vrend_shader_cfg *cfg,
                                             char *program,
                                             struct vrend_shader_info *vs_info,
                                             struct vrend_shader_info *fs_info,
                                             const char *oprefix, bool flatshade);
 
-char *vrend_convert_shader(struct vrend_shader_cfg *cfg,
+char *vrend_convert_shader(struct  vrend_context *rctx,
+                           struct vrend_shader_cfg *cfg,
                            const struct tgsi_token *tokens,
                            uint32_t req_local_mem,
                            struct vrend_shader_key *key,
                            struct vrend_shader_info *sinfo);
 
 const char *vrend_shader_samplertypeconv(bool use_gles, int sampler_type, int *is_shad);
+
 char vrend_shader_samplerreturnconv(enum tgsi_return_type type);
 
 int shader_lookup_sampler_array(struct vrend_shader_info *sinfo, int index);

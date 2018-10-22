@@ -42,7 +42,6 @@ struct virgl_gl_ctx_param {
    bool shared;
 };
 
-extern int vrend_dump_shaders;
 struct vrend_context;
 
 /* Number of mipmap levels for which to keep the backing iov offsets.

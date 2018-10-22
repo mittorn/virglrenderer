@@ -28,6 +28,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 static const struct debug_named_value vrend_debug_options[] = {
+   {"tgsi", dbg_shader_tgsi, "Print TGSI"},
+   {"glsl", dbg_shader_glsl, "Print GLSL shaders created from TGSI"},
+   {"shader", dbg_shader, "Print TGSI and created GLSL shaders"},
+   {"stream", dbg_shader_streamout, "Print shader streamout"},
    DEBUG_NAMED_VALUE_END
 };
 

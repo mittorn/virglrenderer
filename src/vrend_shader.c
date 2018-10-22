@@ -32,8 +32,7 @@
 #include <math.h>
 #include <errno.h>
 #include "vrend_shader.h"
-
-extern int vrend_dump_shaders;
+#include "vrend_debug.h"
 
 /* start convert of tgsi to glsl */
 
@@ -5054,7 +5053,8 @@ static boolean analyze_instruction(struct tgsi_iterate_context *iter,
    return true;
 }
 
-char *vrend_convert_shader(struct vrend_shader_cfg *cfg,
+char *vrend_convert_shader(struct vrend_context *rctx,
+                           struct vrend_shader_cfg *cfg,
                            const struct tgsi_token *tokens,
                            uint32_t req_local_mem,
                            struct vrend_shader_key *key,
@@ -5147,8 +5147,9 @@ char *vrend_convert_shader(struct vrend_shader_cfg *cfg,
 
    strcat(glsl_final, glsl_hdr);
    strcat(glsl_final, ctx.glsl_main);
-   if (vrend_dump_shaders)
-      fprintf(stderr,"GLSL: %s\n", glsl_final);
+
+   VREND_DEBUG(dbg_shader_glsl, rctx, "GLSL: %s\n", glsl_final);
+
    free(ctx.temp_ranges);
    free(ctx.glsl_main);
    free(glsl_hdr);
@@ -5251,9 +5252,11 @@ static void require_gpu_shader5_and_msinterp(char *program)
    memcpy(ptr, gpu_shader5_and_msinterp_string, strlen(gpu_shader5_and_msinterp_string));
 }
 
-bool vrend_patch_vertex_shader_interpolants(struct vrend_shader_cfg *cfg, char *program,
+bool vrend_patch_vertex_shader_interpolants(struct vrend_context *rctx,
+                                            struct vrend_shader_cfg *cfg, char *program,
                                             struct vrend_shader_info *vs_info,
-                                            struct vrend_shader_info *fs_info, const char *oprefix, bool flatshade)
+                                            struct vrend_shader_info *fs_info,
+                                            const char *oprefix, bool flatshade)
 {
    int i;
    const char *pstring, *auxstring;
@@ -5307,7 +5310,7 @@ bool vrend_patch_vertex_shader_interpolants(struct vrend_shader_cfg *cfg, char *
       }
    }
 
-   if (vrend_dump_shaders)
-      fprintf(stderr,"GLSL: post interp:  %s\n", program);
+   VREND_DEBUG(dbg_shader_glsl, rctx, "GLSL: post interp:  %s\n", program);
+
    return true;
 }

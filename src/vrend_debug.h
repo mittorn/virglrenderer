@@ -29,7 +29,10 @@ struct vrend_context;
 void vrend_print_context_name(struct vrend_context *ctx);
 
 enum virgl_debug_flags {
-   dummy
+   dbg_shader_tgsi = 1 << 0,
+   dbg_shader_glsl = 1 << 1,
+   dbg_shader_streamout = 1 << 2,
+   dbg_shader = dbg_shader_tgsi | dbg_shader_glsl | dbg_shader_streamout,
 };
 
 void vrend_init_debug_flags(void);
