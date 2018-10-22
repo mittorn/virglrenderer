@@ -7108,8 +7108,19 @@ void vrend_renderer_resource_copy_region(struct vrend_context *ctx,
       return;
    }
 
+   VREND_DEBUG(dbg_copy_resource, ctx, "COPY_REGION: From %s ms:%d [%d, %d, %d]+[%d, %d, %d] lvl:%d "
+                                   "To %s ms:%d [%d, %d, %d]\n",
+                                   util_format_name(src_res->base.format), src_res->base.nr_samples,
+                                   src_box->x, src_box->y, src_box->z,
+                                   src_box->width, src_box->height, src_box->depth,
+                                   src_level,
+                                   util_format_name(dst_res->base.format), dst_res->base.nr_samples,
+                                   dstx, dsty, dstz);
+
    if (src_res->base.target == PIPE_BUFFER && dst_res->base.target == PIPE_BUFFER) {
       /* do a buffer copy */
+      VREND_DEBUG(dbg_copy_resource, ctx, "COPY_REGION: buffer copy %d+%d\n",
+                  src_box->x, src_box->width);
       vrend_resource_buffer_copy(ctx, src_res, dst_res, dstx,
                                  src_box->x, src_box->width);
       return;
@@ -7118,6 +7129,7 @@ void vrend_renderer_resource_copy_region(struct vrend_context *ctx,
    if (has_feature(feat_copy_image) &&
        format_is_copy_compatible(src_res->base.format,dst_res->base.format, true) &&
        src_res->base.nr_samples == dst_res->base.nr_samples) {
+      VREND_DEBUG(dbg_copy_resource, ctx, "COPY_REGION: use glCopyImageSubData\n");
       vrend_copy_sub_image(src_res, dst_res, src_level, src_box,
                            dst_level, dstx, dsty, dstz);
       return;
@@ -7125,12 +7137,15 @@ void vrend_renderer_resource_copy_region(struct vrend_context *ctx,
 
    if (!vrend_format_can_render(src_res->base.format) ||
        !vrend_format_can_render(dst_res->base.format)) {
+      VREND_DEBUG(dbg_copy_resource, ctx, "COPY_REGION: use resource_copy_fallback\n");
       vrend_resource_copy_fallback(src_res, dst_res, dst_level, dstx,
                                    dsty, dstz, src_level, src_box);
       return;
    }
 
    glBindFramebuffer(GL_FRAMEBUFFER, ctx->sub->blit_fb_ids[0]);
+   VREND_DEBUG(dbg_copy_resource, ctx, "COPY_REGION: use glBlitFramebuffer\n");
+
    /* clean out fb ids */
    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
                           GL_TEXTURE_2D, 0, 0);
@@ -7237,6 +7252,7 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
       use_gl = true;
 
    if (use_gl) {
+      VREND_DEBUG(dbg_blit, ctx, "BLIT_INT: use GL fallback\n");
       vrend_renderer_blit_gl(ctx, src_res, dst_res, info,
                              has_feature(feat_texture_srgb_decode));
       vrend_clicbs->make_current(0, ctx->sub->gl_context);
@@ -7406,6 +7422,20 @@ void vrend_renderer_blit(struct vrend_context *ctx,
    if (info->render_condition_enable == false)
       vrend_pause_render_condition(ctx, true);
 
+   VREND_DEBUG(dbg_blit, ctx, "BLIT: rc:%d scissor:%d filter:%d alpha:%d mask:0x%x\n"
+                                   "  From %s ms:%d [%d, %d, %d]+[%d, %d, %d] lvl:%d\n"
+                                   "  To   %s ms:%d [%d, %d, %d]+[%d, %d, %d] lvl:%d\n",
+                                   info->render_condition_enable, info->scissor_enable,
+                                   info->filter, info->alpha_blend, info->mask,
+                                   util_format_name(src_res->base.format), src_res->base.nr_samples,
+                                   info->src.box.x, info->src.box.y, info->src.box.z,
+                                   info->src.box.width, info->src.box.height, info->src.box.depth,
+                                   info->src.level,
+                                   util_format_name(dst_res->base.format), dst_res->base.nr_samples,
+                                   info->dst.box.x, info->dst.box.y, info->dst.box.z,
+                                   info->dst.box.width, info->dst.box.height, info->dst.box.depth,
+                                   info->dst.level);
+
    /* The Gallium blit function can be called for a general blit that may
     * scale, convert the data, and apply some rander states, or it is called via
     * glCopyImageSubData. If the src or the dst image are equal, or the two
@@ -7422,10 +7452,12 @@ void vrend_renderer_blit(struct vrend_context *ctx,
        info->src.box.width == info->dst.box.width &&
        info->src.box.height == info->dst.box.height &&
        info->src.box.depth == info->dst.box.depth) {
+      VREND_DEBUG(dbg_blit, ctx,  "  Use glCopyImageSubData\n");
       vrend_copy_sub_image(src_res, dst_res, info->src.level, &info->src.box,
                            info->dst.level, info->dst.box.x, info->dst.box.y,
                            info->dst.box.z);
    } else {
+      VREND_DEBUG(dbg_blit, ctx, "  Use blit_int\n");
       vrend_renderer_blit_int(ctx, src_res, dst_res, info);
    }
 

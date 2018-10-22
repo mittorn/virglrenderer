@@ -37,6 +37,8 @@ enum virgl_debug_flags {
    dbg_shader = dbg_shader_tgsi | dbg_shader_glsl | dbg_shader_streamout,
    dbg_cmd = 1 << 3,
    dbg_object = 1 << 4,
+   dbg_blit = 1 << 5,
+   dbg_copy_resource = 1 << 6,
 };
 
 const char *vrend_get_comand_name(enum virgl_context_cmd cmd);

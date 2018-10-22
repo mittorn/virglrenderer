@@ -108,6 +108,8 @@ static const struct debug_named_value vrend_debug_options[] = {
    {"stream", dbg_shader_streamout, "Print shader streamout"},
    {"cmd", dbg_cmd, "Print incoming commands"},
    {"obj", dbg_object, "Print object creation"},
+   {"blit", dbg_blit, "Debug blit code path"},
+   {"copyres", dbg_copy_resource, "Debug copy resource code path"},
    DEBUG_NAMED_VALUE_END
 };
 
