@@ -28,6 +28,7 @@
 #include "pipe/p_state.h"
 #include "util/u_inlines.h"
 #include "virgl_protocol.h"
+#include "vrend_debug.h"
 #include "vrend_iov.h"
 #include "virgl_hw.h"
 #include <epoxy/gl.h>
@@ -408,6 +409,9 @@ void vrend_blitter_fini(void);
 void vrend_renderer_reset(void);
 int vrend_renderer_get_poll_fd(void);
 void vrend_decode_reset(bool ctx_0_only);
+
+unsigned vrend_context_has_debug_flag(struct vrend_context *ctx,
+                                      enum virgl_debug_flags flag);
 
 unsigned vrend_renderer_query_multisample_caps(unsigned max_samples,
                                                struct virgl_caps_v2 *caps);

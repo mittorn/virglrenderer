@@ -27,6 +27,8 @@ libvrend_la_SOURCES = \
         vrend_shader.h \
         vrend_object.c \
         vrend_object.h \
+        vrend_debug.c \
+        vrend_debug.h \
         vrend_decode.c \
         vrend_formats.c \
         vrend_blitter.c \

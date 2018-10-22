@@ -47,6 +47,7 @@
 #include "vrend_shader.h"
 
 #include "vrend_renderer.h"
+#include "vrend_debug.h"
 
 #include "virgl_hw.h"
 
@@ -577,6 +578,8 @@ struct vrend_context {
    struct list_head ctx_entry;
 
    struct vrend_shader_cfg shader_cfg;
+
+   unsigned debug_flags;
 };
 
 static struct vrend_resource *vrend_renderer_ctx_res_lookup(struct vrend_context *ctx, int res_handle);
@@ -8632,6 +8635,19 @@ void vrend_renderer_create_sub_ctx(struct vrend_context *ctx, int sub_ctx_id)
       ctx->sub0 = sub;
 }
 
+unsigned vrend_context_has_debug_flag(struct vrend_context *ctx, enum virgl_debug_flags flag)
+{
+   return ctx && (ctx->debug_flags & flag);
+}
+
+void vrend_print_context_name(struct vrend_context *ctx)
+{
+   if (ctx)
+      fprintf(stderr, "%s: ", ctx->debug_name);
+   else
+      fprintf(stderr, "HOST: ");
+}
+
 void vrend_renderer_destroy_sub_ctx(struct vrend_context *ctx, int sub_ctx_id)
 {
    struct vrend_sub_context *sub, *tofree = NULL;
@@ -8699,7 +8715,7 @@ void vrend_renderer_reset(void)
    vrend_object_fini_resource_table();
    vrend_decode_reset(true);
    vrend_object_init_resource_table();
-   vrend_renderer_context_create_internal(0, 0, NULL);
+   vrend_renderer_context_create_internal(0, strlen("HOST"), "HOST");
 }
 
 int vrend_renderer_get_poll_fd(void)
