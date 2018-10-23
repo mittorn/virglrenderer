@@ -126,6 +126,7 @@ enum features_id
    feat_shader_clock,
    feat_ssbo,
    feat_ssbo_barrier,
+   feat_srgb_write_control,
    feat_stencil_texturing,
    feat_storage_multisample,
    feat_tessellation,
@@ -198,6 +199,7 @@ static const  struct {
    FEAT(shader_clock, UNAVAIL, UNAVAIL,  "GL_ARB_shader_clock" ),
    FEAT(ssbo, 43, 31,  "GL_ARB_shader_storage_buffer_object" ),
    FEAT(ssbo_barrier, 43, 31, NULL),
+   FEAT(srgb_write_control, 30, UNAVAIL, "GL_EXT_sRGB_write_control"),
    FEAT(stencil_texturing, 43, 31,  "GL_ARB_stencil_texturing" ),
    FEAT(storage_multisample, 43, 31,  "GL_ARB_texture_storage_multisample" ),
    FEAT(tessellation, 40, 32,  "GL_ARB_tessellation_shader", "GL_OES_tessellation_shader", "GL_EXT_tessellation_shader" ),
@@ -2037,11 +2039,10 @@ static void vrend_hw_emit_framebuffer_state(struct vrend_context *ctx)
 
    if (ctx->sub->nr_cbufs == 0) {
       glReadBuffer(GL_NONE);
-      if (!vrend_state.use_gles) {
+      if (has_feature(feat_srgb_write_control)) {
          glDisable(GL_FRAMEBUFFER_SRGB_EXT);
       }
-   } else if (!vrend_state.use_gles) {
-      /* Do not enter this path on GLES as this is not needed. */
+   } else if (has_feature(feat_srgb_write_control)) {
       struct vrend_surface *surf = NULL;
       bool use_srgb = false;
       int i;
@@ -5296,6 +5297,8 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
    init_features(gles ? 0 : gl_ver,
                  gles ? gl_ver : 0);
 
+   vrend_state.features[feat_srgb_write_control] &= virgl_has_gl_colorspace();
+
    glGetIntegerv(GL_MAX_DRAW_BUFFERS, (GLint *) &vrend_state.max_draw_buffers);
 
    if (!has_feature(feat_arb_robustness) &&
@@ -7458,7 +7461,7 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
       vrend_fb_bind_texture(dst_res, 0, info->dst.level, info->dst.box.z + i);
       glBindFramebuffer(GL_DRAW_FRAMEBUFFER, ctx->sub->blit_fb_ids[1]);
 
-      if (!vrend_state.use_gles) {
+      if (has_feature(feat_srgb_write_control)) {
          if (util_format_is_srgb(dst_res->base.format))
             glEnable(GL_FRAMEBUFFER_SRGB);
          else
@@ -8448,6 +8451,9 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
    /* always enable this since it doesn't require an ext to pass tests */
    caps->v2.capability_bits |= VIRGL_CAP_TGSI_COMPONENTS;
 
+   if (has_feature(feat_srgb_write_control))
+      caps->v2.capability_bits |= VIRGL_CAP_SRGB_WRITE_CONTROL;
+
    /* Enable feature use just now otherwise we just get a lot noise because
     * of the caps setting */
    if (vrend_debug(NULL, dbg_features))
@@ -8455,6 +8461,7 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
 
    /* always enable, only indicates that the CMD is supported */
    caps->v2.capability_bits |= VIRGL_CAP_GUEST_MAY_INIT_LOG;
+
 }
 
 void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
