@@ -214,6 +214,8 @@ enum virgl_formats {
 
    VIRGL_FORMAT_R10G10B10X2_UNORM       = 308,
    VIRGL_FORMAT_A4B4G4R4_UNORM          = 311,
+
+   VIRGL_FORMAT_R8_SRGB                 = 312,
    VIRGL_FORMAT_MAX,
 };
 

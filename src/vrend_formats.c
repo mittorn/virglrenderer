@@ -258,6 +258,11 @@ static struct vrend_format_table gl_srgb_formats[] =
   { VIRGL_FORMAT_B8G8R8A8_SRGB, GL_SRGB8_ALPHA8, GL_BGRA, GL_UNSIGNED_BYTE, NO_SWIZZLE },
 };
 
+static struct vrend_format_table gles_srgb_r8_format[] =
+{
+   { VIRGL_FORMAT_R8_SRGB, GL_SR8_EXT, GL_RED, GL_UNSIGNED_BYTE, NO_SWIZZLE },
+};
+
 static struct vrend_format_table bit10_formats[] = {
   { VIRGL_FORMAT_B10G10R10X2_UNORM, GL_RGB10_A2, GL_BGRA, GL_UNSIGNED_INT_2_10_10_10_REV, RGB1_SWIZZLE },
   { VIRGL_FORMAT_B10G10R10A2_UNORM, GL_RGB10_A2, GL_BGRA, GL_UNSIGNED_INT_2_10_10_10_REV, NO_SWIZZLE },
@@ -467,6 +472,7 @@ void vrend_build_format_list_gles(void)
    */
   add_formats(gles_bgra_formats);
 
+  add_formats(gles_srgb_r8_format);
 
   /* The Z32 format is required, but OpenGL ES does not support
    * using it as a depth buffer. We just fake support with Z24
