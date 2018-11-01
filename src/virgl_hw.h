@@ -23,6 +23,8 @@
 #ifndef VIRGL_HW_H
 #define VIRGL_HW_H
 
+#include <stdint.h>
+
 struct virgl_box {
 	uint32_t x, y, z;
 	uint32_t w, h, d;

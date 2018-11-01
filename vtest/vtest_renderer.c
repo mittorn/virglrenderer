@@ -29,6 +29,7 @@
 #include <fcntl.h>
 #include <limits.h>
 
+#include "virgl_hw.h"
 #include "virglrenderer.h"
 
 #include <sys/uio.h>
@@ -63,11 +64,6 @@ struct vtest_renderer {
 };
 
 struct vtest_renderer renderer;
-
-struct virgl_box {
-   uint32_t x, y, z;
-   uint32_t w, h, d;
-};
 
 static int
 __failed_call(const char* func, const char *called, int ret)
