@@ -1161,10 +1161,13 @@ static void bind_image_locs(struct vrend_linked_shader_program *sprog,
    char name[32];
    const char *prefix = pipe_shader_to_prefix(id);
 
+   uint32_t mask = sprog->ss[id]->sel->sinfo.images_used_mask;
+   if (!mask && ! sprog->ss[id]->sel->sinfo.num_image_arrays)
+      return;
+
    if (!has_feature(feat_images))
       return;
 
-   uint32_t mask = sprog->ss[id]->sel->sinfo.images_used_mask;
    int nsamp = util_last_bit(mask);
    if (nsamp) {
       sprog->img_locs[id] = calloc(nsamp, sizeof(GLint));
@@ -2585,10 +2588,10 @@ void vrend_set_single_image_view(struct vrend_context *ctx,
    struct vrend_image_view *iview = &ctx->sub->image_views[shader_type][index];
    struct vrend_resource *res;
 
-   if (!has_feature(feat_images))
-      return;
-
    if (handle) {
+      if (!has_feature(feat_images))
+         return;
+
       res = vrend_renderer_ctx_res_lookup(ctx, handle);
       if (!res) {
          report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, handle);
@@ -2969,17 +2972,17 @@ int vrend_create_shader(struct vrend_context *ctx,
    if (type > PIPE_SHADER_COMPUTE)
       return EINVAL;
 
-   if (!has_feature(feat_geometry_shader) &&
-       type == PIPE_SHADER_GEOMETRY)
+   if (type == PIPE_SHADER_GEOMETRY &&
+       !has_feature(feat_geometry_shader))
       return EINVAL;
 
-   if (!has_feature(feat_tessellation) &&
-       (type == PIPE_SHADER_TESS_CTRL ||
-        type == PIPE_SHADER_TESS_EVAL))
-      return EINVAL;
+   if ((type == PIPE_SHADER_TESS_CTRL ||
+        type == PIPE_SHADER_TESS_EVAL) &&
+       !has_feature(feat_tessellation))
+       return EINVAL;
 
-   if (!has_feature(feat_compute_shader) &&
-       type == PIPE_SHADER_COMPUTE)
+   if (type == PIPE_SHADER_COMPUTE &&
+       !has_feature(feat_compute_shader))
       return EINVAL;
 
    if (offlen & VIRGL_OBJ_SHADER_OFFSET_CONT)
@@ -3699,13 +3702,14 @@ static void vrend_draw_bind_images_shader(struct vrend_context *ctx, int shader_
    struct vrend_image_view *iview;
    uint32_t mask, tex_id, level, first_layer;
 
-   if (!has_feature(feat_images))
-      return;
 
    if (!ctx->sub->images_used_mask[shader_type])
       return;
 
    if (!ctx->sub->prog->img_locs[shader_type])
+      return;
+
+   if (!has_feature(feat_images))
       return;
 
    mask = ctx->sub->images_used_mask[shader_type];
