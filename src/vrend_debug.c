@@ -112,6 +112,7 @@ static const struct debug_named_value vrend_debug_options[] = {
    {"copyres", dbg_copy_resource, "Debug copy resource code path"},
    {"feat", dbg_features, "Log features found"},
    {"tex", dbg_tex, "Log texture operations"},
+   {"all", dbg_all, "Enable all debugging output"},
    {"guestallow", dbg_allow_guest_override, "Allow the guest to override the debug flags"},
    DEBUG_NAMED_VALUE_END
 };

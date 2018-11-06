@@ -41,6 +41,7 @@ enum virgl_debug_flags {
    dbg_copy_resource = 1 << 6,
    dbg_features = 1 << 7,
    dbg_tex = 1 << 8,
+   dbg_all = (1 << 9) - 1,
    dbg_allow_guest_override = 1 << 16,
    dbg_feature_use = 1 << 17,
 };

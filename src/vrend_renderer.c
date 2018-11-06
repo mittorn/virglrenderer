@@ -5214,6 +5214,10 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
       vrend_clicbs = cbs;
    }
 
+#ifndef NDEBUG
+   vrend_init_debug_flags();
+#endif
+
    ctx_params.shared = false;
    for (uint32_t i = 0; i < ARRAY_SIZE(gl_versions); i++) {
       ctx_params.major_ver = gl_versions[i].major;
