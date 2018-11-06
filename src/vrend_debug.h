@@ -39,6 +39,8 @@ enum virgl_debug_flags {
    dbg_object = 1 << 4,
    dbg_blit = 1 << 5,
    dbg_copy_resource = 1 << 6,
+   dbg_features = 1 << 7,
+   dbg_feature_use = 1 << 17,
 };
 
 const char *vrend_get_comand_name(enum virgl_context_cmd cmd);
@@ -49,6 +51,8 @@ const char *vrend_get_object_type_name(enum virgl_object_type cmd);
 void vrend_init_debug_flags(void);
 
 unsigned vrend_debug(struct vrend_context *ctx, enum virgl_debug_flags flag);
+
+void vrend_debug_add_flag(enum virgl_debug_flags flag);
 
 #ifndef NDEBUG
 #define VREND_DEBUG(flag, ctx,  ...) \

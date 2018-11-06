@@ -110,6 +110,7 @@ static const struct debug_named_value vrend_debug_options[] = {
    {"obj", dbg_object, "Print object creation"},
    {"blit", dbg_blit, "Debug blit code path"},
    {"copyres", dbg_copy_resource, "Debug copy resource code path"},
+   {"feat", dbg_features, "Log features found"},
    DEBUG_NAMED_VALUE_END
 };
 
@@ -127,4 +128,9 @@ void vrend_init_debug_flags()
 unsigned vrend_debug(struct vrend_context *ctx, enum virgl_debug_flags flag)
 {
    return (vrend_debug_flags & flag) || vrend_context_has_debug_flag(ctx, flag);
+}
+
+void vrend_debug_add_flag(enum virgl_debug_flags flag)
+{
+   vrend_debug_flags |= flag;
 }

@@ -253,6 +253,9 @@ static struct global_renderer_state vrend_state;
 
 static inline bool has_feature(enum features_id feature_id)
 {
+   VREND_DEBUG(dbg_feature_use, NULL, "Try using feature %s:%d\n",
+               feature_list[feature_id].log_name,
+               vrend_state.features[feature_id]);
    return vrend_state.features[feature_id];
 }
 
@@ -723,14 +726,20 @@ static void init_features(int gl_ver, int gles_ver)
 {
    for (enum features_id id = 0; id < feat_last; id++) {
       if (gl_ver >= feature_list[id].gl_ver ||
-          gles_ver >= feature_list[id].gles_ver)
+          gles_ver >= feature_list[id].gles_ver) {
          set_feature(id);
-      else {
+         VREND_DEBUG(dbg_features, NULL, "Host feature %s provided by %s %3.1f\n",
+                     feature_list[id].log_name, (gl_ver > 0 ? "GL" : "GLES"),
+                     0.1f * (gl_ver > 0 ? gl_ver : gles_ver));
+      } else {
          for (uint32_t i = 0; i < FEAT_MAX_EXTS; i++) {
             if (!feature_list[id].gl_ext[i])
                break;
             if (epoxy_has_gl_extension(feature_list[id].gl_ext[i])) {
                set_feature(id);
+               VREND_DEBUG(dbg_features, NULL,
+                           "Host feature %s provide by %s\n", feature_list[id].log_name,
+                           feature_list[id].gl_ext[i]);
                break;
             }
          }
@@ -8355,6 +8364,11 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
       caps->v2.capability_bits |= VIRGL_CAP_TEXTURE_BARRIER;
    /* always enable this since it doesn't require an ext to pass tests */
    caps->v2.capability_bits |= VIRGL_CAP_TGSI_COMPONENTS;
+
+   /* Enable feature use just now otherwise we just get a lot noise because
+    * of the caps setting */
+   if (vrend_debug(NULL, dbg_features))
+      vrend_debug_add_flag(dbg_feature_use);
 }
 
 void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
