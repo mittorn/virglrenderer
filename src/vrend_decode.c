@@ -1262,6 +1262,32 @@ static int vrend_decode_texture_barrier(struct vrend_decode_ctx *ctx, uint16_t l
    return 0;
 }
 
+static int vrend_decode_set_debug_mask(struct vrend_decode_ctx *ctx, int length)
+{
+   char *flagstring;
+   int slen = sizeof(uint32_t) * length;
+   uint32_t *buf;
+
+   if (length < VIRGL_SET_DEBUG_FLAGS_MIN_SIZE)
+      return EINVAL;
+
+   buf = get_buf_ptr(ctx, VIRGL_SET_DEBUG_FLAGSTRING_OFFSET);
+   flagstring = malloc(slen+1);
+
+   if (!flagstring) {
+      return ENOMEM;
+   }
+
+   memcpy(flagstring, buf, slen);
+   flagstring[slen] = 0;
+   vrend_context_set_debug_flags(ctx->grctx, flagstring);
+
+   free(flagstring);
+
+   return 0;
+}
+
+
 void vrend_renderer_context_create_internal(uint32_t handle, uint32_t nlen,
                                             const char *debug_name)
 {
@@ -1492,6 +1518,9 @@ int vrend_decode_block(uint32_t ctx_id, uint32_t *block, int ndw)
          break;
       case VIRGL_CCMD_TEXTURE_BARRIER:
          ret = vrend_decode_texture_barrier(gdctx, len);
+         break;
+      case VIRGL_CCMD_SET_DEBUG_FLAGS:
+         ret = vrend_decode_set_debug_mask(gdctx, len);
          break;
       default:
          ret = EINVAL;

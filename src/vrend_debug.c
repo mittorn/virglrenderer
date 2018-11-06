@@ -112,11 +112,31 @@ static const struct debug_named_value vrend_debug_options[] = {
    {"copyres", dbg_copy_resource, "Debug copy resource code path"},
    {"feat", dbg_features, "Log features found"},
    {"tex", dbg_tex, "Log texture operations"},
+   {"guestallow", dbg_allow_guest_override, "Allow the guest to override the debug flags"},
    DEBUG_NAMED_VALUE_END
 };
 
 static uint64_t vrend_debug_flags = 0;
 static int vrend_debug_flags_initalized = 0;
+
+int vrend_get_debug_flags(const char *flagstring)
+{
+   int retval;
+   char buf[1024] = "";
+
+   /* Unfortunately the available function to scan the flags take the string
+    * from the environment. The alternative to using setenv would be to
+    * duplicate code or to change the gallium/util intefaces and diverge more
+    * from mesa. So just stick to the environment variable. */
+   snprintf(buf, 1024, "VREND_TEMP_DEBUG_STRING_%d", getpid());
+   setenv(buf, flagstring, 1);
+
+   retval = (int)debug_get_flags_option(buf,
+                                        vrend_debug_options, 0);
+   unsetenv(buf);
+   return retval;
+}
+
 void vrend_init_debug_flags()
 {
    if (!vrend_debug_flags_initalized)  {
@@ -134,4 +154,9 @@ unsigned vrend_debug(struct vrend_context *ctx, enum virgl_debug_flags flag)
 void vrend_debug_add_flag(enum virgl_debug_flags flag)
 {
    vrend_debug_flags |= flag;
+}
+
+int  vrend_debug_can_override(void)
+{
+   return vrend_debug_flags & dbg_allow_guest_override;
 }

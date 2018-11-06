@@ -8402,6 +8402,9 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
     * of the caps setting */
    if (vrend_debug(NULL, dbg_features))
       vrend_debug_add_flag(dbg_feature_use);
+
+   /* always enable, only indicates that the CMD is supported */
+   caps->v2.capability_bits |= VIRGL_CAP_GUEST_MAY_INIT_LOG;
 }
 
 void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
@@ -8609,6 +8612,15 @@ static struct vrend_resource *vrend_renderer_ctx_res_lookup(struct vrend_context
    struct vrend_resource *res = vrend_object_lookup(ctx->res_hash, res_handle, 1);
 
    return res;
+}
+
+void vrend_context_set_debug_flags(struct vrend_context *ctx, const char *flagstring)
+{
+   if (vrend_debug_can_override()) {
+      ctx->debug_flags |= vrend_get_debug_flags(flagstring);
+      if (ctx->debug_flags & dbg_features)
+         vrend_debug_add_flag(dbg_feature_use);
+   }
 }
 
 int vrend_renderer_resource_get_info(int res_handle,

@@ -41,6 +41,7 @@ enum virgl_debug_flags {
    dbg_copy_resource = 1 << 6,
    dbg_features = 1 << 7,
    dbg_tex = 1 << 8,
+   dbg_allow_guest_override = 1 << 16,
    dbg_feature_use = 1 << 17,
 };
 
@@ -50,6 +51,12 @@ const char *vrend_get_object_type_name(enum virgl_object_type cmd);
 
 
 void vrend_init_debug_flags(void);
+
+int  vrend_debug_can_override(void);
+
+int vrend_get_debug_flags(const char *flagstring);
+
+void vrend_context_set_debug_flags(struct vrend_context *ctx, const char *flags);
 
 unsigned vrend_debug(struct vrend_context *ctx, enum virgl_debug_flags flag);
 
