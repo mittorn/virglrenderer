@@ -1869,6 +1869,33 @@ int vrend_create_sampler_view(struct vrend_context *ctx,
    return 0;
 }
 
+static
+void debug_texture(const char *f, const struct vrend_resource *gt)
+{
+   const struct pipe_resource *pr = &gt->base;
+#define PRINT_TARGET(X) case X: fprintf(stderr, #X); break
+   VREND_DEBUG_EXT(dbg_tex, NULL,
+               fprintf(stderr, "%s: ", f);
+               switch (tgsitargettogltarget(pr->target, pr->nr_samples)) {
+               PRINT_TARGET(GL_TEXTURE_RECTANGLE_NV);
+               PRINT_TARGET(GL_TEXTURE_1D);
+               PRINT_TARGET(GL_TEXTURE_2D);
+               PRINT_TARGET(GL_TEXTURE_3D);
+               PRINT_TARGET(GL_TEXTURE_1D_ARRAY);
+               PRINT_TARGET(GL_TEXTURE_2D_ARRAY);
+               PRINT_TARGET(GL_TEXTURE_2D_MULTISAMPLE);
+               PRINT_TARGET(GL_TEXTURE_CUBE_MAP);
+               PRINT_TARGET(GL_TEXTURE_CUBE_MAP_ARRAY);
+               default:
+                  fprintf(stderr, "UNKNOWN");
+               }
+               fprintf(stderr, " id:%d pipe_type:%d ms:%d format:%s size: %dx%dx%d mip:%d\n",
+                       gt->id, pr->target, pr->nr_samples, util_format_name(pr->format),
+                       pr->width0, pr->height0, pr->depth0, pr->last_level);
+               );
+#undef PRINT_TARGET
+}
+
 static void vrend_fb_bind_texture_id(struct vrend_resource *res,
                                      int id,
                                      int idx,
@@ -1876,6 +1903,8 @@ static void vrend_fb_bind_texture_id(struct vrend_resource *res,
 {
    const struct util_format_description *desc = util_format_description(res->base.format);
    GLenum attachment = GL_COLOR_ATTACHMENT0 + idx;
+
+   debug_texture(__func__, res);
 
    if (vrend_format_is_ds(res->base.format)) {
       if (util_format_has_stencil(desc)) {
@@ -3566,6 +3595,8 @@ static void vrend_draw_bind_samplers_shader(struct vrend_context *ctx,
          GLuint id;
          struct vrend_resource *texture = tview->texture;
          GLenum target = tview->target;
+
+         debug_texture(__func__, tview->texture);
 
          if (texture->is_buffer) {
             id = texture->tbo_tex_id;
@@ -5268,7 +5299,7 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
    list_inithead(&vrend_state.waiting_query_list);
    list_inithead(&vrend_state.active_ctx_list);
    /* create 0 context */
-   vrend_renderer_context_create_internal(0, 0, NULL);
+   vrend_renderer_context_create_internal(0, strlen("HOST"), "HOST");
 
    vrend_state.eventfd = -1;
    if (flags & VREND_USE_THREAD_SYNC) {
@@ -5634,6 +5665,8 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
 
    glGenTextures(1, &gr->id);
    glBindTexture(gr->target, gr->id);
+
+   debug_texture(__func__, gr);
 
    internalformat = tex_conv_table[pr->format].internalformat;
    glformat = tex_conv_table[pr->format].glformat;

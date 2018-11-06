@@ -40,6 +40,7 @@ enum virgl_debug_flags {
    dbg_blit = 1 << 5,
    dbg_copy_resource = 1 << 6,
    dbg_features = 1 << 7,
+   dbg_tex = 1 << 8,
    dbg_feature_use = 1 << 17,
 };
 
