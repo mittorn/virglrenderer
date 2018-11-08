@@ -296,6 +296,8 @@ struct vrend_linked_shader_program {
 
    uint32_t ssbo_used_mask[PIPE_SHADER_TYPES];
    GLuint *ssbo_locs[PIPE_SHADER_TYPES];
+
+   struct vrend_sub_context *ref_context;
 };
 
 struct vrend_shader {
@@ -1462,6 +1464,9 @@ static struct vrend_linked_shader_program *lookup_shader_program(struct vrend_co
 static void vrend_destroy_program(struct vrend_linked_shader_program *ent)
 {
    int i;
+   if (ent->ref_context && ent->ref_context->prog == ent)
+      ent->ref_context->prog = NULL;
+
    glDeleteProgram(ent->id);
    list_del(&ent->head);
 
@@ -3940,6 +3945,7 @@ int vrend_draw_vbo(struct vrend_context *ctx,
          if (ctx->sub->shaders[PIPE_SHADER_TESS_EVAL])
             ctx->sub->prog_ids[PIPE_SHADER_TESS_EVAL] = ctx->sub->shaders[PIPE_SHADER_TESS_EVAL]->current->id;
          ctx->sub->prog = prog;
+         prog->ref_context = ctx->sub;
       }
    }
    if (!ctx->sub->prog) {
@@ -4136,6 +4142,7 @@ void vrend_launch_grid(struct vrend_context *ctx,
          ctx->sub->prog_ids[PIPE_SHADER_VERTEX] = -1;
          ctx->sub->prog_ids[PIPE_SHADER_COMPUTE] = ctx->sub->shaders[PIPE_SHADER_COMPUTE]->current->id;
          ctx->sub->prog = prog;
+         prog->ref_context = ctx->sub;
       }
       ctx->sub->shader_dirty = true;
    }
@@ -5370,6 +5377,9 @@ static void vrend_destroy_sub_context(struct vrend_sub_context *sub)
    vrend_shader_state_reference(&sub->shaders[PIPE_SHADER_TESS_CTRL], NULL);
    vrend_shader_state_reference(&sub->shaders[PIPE_SHADER_TESS_EVAL], NULL);
    vrend_shader_state_reference(&sub->shaders[PIPE_SHADER_COMPUTE], NULL);
+
+   if (sub->prog)
+      sub->prog->ref_context = NULL;
 
    vrend_free_programs(sub);
    for (i = 0; i < PIPE_SHADER_TYPES; i++) {
