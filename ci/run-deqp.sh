@@ -74,7 +74,7 @@ NUM_JOBS=$(nproc)
 if [[ "x$ONLY_SOFTPIPE_PASS"="xyes" ]] ; then
     time deqp --threads=$NUM_JOBS \
      --cts-build-dir=/usr/local/VK-GL-CTS/ \
-     --test-names-file=/virglrenderer/ci/deqp-gles2-list.txt \
+     --test-names-file=/virglrenderer/ci/softpipe-gles-pass.txt \
      --print-failing \
      --results-file=$RESULTS_DIR/deqp_results.txt
 else
