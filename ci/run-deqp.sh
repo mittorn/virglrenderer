@@ -13,8 +13,8 @@ do
         --host-gl)
             HOST_GL=1
             ;;
-        --only-gles2)
-            ONLY_GLES2=yes
+        --only-softpipe)
+            ONLY_SOFTPIPE_PASS=yes
             ;;
         *)
             echo "Unknown argument"
@@ -27,18 +27,11 @@ export PATH=$PATH:/usr/local/go/bin
 export LD_LIBRARY_PATH=/usr/local/lib64:/usr/local/lib:/usr/local/lib/x86_64-linux-gnu
 #export MESA_GLES_VERSION_OVERRIDE=3.1
 
-if [[ -n "$HOST_GL" ]]; then
-    echo "Running tests with GL on the host"
-else
-    echo "Running tests with GLES on the host"
-fi
-
 if [[ -n $WITH_VTEST ]]; then
    nohup Xvfb :0 -screen 0 1024x768x24 &
 else
    startx &
 fi
-
 sleep 3
 export DISPLAY=:0
 
@@ -46,40 +39,39 @@ if [[ -n "$LIBGL_ALWAYS_SOFTWARE" ]]; then
     HOST_GALLIUM_DRIVER="_${GALLIUM_DRIVER}"
 fi
 
-if [[ -n "$WITH_VTEST" ]]; then
-   if [[ -n "$HOST_GL" ]]; then
-       VTEST_USE_EGL_SURFACELESS=1 nohup /virglrenderer/vtest/virgl_test_server 2> /dev/null &
-   else
-       VTEST_USE_EGL_SURFACELESS=1 VTEST_USE_GLES=1 nohup /virglrenderer/vtest/virgl_test_server 2> /dev/null &
-   fi
-
-   sleep 1
-
-   export LIBGL_ALWAYS_SOFTWARE=true
-   export GALLIUM_DRIVER=virpipe
-fi
-
-NUM_JOBS=$(expr $(nproc) + 4)
-
 if [[ -n "$HOST_GL" ]]; then
+    echo "Running tests with GL on the host"
     RESULTS_DIR=/virglrenderer/results/gl_host${HOST_GALLIUM_DRIVER}
     PREVIOUS_RESULTS_DIR=/virglrenderer/ci/previous_results/gl_host${HOST_GALLIUM_DRIVER}
 else
+    echo "Running tests with GLES on the host"
     RESULTS_DIR=/virglrenderer/results/es_host${HOST_GALLIUM_DRIVER}
     PREVIOUS_RESULTS_DIR=/virglrenderer/ci/previous_results/es_host${HOST_GALLIUM_DRIVER}
 fi
 mkdir -p $RESULTS_DIR
 
+if [[ -n "$WITH_VTEST" ]]; then
+    if [[ -n "$HOST_GL" ]]; then
+        if [[ -n "$ONLY_SOFTPIPE_PASS" ]]; then
+            # Softpipe only supports GL 3.3, but for guest GLES 3.1
+            # one GL 4.4 property is needed
+            VTEST_USE_EGL_SURFACELESS=1 nohup /virglrenderer/vtest/virgl_test_server >$RESULTS_DIR/vtest_gl.log 2>&1  &
+        else
+            VTEST_USE_EGL_SURFACELESS=1 nohup /virglrenderer/vtest/virgl_test_server >$RESULTS_DIR/vtest_gl.log  2>&1 &
+        fi
+   else
+       VTEST_USE_EGL_SURFACELESS=1 VTEST_USE_GLES=1 nohup /virglrenderer/vtest/virgl_test_server >$RESULTS_DIR/vtest_gles.log 2>&1  &
+   fi
 
-: '
-cd /usr/local/VK-GL-CTS/modules/gles2
-MESA_DEBUG=1 ./deqp-gles2 --deqp-case=dEQP-GLES2.functional.shaders.preprocessor.semantic.correct_order_fragment
-cp TestResults.qpa /virglrenderer/results/.
-exit
-'
+   sleep 1
 
-if [[ "x$ONLY_GLES2"="xyes" ]] ; then
-    export HOST_GALLIUM_DRIVER="-${GALLIUM_DRIVER}"
+   # Don't set the GALLIUM_DRIVER to virpipe before
+   # initializing virgl_test_server
+   export GALLIUM_DRIVER=virpipe
+fi
+
+NUM_JOBS=$(nproc)
+if [[ "x$ONLY_SOFTPIPE_PASS"="xyes" ]] ; then
     time deqp --threads=$NUM_JOBS \
      --cts-build-dir=/usr/local/VK-GL-CTS/ \
      --test-names-file=/virglrenderer/ci/deqp-gles2-list.txt \
@@ -130,8 +122,9 @@ if [ $? -ne 0 ]; then
 fi
 
 
-if [[ "x$ONLY_GLES2" != "xyes" ]] ; then
-    
+if [[ "x$ONLY_SOFTPIPE_PASS" != "xyes" ]] ; then
+    mkdir -p $RESULTS_DIR/piglit
+
     PIGLIT_TESTS="-x glx"
     if [[ -z "$HOST_GL" ]]; then
         PIGLIT_TESTS="$PIGLIT_TESTS -t gles2 -t gles3"

@@ -28,11 +28,11 @@ build_and_test:
 
     - echo core > /proc/sys/kernel/core_pattern
     - echo 0 > /proc/sys/kernel/core_uses_pid
-    - if test -e $RENDER_DEVICE; then RD_CONFIG="--device=$RENDER_DEVICE"; fi 
+    - if test -e $RENDER_DEVICE; then RD_CONFIG="--device=$RENDER_DEVICE -e RENDER_DEVICE=$RENDER_DEVICE"; fi
     - echo RD_CONFIG=$RD_CONFIG
     - time docker run
              --ulimit core=99999999999:99999999999
-             $RD_CONFIG 
+             $RD_CONFIG
              -v $PWD:/virglrenderer
              $CI_REGISTRY_IMAGE:latest
              /virglrenderer/ci/run-tests.sh 2>&1 | tee results/log.txt

@@ -15,11 +15,13 @@ mkdir -p $CCACHE_DIR
 ccache -s
 
 
-if [[ ! -c /dev/dri/renderD128 ]]; then
+# If render node, like /dev/dri/renderD128, hasn't been set
+# or exists use softpipe instead of HW GPU.
+if [[ ! -c $RENDER_DEVICE ]]; then
     export LIBGL_ALWAYS_SOFTWARE=1
     export GALLIVM_PERF=no_filter_hacks
-    export GALLIUM_DRIVER=llvmpipe
-    LIMIT_TESTSET=--only-gles2
+    export GALLIUM_DRIVER=softpipe
+    LIMIT_TESTSET=--only-softpipe
 fi
 
 cd /virglrenderer
