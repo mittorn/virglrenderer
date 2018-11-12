@@ -172,6 +172,7 @@ int main(int argc, char **argv)
     pid_t pid;
     bool do_fork = true, loop = true;
     struct sigaction sa;
+    char *socket_name = VTEST_DEFAULT_SOCKET_NAME;
 
 #ifdef __AFL_LOOP
 while (__AFL_LOOP(1000)) {
@@ -212,7 +213,7 @@ while (__AFL_LOOP(1000)) {
       }
     }
 
-    sock = vtest_open_socket("/tmp/.virgl_test");
+    sock = vtest_open_socket(socket_name);
 restart:
     in_fd = wait_for_socket_accept(sock);
     out_fd = in_fd;
