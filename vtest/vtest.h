@@ -21,10 +21,12 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  *
  **************************************************************************/
+
 #ifndef VTEST_H
 #define VTEST_H
 
 #include <errno.h>
+
 int vtest_create_renderer(int in_fd, int out_fd, uint32_t length);
 
 int vtest_send_caps(uint32_t length_dw);
@@ -49,5 +51,6 @@ int vtest_ping_protocol_version(uint32_t length_dw);
 int vtest_protocol_version(uint32_t length_dw);
 
 void vtest_destroy_renderer(void);
+
 #endif
 

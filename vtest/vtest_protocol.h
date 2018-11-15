@@ -21,6 +21,7 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  *
  **************************************************************************/
+
 #ifndef VTEST_PROTOCOL
 #define VTEST_PROTOCOL
 

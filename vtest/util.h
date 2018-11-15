@@ -21,6 +21,7 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  *
  **************************************************************************/
+
 #ifndef VTEST_UTIL_H
 #define VTEST_UTIL_H
 

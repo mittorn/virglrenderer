@@ -21,6 +21,7 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  *
  **************************************************************************/
+
 #include <stdio.h>
 #include <signal.h>
 #include <stdbool.h>
@@ -37,54 +38,56 @@
 #include "vtest.h"
 #include "vtest_protocol.h"
 
+
 static int vtest_open_socket(const char *path)
 {
-    struct sockaddr_un un;
-    int sock;
+   struct sockaddr_un un;
+   int sock;
 
-    sock = socket(PF_UNIX, SOCK_STREAM, 0);
-    if (sock < 0) {
-	return -1;
-    }
+   sock = socket(PF_UNIX, SOCK_STREAM, 0);
+   if (sock < 0) {
+      return -1;
+   }
 
-    memset(&un, 0, sizeof(un));
-    un.sun_family = AF_UNIX;
-    
-    snprintf(un.sun_path, sizeof(un.sun_path), "%s", path);
+   memset(&un, 0, sizeof(un));
+   un.sun_family = AF_UNIX;
 
-    unlink(un.sun_path);
+   snprintf(un.sun_path, sizeof(un.sun_path), "%s", path);
 
-    if (bind(sock, (struct sockaddr *)&un, sizeof(un)) < 0) {
-	goto err;
-    }
-    
-    if (listen(sock, 1) < 0){
-	goto err;
-    }
+   unlink(un.sun_path);
 
-    return sock;
- err:
-    close(sock);
-    return -1;
+   if (bind(sock, (struct sockaddr *)&un, sizeof(un)) < 0) {
+      goto err;
+   }
+
+   if (listen(sock, 1) < 0){
+      goto err;
+   }
+
+   return sock;
+err:
+   close(sock);
+   return -1;
 }
 
 static int wait_for_socket_accept(int sock)
 {
-    fd_set read_fds;
-    int new_fd;
-    int ret;
-    FD_ZERO(&read_fds);
-    FD_SET(sock, &read_fds);
+   fd_set read_fds;
+   int new_fd;
+   int ret;
+   FD_ZERO(&read_fds);
+   FD_SET(sock, &read_fds);
 
-    ret = select(sock + 1, &read_fds, NULL, NULL, NULL);
-    if (ret < 0)
-	return ret;
+   ret = select(sock + 1, &read_fds, NULL, NULL, NULL);
+   if (ret < 0) {
+      return ret;
+   }
 
-    if (FD_ISSET(sock, &read_fds)) {	
-	new_fd = accept(sock, NULL, NULL);
-	return new_fd;
-    }
-    return -1;
+   if (FD_ISSET(sock, &read_fds)) {
+      new_fd = accept(sock, NULL, NULL);
+      return new_fd;
+   }
+   return -1;
 }
 
 typedef int (*vtest_cmd_fptr_t)(uint32_t);
@@ -168,11 +171,11 @@ static int run_renderer(int in_fd, int out_fd)
 
 int main(int argc, char **argv)
 {
-    int ret, sock = -1, in_fd, out_fd;
-    pid_t pid;
-    bool do_fork = true, loop = true;
-    struct sigaction sa;
-    char *socket_name = VTEST_DEFAULT_SOCKET_NAME;
+   int ret, sock = -1, in_fd, out_fd;
+   pid_t pid;
+   bool do_fork = true, loop = true;
+   struct sigaction sa;
+   char *socket_name = VTEST_DEFAULT_SOCKET_NAME;
 
 #ifdef __AFL_LOOP
 while (__AFL_LOOP(1000)) {
@@ -180,10 +183,10 @@ while (__AFL_LOOP(1000)) {
 
    if (argc > 1) {
       if (!strcmp(argv[1], "--no-loop-or-fork")) {
-        do_fork = false;
-        loop = false;
+         do_fork = false;
+         loop = false;
       } else if (!strcmp(argv[1], "--no-fork")) {
-	do_fork = false;
+         do_fork = false;
       } else {
          ret = open(argv[1], O_RDONLY);
          if (ret == -1) {
@@ -201,48 +204,52 @@ while (__AFL_LOOP(1000)) {
          do_fork = false;
          goto start;
       }
-    }
+   }
 
-    if (do_fork) {
+   if (do_fork) {
       sa.sa_handler = SIG_IGN;
       sigemptyset(&sa.sa_mask);
       sa.sa_flags = 0;
       if (sigaction(SIGCHLD, &sa, 0) == -1) {
-	perror(0);
-	exit(1);
+         perror(0);
+         exit(1);
       }
-    }
+   }
 
-    sock = vtest_open_socket(socket_name);
+   sock = vtest_open_socket(socket_name);
 restart:
-    in_fd = wait_for_socket_accept(sock);
-    out_fd = in_fd;
+   in_fd = wait_for_socket_accept(sock);
+   out_fd = in_fd;
 
 start:
-    if (do_fork) {
+   if (do_fork) {
       /* fork a renderer process */
       switch ((pid = fork())) {
       case 0:
-        run_renderer(in_fd, out_fd);
-	exit(0);
-	break;
+         run_renderer(in_fd, out_fd);
+         exit(0);
+         break;
       case -1:
       default:
-	close(in_fd);
-        if (loop)
-           goto restart;
+         close(in_fd);
+         if (loop) {
+            goto restart;
+         }
       }
-    } else {
+   } else {
       run_renderer(in_fd, out_fd);
       vtest_destroy_renderer();
-      if (loop)
+      if (loop) {
          goto restart;
-    }
+      }
+   }
 
-    if (sock != -1)
-       close(sock);
-    if (in_fd != out_fd)
-       close(out_fd);
+   if (sock != -1) {
+      close(sock);
+   }
+   if (in_fd != out_fd) {
+      close(out_fd);
+   }
 
 #ifdef __AFL_LOOP
 }
