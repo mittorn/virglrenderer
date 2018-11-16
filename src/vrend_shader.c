@@ -1612,13 +1612,16 @@ static int emit_so_movs(struct dump_ctx *ctx)
          writemask[0] = 0;
 
       if (!ctx->write_so_outputs[i]) {
+         if (ctx->so_names[i])
+            free(ctx->so_names[i]);
          if (ctx->so->output[i].register_index > ctx->num_outputs)
             ctx->so_names[i] = NULL;
          else if (ctx->outputs[ctx->so->output[i].register_index].name == TGSI_SEMANTIC_CLIPVERTEX && ctx->has_clipvertex) {
             ctx->so_names[i] = strdup("clipv_tmp");
             ctx->has_clipvertex_so = true;
-         } else
+         } else {
             ctx->so_names[i] = strdup(ctx->outputs[ctx->so->output[i].register_index].glsl_name);
+         }
       } else {
          char ntemp[8];
          snprintf(ntemp, 8, "tfout%d", i);
@@ -5189,6 +5192,15 @@ char *vrend_convert_shader(struct vrend_context *rctx,
    sinfo->gs_out_prim = ctx.gs_out_prim;
    sinfo->tes_prim = ctx.tes_prim_mode;
    sinfo->tes_point_mode = ctx.tes_point_mode;
+
+   if (sinfo->so_names || ctx.so_names) {
+      if (sinfo->so_names) {
+         for (unsigned i = 0; i < sinfo->so_info.num_outputs; ++i)
+            free(sinfo->so_names[i]);
+         free(sinfo->so_names);
+      }
+   }
+
    sinfo->so_names = ctx.so_names;
    sinfo->attrib_input_mask = ctx.attrib_input_mask;
    sinfo->sampler_arrays = ctx.sampler_arrays;
