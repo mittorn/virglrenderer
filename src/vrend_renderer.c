@@ -285,6 +285,7 @@ struct vrend_linked_shader_program {
 
    GLuint *ubo_locs[PIPE_SHADER_TYPES];
    GLuint vs_ws_adjust_loc;
+   float viewport_neg_val;
 
    GLint fs_stipple_loc;
 
@@ -3962,7 +3963,11 @@ int vrend_draw_vbo(struct vrend_context *ctx,
       fprintf(stderr,"illegal VE setup - skipping renderering\n");
       return 0;
    }
-   glUniform1f(ctx->sub->prog->vs_ws_adjust_loc, ctx->sub->viewport_is_negative ? -1.0 : 1.0);
+   float viewport_neg_val = ctx->sub->viewport_is_negative ? -1.0 : 1.0;
+   if (ctx->sub->prog->viewport_neg_val != viewport_neg_val) {
+      glUniform1f(ctx->sub->prog->vs_ws_adjust_loc, viewport_neg_val);
+      ctx->sub->prog->viewport_neg_val = viewport_neg_val;
+   }
 
    if (ctx->sub->rs_state.clip_plane_enable) {
       for (i = 0 ; i < 8; i++) {
