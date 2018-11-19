@@ -1896,7 +1896,7 @@ static int emit_txq(struct dump_ctx *ctx,
    }
 
    if (inst->Dst[0].Register.WriteMask & 0x7) {
-      snprintf(buf, 255, "%s%s = %s(textureSize(%s%s))%s;\n", dsts[0], get_wm_string(twm), get_string(dtypeprefix), srcs[sampler_index], bias, util_bitcount(inst->Dst[0].Register.WriteMask) > 1 ? writemask : "");
+      snprintf(buf, 255, "%s%s = %s(textureSize(%s%s))%s;\n", dsts[0], get_wm_string(twm), get_string(dtypeprefix), srcs[sampler_index], bias, writemask);
       EMIT_BUF_WITH_RET(ctx, buf);
    }
    return 0;
