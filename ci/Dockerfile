@@ -142,7 +142,7 @@ RUN git clone --depth=1 https://github.com/VoltLang/Watt.git && \
     rm -rf /volt
 WORKDIR /
 
-ARG KNOWN_GOOD_DRM=4ec31fc31a4be909c8204164c844b4a18f098af7
+ARG KNOWN_GOOD_DRM=libdrm-2.4.95
 WORKDIR /drm
 RUN git clone --shallow-since="$GIT_DATE" https://gitlab.freedesktop.org/mesa/drm.git . && \
     git checkout ${KNOWN_GOOD_DRM} && \
