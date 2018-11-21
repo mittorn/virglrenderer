@@ -57,9 +57,11 @@ RUN apt-get update && \
       libpng-dev \
       libxrandr-dev \
       libsm-dev \
-      meson \
       ninja-build \
       zlib1g-dev \
+      python3-pip \
+      python3-setuptools \
+      python3-wheel \
       libwayland-dev \
       libwayland-egl-backend-dev && \
     apt-get -y build-dep --no-install-recommends \
@@ -71,6 +73,8 @@ RUN apt-get update && \
       piglit && \
     apt-get -y remove valgrind && \
     apt-get clean
+
+RUN pip3 install meson
 
 ARG KNOWN_GOOD_FAKEMACHINE=c4752ddf3343
 RUN go get -v github.com/tomeuv/fakemachine/cmd/fakemachine
