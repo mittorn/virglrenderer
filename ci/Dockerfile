@@ -6,6 +6,8 @@ ENV PATH=$PATH:/usr/local/go/bin
 ENV LD_LIBRARY_PATH=/usr/local/lib64:/usr/local/lib:/usr/local/lib/x86_64-linux-gnu
 ENV PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig:/usr/local/share/pkgconfig:/usr/local/lib/x86_64-linux-gnu/pkgconfig
 ENV LDFLAGS="-L/usr/local/lib64 -L/usr/local/lib/ -L/usr/local/lib/x86_64-linux-gnu"
+ENV CC="gcc-7"
+ENV CXX="g++-7"
 ENV CFLAGS="-g3"
 ENV CXXFLAGS="-g3"
 ENV GIT_DATE="`date +%Y-%m-%d -d \"1 year ago\"`"
@@ -27,6 +29,8 @@ RUN apt-get -y install ca-certificates && \
       clang-6.0 \
       cmake \
       dbus \
+      g++-7 \
+      gcc-7 \
       gdb \
       gdc-6 \
       git \
