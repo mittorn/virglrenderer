@@ -20,58 +20,57 @@ RUN echo deb-src http://deb.debian.org/debian testing main >> /etc/apt/sources.l
 RUN apt-get update
 RUN apt-get -y install ca-certificates && \
     apt-get -y install --no-install-recommends \
-      libgbm-dev \
-      libxvmc-dev \
       autoconf \
-      golang-go \
-      cmake \
-      spirv-headers \
-      xinit \
-      check \
-      linux-image-amd64 \
-      git \
-      procps \
-      systemd \
-      libnss-systemd \
-      dbus \
-      strace \
-      systemd-coredump \
-      time \
       busybox \
-      kbd \
       ccache \
-      xserver-xorg-core \
-      xterm \
-      wget \
-      gdc-6 \
+      check \
       clang-6.0 \
-      lld-6.0 \
-      nasm \
-      waffle-utils \
+      cmake \
+      dbus \
       gdb \
+      gdc-6 \
+      git \
+      golang-go \
+      kbd \
       libcurl4-openssl-dev \
-      xvfb \
-      mesa-utils \
-      strace \
-      psmisc \
+      libgbm-dev \
+      libnss-systemd \
       libpng-dev \
       libxrandr-dev \
+      libxvmc-dev \
       libsm-dev \
+      libwayland-dev \
+      libwayland-egl-backend-dev \
+      linux-image-amd64 \
+      lld-6.0 \
+      mesa-utils \
+      nasm \
       ninja-build \
-      zlib1g-dev \
+      procps \
+      psmisc \
       python3-pip \
       python3-setuptools \
       python3-wheel \
-      libwayland-dev \
-      libwayland-egl-backend-dev \
-      qemu
+      qemu \
+      spirv-headers \
+      strace \
+      systemd \
+      systemd-coredump \
+      time \
+      waffle-utils \
+      wget \
+      xinit \
+      xserver-xorg-core \
+      xterm \
+      xvfb \
+      zlib1g-dev
 
 RUN apt-get -y build-dep --no-install-recommends \
       libdrm \
-      mesa \
-      virglrenderer \
       libepoxy \
-      piglit
+      mesa \
+      piglit \
+      virglrenderer
 
 RUN apt-get -y remove valgrind && \
     apt-get clean
