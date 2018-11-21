@@ -36,6 +36,8 @@ if [[ $LOCAL_MESA ]]; then
 fi
 
 
+rm -rf /virglrenderer/results/
+mkdir -p /virglrenderer/results/
 cd /virglrenderer
 if [[ ! $LOCAL_DEV ]]; then
    ./autogen.sh --prefix=/usr/local --enable-debug --enable-tests
