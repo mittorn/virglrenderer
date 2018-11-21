@@ -41,11 +41,12 @@ mkdir -p /virglrenderer/results/
 cd /virglrenderer
 if [[ ! $LOCAL_DEV ]]; then
    ./autogen.sh --prefix=/usr/local --enable-debug --enable-tests
-   VRENDTEST_USE_EGL_SURFACELESS=1 make distcheck
+   VRENDTEST_USE_EGL_SURFACELESS=1 make check
    if [ $? -ne 0 ]; then
        touch /virglrenderer/results/regressions_detected
-       cp virglrenderer-0.7.0/_build/sub/tests/*.log /virglrenderer/results/
    fi
+   mkdir -p /virglrenderer/results/make_check
+   cp tests/test*.log /virglrenderer/results/make_check/
 fi
 make -j$(nproc) install
 
