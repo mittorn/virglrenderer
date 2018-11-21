@@ -63,10 +63,10 @@ RUN apt-get -y install ca-certificates && \
       python3-setuptools \
       python3-wheel \
       libwayland-dev \
-      libwayland-egl-backend-dev
+      libwayland-egl-backend-dev \
+      qemu
 
 RUN apt-get -y build-dep --no-install-recommends \
-      qemu \
       libdrm \
       mesa \
       virglrenderer \
