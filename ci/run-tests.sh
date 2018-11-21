@@ -24,6 +24,18 @@ if [[ ! -c $RENDER_DEVICE ]]; then
     LIMIT_TESTSET=--only-softpipe
 fi
 
+if [[ $LOCAL_MESA ]]; then
+   cd $LOCAL_MESA && \
+   mkdir -p build  && \
+   meson build/ && \
+   meson configure build/ -Dprefix=/usr/local -Dplatforms=drm,x11,wayland,surfaceless -Ddri-drivers=i965 -Dgallium-drivers=swrast,virgl,radeonsi,r600 -Dbuildtype=debugoptimized -Dllvm=true -Dglx=dri -Dgallium-vdpau=false -Dgallium-va=false -Dvulkan-drivers=[] -Dlibdir=lib && \
+   ninja -C build/ install
+   if [ $? -ne 0 ]; then
+      exit 1
+   fi
+fi
+
+
 cd /virglrenderer
 if [[ ! $LOCAL_DEV ]]; then
    ./autogen.sh --prefix=/usr/local --enable-debug --enable-tests
@@ -34,14 +46,6 @@ if [[ ! $LOCAL_DEV ]]; then
    fi
 fi
 make -j$(nproc) install
-
-if [[ $LOCAL_DEV ]]; then
-   cd /mesa
-   mkdir -p build
-   meson build/
-   meson configure build/ -Dprefix=/usr/local -Dplatforms=drm,x11,wayland,surfaceless -Ddri-drivers=i965 -Dgallium-drivers=swrast,virgl,radeonsi,r600 -Dbuildtype=debugoptimized -Dllvm=true -Dglx=dri -Dgallium-vdpau=false -Dgallium-va=false -Dvulkan-drivers=[] -Dlibdir=lib
-   ninja -C build/ install
-fi
 
 : '
 cd /qemu
