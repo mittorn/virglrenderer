@@ -17,8 +17,8 @@ RUN echo 'exit 101' >> /usr/sbin/policy-rc.d
 RUN chmod +x /usr/sbin/policy-rc.d
 
 RUN echo deb-src http://deb.debian.org/debian testing main >> /etc/apt/sources.list
-RUN apt-get update && \
-    apt-get -y install ca-certificates && \
+RUN apt-get update
+RUN apt-get -y install ca-certificates && \
     apt-get -y install --no-install-recommends \
       libgbm-dev \
       libxvmc-dev \
@@ -63,15 +63,17 @@ RUN apt-get update && \
       python3-setuptools \
       python3-wheel \
       libwayland-dev \
-      libwayland-egl-backend-dev && \
-    apt-get -y build-dep --no-install-recommends \
+      libwayland-egl-backend-dev
+
+RUN apt-get -y build-dep --no-install-recommends \
       qemu \
       libdrm \
       mesa \
       virglrenderer \
       libepoxy \
-      piglit && \
-    apt-get -y remove valgrind && \
+      piglit
+
+RUN apt-get -y remove valgrind && \
     apt-get clean
 
 RUN pip3 install meson
