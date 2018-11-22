@@ -21,7 +21,11 @@ build_and_test:
     - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN $CI_REGISTRY
     - time docker pull $CI_REGISTRY_IMAGE:latest || true
 
-    - time docker build -t $CI_REGISTRY_IMAGE --cache-from $CI_REGISTRY_IMAGE:latest ci
+    - time docker build
+             -t $CI_REGISTRY_IMAGE
+             --cache-from $CI_REGISTRY_IMAGE:latest ci
+             2>&1 | tee results/docker_build_log.txt
+
     - docker history $CI_REGISTRY_IMAGE:latest
 
     - time docker push $CI_REGISTRY_IMAGE:latest
@@ -35,7 +39,8 @@ build_and_test:
              $RD_CONFIG
              -v $PWD:/virglrenderer
              $CI_REGISTRY_IMAGE:latest
-             /virglrenderer/ci/run-tests.sh 2>&1 | tee results/log.txt
+             /virglrenderer/ci/run-tests.sh
+             2>&1 | tee results/docker_test_log.txt
 
   artifacts:
    when: always
