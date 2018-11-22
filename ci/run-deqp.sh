@@ -108,6 +108,45 @@ FLIP_FLOPS="$FLIP_FLOPS dEQP-GLES31.functional.shaders.sample_variables.sample_p
 FLIP_FLOPS="$FLIP_FLOPS dEQP-GLES31.functional.shaders.sample_variables.sample_pos.correctness.multisample_rbo_4"
 FLIP_FLOPS="$FLIP_FLOPS dEQP-GLES31.functional.shaders.sample_variables.sample_pos.correctness.multisample_rbo_8"
 
+# TODO: These tests aren't reliable either
+FLIP_FLOPS="$FLIP_FLOPS dEQP-GLES3.functional.negative_api.shader.sampler_parameterfv"
+FLIP_FLOPS="$FLIP_FLOPS dEQP-GLES3.functional.negative_api.shader.sampler_parameterf"
+FLIP_FLOPS="$FLIP_FLOPS dEQP-GLES3.functional.negative_api.shader.sampler_parameteriv"
+FLIP_FLOPS="$FLIP_FLOPS dEQP-GLES3.functional.negative_api.shader.sampler_parameteri"
+FLIP_FLOPS="$FLIP_FLOPS dEQP-GLES3.functional.negative_api.state.get_synciv"
+FLIP_FLOPS="$FLIP_FLOPS dEQP-GLES31.functional.debug.negative_coverage.callbacks.shader.sampler_parameterfv"
+FLIP_FLOPS="$FLIP_FLOPS dEQP-GLES31.functional.debug.negative_coverage.callbacks.shader.sampler_parameterf"
+FLIP_FLOPS="$FLIP_FLOPS dEQP-GLES31.functional.debug.negative_coverage.callbacks.shader.sampler_parameteriv"
+FLIP_FLOPS="$FLIP_FLOPS dEQP-GLES31.functional.debug.negative_coverage.callbacks.shader.sampler_parameteri"
+FLIP_FLOPS="$FLIP_FLOPS dEQP-GLES31.functional.debug.negative_coverage.callbacks.shader.srgb_decode_samplerparameterfv"
+FLIP_FLOPS="$FLIP_FLOPS dEQP-GLES31.functional.debug.negative_coverage.callbacks.shader.srgb_decode_samplerparameterf"
+FLIP_FLOPS="$FLIP_FLOPS dEQP-GLES31.functional.debug.negative_coverage.callbacks.shader.srgb_decode_samplerparameteriv"
+FLIP_FLOPS="$FLIP_FLOPS dEQP-GLES31.functional.debug.negative_coverage.callbacks.shader.srgb_decode_samplerparameteri"
+FLIP_FLOPS="$FLIP_FLOPS dEQP-GLES31.functional.debug.negative_coverage.callbacks.state.get_synciv"
+FLIP_FLOPS="$FLIP_FLOPS dEQP-GLES31.functional.debug.negative_coverage.get_error.shader.sampler_parameterfv"
+FLIP_FLOPS="$FLIP_FLOPS dEQP-GLES31.functional.debug.negative_coverage.get_error.shader.sampler_parameterf"
+FLIP_FLOPS="$FLIP_FLOPS dEQP-GLES31.functional.debug.negative_coverage.get_error.shader.sampler_parameteriv"
+FLIP_FLOPS="$FLIP_FLOPS dEQP-GLES31.functional.debug.negative_coverage.get_error.shader.sampler_parameteri"
+FLIP_FLOPS="$FLIP_FLOPS dEQP-GLES31.functional.debug.negative_coverage.get_error.shader.srgb_decode_samplerparameterfv"
+FLIP_FLOPS="$FLIP_FLOPS dEQP-GLES31.functional.debug.negative_coverage.get_error.shader.srgb_decode_samplerparameterf"
+FLIP_FLOPS="$FLIP_FLOPS dEQP-GLES31.functional.debug.negative_coverage.get_error.shader.srgb_decode_samplerparameteriv"
+FLIP_FLOPS="$FLIP_FLOPS dEQP-GLES31.functional.debug.negative_coverage.get_error.shader.srgb_decode_samplerparameteri"
+FLIP_FLOPS="$FLIP_FLOPS dEQP-GLES31.functional.debug.negative_coverage.log.shader.sampler_parameterfv"
+FLIP_FLOPS="$FLIP_FLOPS dEQP-GLES31.functional.debug.negative_coverage.log.shader.sampler_parameterf"
+FLIP_FLOPS="$FLIP_FLOPS dEQP-GLES31.functional.debug.negative_coverage.log.shader.sampler_parameteriv"
+FLIP_FLOPS="$FLIP_FLOPS dEQP-GLES31.functional.debug.negative_coverage.log.shader.sampler_parameteri"
+FLIP_FLOPS="$FLIP_FLOPS dEQP-GLES31.functional.debug.negative_coverage.log.shader.srgb_decode_samplerparameterfv"
+FLIP_FLOPS="$FLIP_FLOPS dEQP-GLES31.functional.debug.negative_coverage.log.shader.srgb_decode_samplerparameterf"
+FLIP_FLOPS="$FLIP_FLOPS dEQP-GLES31.functional.debug.negative_coverage.log.shader.srgb_decode_samplerparameteriv"
+FLIP_FLOPS="$FLIP_FLOPS dEQP-GLES31.functional.debug.negative_coverage.log.shader.srgb_decode_samplerparameteri"
+FLIP_FLOPS="$FLIP_FLOPS dEQP-GLES31.functional.debug.negative_coverage.get_error.state.get_synciv"
+FLIP_FLOPS="$FLIP_FLOPS dEQP-GLES31.functional.debug.negative_coverage.log.state.get_synciv"
+
+
+# TODO: These tests fail on softpipe, someone should fix them and then remove these lines
+FLIP_FLOPS="$FLIP_FLOPS dEQP-GLES31.functional.shaders.builtin_functions.uniform.findLSBMinusOne.lowp_vertex"
+FLIP_FLOPS="$FLIP_FLOPS dEQP-GLES31.functional.shaders.builtin_functions.uniform.findLSBMinusOne.highp_fragment"
+
 for TEST_NAME in $FLIP_FLOPS; do
     sed -i "\:$TEST_NAME:d" $RESULTS_DIR/deqp_results.txt $PREVIOUS_RESULTS_DIR/deqp_results.txt
 done
