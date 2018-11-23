@@ -7953,7 +7953,7 @@ static void vrender_get_glsl_version(int *glsl_version)
 {
    int major_local, minor_local;
    const GLubyte *version_str;
-   int c;
+   MAYBE_UNUSED int c;
    int version;
 
    version_str = glGetString(GL_SHADING_LANGUAGE_VERSION);
