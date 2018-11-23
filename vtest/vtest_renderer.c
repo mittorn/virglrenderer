@@ -448,6 +448,7 @@ int vtest_create_resource2(UNUSED uint32_t length_dw)
    iovec->iov_len = res_create_buf[VCMD_RES_CREATE2_DATA_SIZE];
    iovec->iov_base = calloc(1, iovec->iov_len);
    if (!iovec->iov_base) {
+      FREE(iovec);
       return -ENOMEM;
    }
 
