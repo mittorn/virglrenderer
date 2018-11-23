@@ -276,6 +276,10 @@ static void vtest_main_run_renderer(int in_fd, int out_fd)
          }
 
          ret = vtest_create_renderer(in_fd, out_fd, header[0]);
+         if (ret < 0) {
+            err = 4;
+            break;
+         }
          initialized = 1;
          printf("%s: vtest initialized.\n", __func__);
          vtest_poll();
@@ -284,18 +288,18 @@ static void vtest_main_run_renderer(int in_fd, int out_fd)
 
       vtest_poll();
       if (header[1] <= 0 || header[1] >= ARRAY_SIZE(vtest_commands)) {
-         err = 4;
+         err = 5;
          break;
       }
 
       if (vtest_commands[header[1]] == NULL) {
-         err = 5;
+         err = 6;
          break;
       }
 
       ret = vtest_commands[header[1]](header[0]);
       if (ret < 0) {
-         err = 6;
+         err = 7;
          break;
       }
    } while (1);
