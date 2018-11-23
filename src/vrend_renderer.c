@@ -8482,10 +8482,12 @@ void *vrend_renderer_get_cursor_contents(uint32_t res_handle, uint32_t *width, u
    if (res->target != GL_TEXTURE_2D)
       return NULL;
 
-   if (width)
-      *width = res->base.width0;
-   if (height)
-      *height = res->base.height0;
+   if (!width || !height)
+      return NULL;
+
+   *width = res->base.width0;
+   *height = res->base.height0;
+
    format = tex_conv_table[res->base.format].glformat;
    type = tex_conv_table[res->base.format].gltype;
    blsize = util_format_get_blocksize(res->base.format);
