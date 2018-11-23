@@ -3435,14 +3435,12 @@ static GLenum get_xfb_mode(GLenum mode)
 static void vrend_draw_bind_vertex_legacy(struct vrend_context *ctx,
                                           struct vrend_vertex_element_array *va)
 {
-   uint32_t num_enable;
    uint32_t enable_bitmask;
    uint32_t disable_bitmask;
    int i;
 
-   num_enable = va->count;
    enable_bitmask = 0;
-   disable_bitmask = ~((1ull << num_enable) - 1);
+   disable_bitmask = ~((1ull << va->count) - 1);
    for (i = 0; i < (int)va->count; i++) {
       struct vrend_vertex_element *ve = &va->elements[i];
       int vbo_index = ve->base.vertex_buffer_index;
@@ -3451,7 +3449,6 @@ static void vrend_draw_bind_vertex_legacy(struct vrend_context *ctx,
 
       if (i >= ctx->sub->prog->ss[PIPE_SHADER_VERTEX]->sel->sinfo.num_inputs) {
          /* XYZZY: debug this? */
-         num_enable = ctx->sub->prog->ss[PIPE_SHADER_VERTEX]->sel->sinfo.num_inputs;
          break;
       }
       res = (struct vrend_resource *)ctx->sub->vbo[vbo_index].buffer;
@@ -3470,7 +3467,6 @@ static void vrend_draw_bind_vertex_legacy(struct vrend_context *ctx,
 
          if (loc == -1) {
             fprintf(stderr,"%s: cannot find loc %d %d %d\n", ctx->debug_name, i, va->count, ctx->sub->prog->ss[PIPE_SHADER_VERTEX]->sel->sinfo.num_inputs);
-            num_enable--;
             if (i == 0) {
                fprintf(stderr,"%s: shader probably didn't compile - skipping rendering\n", ctx->debug_name);
                return;
