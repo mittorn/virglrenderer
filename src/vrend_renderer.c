@@ -2931,7 +2931,8 @@ static int vrend_shader_select(struct vrend_context *ctx,
       return 0;
 
    if (sel->num_shaders > 1) {
-      struct vrend_shader *p = sel->current, *c = p->next_variant;
+      struct vrend_shader *p = sel->current;
+      struct vrend_shader *c = p->next_variant;
       while (c && memcmp(&c->key, &key, sizeof(key)) != 0) {
          p = c;
          c = c->next_variant;
