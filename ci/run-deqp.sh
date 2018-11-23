@@ -160,9 +160,12 @@ sort -V $PREVIOUS_RESULTS_DIR/deqp_results.txt -o $PREVIOUS_RESULTS_DIR/deqp_res
 sed -i "s/QualityWarning/Pass/g" $RESULTS_DIR/deqp_results.txt $PREVIOUS_RESULTS_DIR/deqp_results.txt
 sed -i "s/CompatibilityWarning/Pass/g" $RESULTS_DIR/deqp_results.txt $PREVIOUS_RESULTS_DIR/deqp_results.txt
 
-diff -u $PREVIOUS_RESULTS_DIR/deqp_results.txt $RESULTS_DIR/deqp_results.txt
+diff -u $PREVIOUS_RESULTS_DIR/deqp_results.txt $RESULTS_DIR/deqp_results.txt 2>&1 > $RESULTS_DIR/deqp_diff.txt
 if [ $? -ne 0 ]; then
-    touch /virglrenderer/results/regressions_detected
+   cat $RESULTS_DIR/deqp_diff.txt
+   touch /virglrenderer/results/regressions_detected
+else
+   rm $RESULTS_DIR/deqp_diff.txt
 fi
 
 
@@ -203,9 +206,12 @@ if [[ "x$ONLY_SOFTPIPE_PASS" != "xyes" ]] ; then
     sort -V $RESULTS_DIR/piglit/results.txt -o $RESULTS_DIR/piglit/results.txt
     sort -V $PREVIOUS_RESULTS_DIR/piglit_results.txt -o $PREVIOUS_RESULTS_DIR/piglit_results.txt
 
-    diff -u $PREVIOUS_RESULTS_DIR/piglit_results.txt $RESULTS_DIR/piglit/results.txt
+    diff -u $PREVIOUS_RESULTS_DIR/piglit_results.txt $RESULTS_DIR/piglit/results.txt 2>&1 > $RESULTS_DIR/piglit_diff.txt
     if [ $? -ne 0 ]; then
+        cat $RESULTS_DIR/piglit_diff.txt
         touch /virglrenderer/results/regressions_detected
+    else
+        rm $RESULTS_DIR/piglit_diff.txt
     fi
 
 fi
