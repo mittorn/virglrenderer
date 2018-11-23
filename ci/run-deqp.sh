@@ -216,6 +216,4 @@ if [[ "x$ONLY_SOFTPIPE_PASS" != "xyes" ]] ; then
 
 fi
 
-cp /var/log/Xorg.0.log /virglrenderer/results/.
-
 killall virgl_test_server
