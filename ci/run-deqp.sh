@@ -85,7 +85,7 @@ else
      --test-names-file=/virglrenderer/ci/deqp-gles31-list.txt \
      --print-failing \
      --results-file=$RESULTS_DIR/deqp_results.txt
-fi 
+fi
 cp -rf /tmp/dEQP/* $RESULTS_DIR/.
 
 # Remove header
@@ -123,6 +123,7 @@ FLIP_FLOPS="$FLIP_FLOPS dEQP-GLES31.functional.debug.negative_coverage.callbacks
 FLIP_FLOPS="$FLIP_FLOPS dEQP-GLES31.functional.debug.negative_coverage.callbacks.shader.srgb_decode_samplerparameteriv"
 FLIP_FLOPS="$FLIP_FLOPS dEQP-GLES31.functional.debug.negative_coverage.callbacks.shader.srgb_decode_samplerparameteri"
 FLIP_FLOPS="$FLIP_FLOPS dEQP-GLES31.functional.debug.negative_coverage.callbacks.state.get_synciv"
+FLIP_FLOPS="$FLIP_FLOPS dEQP-GLES31.functional.debug.negative_coverage.get_error.compute.exceed_atomic_counters_limit"
 FLIP_FLOPS="$FLIP_FLOPS dEQP-GLES31.functional.debug.negative_coverage.get_error.shader.sampler_parameterfv"
 FLIP_FLOPS="$FLIP_FLOPS dEQP-GLES31.functional.debug.negative_coverage.get_error.shader.sampler_parameterf"
 FLIP_FLOPS="$FLIP_FLOPS dEQP-GLES31.functional.debug.negative_coverage.get_error.shader.sampler_parameteriv"
@@ -172,7 +173,7 @@ if [[ "x$ONLY_SOFTPIPE_PASS" != "xyes" ]] ; then
     if [[ -z "$HOST_GL" ]]; then
         PIGLIT_TESTS="$PIGLIT_TESTS -t gles2 -t gles3"
     fi
-    
+
     # Hits this assertion on i965:
     # compiler/brw_fs_visitor.cpp:444: void fs_visitor::emit_fb_writes(): Assertion `!prog_data->dual_src_blend || key->nr_color_regions == 1` failed
     PIGLIT_TESTS="$PIGLIT_TESTS -x arb_blend_func_extended-fbo-extended-blend-pattern_gles2"
@@ -184,7 +185,7 @@ if [[ "x$ONLY_SOFTPIPE_PASS" != "xyes" ]] ; then
          $RESULTS_DIR/piglit
 
     piglit summary console $RESULTS_DIR/piglit | head -n -17 > $RESULTS_DIR/piglit/results.txt
-    
+
     # TODO: These tests are not reliable when run on radeonsi, someone should fix them and then remove these lines
     FLIP_FLOPS="$FLIP_FLOPS spec/arb_framebuffer_srgb/blit renderbuffer srgb_to_linear downsample enabled clear"
     FLIP_FLOPS="$FLIP_FLOPS spec/arb_framebuffer_srgb/blit texture srgb_to_linear msaa enabled clear"
