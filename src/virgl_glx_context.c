@@ -102,8 +102,3 @@ int virgl_glx_make_context_current(struct virgl_glx *d, virgl_renderer_gl_contex
 {
    return glXMakeContextCurrent(d->display, d->pbuffer, d->pbuffer, virglctx);
 }
-
-virgl_renderer_gl_context virgl_glx_get_current_context(struct virgl_glx *d)
-{
-   return glXGetCurrentContext();
-}
