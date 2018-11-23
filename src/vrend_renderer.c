@@ -7652,6 +7652,9 @@ void vrend_renderer_check_queries(void)
 
 bool vrend_hw_switch_context(struct vrend_context *ctx, bool now)
 {
+   if (!ctx)
+      return false;
+
    if (ctx == vrend_state.current_ctx && ctx->ctx_switch_pending == false)
       return true;
 
