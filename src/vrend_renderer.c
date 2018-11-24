@@ -278,7 +278,7 @@ struct vrend_linked_shader_program {
    GLuint *shadow_samp_mask_locs[PIPE_SHADER_TYPES];
    GLuint *shadow_samp_add_locs[PIPE_SHADER_TYPES];
 
-   GLint *const_locs[PIPE_SHADER_TYPES];
+   GLint const_location[PIPE_SHADER_TYPES];
 
    GLuint *attrib_locs;
    uint32_t shadow_samp_mask[PIPE_SHADER_TYPES];
@@ -1107,17 +1107,11 @@ static void bind_const_locs(struct vrend_linked_shader_program *sprog,
                             int id)
 {
   if (sprog->ss[id]->sel->sinfo.num_consts) {
-      sprog->const_locs[id] = calloc(sprog->ss[id]->sel->sinfo.num_consts, sizeof(uint32_t));
-      if (sprog->const_locs[id]) {
-         const char *prefix = pipe_shader_to_prefix(id);
-         for (int i = 0; i < sprog->ss[id]->sel->sinfo.num_consts; i++) {
-            char name[32];
-            snprintf(name, 32, "%sconst0[%d]", prefix, i);
-            sprog->const_locs[id][i] = glGetUniformLocation(sprog->id, name);
-         }
-      }
-   } else
-      sprog->const_locs[id] = NULL;
+     char name[32];
+     snprintf(name, 32, "%sconst0", pipe_shader_to_prefix(id));
+     sprog->const_location[id] = glGetUniformLocation(sprog->id, name);
+  } else
+      sprog->const_location[id] = -1;
 }
 
 static void bind_ubo_locs(struct vrend_linked_shader_program *sprog,
@@ -1479,7 +1473,6 @@ static void vrend_destroy_program(struct vrend_linked_shader_program *ent)
       free(ent->samp_locs[i]);
       free(ent->ssbo_locs[i]);
       free(ent->img_locs[i]);
-      free(ent->const_locs[i]);
       free(ent->ubo_locs[i]);
    }
    free(ent->attrib_locs);
@@ -3674,12 +3667,11 @@ static void vrend_draw_bind_const_shader(struct vrend_context *ctx,
                                          int shader_type, bool new_program)
 {
    if (ctx->sub->consts[shader_type].consts &&
-       ctx->sub->prog->const_locs[shader_type] &&
+       (ctx->sub->prog->const_location[shader_type] != -1) &&
        (ctx->sub->const_dirty[shader_type] || new_program)) {
-      for (int i = 0; i < ctx->sub->shaders[shader_type]->sinfo.num_consts; i++) {
-         if (ctx->sub->prog->const_locs[shader_type][i] != -1)
-            glUniform4uiv(ctx->sub->prog->const_locs[shader_type][i], 1, &ctx->sub->consts[shader_type].consts[i * 4]);
-      }
+      glUniform4uiv(ctx->sub->prog->const_location[shader_type],
+            ctx->sub->shaders[shader_type]->sinfo.num_consts,
+            ctx->sub->consts[shader_type].consts);
       ctx->sub->const_dirty[shader_type] = false;
    }
 }
