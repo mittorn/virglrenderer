@@ -198,8 +198,7 @@ if [[ "x$ONLY_SOFTPIPE_PASS" != "xyes" ]] ; then
     FLIP_FLOPS="$FLIP_FLOPS spec/arb_shader_image_load_store/shader-mem-barrier/tessellation control shader/'coherent' qualifier memory barrier test/modulus="
     FLIP_FLOPS="$FLIP_FLOPS spec/ext_transform_instanced/draw-auto instanced"
     for TEST_NAME in $FLIP_FLOPS; do
-        sed -i "\:$TEST_NAME:d" $RESULTS_DIR/piglit/results.txt
-        sed -i "\:$TEST_NAME:d" $PREVIOUS_RESULTS_DIR/piglit_results.txt
+        sed -i "\:$TEST_NAME:d" $RESULTS_DIR/piglit/results.txt $PREVIOUS_RESULTS_DIR/piglit_results.txt
     done
 
     # Sort results files
