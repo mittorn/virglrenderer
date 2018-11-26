@@ -151,6 +151,10 @@ for TEST_NAME in $FLIP_FLOPS; do
     sed -i "\:$TEST_NAME:d" $RESULTS_DIR/deqp_results.txt $PREVIOUS_RESULTS_DIR/deqp_results.txt
 done
 
+# Sort results files
+sort -V $RESULTS_DIR/deqp_results.txt -o $RESULTS_DIR/deqp_results.txt
+sort -V $PREVIOUS_RESULTS_DIR/deqp_results.txt -o $PREVIOUS_RESULTS_DIR/deqp_results.txt
+
 # These warnings add too much variability
 sed -i "s/QualityWarning/Pass/g" $RESULTS_DIR/deqp_results.txt $PREVIOUS_RESULTS_DIR/deqp_results.txt
 sed -i "s/CompatibilityWarning/Pass/g" $RESULTS_DIR/deqp_results.txt $PREVIOUS_RESULTS_DIR/deqp_results.txt
@@ -193,6 +197,10 @@ if [[ "x$ONLY_SOFTPIPE_PASS" != "xyes" ]] ; then
         sed -i "\:$TEST_NAME:d" $RESULTS_DIR/piglit/results.txt
         sed -i "\:$TEST_NAME:d" $PREVIOUS_RESULTS_DIR/piglit_results.txt
     done
+
+    # Sort results files
+    sort -V $RESULTS_DIR/piglit/results.txt -o $RESULTS_DIR/piglit/results.txt
+    sort -V $PREVIOUS_RESULTS_DIR/piglit_results.txt -o $PREVIOUS_RESULTS_DIR/piglit_results.txt
 
     diff -u $PREVIOUS_RESULTS_DIR/piglit_results.txt $RESULTS_DIR/piglit/results.txt
     if [ $? -ne 0 ]; then
