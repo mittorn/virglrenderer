@@ -201,6 +201,9 @@ if [[ "x$ONLY_SOFTPIPE_PASS" != "xyes" ]] ; then
         sed -i "\:$TEST_NAME:d" $RESULTS_DIR/piglit/results.txt $PREVIOUS_RESULTS_DIR/piglit_results.txt
     done
 
+    # This distinction adds too much variability
+    sed -i "s/crash/fail/g" $RESULTS_DIR/piglit/results.txt $PREVIOUS_RESULTS_DIR/piglit_results.txt
+
     # Sort results files
     sort -V $RESULTS_DIR/piglit/results.txt -o $RESULTS_DIR/piglit/results.txt
     sort -V $PREVIOUS_RESULTS_DIR/piglit_results.txt -o $PREVIOUS_RESULTS_DIR/piglit_results.txt
