@@ -81,7 +81,7 @@ fakemachine --qemuopts="-vga virtio -display egl-headless,gl=es" \
 if [ ! -f /virglrenderer/results/regressions_detected ]; then
     /virglrenderer/ci/run-deqp.sh --with-vtest $LIMIT_TESTSET
     /virglrenderer/ci/run-deqp.sh --host-gl --with-vtest $LIMIT_TESTSET
-fi 
+fi
 
 if [ -f /virglrenderer/results/regressions_detected ]; then
    exit 1
