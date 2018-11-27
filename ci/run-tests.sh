@@ -48,6 +48,12 @@ mkdir -p /virglrenderer/results/make_check
 cp tests/test*.log /virglrenderer/results/make_check/
 make -j$(nproc) install
 
+
+# Stop testing process if a failure have been found
+if [ -f /virglrenderer/results/regressions_detected ]; then
+   exit 1
+fi
+
 : '
 cd /qemu
 make -j$(nproc) install
@@ -76,14 +82,15 @@ fakemachine --qemuopts="-vga virtio -display egl-headless,gl=es" \
             -- /virglrenderer/ci/run-deqp.sh
 '
 
-# Cut this short if the unit tests fail
-
-if [ ! -f /virglrenderer/results/regressions_detected ]; then
-    /virglrenderer/ci/run-deqp.sh --with-vtest $LIMIT_TESTSET
-    /virglrenderer/ci/run-deqp.sh --host-gl --with-vtest $LIMIT_TESTSET
-fi
-
+# Stop testing process if a failure have been found
 if [ -f /virglrenderer/results/regressions_detected ]; then
    exit 1
 fi
 
+/virglrenderer/ci/run-deqp.sh --with-vtest $LIMIT_TESTSET
+/virglrenderer/ci/run-deqp.sh --host-gl --with-vtest $LIMIT_TESTSET
+
+# Return test pass/fail
+if [ -f /virglrenderer/results/regressions_detected ]; then
+   exit 1
+fi
