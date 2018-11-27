@@ -55,11 +55,6 @@ if [ -f /virglrenderer/results/regressions_detected ]; then
 fi
 
 : '
-cd /qemu
-make -j$(nproc) install
-'
-
-: '
 cd /VK-GL-CTS/build
 #cmake -DDEQP_TARGET=x11_egl -DCMAKE_BUILD_TYPE=Release ..
 make -j$(nproc)
