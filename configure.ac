@@ -8,6 +8,7 @@ AC_CONFIG_SRCDIR([Makefile.am])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIR([build-aux])
+PKG_PROG_PKG_CONFIG
 
 AM_INIT_AUTOMAKE([foreign dist-bzip2])
 
