@@ -123,7 +123,7 @@ if test "x$os_win32" = xno && test "x$enable_egl" != "xno"; then
 fi
 
 PKG_CHECK_MODULES([EPOXY], [epoxy])
-PKG_CHECK_VAR(epoxy_has_egl, [epoxy], [epoxy_has_egl])
+epoxy_has_egl=`$PKG_CONFIG --variable=epoxy_has_egl epoxy`
 AS_IF([test "x$epoxy_has_egl" = "x1" && test "x$enable_egl" != "xno"], [
   epoxy_has_egl=yes
   AC_DEFINE([HAVE_EPOXY_EGL_H], [1], [Libepoxy has EGL support.])
@@ -139,7 +139,7 @@ if test "x$os_win32" = xno; then
 	])
 fi
 
-PKG_CHECK_VAR(epoxy_has_glx, [epoxy], [epoxy_has_glx])
+epoxy_has_glx=`$PKG_CONFIG --variable=epoxy_has_glx epoxy`
 AS_IF([test "x$epoxy_has_glx" = "x1" && test "x$enable_glx" != "xno"], [
   PKG_CHECK_MODULES([X11], [x11])
   epoxy_has_glx=yes
