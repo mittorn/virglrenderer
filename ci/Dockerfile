@@ -11,6 +11,8 @@ ENV CXX="g++-7"
 ENV CFLAGS="-g3"
 ENV CXXFLAGS="-g3"
 ENV GIT_DATE="`date +%Y-%m-%d -d \"1 year ago\"`"
+ENV MESA_DEBUG=1
+
 
 RUN echo 'path-exclude=/usr/share/doc/*' > /etc/dpkg/dpkg.cfg.d/99-exclude-cruft
 RUN echo 'path-exclude=/usr/share/man/*' >> /etc/dpkg/dpkg.cfg.d/99-exclude-cruft
