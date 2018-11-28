@@ -4587,6 +4587,8 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
             snprintf(buf, 255, "layout(location=%d) ", ctx->inputs[i].first);
             STRCAT_WITH_RET(glsl_hdr, buf);
          }
+         prefix = "";
+         auxprefix = "";
          if (ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL && ctx->inputs[i].name == TGSI_SEMANTIC_PATCH)
             prefix = "patch ";
          else if (ctx->prog_type == TGSI_PROCESSOR_FRAGMENT &&
