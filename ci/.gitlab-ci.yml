@@ -7,15 +7,16 @@ cache:
 variables:
   DOCKER_DRIVER: overlay2
   RENDER_DEVICE: /dev/dri/renderD128
-stages:
-  - build_and_test
 
-build_and_test:
-  stage: build_and_test
+stages:
+  - build
+  - test
+
+build docker image:
+  stage: build
   services:
     - docker:dind
   before_script:
-    - mkdir -p ccache
     - mkdir -p results
   script:
     - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN $CI_REGISTRY
@@ -30,6 +31,19 @@ build_and_test:
 
     - time docker push $CI_REGISTRY_IMAGE:latest
 
+  artifacts:
+    when: always
+    paths:
+      - results/
+
+test:
+  stage: test
+  services:
+    - docker:dind
+  before_script:
+    - mkdir -p ccache
+    - mkdir -p results
+  script:
     - echo core > /proc/sys/kernel/core_pattern
     - echo 0 > /proc/sys/kernel/core_uses_pid
     - if test -e $RENDER_DEVICE; then RD_CONFIG="--device=$RENDER_DEVICE -e RENDER_DEVICE=$RENDER_DEVICE"; fi
@@ -43,6 +57,6 @@ build_and_test:
              2>&1 | tee results/docker_test_log.txt
 
   artifacts:
-   when: always
-   paths:
-     - results/
+    when: always
+    paths:
+      - results/
