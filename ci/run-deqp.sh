@@ -70,15 +70,14 @@ if [[ -n "$WITH_VTEST" ]]; then
    export GALLIUM_DRIVER=virpipe
 fi
 
-NUM_JOBS=$(nproc)
 if [[ "x$ONLY_SOFTPIPE_PASS"="xyes" ]] ; then
-    time deqp --threads=$NUM_JOBS \
+    time deqp --threads=$NUM_THREADS \
      --cts-build-dir=/usr/local/VK-GL-CTS/ \
      --test-names-file=/virglrenderer/ci/softpipe-gles-pass.txt \
      --print-failing \
      --results-file=$RESULTS_DIR/deqp_results.txt
 else
-    time deqp --threads=$NUM_JOBS \
+    time deqp --threads=$NUM_THREADS \
      --cts-build-dir=/usr/local/VK-GL-CTS/ \
      --test-names-file=/virglrenderer/ci/deqp-gles2-list.txt \
      --test-names-file=/virglrenderer/ci/deqp-gles3-list.txt \

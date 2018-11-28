@@ -4,6 +4,12 @@ set -x
 
 #DEBIAN_FRONTEND=noninteractive apt-get -y install --no-install-recommends ninja-build meson
 
+# Let .gitlab-ci or local ci runner set
+# desired thread count
+NUM_THREADS=${NUM_THREADS:-"$(nproc)"}
+export NUM_THREADS
+echo "Using $NUM_THREADS threads"
+
 # To prevent hitting assertions such as the below:
 # sb/sb_sched.cpp:1207:schedule_alu: Assertion `!"unscheduled pending instructions"' failed.
 export R600_DEBUG=nosb
@@ -29,7 +35,7 @@ if [[ $LOCAL_MESA ]]; then
    mkdir -p build  && \
    meson build/ && \
    meson configure build/ -Dprefix=/usr/local -Dplatforms=drm,x11,wayland,surfaceless -Ddri-drivers=i965 -Dgallium-drivers=swrast,virgl,radeonsi,r600 -Dbuildtype=debugoptimized -Dllvm=true -Dglx=dri -Dgallium-vdpau=false -Dgallium-va=false -Dvulkan-drivers=[] -Dlibdir=lib && \
-   ninja -C build/ install
+   ninja -C build/ install -j $NUM_THREADS
    if [ $? -ne 0 ]; then
       exit 1
    fi
@@ -46,7 +52,7 @@ if [ $? -ne 0 ]; then
 fi
 mkdir -p /virglrenderer/results/make_check
 cp tests/test*.log /virglrenderer/results/make_check/
-make -j$(nproc) install
+make -j$NUM_THREADS install
 
 
 # Stop testing process if a failure have been found
@@ -57,7 +63,7 @@ fi
 : '
 cd /VK-GL-CTS/build
 #cmake -DDEQP_TARGET=x11_egl -DCMAKE_BUILD_TYPE=Release ..
-make -j$(nproc)
+make -j$NUM_THREADS
 cp -rf * /usr/local/VK-GL-CTS/.
 '
 
