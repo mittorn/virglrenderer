@@ -1899,7 +1899,11 @@ static int emit_txq(struct dump_ctx *ctx,
    }
 
    if (inst->Dst[0].Register.WriteMask & 0x7) {
-      snprintf(buf, 255, "%s%s = %s(textureSize(%s%s))%s;\n", dsts[0], get_wm_string(twm), get_string(dtypeprefix), srcs[sampler_index], bias, writemask);
+      bool txq_returns_vec = (inst->Texture.Texture != TGSI_TEXTURE_BUFFER &&
+                              inst->Texture.Texture != TGSI_TEXTURE_1D &&
+                              inst->Texture.Texture != TGSI_TEXTURE_SHADOW1D);
+      snprintf(buf, 255, "%s%s = %s(textureSize(%s%s))%s;\n", dsts[0], get_wm_string(twm), get_string(dtypeprefix), srcs[sampler_index], bias,
+            txq_returns_vec ? writemask : "");
       EMIT_BUF_WITH_RET(ctx, buf);
    }
    return 0;
