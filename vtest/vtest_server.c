@@ -302,6 +302,12 @@ static void vtest_main_run_renderer(int in_fd, int out_fd)
          err = 7;
          break;
       }
+
+      /* GL draws are fenced, while possible fence creations are too */
+      if (header[1] == VCMD_SUBMIT_CMD || header[1] == VCMD_RESOURCE_CREATE ||
+          header[1] == VCMD_RESOURCE_CREATE2)
+         vtest_renderer_create_fence();
+
    } while (1);
 
    fprintf(stderr, "socket failed (%d) - closing renderer\n", err);

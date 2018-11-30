@@ -736,7 +736,6 @@ int vtest_resource_busy_wait(UNUSED uint32_t length_dw)
    uint32_t reply_buf[1];
    bool busy = false;
 
-   vtest_renderer_create_fence();
    ret = vtest_block_read(renderer.in_fd, &bw_buf, sizeof(bw_buf));
    if (ret != sizeof(bw_buf)) {
       return -1;
