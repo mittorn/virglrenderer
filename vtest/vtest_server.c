@@ -64,7 +64,8 @@ struct vtest_program prog = {
 };
 
 static void vtest_main_parse_args(int argc, char **argv);
-static void vtest_main_set_signal(void);
+static void vtest_main_set_signal_child(void);
+static void vtest_main_set_signal_segv(void);
 static void vtest_main_open_read_file(void);
 static void vtest_main_open_socket(void);
 static void vtest_main_run_renderer(int in_fd, int out_fd);
@@ -87,7 +88,7 @@ while (__AFL_LOOP(1000)) {
    }
 
    if (prog.do_fork) {
-      vtest_main_set_signal();
+      vtest_main_set_signal_child();
    }
 
    vtest_main_open_socket();
@@ -98,10 +99,12 @@ start:
    if (prog.do_fork) {
       /* fork a renderer process */
       if (fork() == 0) {
+         vtest_main_set_signal_segv();
          vtest_main_run_renderer(prog.in_fd, prog.out_fd);
          exit(0);
       }
    } else {
+      vtest_main_set_signal_segv();
       vtest_main_run_renderer(prog.in_fd, prog.out_fd);
    }
 
@@ -134,18 +137,44 @@ static void vtest_main_parse_args(int argc, char **argv)
    }
 }
 
-static void vtest_main_set_signal(void)
+static void handler(int sig, siginfo_t *si, void *unused)
+{
+   (void)sig; (void)si, (void)unused;
+
+   printf("SIGSEGV!\n");
+   exit(EXIT_FAILURE);
+}
+
+static void vtest_main_set_signal_child(void)
 {
    struct sigaction sa;
    int ret;
 
-   sa.sa_handler = SIG_IGN;
+   memset(&sa, 0, sizeof(sa));
    sigemptyset(&sa.sa_mask);
+   sa.sa_handler = SIG_IGN;
    sa.sa_flags = 0;
 
-   ret = sigaction(SIGCHLD, &sa, 0);
+   ret = sigaction(SIGCHLD, &sa, NULL);
    if (ret == -1) {
-      perror(NULL);
+      perror("Failed to set SIGCHLD");
+      exit(1);
+   }
+}
+
+static void vtest_main_set_signal_segv(void)
+{
+   struct sigaction sa;
+   int ret;
+
+   memset(&sa, 0, sizeof(sa));
+   sigemptyset(&sa.sa_mask);
+   sa.sa_flags = SA_SIGINFO;
+   sa.sa_sigaction = handler;
+
+   ret = sigaction(SIGSEGV, &sa, NULL);
+   if (ret == -1) {
+      perror("Failed to set SIGSEGV");
       exit(1);
    }
 }
