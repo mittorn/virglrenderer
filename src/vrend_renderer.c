@@ -3672,6 +3672,7 @@ static void vrend_draw_bind_const_shader(struct vrend_context *ctx,
                                          int shader_type, bool new_program)
 {
    if (ctx->sub->consts[shader_type].consts &&
+       ctx->sub->shaders[shader_type] &&
        (ctx->sub->prog->const_location[shader_type] != -1) &&
        (ctx->sub->const_dirty[shader_type] || new_program)) {
       glUniform4uiv(ctx->sub->prog->const_location[shader_type],
