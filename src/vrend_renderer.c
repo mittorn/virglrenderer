@@ -8327,8 +8327,12 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
 
    caps->v2.capability_bits |= VIRGL_CAP_TGSI_INVARIANT | VIRGL_CAP_SET_MIN_SAMPLES | VIRGL_CAP_TGSI_PRECISE;
 
+   /* If attribute isn't supported, assume 2048 which is the minimum allowed
+      by the specification. */
    if (gl_ver >= 44 || gles_ver >= 31)
       glGetIntegerv(GL_MAX_VERTEX_ATTRIB_STRIDE, (GLint*)&caps->v2.max_vertex_attrib_stride);
+   else
+      caps->v2.max_vertex_attrib_stride = 2048;
 
    if (has_feature(feat_compute_shader)) {
       glGetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS, (GLint*)&caps->v2.max_compute_work_group_invocations);
