@@ -91,6 +91,7 @@ struct vrend_transfer_info {
    int level;
    uint32_t stride;
    uint32_t layer_stride;
+   uint32_t usage;
    unsigned int iovec_cnt;
    struct iovec *iovec;
    uint64_t offset;
