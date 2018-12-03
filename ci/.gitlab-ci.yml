@@ -44,8 +44,8 @@ test:
     - mkdir -p ccache
     - mkdir -p results
   script:
-    - echo core > /proc/sys/kernel/core_pattern
-    - echo 0 > /proc/sys/kernel/core_uses_pid
+    - echo core > /proc/sys/kernel/core_pattern || true
+    - echo 0 > /proc/sys/kernel/core_uses_pid || true
     - if test -e $RENDER_DEVICE; then RD_CONFIG="--device=$RENDER_DEVICE -e RENDER_DEVICE=$RENDER_DEVICE"; fi
     - echo RD_CONFIG=$RD_CONFIG
     - time docker run
