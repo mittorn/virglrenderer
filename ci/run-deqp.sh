@@ -198,14 +198,14 @@ if [[ "x$ONLY_SOFTPIPE_PASS" != "xyes" ]] ; then
     FLIP_FLOPS="$FLIP_FLOPS spec/arb_shader_image_load_store/shader-mem-barrier/tessellation control shader/'coherent' qualifier memory barrier test/modulus="
     FLIP_FLOPS="$FLIP_FLOPS spec/ext_transform_instanced/draw-auto instanced"
     for TEST_NAME in $FLIP_FLOPS; do
-        sed -i "\:$TEST_NAME:d" $RESULTS_DIR/piglit/results.txt $PREVIOUS_RESULTS_DIR/piglit_results.txt
+        sed -i "\:$TEST_NAME:d" $RESULTS_DIR/piglit_results $PREVIOUS_RESULTS_DIR/piglit_results.txt
     done
 
     # This distinction adds too much variability
-    sed -i "s/crash/fail/g" $RESULTS_DIR/piglit/results.txt $PREVIOUS_RESULTS_DIR/piglit_results.txt
+    sed -i "s/crash/fail/g" $RESULTS_DIR/piglit_results $PREVIOUS_RESULTS_DIR/piglit_results.txt
 
     # Sort results files
-    sort -V $RESULTS_DIR/piglit/results.txt -o $RESULTS_DIR/piglit/results.txt
+    sort -V $RESULTS_DIR/piglit_results -o $RESULTS_DIR/piglit_results
     sort -V $PREVIOUS_RESULTS_DIR/piglit_results.txt -o $PREVIOUS_RESULTS_DIR/piglit_results.txt
 
     diff -u $PREVIOUS_RESULTS_DIR/piglit_results.txt $RESULTS_DIR/piglit/results.txt 2>&1 > $RESULTS_DIR/piglit_diff.txt
