@@ -189,6 +189,7 @@ if [[ "x$ONLY_SOFTPIPE_PASS" != "xyes" ]] ; then
     piglit summary console $RESULTS_DIR/piglit | head -n -17 > $RESULTS_DIR/piglit/results.txt
 
     # TODO: These tests are not reliable when run on radeonsi, someone should fix them and then remove these lines
+    FLIP_FLOPS=""
     FLIP_FLOPS="$FLIP_FLOPS spec/arb_framebuffer_srgb/blit renderbuffer srgb_to_linear downsample enabled clear"
     FLIP_FLOPS="$FLIP_FLOPS spec/arb_framebuffer_srgb/blit texture srgb_to_linear msaa enabled clear"
     FLIP_FLOPS="$FLIP_FLOPS spec/arb_shader_image_load_store/shader-mem-barrier/fragment shader/'volatile' qualifier memory barrier test/modulus="
