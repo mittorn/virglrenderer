@@ -8556,6 +8556,8 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
 
    if (has_feature(feat_qbo))
       caps->v2.capability_bits |= VIRGL_CAP_QBO;
+
+   caps->v2.capability_bits |= VIRGL_CAP_TRANSFER;
 }
 
 void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
