@@ -1302,6 +1302,24 @@ static int vrend_decode_set_debug_mask(struct vrend_decode_ctx *ctx, int length)
    return 0;
 }
 
+static int vrend_decode_transfer3d(struct vrend_decode_ctx *ctx, int length, uint32_t ctx_id)
+{
+   struct pipe_box box;
+   struct vrend_transfer_info info;
+
+   if (length < VIRGL_TRANSFER3D_SIZE)
+      return EINVAL;
+
+   memset(&info, 0, sizeof(info));
+   info.box = &box;
+   info.ctx_id = ctx_id;
+   vrend_decode_transfer_common(ctx, &info);
+   info.offset = get_buf_entry(ctx, VIRGL_TRANSFER3D_DATA_OFFSET);
+   int transfer_mode = get_buf_entry(ctx, VIRGL_TRANSFER3D_DIRECTION);
+   info.context0 = false;
+
+   return vrend_renderer_transfer_iov(&info, transfer_mode);
+}
 
 void vrend_renderer_context_create_internal(uint32_t handle, uint32_t nlen,
                                             const char *debug_name)
@@ -1539,6 +1557,12 @@ int vrend_decode_block(uint32_t ctx_id, uint32_t *block, int ndw)
          break;
       case VIRGL_CCMD_GET_QUERY_RESULT_QBO:
          ret = vrend_decode_get_query_result_qbo(gdctx, len);
+         break;
+      case VIRGL_CCMD_TRANSFER3D:
+         ret = vrend_decode_transfer3d(gdctx, len, ctx_id);
+         break;
+      case VIRGL_CCMD_END_TRANSFERS:
+         ret = 0;
          break;
       default:
          ret = EINVAL;
