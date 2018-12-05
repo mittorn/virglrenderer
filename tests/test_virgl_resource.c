@@ -287,6 +287,23 @@ START_TEST(cubemaparray_res_tests)
 }
 END_TEST
 
+START_TEST(private_ptr)
+{
+  int ret;
+  ret = testvirgl_init_single_ctx();
+  ck_assert_int_eq(ret, 0);
+  struct virgl_renderer_resource_create_args args = { 1, PIPE_BUFFER, PIPE_FORMAT_R8_UNORM, 0, 50, 1, 1, 1, 0, 0, 0 };
+  ret = virgl_renderer_resource_create(&args, NULL, 0);
+  ck_assert_int_eq(ret, 0);
+
+  void *init_priv = (void*)0xabab;
+  virgl_renderer_resource_set_priv(1, init_priv);
+  void *priv = virgl_renderer_resource_get_priv(1);
+  ck_assert_int_eq((unsigned long)priv, 0xabab);
+  testvirgl_fini_single_ctx();
+}
+END_TEST
+
 static Suite *virgl_init_suite(void)
 {
   Suite *s;
@@ -297,6 +314,7 @@ static Suite *virgl_init_suite(void)
 
   tcase_add_loop_test(tc_core, virgl_res_tests, 0, ARRAY_SIZE(testlist));
   tcase_add_loop_test(tc_core, cubemaparray_res_tests, 0, ARRAY_SIZE(cubemaparray_testlist));
+  tcase_add_test(tc_core, private_ptr);
   suite_add_tcase(s, tc_core);
   return s;
 

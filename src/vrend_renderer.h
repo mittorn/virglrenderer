@@ -64,6 +64,7 @@ struct vrend_resource {
 
    GLuint handle;
 
+   void *priv;
    char *ptr;
    struct iovec *iov;
    uint32_t num_iovs;
@@ -160,6 +161,8 @@ struct vrend_renderer_resource_create_args {
 int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *args, struct iovec *iov, uint32_t num_iovs, void *image_eos);
 
 void vrend_renderer_resource_unref(uint32_t handle);
+void vrend_renderer_resource_set_priv(uint32_t res_handle, void *priv);
+void *vrend_renderer_resource_get_priv(uint32_t res_handle);
 
 int vrend_create_surface(struct vrend_context *ctx,
                          uint32_t handle,

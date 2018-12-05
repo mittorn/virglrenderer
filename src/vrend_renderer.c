@@ -8626,6 +8626,24 @@ void vrend_renderer_get_rect(int res_handle, struct iovec *iov, unsigned int num
    vrend_renderer_transfer_iov(&transfer_info, VREND_TRANSFER_READ);
 }
 
+void vrend_renderer_resource_set_priv(uint32_t res_handle, void *priv)
+{
+    struct vrend_resource *res = vrend_resource_lookup(res_handle, 0);
+    if (!res)
+       return;
+
+    res->priv = priv;
+}
+
+void *vrend_renderer_resource_get_priv(uint32_t res_handle)
+{
+    struct vrend_resource *res = vrend_resource_lookup(res_handle, 0);
+    if (!res)
+       return NULL;
+
+    return res->priv;
+}
+
 void vrend_renderer_attach_res_ctx(int ctx_id, int resource_id)
 {
    struct vrend_context *ctx = vrend_lookup_renderer_ctx(ctx_id);

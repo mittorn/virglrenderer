@@ -72,6 +72,16 @@ int virgl_renderer_resource_import_eglimage(struct virgl_renderer_resource_creat
 #endif
 }
 
+void virgl_renderer_resource_set_priv(uint32_t res_handle, void *priv)
+{
+   vrend_renderer_resource_set_priv(res_handle, priv);
+}
+
+void *virgl_renderer_resource_get_priv(uint32_t res_handle)
+{
+   return vrend_renderer_resource_get_priv(res_handle);
+}
+
 void virgl_renderer_resource_unref(uint32_t res_handle)
 {
    vrend_renderer_resource_unref(res_handle);
