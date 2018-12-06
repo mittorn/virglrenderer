@@ -92,6 +92,7 @@ enum features_id
    feat_atomic_counters,
    feat_base_instance,
    feat_barrier,
+   feat_bind_vertex_buffers,
    feat_bit_encoding,
    feat_compute_shader,
    feat_copy_image,
@@ -163,6 +164,7 @@ static const  struct {
    FEAT(atomic_counters, 42, 31,  "GL_ARB_shader_atomic_counters" ),
    FEAT(base_instance, 42, UNAVAIL,  "GL_ARB_base_instance", "GL_EXT_base_instance" ),
    FEAT(barrier, 42, 31, NULL),
+   FEAT(bind_vertex_buffers, 44, UNAVAIL, NULL),
    FEAT(bit_encoding, 33, UNAVAIL,  "GL_ARB_shader_bit_encoding" ),
    FEAT(compute_shader, 43, 31,  "GL_ARB_compute_shader" ),
    FEAT(copy_image, 43, 32,  "GL_ARB_copy_image", "GL_EXT_copy_image", "GL_OES_copy_image" ),
@@ -3543,19 +3545,36 @@ static void vrend_draw_bind_vertex_binding(struct vrend_context *ctx,
    glBindVertexArray(va->id);
 
    if (ctx->sub->vbo_dirty) {
+      GLsizei count = 0;
+      GLuint buffers[PIPE_MAX_ATTRIBS];
+      GLintptr offsets[PIPE_MAX_ATTRIBS];
+      GLsizei strides[PIPE_MAX_ATTRIBS];
+
       for (i = 0; i < ctx->sub->num_vbos; i++) {
          struct vrend_resource *res = (struct vrend_resource *)ctx->sub->vbo[i].buffer;
-         if (!res)
-            glBindVertexBuffer(i, 0, 0, 0);
-         else
-            glBindVertexBuffer(i,
-                               res->id,
-                               ctx->sub->vbo[i].buffer_offset,
-                               ctx->sub->vbo[i].stride);
+         if (!res) {
+            buffers[count] = 0;
+            offsets[count] = 0;
+            strides[count++] = 0;
+         } else {
+            buffers[count] = res->id;
+            offsets[count] = ctx->sub->vbo[i].buffer_offset,
+            strides[count++] = ctx->sub->vbo[i].stride;
+         }
       }
       for (i = ctx->sub->num_vbos; i < ctx->sub->old_num_vbos; i++) {
-         glBindVertexBuffer(i, 0, 0, 0);
+              buffers[count] = 0;
+              offsets[count] = 0;
+              strides[count++] = 0;
       }
+
+      if (has_feature(feat_bind_vertex_buffers))
+         glBindVertexBuffers(0, count, buffers, offsets, strides);
+      else {
+         for (i = 0; i < count; ++i)
+            glBindVertexBuffer(i, buffers[i], offsets[i], strides[i]);
+      }
+
       ctx->sub->vbo_dirty = false;
    }
 }
