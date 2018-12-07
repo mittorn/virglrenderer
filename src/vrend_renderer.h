@@ -95,6 +95,7 @@ struct vrend_transfer_info {
    unsigned int iovec_cnt;
    struct iovec *iovec;
    uint64_t offset;
+   bool context0;
    struct pipe_box *box;
 };
 

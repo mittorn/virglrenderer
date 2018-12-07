@@ -6654,6 +6654,10 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
                           separate_invert);
       free(data);
    }
+
+   if (!info->context0 && ctx->sub)
+      glBindFramebuffer(GL_FRAMEBUFFER, ctx->sub->fb_id);
+
    return 0;
 }
 
@@ -6780,7 +6784,8 @@ int vrend_renderer_transfer_iov(const struct vrend_transfer_info *info,
    if (!check_iov_bounds(res, info, iov, num_iovs))
       return EINVAL;
 
-   vrend_hw_switch_context(vrend_lookup_renderer_ctx(0), true);
+   if (info->context0)
+      vrend_hw_switch_context(vrend_lookup_renderer_ctx(0), true);
 
    if (transfer_mode == VREND_TRANSFER_WRITE)
       return vrend_renderer_transfer_write_iov(ctx, res, iov, num_iovs,
@@ -8720,6 +8725,7 @@ void vrend_renderer_get_rect(int res_handle, struct iovec *iov, unsigned int num
    transfer_info.handle = res->handle;
    transfer_info.iovec = iov;
    transfer_info.iovec_cnt = num_iovs;
+   transfer_info.context0 = true;
    vrend_renderer_transfer_iov(&transfer_info, VREND_TRANSFER_READ);
 }
 
