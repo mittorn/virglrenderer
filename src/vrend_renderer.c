@@ -2033,7 +2033,6 @@ static void vrend_hw_emit_framebuffer_state(struct vrend_context *ctx)
       GL_COLOR_ATTACHMENT6,
       GL_COLOR_ATTACHMENT7,
    };
-   glBindFramebuffer(GL_FRAMEBUFFER, ctx->sub->fb_id);
 
    if (ctx->sub->nr_cbufs == 0) {
       glReadBuffer(GL_NONE);
