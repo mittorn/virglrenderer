@@ -3212,8 +3212,6 @@ void vrend_clear(struct vrend_context *ctx,
    if (ctx->ctx_switch_pending)
       vrend_finish_context_switch(ctx);
 
-   glBindFramebuffer(GL_FRAMEBUFFER, ctx->sub->fb_id);
-
    vrend_update_frontface_state(ctx);
    if (ctx->sub->stencil_state_dirty)
       vrend_update_stencil_state(ctx);
@@ -3981,7 +3979,6 @@ int vrend_draw_vbo(struct vrend_context *ctx,
       fprintf(stderr,"dropping rendering due to missing shaders: %s\n", ctx->debug_name);
       return 0;
    }
-   glBindFramebuffer(GL_FRAMEBUFFER, ctx->sub->fb_id);
 
    vrend_use_program(ctx, ctx->sub->prog->id);
 
