@@ -7275,7 +7275,7 @@ void vrend_renderer_resource_copy_region(struct vrend_context *ctx,
                      dstx + src_box->width,
                      dy2,
                      glmask, GL_NEAREST);
-
+   glBindFramebuffer(GL_FRAMEBUFFER, ctx->sub->fb_id);
 }
 
 static void vrend_renderer_blit_int(struct vrend_context *ctx,
@@ -7482,6 +7482,7 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
                         dst_y2,
                         glmask, filter);
    }
+   glBindFramebuffer(GL_FRAMEBUFFER, ctx->sub->fb_id);
 
    if (make_intermediate_copy) {
       vrend_renderer_resource_destroy(intermediate_copy, false);
