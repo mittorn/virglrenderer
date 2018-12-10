@@ -483,6 +483,7 @@ struct vrend_sub_context {
    bool sampler_state_dirty;
    bool stencil_state_dirty;
    bool image_state_dirty;
+   bool blend_state_dirty;
 
    uint32_t long_shader_in_progress_handle[PIPE_SHADER_TYPES];
    struct vrend_shader_selector *shaders[PIPE_SHADER_TYPES];
@@ -2155,7 +2156,9 @@ void vrend_set_framebuffer_state(struct vrend_context *ctx,
       if (status != GL_FRAMEBUFFER_COMPLETE)
          fprintf(stderr,"failed to complete framebuffer 0x%x %s\n", status, ctx->debug_name);
    }
+
    ctx->sub->shader_dirty = true;
+   ctx->sub->blend_state_dirty = true;
 }
 
 void vrend_set_framebuffer_state_no_attach(UNUSED struct vrend_context *ctx,
@@ -3890,7 +3893,8 @@ int vrend_draw_vbo(struct vrend_context *ctx,
    if (ctx->sub->viewport_state_dirty)
       vrend_update_viewport_state(ctx);
 
-   vrend_patch_blend_state(ctx);
+   if (ctx->sub->blend_state_dirty)
+      vrend_patch_blend_state(ctx);
 
    if (ctx->sub->shader_dirty) {
       struct vrend_linked_shader_program *prog;
@@ -4440,8 +4444,10 @@ static void vrend_patch_blend_state(struct vrend_context *ctx)
    struct pipe_blend_color blend_color = ctx->sub->blend_color;
    int i;
 
-   if (ctx->sub->nr_cbufs == 0)
+   if (ctx->sub->nr_cbufs == 0) {
+      ctx->sub->blend_state_dirty = false;
       return;
+   }
 
    for (i = 0; i < (state->independent_blend_enable ? PIPE_MAX_COLOR_BUFS : 1); i++) {
       if (i < ctx->sub->nr_cbufs && ctx->sub->surf[i]) {
@@ -4486,6 +4492,8 @@ static void vrend_patch_blend_state(struct vrend_context *ctx)
                 blend_color.color[1],
                 blend_color.color[2],
                 blend_color.color[3]);
+
+   ctx->sub->blend_state_dirty = false;
 }
 
 void vrend_object_bind_blend(struct vrend_context *ctx,
@@ -4507,7 +4515,7 @@ void vrend_object_bind_blend(struct vrend_context *ctx,
    ctx->sub->shader_dirty = true;
    ctx->sub->blend_state = *state;
 
-   vrend_hw_emit_blend(ctx, &ctx->sub->blend_state);
+   ctx->sub->blend_state_dirty = true;
 }
 
 static void vrend_hw_emit_dsa(struct vrend_context *ctx)
