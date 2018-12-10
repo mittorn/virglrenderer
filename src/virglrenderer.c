@@ -247,7 +247,7 @@ static void destroy_gl_context(virgl_renderer_gl_context ctx)
    return rcbs->destroy_gl_context(dev_cookie, ctx);
 }
 
-static int make_current(int scanout_idx, virgl_renderer_gl_context ctx)
+static int make_current(virgl_renderer_gl_context ctx)
 {
 #ifdef HAVE_EPOXY_EGL_H
    if (use_context == CONTEXT_EGL)
@@ -257,7 +257,7 @@ static int make_current(int scanout_idx, virgl_renderer_gl_context ctx)
    if (use_context == CONTEXT_GLX)
       return virgl_glx_make_context_current(glx_info, ctx);
 #endif
-   return rcbs->make_current(dev_cookie, scanout_idx, ctx);
+   return rcbs->make_current(dev_cookie, 0, ctx);
 }
 
 static struct vrend_if_cbs virgl_cbs = {

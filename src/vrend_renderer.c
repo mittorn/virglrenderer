@@ -5146,7 +5146,7 @@ static int thread_sync(UNUSED void *arg)
 
 
    pipe_mutex_lock(vrend_state.fence_mutex);
-   vrend_clicbs->make_current(0, gl_context);
+   vrend_clicbs->make_current(gl_context);
 
    while (!vrend_state.stop_sync_thread) {
       if (LIST_IS_EMPTY(&vrend_state.fence_wait_list) &&
@@ -5165,7 +5165,7 @@ static int thread_sync(UNUSED void *arg)
       }
    }
 
-   vrend_clicbs->make_current(0, 0);
+   vrend_clicbs->make_current(0);
    vrend_clicbs->destroy_gl_context(vrend_state.sync_context);
    pipe_mutex_unlock(vrend_state.fence_mutex);
    return 0;
@@ -5253,7 +5253,7 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
          break;
    }
 
-   vrend_clicbs->make_current(0, gl_context);
+   vrend_clicbs->make_current(gl_context);
    gl_ver = epoxy_gl_version();
 
    /* enable error output as early as possible */
@@ -7329,7 +7329,7 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
       VREND_DEBUG(dbg_blit, ctx, "BLIT_INT: use GL fallback\n");
       vrend_renderer_blit_gl(ctx, src_res, dst_res, info,
                              has_feature(feat_texture_srgb_decode));
-      vrend_clicbs->make_current(0, ctx->sub->gl_context);
+      vrend_clicbs->make_current(ctx->sub->gl_context);
       return;
    }
 
@@ -7707,7 +7707,7 @@ static void vrend_finish_context_switch(struct vrend_context *ctx)
 
    vrend_state.current_hw_ctx = ctx;
 
-   vrend_clicbs->make_current(0, ctx->sub->gl_context);
+   vrend_clicbs->make_current(ctx->sub->gl_context);
 }
 
 void
@@ -8584,7 +8584,7 @@ void vrend_renderer_force_ctx_0(void)
    vrend_state.current_ctx = NULL;
    vrend_state.current_hw_ctx = NULL;
    vrend_hw_switch_context(ctx0, true);
-   vrend_clicbs->make_current(0, ctx0->sub->gl_context);
+   vrend_clicbs->make_current(ctx0->sub->gl_context);
 }
 
 void vrend_renderer_get_rect(int res_handle, struct iovec *iov, unsigned int num_iovs,
@@ -8730,7 +8730,7 @@ void vrend_renderer_create_sub_ctx(struct vrend_context *ctx, int sub_ctx_id)
    ctx_params.major_ver = vrend_state.gl_major_ver;
    ctx_params.minor_ver = vrend_state.gl_minor_ver;
    sub->gl_context = vrend_clicbs->create_gl_context(0, &ctx_params);
-   vrend_clicbs->make_current(0, sub->gl_context);
+   vrend_clicbs->make_current(sub->gl_context);
 
    /* enable if vrend_renderer_init function has done it as well */
    if (has_feature(feat_debug_cb)) {
@@ -8795,7 +8795,7 @@ void vrend_renderer_destroy_sub_ctx(struct vrend_context *ctx, int sub_ctx_id)
    if (tofree) {
       if (ctx->sub == tofree) {
          ctx->sub = ctx->sub0;
-         vrend_clicbs->make_current(0, ctx->sub->gl_context);
+         vrend_clicbs->make_current(ctx->sub->gl_context);
       }
       vrend_destroy_sub_context(tofree);
    }
@@ -8812,7 +8812,7 @@ void vrend_renderer_set_sub_ctx(struct vrend_context *ctx, int sub_ctx_id)
    LIST_FOR_EACH_ENTRY(sub, &ctx->sub_ctxs, head) {
       if (sub->sub_ctx_id == sub_ctx_id) {
          ctx->sub = sub;
-         vrend_clicbs->make_current(0, sub->gl_context);
+         vrend_clicbs->make_current(sub->gl_context);
          break;
       }
    }
