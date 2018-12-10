@@ -538,6 +538,8 @@ struct vrend_sub_context {
    GLuint program_id;
    int last_shader_idx;
 
+   GLint draw_indirect_buffer;
+
    struct pipe_rasterizer_state hw_rs_state;
    struct pipe_blend_state hw_blend_state;
 
@@ -4044,10 +4046,11 @@ int vrend_draw_vbo(struct vrend_context *ctx,
    }
 
    if (has_feature(feat_indirect_draw)) {
-      if (indirect_res)
-         glBindBuffer(GL_DRAW_INDIRECT_BUFFER, indirect_res->id);
-      else
-         glBindBuffer(GL_DRAW_INDIRECT_BUFFER, 0);
+      GLint buf = indirect_res ? indirect_res->id : 0;
+      if (ctx->sub->draw_indirect_buffer != buf) {
+         glBindBuffer(GL_DRAW_INDIRECT_BUFFER, buf);
+         ctx->sub->draw_indirect_buffer = buf;
+      }
    }
 
    if (info->vertices_per_patch && has_feature(feat_tessellation))
