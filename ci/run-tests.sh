@@ -69,19 +69,6 @@ cp -rf * /usr/local/VK-GL-CTS/.
 
 ccache -s
 
-: '
-ln -s /usr/local/bin/qemu-system-x86_64 /usr/bin/qemu-system-x86_64
-echo "Starting guest for ES"
-mkdir -p /virglrenderer/results/es_host
-rm -f core
-
-fakemachine --qemuopts="-vga virtio -display egl-headless,gl=es" \
-            --show-boot \
-            --memory=8192 \
-            -v /virglrenderer:/virglrenderer \
-            -v /virglrenderer/results/es_host:/results \
-            -- /virglrenderer/ci/run-deqp.sh
-'
 
 # Stop testing process if a failure have been found
 if [ -f /virglrenderer/results/regressions_detected ]; then
