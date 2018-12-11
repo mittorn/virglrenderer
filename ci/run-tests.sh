@@ -60,13 +60,6 @@ if [ -f /virglrenderer/results/regressions_detected ]; then
    exit 1
 fi
 
-: '
-cd /VK-GL-CTS/build
-#cmake -DDEQP_TARGET=x11_egl -DCMAKE_BUILD_TYPE=Release ..
-make -j$NUM_THREADS
-cp -rf * /usr/local/VK-GL-CTS/.
-'
-
 ccache -s
 
 
