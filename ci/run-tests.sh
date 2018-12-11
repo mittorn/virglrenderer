@@ -60,9 +60,6 @@ if [ -f /virglrenderer/results/regressions_detected ]; then
    exit 1
 fi
 
-ccache -s
-
-
 # Stop testing process if a failure have been found
 if [ -f /virglrenderer/results/regressions_detected ]; then
    exit 1
