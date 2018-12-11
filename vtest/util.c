@@ -29,7 +29,6 @@
 #include <unistd.h>
 #include <sys/select.h>
 
-
 int vtest_wait_for_fd_read(int fd)
 {
    fd_set read_fds;
@@ -48,4 +47,16 @@ int vtest_wait_for_fd_read(int fd)
    }
 
    return -1;
+}
+
+int __failed_call(const char* func, const char *called, int ret)
+{
+   fprintf(stderr, "%s called %s which failed (%d)\n", func, called, ret);
+   return ret;
+}
+
+int __failure(const char* func, const char *reason, int ret)
+{
+   fprintf(stderr, "%s %s (%d)\n", func, reason, ret);
+   return ret;
 }

@@ -65,26 +65,6 @@ struct vtest_renderer {
 
 struct vtest_renderer renderer;
 
-static int
-__failed_call(const char* func, const char *called, int ret)
-{
-   fprintf(stderr, "%s called %s which failed (%d)\n", func, called, ret);
-   return ret;
-}
-
-#define report_failed_call(called, ret) \
-   __failed_call(__FUNCTION__, called, ret)
-
-static int
-__failure(const char* func, const char *reason, int ret)
-{
-   fprintf(stderr, "%s %s (%d)\n", func, reason, ret);
-   return ret;
-}
-
-#define report_failure(reason, ret) \
-   __failure(__FUNCTION__, reason, ret)
-
 static unsigned
 hash_func(void *key)
 {
