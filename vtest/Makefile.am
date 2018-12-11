@@ -19,6 +19,8 @@ bin_PROGRAMS = virgl_test_server
 virgl_test_server_SOURCES =			\
 	util.c					\
 	util.h					\
+	vtest_shm.c				\
+	vtest_shm.h				\
 	vtest_server.c				\
 	vtest_renderer.c			\
 	vtest_protocol.h			\
