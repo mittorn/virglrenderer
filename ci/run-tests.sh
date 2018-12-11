@@ -60,11 +60,6 @@ if [ -f /virglrenderer/results/regressions_detected ]; then
    exit 1
 fi
 
-# Stop testing process if a failure have been found
-if [ -f /virglrenderer/results/regressions_detected ]; then
-   exit 1
-fi
-
 /virglrenderer/ci/run-deqp.sh --with-vtest $LIMIT_TESTSET
 /virglrenderer/ci/run-deqp.sh --host-gl --with-vtest $LIMIT_TESTSET
 
