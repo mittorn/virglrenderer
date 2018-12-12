@@ -34,7 +34,9 @@
 
 #include <sys/uio.h>
 #include "vtest.h"
+#include "vtest_shm.h"
 #include "vtest_protocol.h"
+
 #include "util.h"
 #include "util/u_debug.h"
 #include "util/u_math.h"
@@ -240,6 +242,12 @@ int vtest_protocol_version(UNUSED uint32_t length_dw)
     */
    if (renderer.protocol_version == 1) {
       printf("Older guest Mesa detected, fallbacking to protocol version 0\n");
+      renderer.protocol_version = 0;
+   }
+
+   /* Protocol version 2 requires shm support. */
+   if (!vtest_shm_check()) {
+      printf("Shared memory not supported, fallbacking to protocol version 0\n");
       renderer.protocol_version = 0;
    }
 
