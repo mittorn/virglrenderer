@@ -8111,7 +8111,7 @@ static void vrend_renderer_fill_caps_v1(int gl_ver, int gles_ver, union virgl_ca
    } else {
       if (epoxy_has_gl_extension("GL_ARB_fragment_coord_conventions"))
          caps->v1.bset.fragment_coord_conventions = 1;
-      if (epoxy_has_gl_extension("GL_ARB_seamless_cube_map"))
+      if (epoxy_has_gl_extension("GL_ARB_seamless_cube_map") || gles_ver >= 30)
          caps->v1.bset.seamless_cube_map = 1;
    }
 
