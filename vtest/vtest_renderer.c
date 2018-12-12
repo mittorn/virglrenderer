@@ -34,6 +34,7 @@
 
 #include <sys/uio.h>
 #include <sys/socket.h>
+#include <sys/mman.h>
 
 #include "vtest.h"
 #include "vtest_shm.h"
@@ -91,8 +92,8 @@ compare_iovecs(void *key1, void *key2)
 static void free_iovec(void *value)
 {
    struct iovec *iovec = value;
-
-   free(iovec->iov_base);
+   if (iovec->iov_base)
+      munmap(iovec->iov_base, iovec->iov_len);
    free(iovec);
 }
 
@@ -111,25 +112,6 @@ static int vtest_block_write(int fd, void *buf, int size)
 
       left -= ret;
       ptr += ret;
-   } while (left);
-
-   return size;
-}
-
-static int vtest_block_write_zero(int fd, int size)
-{
-   char zero[256] = {0};
-   int left;
-   int ret;
-   left = size;
-
-   do {
-      ret = write(fd, zero, MIN2(left, 256));
-      if (ret < 0) {
-         return -errno;
-      }
-
-      left -= ret;
    } while (left);
 
    return size;
@@ -417,7 +399,7 @@ int vtest_create_resource2(UNUSED uint32_t length_dw)
    uint32_t res_create_buf[VCMD_RES_CREATE2_SIZE];
    struct virgl_renderer_resource_create_args args;
    struct iovec *iovec;
-   int ret;
+   int ret, fd;
 
    ret = vtest_block_read(renderer.in_fd, &res_create_buf, sizeof(res_create_buf));
    if (ret != sizeof(res_create_buf)) {
@@ -443,9 +425,8 @@ int vtest_create_resource2(UNUSED uint32_t length_dw)
    }
 
    ret = virgl_renderer_resource_create(&args, NULL, 0);
-   if (ret) {
-      return ret;
-   }
+   if (ret)
+      return report_failed_call("virgl_renderer_resource_create", ret);
 
    virgl_renderer_ctx_attach_resource(ctx_id, args.handle);
 
@@ -455,16 +436,42 @@ int vtest_create_resource2(UNUSED uint32_t length_dw)
    }
 
    iovec->iov_len = res_create_buf[VCMD_RES_CREATE2_DATA_SIZE];
-   iovec->iov_base = calloc(1, iovec->iov_len);
-   if (!iovec->iov_base) {
+
+   /* Multi-sample textures have no backing store, but an associated GL resource. */
+   if (iovec->iov_len == 0) {
+      iovec->iov_base = NULL;
+      goto out;
+   }
+
+   fd = vtest_new_shm(args.handle, iovec->iov_len);
+   if (fd < 0) {
+      FREE(iovec);
+      return report_failed_call("vtest_new_shm", fd);
+   }
+
+   iovec->iov_base = mmap(NULL, iovec->iov_len, PROT_WRITE | PROT_READ,
+                          MAP_SHARED, fd, 0);
+
+   if (iovec->iov_base == MAP_FAILED) {
+      close(fd);
       FREE(iovec);
       return -ENOMEM;
    }
 
+   ret = vtest_send_fd(renderer.out_fd, fd);
+   if (ret < 0) {
+      close(fd);
+      munmap(iovec->iov_base, iovec->iov_len);
+      return report_failed_call("vtest_send_fd", ret);
+   }
+
+   /* Closing the file descriptor does not unmap the region. */
+   close(fd);
+
+out:
    virgl_renderer_resource_attach_iov(args.handle, iovec, 1);
    util_hash_table_set(renderer.iovec_hash, intptr_to_pointer(args.handle), iovec);
-
-   return ret;
+   return 0;
 }
 
 int vtest_resource_unref(UNUSED uint32_t length_dw)
@@ -629,7 +636,6 @@ int vtest_transfer_put(UNUSED uint32_t length_dw)
       box.w = thdr_buf[VCMD_TRANSFER2_WIDTH];		\
       box.h = thdr_buf[VCMD_TRANSFER2_HEIGHT];		\
       box.d = thdr_buf[VCMD_TRANSFER2_DEPTH];		\
-      data_size = thdr_buf[VCMD_TRANSFER2_DATA_SIZE];	\
       offset = thdr_buf[VCMD_TRANSFER2_OFFSET];		\
    } while(0)
 
@@ -641,9 +647,7 @@ int vtest_transfer_get2(UNUSED uint32_t length_dw)
    int level;
    uint32_t handle;
    struct virgl_box box;
-   uint32_t data_size;
    uint32_t offset;
-   uint32_t extra_data = 0;
    struct iovec *iovec;
 
    ret = vtest_block_read(renderer.in_fd, thdr_buf, sizeof(thdr_buf));
@@ -674,27 +678,7 @@ int vtest_transfer_get2(UNUSED uint32_t length_dw)
       return report_failed_call("virgl_renderer_transfer_read_iov", ret);
    }
 
-   /* Make sure we don't read out of bounds. */
-   if (data_size > (iovec->iov_len - offset)) {
-      extra_data = data_size - (iovec->iov_len - offset);
-      data_size -= extra_data;
-   }
-
-   ret = vtest_block_write(renderer.out_fd,
-                           iovec->iov_base + offset,
-                           data_size);
-   if (ret < 0) {
-      return report_failed_call("vtest_block_write", ret);
-   }
-
-   if (extra_data) {
-      ret = vtest_block_write_zero(renderer.out_fd, extra_data);
-      if (ret < 0) {
-         return report_failed_call("vtest_block_write_zero", ret);
-      }
-   }
-
-   return ret < 0 ? ret : 0;
+   return 0;
 }
 
 int vtest_transfer_put2(UNUSED uint32_t length_dw)
@@ -704,7 +688,7 @@ int vtest_transfer_put2(UNUSED uint32_t length_dw)
    int level;
    uint32_t handle;
    struct virgl_box box;
-   uint32_t data_size;
+   UNUSED uint32_t data_size;
    uint32_t offset;
    struct iovec *iovec;
 
@@ -718,11 +702,6 @@ int vtest_transfer_put2(UNUSED uint32_t length_dw)
    iovec = util_hash_table_get(renderer.iovec_hash, intptr_to_pointer(handle));
    if (!iovec) {
       return report_failed_call("util_hash_table_get", -ESRCH);
-   }
-
-   ret = vtest_block_read(renderer.in_fd, iovec->iov_base + offset, data_size);
-   if (ret < 0) {
-      return report_failed_call("vtest_block_read", ret);
    }
 
    ret = virgl_renderer_transfer_write_iov(handle,
