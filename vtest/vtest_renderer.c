@@ -33,6 +33,8 @@
 #include "virglrenderer.h"
 
 #include <sys/uio.h>
+#include <sys/socket.h>
+
 #include "vtest.h"
 #include "vtest_shm.h"
 #include "vtest_protocol.h"
@@ -167,6 +169,39 @@ int vtest_block_read(int fd, void *buf, int size)
    }
 
    return size;
+}
+
+static int vtest_send_fd(int socket_fd, int fd)
+{
+    struct iovec iovec;
+    char buf[CMSG_SPACE(sizeof(int))], c;
+    struct msghdr msgh = { 0 };
+    memset(buf, 0, sizeof(buf));
+
+    iovec.iov_base = &c;
+    iovec.iov_len = sizeof(char);
+
+    msgh.msg_name = NULL;
+    msgh.msg_namelen = 0;
+    msgh.msg_iov = &iovec;
+    msgh.msg_iovlen = 1;
+    msgh.msg_control = buf;
+    msgh.msg_controllen = sizeof(buf);
+    msgh.msg_flags = 0;
+
+    struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msgh);
+    cmsg->cmsg_level = SOL_SOCKET;
+    cmsg->cmsg_type = SCM_RIGHTS;
+    cmsg->cmsg_len = CMSG_LEN(sizeof(int));
+
+    *((int *) CMSG_DATA(cmsg)) = fd;
+
+    int size = sendmsg(socket_fd, &msgh, 0);
+    if (size < 0) {
+      return report_failure("Failed to send fd", -EINVAL);
+    }
+
+    return 0;
 }
 
 int vtest_create_renderer(int in_fd, int out_fd, uint32_t length,
