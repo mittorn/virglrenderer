@@ -2152,7 +2152,6 @@ void vrend_set_framebuffer_state(struct vrend_context *ctx,
       if (ctx->sub->fb_height != (uint32_t)new_height || ctx->sub->inverted_fbo_content != new_ibf) {
          ctx->sub->fb_height = new_height;
          ctx->sub->inverted_fbo_content = new_ibf;
-         ctx->sub->scissor_state_dirty = (1 << 0);
          ctx->sub->viewport_state_dirty = (1 << 0);
       }
    }
@@ -3360,10 +3359,7 @@ static void vrend_update_scissor_state(struct vrend_context *ctx)
          break;
       }
       ss = &ctx->sub->ss[idx];
-      if (ctx->sub->viewport_is_negative)
-         y = ss->miny;
-      else
-         y = ss->miny;
+      y = ss->miny;
 
       if (idx > 0 && has_feature(feat_viewport_array))
          glScissorIndexed(idx, ss->minx, y, ss->maxx - ss->minx, ss->maxy - ss->miny);
