@@ -3342,15 +3342,9 @@ void vrend_clear(struct vrend_context *ctx,
 static void vrend_update_scissor_state(struct vrend_context *ctx)
 {
    struct pipe_scissor_state *ss;
-   struct pipe_rasterizer_state *state = &ctx->sub->rs_state;
    GLint y;
    GLuint idx;
    unsigned mask = ctx->sub->scissor_state_dirty;
-
-   if (state->scissor)
-      glEnable(GL_SCISSOR_TEST);
-   else
-      glDisable(GL_SCISSOR_TEST);
 
    while (mask) {
       idx = u_bit_scan(&mask);
@@ -4886,6 +4880,12 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
             glDisable(GL_SAMPLE_SHADING);
       }
    }
+
+   if (state->scissor)
+      glEnable(GL_SCISSOR_TEST);
+   else
+      glDisable(GL_SCISSOR_TEST);
+
 }
 
 void vrend_object_bind_rasterizer(struct vrend_context *ctx,
@@ -4906,7 +4906,6 @@ void vrend_object_bind_rasterizer(struct vrend_context *ctx,
    }
 
    ctx->sub->rs_state = *state;
-   ctx->sub->scissor_state_dirty = (1 << 0);
    ctx->sub->shader_dirty = true;
    vrend_hw_emit_rs(ctx);
 }
@@ -7274,6 +7273,9 @@ void vrend_renderer_resource_copy_region(struct vrend_context *ctx,
                      dy2,
                      glmask, GL_NEAREST);
    glBindFramebuffer(GL_FRAMEBUFFER, ctx->sub->fb_id);
+
+   if (ctx->sub->rs_state.scissor)
+      glEnable(GL_SCISSOR_TEST);
 }
 
 static void vrend_renderer_blit_int(struct vrend_context *ctx,
@@ -7373,10 +7375,10 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
 
    if (info->scissor_enable) {
       glScissor(info->scissor.minx, info->scissor.miny, info->scissor.maxx - info->scissor.minx, info->scissor.maxy - info->scissor.miny);
+      ctx->sub->scissor_state_dirty = (1 << 0);
       glEnable(GL_SCISSOR_TEST);
    } else
       glDisable(GL_SCISSOR_TEST);
-   ctx->sub->scissor_state_dirty = (1 << 0);
 
    /* An GLES GL_INVALID_OPERATION is generated if one wants to blit from a
     * multi-sample fbo to a non multi-sample fbo and the source and destination
@@ -7487,6 +7489,11 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
       vrend_renderer_resource_destroy(intermediate_copy, false);
       glDeleteFramebuffers(1, &intermediate_fbo);
    }
+
+   if (ctx->sub->rs_state.scissor)
+      glEnable(GL_SCISSOR_TEST);
+   else
+      glDisable(GL_SCISSOR_TEST);
 }
 
 void vrend_renderer_blit(struct vrend_context *ctx,
