@@ -6831,7 +6831,7 @@ void vrend_set_polygon_stipple(struct vrend_context *ctx,
                                struct pipe_poly_stipple *ps)
 {
    if (vrend_state.use_core_profile) {
-      static const unsigned bit31 = 1 << 31;
+      static const unsigned bit31 = 1u << 31;
       GLubyte *stip = calloc(1, 1024);
       int i, j;
 
