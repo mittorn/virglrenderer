@@ -7304,10 +7304,11 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
        !vrend_format_is_ds(dst_res->base.format))
       use_gl = true;
 
-   if (util_format_is_srgb(src_res->base.format) &&
-       !util_format_is_srgb(dst_res->base.format))
+   if (util_format_is_srgb(info->src.format) &&
+       !util_format_is_srgb(info->dst.format)) {
+      VREND_DEBUG(dbg_blit, ctx, "BLIT: Use GL fallback because src is SRGB but dest not.");
       use_gl = true;
-
+   }
    /* different depth formats */
    if (vrend_format_is_ds(src_res->base.format) &&
        vrend_format_is_ds(dst_res->base.format)) {
@@ -7465,7 +7466,7 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
       glBindFramebuffer(GL_DRAW_FRAMEBUFFER, ctx->sub->blit_fb_ids[1]);
 
       if (has_feature(feat_srgb_write_control)) {
-         if (util_format_is_srgb(dst_res->base.format))
+         if (util_format_is_srgb(info->dst.format))
             glEnable(GL_FRAMEBUFFER_SRGB);
          else
             glDisable(GL_FRAMEBUFFER_SRGB);
