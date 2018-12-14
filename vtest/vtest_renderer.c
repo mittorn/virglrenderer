@@ -233,6 +233,16 @@ int vtest_protocol_version(UNUSED uint32_t length_dw)
    renderer.protocol_version = MIN2(version_buf[VCMD_PROTOCOL_VERSION_VERSION],
                                     VTEST_PROTOCOL_VERSION);
 
+   /*
+    * We've deprecated protocol version 1. All of it's called sites are being
+    * moved protocol version 2. If the server supports version 2 and the guest
+    * supports verison 1, fall back to version 0.
+    */
+   if (renderer.protocol_version == 1) {
+      printf("Older guest Mesa detected, fallbacking to protocol version 0\n");
+      renderer.protocol_version = 0;
+   }
+
    hdr_buf[VTEST_CMD_LEN] = VCMD_PROTOCOL_VERSION_SIZE;
    hdr_buf[VTEST_CMD_ID] = VCMD_PROTOCOL_VERSION;
 
