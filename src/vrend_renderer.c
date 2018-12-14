@@ -644,9 +644,14 @@ bool vrend_format_is_emulated_alpha(enum virgl_formats format)
            format == VIRGL_FORMAT_A16_UNORM);
 }
 
-static bool vrend_format_needs_swizzle(enum virgl_formats format)
+static bool vrend_blit_needs_swizzle(enum virgl_formats src,
+                                     enum virgl_formats dst)
 {
-   return tex_conv_table[format].flags & VIRGL_BIND_NEED_SWIZZLE;
+   for (int i = 0; i < 4; ++i) {
+      if (tex_conv_table[src].swizzle[i] != tex_conv_table[dst].swizzle[i])
+         return true;
+   }
+   return false;
 }
 
 static inline const char *pipe_shader_to_prefix(int shader_type)
@@ -7334,8 +7339,7 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
    if (info->src.box.depth != info->dst.box.depth)
       use_gl = true;
 
-   if (vrend_format_needs_swizzle(info->dst.format) ||
-       vrend_format_needs_swizzle(info->src.format))
+   if (vrend_blit_needs_swizzle(info->dst.format, info->src.format))
       use_gl = true;
 
    if (use_gl) {
