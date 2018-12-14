@@ -700,7 +700,8 @@ void vrend_renderer_blit_gl(UNUSED struct vrend_context *ctx,
                             struct vrend_resource *src_res,
                             struct vrend_resource *dst_res,
                             const struct pipe_blit_info *info,
-                            bool has_texture_srgb_decode)
+                            bool has_texture_srgb_decode,
+                            bool has_srgb_write_control)
 {
    struct vrend_blitter_ctx *blit_ctx = &vrend_blit_ctx;
    GLuint buffers;
@@ -841,6 +842,13 @@ void vrend_renderer_blit_gl(UNUSED struct vrend_context *ctx,
 
       glBindFramebuffer(GL_FRAMEBUFFER, blit_ctx->fb_id);
       vrend_fb_bind_texture(dst_res, 0, info->dst.level, layer);
+
+      if (has_srgb_write_control) {
+         if (util_format_is_srgb(info->dst.format))
+            glEnable(GL_FRAMEBUFFER_SRGB);
+         else
+            glDisable(GL_FRAMEBUFFER_SRGB);
+      }
 
       buffers = GL_COLOR_ATTACHMENT0;
       glDrawBuffers(1, &buffers);

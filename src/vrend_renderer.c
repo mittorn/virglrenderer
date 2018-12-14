@@ -7346,7 +7346,8 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
    if (use_gl) {
       VREND_DEBUG(dbg_blit, ctx, "BLIT_INT: use GL fallback\n");
       vrend_renderer_blit_gl(ctx, src_res, dst_res, info,
-                             has_feature(feat_texture_srgb_decode));
+                             has_feature(feat_texture_srgb_decode),
+                             has_feature(feat_srgb_write_control));
       vrend_clicbs->make_current(ctx->sub->gl_context);
       return;
    }
