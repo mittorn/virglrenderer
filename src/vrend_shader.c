@@ -4613,8 +4613,10 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
       }
 
       if (ctx->prog_type == TGSI_PROCESSOR_FRAGMENT && ctx->cfg->use_gles &&
+          !ctx->key->winsys_adjust_y_emitted &&
          (ctx->key->coord_replace & (1 << ctx->inputs[i].sid))) {
          snprintf(buf, 255, "uniform float winsys_adjust_y;\n");
+         ctx->key->winsys_adjust_y_emitted = true;
          STRCAT_WITH_RET(glsl_hdr, buf);
       }
    }
