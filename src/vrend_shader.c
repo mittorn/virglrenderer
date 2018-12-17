@@ -1455,13 +1455,7 @@ static int emit_cbuf_writes(struct dump_ctx *ctx)
 
 static int emit_a8_swizzle(struct dump_ctx *ctx)
 {
-   char buf[255];
-   char *sret;
-   snprintf(buf, 255, "fsout_c0.x = fsout_c0.w;\n");
-   sret = add_str_to_glsl_main(ctx, buf);
-   if (!sret)
-      return ENOMEM;
-   return 0;
+   return add_str_to_glsl_main(ctx, "fsout_c0.x = fsout_c0.w;\n") ? 0 : ENOMEM;
 }
 
 static const char *atests[PIPE_FUNC_ALWAYS + 1] = {
