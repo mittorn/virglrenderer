@@ -229,27 +229,27 @@ struct dump_ctx {
 };
 
 static const struct vrend_shader_table shader_req_table[] = {
-    { SHADER_REQ_SAMPLER_RECT, "GL_ARB_texture_rectangle" },
-    { SHADER_REQ_CUBE_ARRAY, "GL_ARB_texture_cube_map_array" },
-    { SHADER_REQ_INTS, "GL_ARB_shader_bit_encoding" },
-    { SHADER_REQ_SAMPLER_MS, "GL_ARB_texture_multisample" },
-    { SHADER_REQ_INSTANCE_ID, "GL_ARB_draw_instanced" },
-    { SHADER_REQ_LODQ, "GL_ARB_texture_query_lod" },
-    { SHADER_REQ_TXQ_LEVELS, "GL_ARB_texture_query_levels" },
-    { SHADER_REQ_TG4, "GL_ARB_texture_gather" },
-    { SHADER_REQ_VIEWPORT_IDX, "GL_ARB_viewport_array" },
-    { SHADER_REQ_STENCIL_EXPORT, "GL_ARB_shader_stencil_export" },
-    { SHADER_REQ_LAYER, "GL_ARB_fragment_layer_viewport" },
-    { SHADER_REQ_SAMPLE_SHADING, "GL_ARB_sample_shading" },
-    { SHADER_REQ_GPU_SHADER5, "GL_ARB_gpu_shader5" },
-    { SHADER_REQ_DERIVATIVE_CONTROL, "GL_ARB_derivative_control" },
-    { SHADER_REQ_FP64, "GL_ARB_gpu_shader_fp64" },
-    { SHADER_REQ_IMAGE_LOAD_STORE, "GL_ARB_shader_image_load_store" },
-    { SHADER_REQ_ES31_COMPAT, "GL_ARB_ES3_1_compatibility" },
-    { SHADER_REQ_IMAGE_SIZE, "GL_ARB_shader_image_size" },
-    { SHADER_REQ_TXQS, "GL_ARB_shader_texture_image_samples" },
-    { SHADER_REQ_FBFETCH, "GL_EXT_shader_framebuffer_fetch" },
-    { SHADER_REQ_SHADER_CLOCK, "GL_ARB_shader_clock" },
+    { SHADER_REQ_SAMPLER_RECT, "ARB_texture_rectangle" },
+    { SHADER_REQ_CUBE_ARRAY, "ARB_texture_cube_map_array" },
+    { SHADER_REQ_INTS, "ARB_shader_bit_encoding" },
+    { SHADER_REQ_SAMPLER_MS, "ARB_texture_multisample" },
+    { SHADER_REQ_INSTANCE_ID, "ARB_draw_instanced" },
+    { SHADER_REQ_LODQ, "ARB_texture_query_lod" },
+    { SHADER_REQ_TXQ_LEVELS, "ARB_texture_query_levels" },
+    { SHADER_REQ_TG4, "ARB_texture_gather" },
+    { SHADER_REQ_VIEWPORT_IDX, "ARB_viewport_array" },
+    { SHADER_REQ_STENCIL_EXPORT, "ARB_shader_stencil_export" },
+    { SHADER_REQ_LAYER, "ARB_fragment_layer_viewport" },
+    { SHADER_REQ_SAMPLE_SHADING, "ARB_sample_shading" },
+    { SHADER_REQ_GPU_SHADER5, "ARB_gpu_shader5" },
+    { SHADER_REQ_DERIVATIVE_CONTROL, "ARB_derivative_control" },
+    { SHADER_REQ_FP64, "ARB_gpu_shader_fp64" },
+    { SHADER_REQ_IMAGE_LOAD_STORE, "ARB_shader_image_load_store" },
+    { SHADER_REQ_ES31_COMPAT, "ARB_ES3_1_compatibility" },
+    { SHADER_REQ_IMAGE_SIZE, "ARB_shader_image_size" },
+    { SHADER_REQ_TXQS, "ARB_shader_texture_image_samples" },
+    { SHADER_REQ_FBFETCH, "EXT_shader_framebuffer_fetch" },
+    { SHADER_REQ_SHADER_CLOCK, "ARB_shader_clock" },
 };
 
 enum vrend_type_qualifier {
@@ -4190,7 +4190,7 @@ static char *emit_header(struct dump_ctx *ctx, char *glsl_hdr)
             continue;
 
          if (ctx->shader_req_bits & shader_req_table[i].key) {
-            snprintf(buf, 128, "#extension %s : require\n", shader_req_table[i].string);
+            snprintf(buf, 128, "#extension GL_%s : require\n", shader_req_table[i].string);
             STRCAT_WITH_RET(glsl_hdr, buf);
          }
       }
