@@ -3838,6 +3838,12 @@ prolog(struct tgsi_iterate_context *iter)
 #define PAD_GPU_MSINTERPOL(ctx) \
    emit_hdr(ctx, "                                                            \n")
 
+static void emit_ext(struct dump_ctx *ctx, const char *name,
+                     const char *verb)
+{
+   emit_hdrf(ctx, "#extension GL_%s : %s\n", name, verb);
+}
+
 static void emit_header(struct dump_ctx *ctx)
 {
    if (ctx->cfg->use_gles) {
@@ -3852,39 +3858,40 @@ static void emit_header(struct dump_ctx *ctx)
       }
 
       if (ctx->shader_req_bits & SHADER_REQ_SAMPLER_MS)
-         emit_hdr(ctx, "#extension GL_OES_texture_storage_multisample_2d_array : require\n");
+         emit_ext(ctx, "OES_texture_storage_multisample_2d_array", "require");
 
       if (ctx->prog_type == TGSI_PROCESSOR_FRAGMENT) {
          if (ctx->shader_req_bits & SHADER_REQ_FBFETCH)
-            emit_hdr(ctx, "#extension GL_EXT_shader_framebuffer_fetch : require\n");
+            emit_ext(ctx, "EXT_shader_framebuffer_fetch", "require");
       }
 
       if (ctx->prog_type == TGSI_PROCESSOR_GEOMETRY) {
-         emit_hdr(ctx, "#extension GL_EXT_geometry_shader : require\n");
+         emit_ext(ctx, "EXT_geometry_shader", "require");
          if (ctx->shader_req_bits & SHADER_REQ_PSIZE)
-            emit_hdr(ctx, "#extension GL_OES_geometry_point_size : enable\n");
+            emit_ext(ctx, "OES_geometry_point_size", "enable");
       }
 
       if ((ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL ||
            ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL)) {
          if (ctx->cfg->glsl_version < 320)
-            emit_hdr(ctx, "#extension GL_OES_tessellation_shader : require\n");
-         emit_hdr(ctx, "#extension GL_OES_tessellation_point_size : enable\n");
+            emit_ext(ctx, "OES_tessellation_shader", "require");
+         emit_ext(ctx, "OES_tessellation_point_size", "enable");
       }
 
       if (ctx->cfg->glsl_version < 320) {
          if (ctx->shader_req_bits & SHADER_REQ_SAMPLE_SHADING)
-            emit_hdr(ctx, "#extension GL_OES_sample_variables : require\n");
+            emit_ext(ctx, "OES_sample_variables", "require");
          if (ctx->shader_req_bits & SHADER_REQ_GPU_SHADER5) {
-            emit_hdr(ctx, "#extension GL_OES_gpu_shader5 : require\n");
-            emit_hdr(ctx, "#extension GL_OES_shader_multisample_interpolation : require\n");
+            emit_ext(ctx, "OES_gpu_shader5", "require");
+            emit_ext(ctx, "OES_shader_multisample_interpolation",
+                           "require");
          }
          if (ctx->shader_req_bits & SHADER_REQ_CUBE_ARRAY)
-            emit_hdr(ctx, "#extension GL_OES_texture_cube_map_array : require\n");
+            emit_ext(ctx, "OES_texture_cube_map_array", "require");
          if (ctx->shader_req_bits & SHADER_REQ_LAYER)
-            emit_hdr(ctx, "#extension GL_EXT_geometry_shader : require\n");
+            emit_ext(ctx, "EXT_geometry_shader", "require");
          if (ctx->shader_req_bits & SHADER_REQ_IMAGE_ATOMIC)
-            emit_hdr(ctx, "#extension GL_OES_shader_image_atomic : require\n");
+            emit_ext(ctx, "OES_shader_image_atomic", "require");
       }
 
 
@@ -3894,7 +3901,7 @@ static void emit_header(struct dump_ctx *ctx)
    } else {
       if (ctx->prog_type == TGSI_PROCESSOR_COMPUTE) {
          emit_hdr(ctx, "#version 330\n");
-         emit_hdr(ctx, "#extension GL_ARB_compute_shader : require\n");
+         emit_ext(ctx, "ARB_compute_shader", "require");
       } else {
          if (ctx->prog_type == TGSI_PROCESSOR_GEOMETRY ||
              ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL ||
@@ -3913,24 +3920,24 @@ static void emit_header(struct dump_ctx *ctx)
 
       if (ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL ||
           ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL)
-         emit_hdr(ctx, "#extension GL_ARB_tessellation_shader : require\n");
+         emit_ext(ctx, "ARB_tessellation_shader", "require");
 
       if (ctx->prog_type == TGSI_PROCESSOR_VERTEX && ctx->cfg->use_explicit_locations)
-         emit_hdr(ctx, "#extension GL_ARB_explicit_attrib_location : require\n");
+         emit_ext(ctx, "ARB_explicit_attrib_location", "require");
       if (ctx->prog_type == TGSI_PROCESSOR_FRAGMENT && fs_emit_layout(ctx))
-         emit_hdr(ctx, "#extension GL_ARB_fragment_coord_conventions : require\n");
+         emit_ext(ctx, "ARB_fragment_coord_conventions", "require");
 
       if (ctx->num_ubo)
-         emit_hdr(ctx, "#extension GL_ARB_uniform_buffer_object : require\n");
+         emit_ext(ctx, "ARB_uniform_buffer_object", "require");
 
       if (ctx->num_cull_dist_prop || ctx->key->prev_stage_num_cull_out)
-         emit_hdr(ctx, "#extension GL_ARB_cull_distance : require\n");
+         emit_ext(ctx, "ARB_cull_distance", "require");
       if (ctx->ssbo_used_mask)
-         emit_hdr(ctx, "#extension GL_ARB_shader_storage_buffer_object : require\n");
+         emit_ext(ctx, "ARB_shader_storage_buffer_object", "require");
 
       if (ctx->num_abo) {
-         emit_hdr(ctx, "#extension GL_ARB_shader_atomic_counters : require\n");
-         emit_hdr(ctx, "#extension GL_ARB_shader_atomic_counter_ops : require\n");
+         emit_ext(ctx, "ARB_shader_atomic_counters", "require");
+         emit_ext(ctx, "ARB_shader_atomic_counter_ops", "require");
       }
 
       for (uint32_t i = 0; i < ARRAY_SIZE(shader_req_table); i++) {
@@ -3938,7 +3945,7 @@ static void emit_header(struct dump_ctx *ctx)
             continue;
 
          if (ctx->shader_req_bits & shader_req_table[i].key) {
-            emit_hdrf(ctx, "#extension GL_%s : require\n", shader_req_table[i].string);
+            emit_ext(ctx, shader_req_table[i].string, "require");
          }
       }
    }
