@@ -57,7 +57,7 @@ make check:
              $RD_CONFIG
              -v $PWD:/virglrenderer
              $CI_REGISTRY_IMAGE:latest
-             bash -c "/virglrenderer/ci/run-tests.sh --make-check"
+             bash -c "/virglrenderer/ci/run_tests.sh --make-check"
              2>&1 | tee results/docker_test_log.txt
 
   artifacts:
@@ -82,7 +82,7 @@ piglit:
              $RD_CONFIG
              -v $PWD:/virglrenderer
              $CI_REGISTRY_IMAGE:latest
-             bash -c "/virglrenderer/ci/run-tests.sh --piglit-gl --piglit-gles"
+             bash -c "/virglrenderer/ci/run_tests.sh --piglit-gl --piglit-gles"
              2>&1 | tee results/docker_test_log.txt
 
   artifacts:
@@ -107,7 +107,7 @@ cts - gl host:
              $RD_CONFIG
              -v $PWD:/virglrenderer
              $CI_REGISTRY_IMAGE:latest
-             bash -c "/virglrenderer/ci/run-tests.sh --deqp-gl"
+             bash -c "/virglrenderer/ci/run_tests.sh --deqp-gl"
              2>&1 | tee results/docker_test_log.txt
 
   artifacts:
@@ -132,7 +132,7 @@ cts - gles host:
              $RD_CONFIG
              -v $PWD:/virglrenderer
              $CI_REGISTRY_IMAGE:latest
-             bash -c "/virglrenderer/ci/run-tests.sh --deqp-gles"
+             bash -c "/virglrenderer/ci/run_tests.sh --deqp-gles"
              2>&1 | tee results/docker_test_log.txt
 
   artifacts:
@@ -157,7 +157,7 @@ unreliable tests:
              $RD_CONFIG
              -v $PWD:/virglrenderer
              $CI_REGISTRY_IMAGE:latest
-             bash -c "/virglrenderer/ci/run-tests.sh --deqp-gl-unreliable --deqp-gles-unreliable --piglit-gl-unreliable --piglit-gles-unreliable || true"
+             bash -c "/virglrenderer/ci/run_tests.sh --deqp-gl-unreliable --deqp-gles-unreliable --piglit-gl-unreliable --piglit-gles-unreliable || true"
              2>&1 | tee results/docker_test_log.txt
 
   artifacts:
