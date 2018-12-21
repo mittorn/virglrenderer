@@ -6,7 +6,10 @@ cache:
 
 variables:
   DOCKER_DRIVER: overlay2
-  RENDER_DEVICE: /dev/dri/renderD128
+# When running CI jobs, don't allow
+# HW backed renderes, due to the
+# variability it introduces.
+#  RENDER_DEVICE: /dev/dri/renderD128
 
 stages:
   - build

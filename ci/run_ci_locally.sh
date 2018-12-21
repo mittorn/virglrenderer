@@ -9,6 +9,10 @@ DOCKER_IMAGE=virglrenderer/ci
 
 # Use slightly less than half of available threads
 NUM_THREADS=$(expr $(expr $(nproc) + 2) / 3)
+
+# When running the erhm, CI, locally,
+# do use HW based backends, which
+# may introduce variabity.
 RENDER_DEVICE=/dev/dri/renderD128
 
 LOCAL_MESA_PATH="../$PROJECT_PATH/mesa"
