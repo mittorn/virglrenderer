@@ -13,6 +13,7 @@ variables:
 
 stages:
   - build
+  - sanity test
   - test
 
 build docker image:
@@ -39,7 +40,32 @@ build docker image:
     paths:
       - results/
 
-test:
+make check:
+  stage: sanity test
+  services:
+    - docker:dind
+  before_script:
+    - mkdir -p ccache
+    - mkdir -p results
+  script:
+    - echo core > /proc/sys/kernel/core_pattern || true
+    - echo 0 > /proc/sys/kernel/core_uses_pid || true
+    - if [[ -n "$RENDER_DEVICE" ]]; then RD_CONFIG="--device=$RENDER_DEVICE -e RENDER_DEVICE=$RENDER_DEVICE"; fi
+    - echo RD_CONFIG=$RD_CONFIG
+    - time docker run
+             --ulimit core=99999999999:99999999999
+             $RD_CONFIG
+             -v $PWD:/virglrenderer
+             $CI_REGISTRY_IMAGE:latest
+             bash -c "/virglrenderer/ci/run-tests.sh --make-check"
+             2>&1 | tee results/docker_test_log.txt
+
+  artifacts:
+    when: always
+    paths:
+      - results/
+
+piglit:
   stage: test
   services:
     - docker:dind
@@ -49,14 +75,89 @@ test:
   script:
     - echo core > /proc/sys/kernel/core_pattern || true
     - echo 0 > /proc/sys/kernel/core_uses_pid || true
-    - if test -e $RENDER_DEVICE; then RD_CONFIG="--device=$RENDER_DEVICE -e RENDER_DEVICE=$RENDER_DEVICE"; fi
+    - if [[ -n "$RENDER_DEVICE" ]]; then RD_CONFIG="--device=$RENDER_DEVICE -e RENDER_DEVICE=$RENDER_DEVICE"; fi
     - echo RD_CONFIG=$RD_CONFIG
     - time docker run
              --ulimit core=99999999999:99999999999
              $RD_CONFIG
              -v $PWD:/virglrenderer
              $CI_REGISTRY_IMAGE:latest
-             /virglrenderer/ci/run-tests.sh
+             bash -c "/virglrenderer/ci/run-tests.sh --piglit-gl --piglit-gles"
+             2>&1 | tee results/docker_test_log.txt
+
+  artifacts:
+    when: always
+    paths:
+      - results/
+
+cts - gl host:
+  stage: test
+  services:
+    - docker:dind
+  before_script:
+    - mkdir -p ccache
+    - mkdir -p results
+  script:
+    - echo core > /proc/sys/kernel/core_pattern || true
+    - echo 0 > /proc/sys/kernel/core_uses_pid || true
+    - if [[ -n "$RENDER_DEVICE" ]]; then RD_CONFIG="--device=$RENDER_DEVICE -e RENDER_DEVICE=$RENDER_DEVICE"; fi
+    - echo RD_CONFIG=$RD_CONFIG
+    - time docker run
+             --ulimit core=99999999999:99999999999
+             $RD_CONFIG
+             -v $PWD:/virglrenderer
+             $CI_REGISTRY_IMAGE:latest
+             bash -c "/virglrenderer/ci/run-tests.sh --deqp-gl"
+             2>&1 | tee results/docker_test_log.txt
+
+  artifacts:
+    when: always
+    paths:
+      - results/
+
+cts - gles host:
+  stage: test
+  services:
+    - docker:dind
+  before_script:
+    - mkdir -p ccache
+    - mkdir -p results
+  script:
+    - echo core > /proc/sys/kernel/core_pattern || true
+    - echo 0 > /proc/sys/kernel/core_uses_pid || true
+    - if [[ -n "$RENDER_DEVICE" ]]; then RD_CONFIG="--device=$RENDER_DEVICE -e RENDER_DEVICE=$RENDER_DEVICE"; fi
+    - echo RD_CONFIG=$RD_CONFIG
+    - time docker run
+             --ulimit core=99999999999:99999999999
+             $RD_CONFIG
+             -v $PWD:/virglrenderer
+             $CI_REGISTRY_IMAGE:latest
+             bash -c "/virglrenderer/ci/run-tests.sh --deqp-gles"
+             2>&1 | tee results/docker_test_log.txt
+
+  artifacts:
+    when: always
+    paths:
+      - results/
+
+unreliable tests:
+  stage: test
+  services:
+    - docker:dind
+  before_script:
+    - mkdir -p ccache
+    - mkdir -p results
+  script:
+    - echo core > /proc/sys/kernel/core_pattern || true
+    - echo 0 > /proc/sys/kernel/core_uses_pid || true
+    - if [[ -n "$RENDER_DEVICE" ]]; then RD_CONFIG="--device=$RENDER_DEVICE -e RENDER_DEVICE=$RENDER_DEVICE"; fi
+    - echo RD_CONFIG=$RD_CONFIG
+    - time docker run
+             --ulimit core=99999999999:99999999999
+             $RD_CONFIG
+             -v $PWD:/virglrenderer
+             $CI_REGISTRY_IMAGE:latest
+             bash -c "/virglrenderer/ci/run-tests.sh --deqp-gl-unreliable --deqp-gles-unreliable --piglit-gl-unreliable --piglit-gles-unreliable || true"
              2>&1 | tee results/docker_test_log.txt
 
   artifacts:

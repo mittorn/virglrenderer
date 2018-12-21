@@ -114,9 +114,7 @@ RUN git clone --shallow-since="$GIT_DATE" https://github.com/KhronosGroup/VK-GL-
     cmake -DDEQP_TARGET=x11_egl -DCMAKE_BUILD_TYPE=Release .. && \
     make -j$(nproc) && \
     find . -name CMakeFiles | xargs rm -rf && \
-    find . -name lib\*.a | xargs rm -rf && \
-    mv /VK-GL-CTS/build /usr/local/VK-GL-CTS && \
-    rm -rf /VK-GL-CTS
+    find . -name lib\*.a | xargs rm -rf
 WORKDIR /
 
 ARG KNOWN_GOOD_PIGLIT=1a2f49f17fb45
