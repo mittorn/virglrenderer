@@ -4522,8 +4522,7 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
          STRCAT_WITH_RET(glsl_hdr, buf);
       }
       if (ctx->early_depth_stencil) {
-         snprintf(buf, 255, "layout(early_fragment_tests) in;\n");
-         STRCAT_WITH_RET(glsl_hdr, buf);
+         STRCAT_WITH_RET(glsl_hdr, "layout(early_fragment_tests) in;\n");
       }
    }
 
@@ -4609,9 +4608,8 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
       if (ctx->prog_type == TGSI_PROCESSOR_FRAGMENT && ctx->cfg->use_gles &&
           !ctx->key->winsys_adjust_y_emitted &&
          (ctx->key->coord_replace & (1 << ctx->inputs[i].sid))) {
-         snprintf(buf, 255, "uniform float winsys_adjust_y;\n");
          ctx->key->winsys_adjust_y_emitted = true;
-         STRCAT_WITH_RET(glsl_hdr, buf);
+         STRCAT_WITH_RET(glsl_hdr, "uniform float winsys_adjust_y;\n");
       }
    }
    if (ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL) {
@@ -4719,8 +4717,7 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
    if (ctx->prog_type == TGSI_PROCESSOR_VERTEX ||
        ctx->prog_type == TGSI_PROCESSOR_GEOMETRY ||
        ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL) {
-      snprintf(buf, 255, "uniform float winsys_adjust_y;\n");
-      STRCAT_WITH_RET(glsl_hdr, buf);
+      STRCAT_WITH_RET(glsl_hdr, "uniform float winsys_adjust_y;\n");
    }
 
    if (ctx->prog_type == TGSI_PROCESSOR_VERTEX) {
@@ -4744,8 +4741,7 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
          } else
             snprintf(clip_buf, 64, "out float gl_ClipDistance[%d];\n", num_clip_dists);
          if (ctx->key->clip_plane_enable) {
-            snprintf(buf, 255, "uniform vec4 clipp[8];\n");
-            STRCAT_WITH_RET(glsl_hdr, buf);
+            STRCAT_WITH_RET(glsl_hdr, "uniform vec4 clipp[8];\n");
          }
          if (ctx->key->gs_present || ctx->key->tes_present) {
             ctx->vs_has_pervertex = true;
@@ -4755,8 +4751,7 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
             snprintf(buf, 255, "%s%s", clip_buf, cull_buf);
             STRCAT_WITH_RET(glsl_hdr, buf);
          }
-         snprintf(buf, 255, "vec4 clip_dist_temp[2];\n");
-         STRCAT_WITH_RET(glsl_hdr, buf);
+         STRCAT_WITH_RET(glsl_hdr, "vec4 clip_dist_temp[2];\n");
       }
    }
 
@@ -4857,29 +4852,22 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
    }
 
    if (ctx->write_mul_utemp) {
-      snprintf(buf, 255, "uvec4 mul_utemp;\n");
-      STRCAT_WITH_RET(glsl_hdr, buf);
-      snprintf(buf, 255, "uvec4 umul_temp;\n");
-      STRCAT_WITH_RET(glsl_hdr, buf);
+      STRCAT_WITH_RET(glsl_hdr, "uvec4 mul_utemp;\n");
+      STRCAT_WITH_RET(glsl_hdr, "uvec4 umul_temp;\n");
    }
 
    if (ctx->write_mul_itemp) {
-      snprintf(buf, 255, "ivec4 mul_itemp;\n");
-      STRCAT_WITH_RET(glsl_hdr, buf);
-      snprintf(buf, 255, "ivec4 imul_temp;\n");
-      STRCAT_WITH_RET(glsl_hdr, buf);
+      STRCAT_WITH_RET(glsl_hdr, "ivec4 mul_itemp;\n");
+      STRCAT_WITH_RET(glsl_hdr, "ivec4 imul_temp;\n");
    }
 
    if (ctx->ssbo_used_mask || ctx->has_file_memory) {
-     snprintf(buf, 255, "uint ssbo_addr_temp;\n");
-     STRCAT_WITH_RET(glsl_hdr, buf);
+     STRCAT_WITH_RET(glsl_hdr, "uint ssbo_addr_temp;\n");
    }
 
    if (ctx->shader_req_bits & SHADER_REQ_FP64) {
-      snprintf(buf, 255, "dvec2 fp64_dst[3];\n");
-      STRCAT_WITH_RET(glsl_hdr, buf);
-      snprintf(buf, 255, "dvec2 fp64_src[4];\n");
-      STRCAT_WITH_RET(glsl_hdr, buf);
+      STRCAT_WITH_RET(glsl_hdr, "dvec2 fp64_dst[3];\n");
+      STRCAT_WITH_RET(glsl_hdr, "dvec2 fp64_src[4];\n");
    }
 
    for (i = 0; i < ctx->num_address; i++) {
@@ -4893,14 +4881,10 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
    }
 
    if (ctx->key->color_two_side) {
-      if (ctx->color_in_mask & 1) {
-         snprintf(buf, 255, "vec4 realcolor0;\n");
-         STRCAT_WITH_RET(glsl_hdr, buf);
-      }
-      if (ctx->color_in_mask & 2) {
-         snprintf(buf, 255, "vec4 realcolor1;\n");
-         STRCAT_WITH_RET(glsl_hdr, buf);
-      }
+      if (ctx->color_in_mask & 1)
+         STRCAT_WITH_RET(glsl_hdr, "vec4 realcolor0;\n");
+      if (ctx->color_in_mask & 2)
+         STRCAT_WITH_RET(glsl_hdr, "vec4 realcolor1;\n");
    }
    if (ctx->num_ubo) {
       const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
@@ -4987,8 +4971,7 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
 
    if (ctx->prog_type == TGSI_PROCESSOR_FRAGMENT &&
        ctx->key->pstipple_tex == true) {
-      snprintf(buf, 255, "uniform sampler2D pstipple_sampler;\nfloat stip_temp;\n");
-      STRCAT_WITH_RET(glsl_hdr, buf);
+      STRCAT_WITH_RET(glsl_hdr, "uniform sampler2D pstipple_sampler;\nfloat stip_temp;\n");
    }
    return glsl_hdr;
 }
