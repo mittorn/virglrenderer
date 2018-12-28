@@ -506,6 +506,22 @@ static bool add_str_to_glsl_main(struct dump_ctx *ctx, const char *buf)
    return ctx->glsl_main ? true : false;
 }
 
+static bool emit_buf(struct dump_ctx *ctx, const char *buf)
+{
+   int i;
+   for (i = 0; i < ctx->indent_level; i++) {
+      if (!add_str_to_glsl_main(ctx, "\t"))
+         return false;
+   }
+
+   return add_str_to_glsl_main(ctx, buf);
+}
+
+#define EMIT_BUF_WITH_RET(ctx, buf) do {              \
+      bool _ret = emit_buf((ctx), (buf));             \
+      if (!_ret) return FALSE;                        \
+   } while(0)
+
 static bool allocate_temp_range(struct dump_ctx *ctx, int first, int last,
                                 int array_id)
 {
@@ -1439,15 +1455,14 @@ static bool emit_cbuf_writes(struct dump_ctx *ctx)
 
    for (i = ctx->num_outputs; i < ctx->cfg->max_draw_buffers; i++) {
       snprintf(buf, 255, "fsout_c%d = fsout_c0;\n", i);
-      if (!add_str_to_glsl_main(ctx, buf))
-         return false;
+      EMIT_BUF_WITH_RET(ctx, buf);
    }
    return true;
 }
 
 static bool emit_a8_swizzle(struct dump_ctx *ctx)
 {
-   return add_str_to_glsl_main(ctx, "fsout_c0.x = fsout_c0.w;\n");
+   return emit_buf(ctx, "fsout_c0.x = fsout_c0.w;\n");
 }
 
 static const char *atests[PIPE_FUNC_ALWAYS + 1] = {
@@ -1493,7 +1508,7 @@ static bool emit_alpha_test(struct dump_ctx *ctx)
    }
 
    snprintf(buf, 255, "if (!(%s)) {\n\tdiscard;\n}\n", comp_buf);
-   if (!add_str_to_glsl_main(ctx, buf))
+   if (!emit_buf(ctx, buf))
       return false;
    return true;
 }
@@ -1502,29 +1517,27 @@ static bool emit_pstipple_pass(struct dump_ctx *ctx)
 {
    char buf[255];
    snprintf(buf, 255, "stip_temp = texture(pstipple_sampler, vec2(gl_FragCoord.x / 32, gl_FragCoord.y / 32)).x;\n");
-   if (!add_str_to_glsl_main(ctx, buf))
-      return false;
+   EMIT_BUF_WITH_RET(ctx, buf);
    snprintf(buf, 255, "if (stip_temp > 0) {\n\tdiscard;\n}\n");
-   return add_str_to_glsl_main(ctx, buf);
+   return emit_buf(ctx, buf);
 }
 
 static bool emit_color_select(struct dump_ctx *ctx)
 {
    char buf[255];
-   bool ret = true;
 
    if (!ctx->key->color_two_side || !(ctx->color_in_mask & 0x3))
       return true;
 
    if (ctx->color_in_mask & 1) {
       snprintf(buf, 255, "realcolor0 = gl_FrontFacing ? ex_c0 : ex_bc0;\n");
-      ret = add_str_to_glsl_main(ctx, buf);
+      EMIT_BUF_WITH_RET(ctx, buf);
    }
    if (ctx->color_in_mask & 2) {
       snprintf(buf, 255, "realcolor1 = gl_FrontFacing ? ex_c1 : ex_bc1;\n");
-      ret = add_str_to_glsl_main(ctx, buf);
+      EMIT_BUF_WITH_RET(ctx, buf);
    }
-   return ret;
+   return true;
 }
 
 static bool emit_prescale(struct dump_ctx *ctx)
@@ -1532,7 +1545,7 @@ static bool emit_prescale(struct dump_ctx *ctx)
    char buf[255];
 
    snprintf(buf, 255, "gl_Position.y = gl_Position.y * winsys_adjust_y;\n");
-   return add_str_to_glsl_main(ctx, buf);
+   return emit_buf(ctx, buf);
 }
 
 static int prepare_so_movs(struct dump_ctx *ctx)
@@ -1622,8 +1635,7 @@ static bool emit_so_movs(struct dump_ctx *ctx)
          if (ctx->write_so_outputs[i])
             snprintf(buf, 255, "tfout%d = %s(%s%s);\n", i, outtype, ctx->outputs[ctx->so->output[i].register_index].glsl_name, writemask);
       }
-      if (!add_str_to_glsl_main(ctx, buf))
-         return false;
+      EMIT_BUF_WITH_RET(ctx, buf);
    }
    return true;
 }
@@ -1641,8 +1653,7 @@ static bool emit_clip_dist_movs(struct dump_ctx *ctx)
    if (ctx->num_clip_dist == 0 && ctx->key->clip_plane_enable) {
       for (i = 0; i < 8; i++) {
          snprintf(buf, 255, "%sgl_ClipDistance[%d] = dot(%s, clipp[%d]);\n", prefix, i, ctx->has_clipvertex ? "clipv_tmp" : "gl_Position", i);
-         if (!add_str_to_glsl_main(ctx, buf))
-            return false;
+         EMIT_BUF_WITH_RET(ctx, buf);
       }
       return true;
    }
@@ -1669,8 +1680,7 @@ static bool emit_clip_dist_movs(struct dump_ctx *ctx)
       const char *clip_cull = is_cull ? "Cull" : "Clip";
       snprintf(buf, 255, "%sgl_%sDistance[%d] = clip_dist_temp[%d].%c;\n", prefix, clip_cull,
                is_cull ? i - ctx->num_clip_dist_prop : i, clipidx, wm);
-      if (!add_str_to_glsl_main(ctx, buf))
-         return false;
+      EMIT_BUF_WITH_RET(ctx, buf);
    }
    return true;
 }
@@ -1680,22 +1690,6 @@ static bool emit_clip_dist_movs(struct dump_ctx *ctx)
 #define emit_compare(op) snprintf(buf, 512, "%s = %s(%s((%s(%s(%s), %s(%s))))%s);\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), op, get_string(sinfo.svec4), srcs[0], get_string(sinfo.svec4), srcs[1], writemask)
 
 #define emit_ucompare(op) snprintf(buf, 512, "%s = %s(uintBitsToFloat(%s(%s(%s(%s), %s(%s))%s) * %s(0xffffffff)));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.udstconv), op, get_string(sinfo.svec4), srcs[0], get_string(sinfo.svec4), srcs[1], writemask, get_string(dinfo.udstconv))
-
-static bool emit_buf(struct dump_ctx *ctx, const char *buf)
-{
-   int i;
-   for (i = 0; i < ctx->indent_level; i++) {
-      if (!add_str_to_glsl_main(ctx, "\t"))
-         return false;
-   }
-
-   return add_str_to_glsl_main(ctx, buf);
-}
-
-#define EMIT_BUF_WITH_RET(ctx, buf) do {              \
-      bool _ret = emit_buf((ctx), (buf));             \
-      if (!_ret) return FALSE;                        \
-   } while(0)
 
 static bool handle_vertex_proc_exit(struct dump_ctx *ctx)
 {
@@ -3369,8 +3363,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
       ctx->prog_type = iter->processor.Processor;
 
    if (instno == 0) {
-      if (!add_str_to_glsl_main(ctx, "void main(void)\n{\n"))
-         return FALSE;
+      EMIT_BUF_WITH_RET(ctx, "void main(void)\n{\n");
       if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
          if (!emit_color_select(ctx))
             return FALSE;
@@ -3789,8 +3782,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
          if (!handle_fragment_proc_exit(ctx))
             return FALSE;
       }
-      if (!add_str_to_glsl_main(ctx, "}\n"))
-         return FALSE;
+      EMIT_BUF_WITH_RET(ctx, "}\n");
       break;
    case TGSI_OPCODE_RET:
       if (iter->processor.Processor == TGSI_PROCESSOR_VERTEX) {
