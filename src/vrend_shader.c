@@ -4586,7 +4586,8 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
             prefix = "patch ";
          else if (ctx->prog_type == TGSI_PROCESSOR_FRAGMENT &&
              (ctx->inputs[i].name == TGSI_SEMANTIC_GENERIC ||
-              ctx->inputs[i].name == TGSI_SEMANTIC_COLOR)) {
+              ctx->inputs[i].name == TGSI_SEMANTIC_COLOR ||
+              ctx->inputs[i].name == TGSI_SEMANTIC_BCOLOR)) {
             prefix = get_interp_string(ctx->cfg, ctx->inputs[i].interpolate, ctx->key->flatshade);
             if (!prefix)
                prefix = "";
@@ -5281,6 +5282,7 @@ bool vrend_patch_vertex_shader_interpolants(struct vrend_context *rctx,
 
       switch (fs_info->interpinfo[i].semantic_name) {
       case TGSI_SEMANTIC_COLOR:
+      case TGSI_SEMANTIC_BCOLOR:
          /* color is a bit trickier */
          if (fs_info->glsl_ver < 140) {
             if (fs_info->interpinfo[i].semantic_index == 1) {
