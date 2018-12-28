@@ -500,10 +500,10 @@ static char *strcat_realloc(char *str, const char *catstr)
    return new;
 }
 
-static char *add_str_to_glsl_main(struct dump_ctx *ctx, const char *buf)
+static bool add_str_to_glsl_main(struct dump_ctx *ctx, const char *buf)
 {
    ctx->glsl_main = strcat_realloc(ctx->glsl_main, buf);
-   return ctx->glsl_main;
+   return ctx->glsl_main ? true : false;
 }
 
 static int allocate_temp_range(struct dump_ctx *ctx, int first, int last,
@@ -1442,12 +1442,10 @@ static int emit_cbuf_writes(struct dump_ctx *ctx)
 {
    char buf[255];
    int i;
-   char *sret;
 
    for (i = ctx->num_outputs; i < ctx->cfg->max_draw_buffers; i++) {
       snprintf(buf, 255, "fsout_c%d = fsout_c0;\n", i);
-      sret = add_str_to_glsl_main(ctx, buf);
-      if (!sret)
+      if (!add_str_to_glsl_main(ctx, buf))
          return ENOMEM;
    }
    return 0;
@@ -1473,7 +1471,6 @@ static int emit_alpha_test(struct dump_ctx *ctx)
 {
    char buf[255];
    char comp_buf[128];
-   char *sret;
 
    if (!ctx->num_outputs)
            return 0;
@@ -1502,8 +1499,7 @@ static int emit_alpha_test(struct dump_ctx *ctx)
    }
 
    snprintf(buf, 255, "if (!(%s)) {\n\tdiscard;\n}\n", comp_buf);
-   sret = add_str_to_glsl_main(ctx, buf);
-   if (!sret)
+   if (!add_str_to_glsl_main(ctx, buf))
       return ENOMEM;
    return 0;
 }
@@ -1511,43 +1507,38 @@ static int emit_alpha_test(struct dump_ctx *ctx)
 static int emit_pstipple_pass(struct dump_ctx *ctx)
 {
    char buf[255];
-   char *sret;
    snprintf(buf, 255, "stip_temp = texture(pstipple_sampler, vec2(gl_FragCoord.x / 32, gl_FragCoord.y / 32)).x;\n");
-   sret = add_str_to_glsl_main(ctx, buf);
-   if (!sret)
+   if (!add_str_to_glsl_main(ctx, buf))
       return ENOMEM;
    snprintf(buf, 255, "if (stip_temp > 0) {\n\tdiscard;\n}\n");
-   sret = add_str_to_glsl_main(ctx, buf);
-   return sret ? 0 : ENOMEM;
+   return add_str_to_glsl_main(ctx, buf) ? 0 : ENOMEM;
 }
 
 static int emit_color_select(struct dump_ctx *ctx)
 {
    char buf[255];
-   char *sret = NULL;
+   bool ret = true;
 
    if (!ctx->key->color_two_side || !(ctx->color_in_mask & 0x3))
       return 0;
 
    if (ctx->color_in_mask & 1) {
       snprintf(buf, 255, "realcolor0 = gl_FrontFacing ? ex_c0 : ex_bc0;\n");
-      sret = add_str_to_glsl_main(ctx, buf);
+      ret = add_str_to_glsl_main(ctx, buf);
    }
    if (ctx->color_in_mask & 2) {
       snprintf(buf, 255, "realcolor1 = gl_FrontFacing ? ex_c1 : ex_bc1;\n");
-      sret = add_str_to_glsl_main(ctx, buf);
+      ret = add_str_to_glsl_main(ctx, buf);
    }
-   return sret ? 0 : ENOMEM;
+   return ret ? 0 : ENOMEM;
 }
 
 static int emit_prescale(struct dump_ctx *ctx)
 {
    char buf[255];
-   char *sret;
 
    snprintf(buf, 255, "gl_Position.y = gl_Position.y * winsys_adjust_y;\n");
-   sret = add_str_to_glsl_main(ctx, buf);
-   if (!sret)
+   if (!add_str_to_glsl_main(ctx, buf))
       return ENOMEM;
    return 0;
 }
@@ -1581,7 +1572,6 @@ static int emit_so_movs(struct dump_ctx *ctx)
    uint32_t i, j;
    char outtype[15] = {0};
    char writemask[6];
-   char *sret;
 
    if (ctx->so->num_outputs >= PIPE_MAX_SO_OUTPUTS) {
       fprintf(stderr, "Num outputs exceeded, max is %u\n", PIPE_MAX_SO_OUTPUTS);
@@ -1640,8 +1630,7 @@ static int emit_so_movs(struct dump_ctx *ctx)
          if (ctx->write_so_outputs[i])
             snprintf(buf, 255, "tfout%d = %s(%s%s);\n", i, outtype, ctx->outputs[ctx->so->output[i].register_index].glsl_name, writemask);
       }
-      sret = add_str_to_glsl_main(ctx, buf);
-      if (!sret)
+      if (!add_str_to_glsl_main(ctx, buf))
          return ENOMEM;
    }
    return 0;
@@ -1651,7 +1640,6 @@ static int emit_clip_dist_movs(struct dump_ctx *ctx)
 {
    char buf[255];
    int i;
-   char *sret;
    bool has_prop = (ctx->num_clip_dist_prop + ctx->num_cull_dist_prop) > 0;
    int ndists;
    const char *prefix="";
@@ -1661,8 +1649,7 @@ static int emit_clip_dist_movs(struct dump_ctx *ctx)
    if (ctx->num_clip_dist == 0 && ctx->key->clip_plane_enable) {
       for (i = 0; i < 8; i++) {
          snprintf(buf, 255, "%sgl_ClipDistance[%d] = dot(%s, clipp[%d]);\n", prefix, i, ctx->has_clipvertex ? "clipv_tmp" : "gl_Position", i);
-         sret = add_str_to_glsl_main(ctx, buf);
-         if (!sret)
+         if (!add_str_to_glsl_main(ctx, buf))
             return ENOMEM;
       }
       return 0;
@@ -1690,8 +1677,7 @@ static int emit_clip_dist_movs(struct dump_ctx *ctx)
       const char *clip_cull = is_cull ? "Cull" : "Clip";
       snprintf(buf, 255, "%sgl_%sDistance[%d] = clip_dist_temp[%d].%c;\n", prefix, clip_cull,
                is_cull ? i - ctx->num_clip_dist_prop : i, clipidx, wm);
-      sret = add_str_to_glsl_main(ctx, buf);
-      if (!sret)
+      if (!add_str_to_glsl_main(ctx, buf))
          return ENOMEM;
    }
    return 0;
@@ -1706,15 +1692,12 @@ static int emit_clip_dist_movs(struct dump_ctx *ctx)
 static int emit_buf(struct dump_ctx *ctx, const char *buf)
 {
    int i;
-   char *sret;
    for (i = 0; i < ctx->indent_level; i++) {
-      sret = add_str_to_glsl_main(ctx, "\t");
-      if (!sret)
+      if (!add_str_to_glsl_main(ctx, "\t"))
          return ENOMEM;
    }
 
-   sret = add_str_to_glsl_main(ctx, buf);
-   return sret ? 0 : ENOMEM;
+   return add_str_to_glsl_main(ctx, buf) ? 0 : ENOMEM;
 }
 
 #define EMIT_BUF_WITH_RET(ctx, buf) do {        \
@@ -3385,7 +3368,6 @@ iter_instruction(struct tgsi_iterate_context *iter,
    char fp64_dsts[3][255];
    uint instno = ctx->instno++;
    char writemask[6] = {0};
-   char *sret;
    int ret;
    char src_swizzle0[10];
 
@@ -3395,8 +3377,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
       ctx->prog_type = iter->processor.Processor;
 
    if (instno == 0) {
-      sret = add_str_to_glsl_main(ctx, "void main(void)\n{\n");
-      if (!sret)
+      if (!add_str_to_glsl_main(ctx, "void main(void)\n{\n"))
          return FALSE;
       if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
          ret = emit_color_select(ctx);
@@ -3825,8 +3806,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
          if (handle_fragment_proc_exit(ctx) == FALSE)
             return FALSE;
       }
-      sret = add_str_to_glsl_main(ctx, "}\n");
-      if (!sret)
+      if (!add_str_to_glsl_main(ctx, "}\n"))
          return FALSE;
       break;
    case TGSI_OPCODE_RET:
