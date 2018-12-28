@@ -506,20 +506,20 @@ static bool add_str_to_glsl_main(struct dump_ctx *ctx, const char *buf)
    return ctx->glsl_main ? true : false;
 }
 
-static int allocate_temp_range(struct dump_ctx *ctx, int first, int last,
-                               int array_id)
+static bool allocate_temp_range(struct dump_ctx *ctx, int first, int last,
+                                int array_id)
 {
    int idx = ctx->num_temp_ranges;
 
    ctx->temp_ranges = realloc(ctx->temp_ranges, sizeof(struct vrend_temp_range) * (idx + 1));
    if (!ctx->temp_ranges)
-      return ENOMEM;
+      return false;
 
    ctx->temp_ranges[idx].first = first;
    ctx->temp_ranges[idx].last = last;
    ctx->temp_ranges[idx].array_id = array_id;
    ctx->num_temp_ranges++;
-   return 0;
+   return true;
 }
 
 static struct vrend_temp_range *find_temp_range(struct dump_ctx *ctx, int index)
@@ -1166,8 +1166,8 @@ iter_declaration(struct tgsi_iterate_context *iter,
       }
       break;
    case TGSI_FILE_TEMPORARY:
-      if (allocate_temp_range(ctx, decl->Range.First, decl->Range.Last,
-                              decl->Array.ArrayID))
+      if (!allocate_temp_range(ctx, decl->Range.First, decl->Range.Last,
+                               decl->Array.ArrayID))
          return FALSE;
       break;
    case TGSI_FILE_SAMPLER:
