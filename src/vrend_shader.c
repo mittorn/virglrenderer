@@ -34,6 +34,8 @@
 #include "vrend_shader.h"
 #include "vrend_debug.h"
 
+#include "vrend_strbuf.h"
+
 /* start convert of tgsi to glsl */
 
 #define INTERP_PREFIX "                           "
@@ -129,8 +131,8 @@ struct dump_ctx {
    struct tgsi_shader_info info;
    int prog_type;
    int size;
-   char *glsl_main;
-   char *glsl_hdr;
+   struct vrend_strbuf glsl_main;
+   struct vrend_strbuf glsl_hdr;
    uint instno;
 
    uint32_t num_interps;
@@ -202,7 +204,6 @@ struct dump_ctx {
    int gs_num_invocations;
 
    struct vrend_shader_key *key;
-   int indent_level;
    int num_in_clip_dist;
    int num_clip_dist;
    int glsl_ver_required;
@@ -490,32 +491,25 @@ static void require_glsl_ver(struct dump_ctx *ctx, int glsl_ver)
       ctx->glsl_ver_required = glsl_ver;
 }
 
-static char *strcat_realloc(char *str, const char *catstr)
-{
-   char *new = realloc(str, strlen(str) + strlen(catstr) + 1);
-   if (!new) {
-      free(str);
-      return NULL;
-   }
-   strcat(new, catstr);
-   return new;
-}
-
 static bool add_str_to_glsl_main(struct dump_ctx *ctx, const char *buf)
 {
-   ctx->glsl_main = strcat_realloc(ctx->glsl_main, buf);
-   return ctx->glsl_main ? true : false;
+   strbuf_append(&ctx->glsl_main, buf);
+   return !strbuf_get_error(&ctx->glsl_main);
 }
 
 static bool emit_buf(struct dump_ctx *ctx, const char *buf)
 {
-   int i;
-   for (i = 0; i < ctx->indent_level; i++) {
-      if (!add_str_to_glsl_main(ctx, "\t"))
-         return false;
-   }
-
    return add_str_to_glsl_main(ctx, buf);
+}
+
+static void indent_buf(struct dump_ctx *ctx)
+{
+   return strbuf_indent(&ctx->glsl_main);
+}
+
+static void outdent_buf(struct dump_ctx *ctx)
+{
+   return strbuf_outdent(&ctx->glsl_main);
 }
 
 #define EMIT_BUF_WITH_RET(ctx, buf) do {              \
@@ -525,8 +519,8 @@ static bool emit_buf(struct dump_ctx *ctx, const char *buf)
 
 static bool add_str_to_glsl_hdr(struct dump_ctx *ctx, const char *buf)
 {
-   ctx->glsl_hdr = strcat_realloc(ctx->glsl_hdr, buf);
-   return ctx->glsl_hdr ? true : false;
+   strbuf_append(&ctx->glsl_hdr, buf);
+   return !strbuf_get_error(&ctx->glsl_hdr);
 }
 
 static bool emit_hdr(struct dump_ctx *ctx, const char *buf)
@@ -3451,17 +3445,17 @@ iter_instruction(struct tgsi_iterate_context *iter,
    case TGSI_OPCODE_UIF:
       snprintf(buf, 255, "if (any(bvec4(%s))) {\n", srcs[0]);
       EMIT_BUF_WITH_RET(ctx, buf);
-      ctx->indent_level++;
+      indent_buf(ctx);
       break;
    case TGSI_OPCODE_ELSE:
       snprintf(buf, 255, "} else {\n");
-      ctx->indent_level--;
+      outdent_buf(ctx);
       EMIT_BUF_WITH_RET(ctx, buf);
-      ctx->indent_level++;
+      indent_buf(ctx);
       break;
    case TGSI_OPCODE_ENDIF:
       snprintf(buf, 255, "}\n");
-      ctx->indent_level--;
+      outdent_buf(ctx);
       EMIT_BUF_WITH_RET(ctx, buf);
       break;
    case TGSI_OPCODE_KILL:
@@ -3828,10 +3822,10 @@ iter_instruction(struct tgsi_iterate_context *iter,
    case TGSI_OPCODE_BGNLOOP:
       snprintf(buf, 255, "do {\n");
       EMIT_BUF_WITH_RET(ctx, buf);
-      ctx->indent_level++;
+      indent_buf(ctx);
       break;
    case TGSI_OPCODE_ENDLOOP:
-      ctx->indent_level--;
+      outdent_buf(ctx);
       snprintf(buf, 255, "} while(true);\n");
       EMIT_BUF_WITH_RET(ctx, buf);
       break;
@@ -5061,43 +5055,38 @@ char *vrend_convert_shader(struct vrend_context *rctx,
    if (ctx.info.indirect_files & (1 << TGSI_FILE_SAMPLER))
       ctx.shader_req_bits |= SHADER_REQ_GPU_SHADER5;
 
-   ctx.glsl_main = malloc(4096);
-   if (!ctx.glsl_main)
+   if (!strbuf_alloc(&ctx.glsl_main, 4096))
       goto fail;
 
-   ctx.glsl_main[0] = '\0';
    bret = tgsi_iterate_shader(tokens, &ctx.iter);
    if (bret == false)
       goto fail;
 
-   ctx.glsl_hdr = malloc(1024);
-   if (!ctx.glsl_hdr)
+   if (!strbuf_alloc(&ctx.glsl_hdr, 1024))
       goto fail;
-   ctx.glsl_hdr[0] = '\0';
    if (!emit_header(&ctx))
       goto fail;
 
    if (!emit_ios(&ctx))
       goto fail;
 
-   glsl_final = malloc(strlen(ctx.glsl_hdr) + strlen(ctx.glsl_main) + 1);
+   glsl_final = malloc(strbuf_get_len(&ctx.glsl_hdr) + strbuf_get_len(&ctx.glsl_main) + 1);
    if (!glsl_final)
       goto fail;
-
-   glsl_final[0] = '\0';
 
    bret = fill_interpolants(&ctx, sinfo);
    if (bret == false)
       goto fail;
 
-   strcat(glsl_final, ctx.glsl_hdr);
-   strcat(glsl_final, ctx.glsl_main);
+   memcpy(glsl_final, ctx.glsl_hdr.buf, strbuf_get_len(&ctx.glsl_hdr));
+   memcpy(glsl_final + strbuf_get_len(&ctx.glsl_hdr), ctx.glsl_main.buf, strbuf_get_len(&ctx.glsl_main));
+   glsl_final[strbuf_get_len(&ctx.glsl_hdr) + strbuf_get_len(&ctx.glsl_main)] = '\0';
 
    VREND_DEBUG(dbg_shader_glsl, rctx, "GLSL: %s\n", glsl_final);
 
    free(ctx.temp_ranges);
-   free(ctx.glsl_main);
-   free(ctx.glsl_hdr);
+   strbuf_free(&ctx.glsl_main);
+   strbuf_free(&ctx.glsl_hdr);
    sinfo->num_ucp = ctx.key->clip_plane_enable ? 8 : 0;
    sinfo->has_pervertex_out = ctx.vs_has_pervertex;
    sinfo->has_sample_input = ctx.has_sample_input;
@@ -5151,9 +5140,9 @@ char *vrend_convert_shader(struct vrend_context *rctx,
    sinfo->num_image_arrays = ctx.num_image_arrays;
    return glsl_final;
  fail:
-   free(ctx.glsl_main);
+   strbuf_free(&ctx.glsl_main);
    free(glsl_final);
-   free(ctx.glsl_hdr);
+   strbuf_free(&ctx.glsl_hdr);
    free(ctx.so_names);
    free(ctx.temp_ranges);
    return NULL;
