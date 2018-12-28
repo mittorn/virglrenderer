@@ -1432,7 +1432,7 @@ static char get_swiz_char(int swiz)
    }
 }
 
-static int emit_cbuf_writes(struct dump_ctx *ctx)
+static bool emit_cbuf_writes(struct dump_ctx *ctx)
 {
    char buf[255];
    int i;
@@ -1440,14 +1440,14 @@ static int emit_cbuf_writes(struct dump_ctx *ctx)
    for (i = ctx->num_outputs; i < ctx->cfg->max_draw_buffers; i++) {
       snprintf(buf, 255, "fsout_c%d = fsout_c0;\n", i);
       if (!add_str_to_glsl_main(ctx, buf))
-         return ENOMEM;
+         return false;
    }
-   return 0;
+   return true;
 }
 
-static int emit_a8_swizzle(struct dump_ctx *ctx)
+static bool emit_a8_swizzle(struct dump_ctx *ctx)
 {
-   return add_str_to_glsl_main(ctx, "fsout_c0.x = fsout_c0.w;\n") ? 0 : ENOMEM;
+   return add_str_to_glsl_main(ctx, "fsout_c0.x = fsout_c0.w;\n");
 }
 
 static const char *atests[PIPE_FUNC_ALWAYS + 1] = {
@@ -1461,18 +1461,18 @@ static const char *atests[PIPE_FUNC_ALWAYS + 1] = {
    "true"
 };
 
-static int emit_alpha_test(struct dump_ctx *ctx)
+static bool emit_alpha_test(struct dump_ctx *ctx)
 {
    char buf[255];
    char comp_buf[128];
 
    if (!ctx->num_outputs)
-           return 0;
+      return true;
 
    if (!ctx->write_all_cbufs) {
-           /* only emit alpha stanza if first output is 0 */
-           if (ctx->outputs[0].sid != 0)
-                   return 0;
+      /* only emit alpha stanza if first output is 0 */
+      if (ctx->outputs[0].sid != 0)
+         return true;
    }
    switch (ctx->key->alpha_test) {
    case PIPE_FUNC_NEVER:
@@ -1489,26 +1489,26 @@ static int emit_alpha_test(struct dump_ctx *ctx)
       break;
    default:
       fprintf(stderr, "invalid alpha-test: %x\n", ctx->key->alpha_test);
-      return EINVAL;
+      return false;
    }
 
    snprintf(buf, 255, "if (!(%s)) {\n\tdiscard;\n}\n", comp_buf);
    if (!add_str_to_glsl_main(ctx, buf))
-      return ENOMEM;
-   return 0;
+      return false;
+   return true;
 }
 
-static int emit_pstipple_pass(struct dump_ctx *ctx)
+static bool emit_pstipple_pass(struct dump_ctx *ctx)
 {
    char buf[255];
    snprintf(buf, 255, "stip_temp = texture(pstipple_sampler, vec2(gl_FragCoord.x / 32, gl_FragCoord.y / 32)).x;\n");
    if (!add_str_to_glsl_main(ctx, buf))
-      return ENOMEM;
+      return false;
    snprintf(buf, 255, "if (stip_temp > 0) {\n\tdiscard;\n}\n");
-   return add_str_to_glsl_main(ctx, buf) ? 0 : ENOMEM;
+   return add_str_to_glsl_main(ctx, buf);
 }
 
-static int emit_color_select(struct dump_ctx *ctx)
+static bool emit_color_select(struct dump_ctx *ctx)
 {
    char buf[255];
    bool ret = true;
@@ -1524,17 +1524,15 @@ static int emit_color_select(struct dump_ctx *ctx)
       snprintf(buf, 255, "realcolor1 = gl_FrontFacing ? ex_c1 : ex_bc1;\n");
       ret = add_str_to_glsl_main(ctx, buf);
    }
-   return ret ? 0 : ENOMEM;
+   return ret;
 }
 
-static int emit_prescale(struct dump_ctx *ctx)
+static bool emit_prescale(struct dump_ctx *ctx)
 {
    char buf[255];
 
    snprintf(buf, 255, "gl_Position.y = gl_Position.y * winsys_adjust_y;\n");
-   if (!add_str_to_glsl_main(ctx, buf))
-      return ENOMEM;
-   return 0;
+   return add_str_to_glsl_main(ctx, buf);
 }
 
 static int prepare_so_movs(struct dump_ctx *ctx)
@@ -1560,7 +1558,7 @@ static int prepare_so_movs(struct dump_ctx *ctx)
    return 0;
 }
 
-static int emit_so_movs(struct dump_ctx *ctx)
+static bool emit_so_movs(struct dump_ctx *ctx)
 {
    char buf[255];
    uint32_t i, j;
@@ -1569,7 +1567,7 @@ static int emit_so_movs(struct dump_ctx *ctx)
 
    if (ctx->so->num_outputs >= PIPE_MAX_SO_OUTPUTS) {
       fprintf(stderr, "Num outputs exceeded, max is %u\n", PIPE_MAX_SO_OUTPUTS);
-      return EINVAL;
+      return false;
    }
 
    for (i = 0; i < ctx->so->num_outputs; i++) {
@@ -1625,12 +1623,12 @@ static int emit_so_movs(struct dump_ctx *ctx)
             snprintf(buf, 255, "tfout%d = %s(%s%s);\n", i, outtype, ctx->outputs[ctx->so->output[i].register_index].glsl_name, writemask);
       }
       if (!add_str_to_glsl_main(ctx, buf))
-         return ENOMEM;
+         return false;
    }
-   return 0;
+   return true;
 }
 
-static int emit_clip_dist_movs(struct dump_ctx *ctx)
+static bool emit_clip_dist_movs(struct dump_ctx *ctx)
 {
    char buf[255];
    int i;
@@ -1644,9 +1642,9 @@ static int emit_clip_dist_movs(struct dump_ctx *ctx)
       for (i = 0; i < 8; i++) {
          snprintf(buf, 255, "%sgl_ClipDistance[%d] = dot(%s, clipp[%d]);\n", prefix, i, ctx->has_clipvertex ? "clipv_tmp" : "gl_Position", i);
          if (!add_str_to_glsl_main(ctx, buf))
-            return ENOMEM;
+            return false;
       }
-      return 0;
+      return true;
    }
    ndists = ctx->num_clip_dist;
    if (has_prop)
@@ -1661,7 +1659,7 @@ static int emit_clip_dist_movs(struct dump_ctx *ctx)
       case 2: wm = 'z'; break;
       case 3: wm = 'w'; break;
       default:
-         return EINVAL;
+         return false;
       }
       bool is_cull = false;
       if (has_prop) {
@@ -1672,9 +1670,9 @@ static int emit_clip_dist_movs(struct dump_ctx *ctx)
       snprintf(buf, 255, "%sgl_%sDistance[%d] = clip_dist_temp[%d].%c;\n", prefix, clip_cull,
                is_cull ? i - ctx->num_clip_dist_prop : i, clipidx, wm);
       if (!add_str_to_glsl_main(ctx, buf))
-         return ENOMEM;
+         return false;
    }
-   return 0;
+   return true;
 }
 
 #define emit_arit_op2(op) snprintf(buf, 512, "%s = %s(%s((%s %s %s))%s);\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0], op, srcs[1], writemask)
@@ -1683,63 +1681,63 @@ static int emit_clip_dist_movs(struct dump_ctx *ctx)
 
 #define emit_ucompare(op) snprintf(buf, 512, "%s = %s(uintBitsToFloat(%s(%s(%s(%s), %s(%s))%s) * %s(0xffffffff)));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.udstconv), op, get_string(sinfo.svec4), srcs[0], get_string(sinfo.svec4), srcs[1], writemask, get_string(dinfo.udstconv))
 
-static int emit_buf(struct dump_ctx *ctx, const char *buf)
+static bool emit_buf(struct dump_ctx *ctx, const char *buf)
 {
    int i;
    for (i = 0; i < ctx->indent_level; i++) {
       if (!add_str_to_glsl_main(ctx, "\t"))
-         return ENOMEM;
+         return false;
    }
 
-   return add_str_to_glsl_main(ctx, buf) ? 0 : ENOMEM;
+   return add_str_to_glsl_main(ctx, buf);
 }
 
-#define EMIT_BUF_WITH_RET(ctx, buf) do {        \
-      int _ret = emit_buf((ctx), (buf));                \
-      if (_ret) return FALSE;                        \
+#define EMIT_BUF_WITH_RET(ctx, buf) do {              \
+      bool _ret = emit_buf((ctx), (buf));             \
+      if (!_ret) return FALSE;                        \
    } while(0)
 
-static int handle_vertex_proc_exit(struct dump_ctx *ctx)
+static bool handle_vertex_proc_exit(struct dump_ctx *ctx)
 {
     if (ctx->so && !ctx->key->gs_present && !ctx->key->tes_present) {
-       if (emit_so_movs(ctx))
-          return FALSE;
+       if (!emit_so_movs(ctx))
+          return false;
     }
 
-    if (emit_clip_dist_movs(ctx))
-       return FALSE;
+    if (!emit_clip_dist_movs(ctx))
+       return false;
 
     if (!ctx->key->gs_present && !ctx->key->tes_present) {
-       if (emit_prescale(ctx))
-          return FALSE;
+       if (!emit_prescale(ctx))
+          return false;
     }
 
-    return TRUE;
+    return true;
 }
 
-static int handle_fragment_proc_exit(struct dump_ctx *ctx)
+static bool handle_fragment_proc_exit(struct dump_ctx *ctx)
 {
     if (ctx->key->pstipple_tex) {
-       if (emit_pstipple_pass(ctx))
-          return FALSE;
+       if (!emit_pstipple_pass(ctx))
+          return false;
     }
 
     if (ctx->key->cbufs_are_a8_bitmask) {
-       if (emit_a8_swizzle(ctx))
-          return FALSE;
+       if (!emit_a8_swizzle(ctx))
+          return false;
     }
 
     if (ctx->key->add_alpha_test) {
-       if (emit_alpha_test(ctx))
-          return FALSE;
+       if (!emit_alpha_test(ctx))
+          return false;
     }
 
     if (ctx->write_all_cbufs) {
-       if (emit_cbuf_writes(ctx))
-          return FALSE;
+       if (!emit_cbuf_writes(ctx))
+          return false;
     }
 
-    return TRUE;
+    return true;
 }
 
 static bool set_texture_reqs(struct dump_ctx *ctx,
@@ -1800,12 +1798,12 @@ static bool set_texture_reqs(struct dump_ctx *ctx,
 }
 
 /* size queries are pretty much separate */
-static int emit_txq(struct dump_ctx *ctx,
-                    struct tgsi_full_instruction *inst,
-                    uint32_t sreg_index,
-                    char srcs[4][255],
-                    char dsts[3][255],
-                    const char *writemask)
+static bool emit_txq(struct dump_ctx *ctx,
+                     struct tgsi_full_instruction *inst,
+                     uint32_t sreg_index,
+                     char srcs[4][255],
+                     char dsts[3][255],
+                     const char *writemask)
 {
    unsigned twm = TGSI_WRITEMASK_NONE;
    char bias[128] = {0};
@@ -1815,7 +1813,7 @@ static int emit_txq(struct dump_ctx *ctx,
    enum vrend_type_qualifier dtypeprefix = INT_BITS_TO_FLOAT;
 
    if (set_texture_reqs(ctx, inst, sreg_index, &is_shad) == false)
-      return FALSE;
+      return false;
 
    /* no lod parameter for txq for these */
    if (inst->Texture.Texture != TGSI_TEXTURE_RECT &&
@@ -1877,15 +1875,15 @@ static int emit_txq(struct dump_ctx *ctx,
             txq_returns_vec ? writemask : "");
       EMIT_BUF_WITH_RET(ctx, buf);
    }
-   return 0;
+   return true;
 }
 
 /* sample queries are pretty much separate */
-static int emit_txqs(struct dump_ctx *ctx,
-                     struct tgsi_full_instruction *inst,
-                     uint32_t sreg_index,
-                     char srcs[4][255],
-                     char dsts[3][255])
+static bool emit_txqs(struct dump_ctx *ctx,
+                      struct tgsi_full_instruction *inst,
+                      uint32_t sreg_index,
+                      char srcs[4][255],
+                      char dsts[3][255])
 {
    char buf[512];
    const int sampler_index = 0;
@@ -1894,16 +1892,16 @@ static int emit_txqs(struct dump_ctx *ctx,
 
    ctx->shader_req_bits |= SHADER_REQ_TXQS;
    if (set_texture_reqs(ctx, inst, sreg_index, &is_shad) == false)
-      return FALSE;
+      return false;
 
    if (inst->Texture.Texture != TGSI_TEXTURE_2D_MSAA &&
        inst->Texture.Texture != TGSI_TEXTURE_2D_ARRAY_MSAA)
-      return FALSE;
+      return false;
 
    snprintf(buf, 255, "%s = %s(textureSamples(%s));\n", dsts[0],
             get_string(dtypeprefix), srcs[sampler_index]);
    EMIT_BUF_WITH_RET(ctx, buf);
-   return 0;
+   return true;
 }
 
 static const char *get_tex_inst_ext(struct tgsi_full_instruction *inst)
@@ -2058,13 +2056,13 @@ static bool fill_offset_buffer(struct dump_ctx *ctx,
    return true;
 }
 
-static int translate_tex(struct dump_ctx *ctx,
-                         struct tgsi_full_instruction *inst,
-                         struct source_info *sinfo,
-                         struct dest_info *dinfo,
-                         char srcs[4][255],
-                         char dsts[3][255],
-                         const char *writemask)
+static bool translate_tex(struct dump_ctx *ctx,
+                          struct tgsi_full_instruction *inst,
+                          struct source_info *sinfo,
+                          struct dest_info *dinfo,
+                          char srcs[4][255],
+                          char dsts[3][255],
+                          const char *writemask)
 {
    enum vrend_type_qualifier txfi = TYPE_CONVERSION_NONE;
    unsigned twm = TGSI_WRITEMASK_NONE, gwm = TGSI_WRITEMASK_NONE;
@@ -2077,7 +2075,7 @@ static int translate_tex(struct dump_ctx *ctx,
    const char *tex_ext;
 
    if (set_texture_reqs(ctx, inst, sinfo->sreg_index, &is_shad) == false)
-      return FALSE;
+      return false;
 
    switch (ctx->samplers[sinfo->sreg_index].tgsi_sampler_return) {
    case TGSI_RETURN_TYPE_SINT:
@@ -2382,7 +2380,7 @@ static bool is_integer_memory(struct dump_ctx *ctx, enum tgsi_file_type file_typ
    return false;
 }
 
-static int
+static bool
 translate_store(struct dump_ctx *ctx,
                 struct tgsi_full_instruction *inst,
                 struct source_info *sinfo,
@@ -2437,10 +2435,10 @@ translate_store(struct dump_ctx *ctx,
          EMIT_BUF_WITH_RET(ctx, buf);
       }
    }
-   return 0;
+   return true;
 }
 
-static int
+static bool
 translate_load(struct dump_ctx *ctx,
                struct tgsi_full_instruction *inst,
                struct source_info *sinfo,
@@ -2515,7 +2513,7 @@ translate_load(struct dump_ctx *ctx,
       snprintf(buf, 255, "%s = uintBitsToFloat(atomicCounter(%s));\n", dsts[0], srcs[0]);
       EMIT_BUF_WITH_RET(ctx, buf);
    }
-   return 0;
+   return true;
 }
 
 static const char *get_atomic_opname(int tgsi_opcode, bool *is_cas)
@@ -2561,7 +2559,7 @@ static const char *get_atomic_opname(int tgsi_opcode, bool *is_cas)
    return opname;
 }
 
-static int
+static bool
 translate_resq(struct dump_ctx *ctx, struct tgsi_full_instruction *inst,
                char srcs[4][255], char dsts[3][255])
 {
@@ -2584,10 +2582,10 @@ translate_resq(struct dump_ctx *ctx, struct tgsi_full_instruction *inst,
       EMIT_BUF_WITH_RET(ctx, buf);
    }
 
-   return 0;
+   return true;
 }
 
-static int
+static bool
 translate_atomic(struct dump_ctx *ctx,
                  struct tgsi_full_instruction *inst,
                  struct source_info *sinfo,
@@ -2631,7 +2629,7 @@ translate_atomic(struct dump_ctx *ctx,
 
    opname = get_atomic_opname(inst->Instruction.Opcode, &is_cas);
    if (!opname)
-      return -1;
+      return false;
 
    if (is_cas)
       snprintf(cas_str, 128, ", %s(%s(%s))", get_string(stypecast), get_string(stypeprefix), srcs[3]);
@@ -2675,10 +2673,10 @@ translate_atomic(struct dump_ctx *ctx,
       EMIT_BUF_WITH_RET(ctx, buf);
    }
 
-   return 0;
+   return true;
 }
 
-static int
+static bool
 get_destination_info(struct dump_ctx *ctx,
                      const struct tgsi_full_instruction *inst,
                      struct dest_info *dinfo,
@@ -2836,7 +2834,7 @@ get_destination_info(struct dump_ctx *ctx,
       else if (dst_reg->Register.File == TGSI_FILE_TEMPORARY) {
          struct vrend_temp_range *range = find_temp_range(ctx, dst_reg->Register.Index);
          if (!range)
-            return FALSE;
+            return false;
          if (dst_reg->Register.Indirect) {
             snprintf(dsts[i], 255, "temp%d[addr0 + %d]%s", range->first, dst_reg->Register.Index - range->first, writemask);
          } else
@@ -2879,7 +2877,7 @@ get_destination_info(struct dump_ctx *ctx,
 
    }
 
-   return 0;
+   return true;
 }
 
 static void fill_blkarray(struct dump_ctx *ctx,
@@ -2899,7 +2897,7 @@ static void fill_blkarray(struct dump_ctx *ctx,
    }
 }
 
-static int
+static bool
 get_source_info(struct dump_ctx *ctx,
                 const struct tgsi_full_instruction *inst,
                 struct source_info *sinfo,
@@ -3063,7 +3061,7 @@ get_source_info(struct dump_ctx *ctx,
       } else if (src->Register.File == TGSI_FILE_TEMPORARY) {
          struct vrend_temp_range *range = find_temp_range(ctx, src->Register.Index);
          if (!range)
-            return FALSE;
+            return false;
          if (inst->Instruction.Opcode == TGSI_OPCODE_INTERP_SAMPLE && i == 1) {
             stprefix = true;
             stypeprefix = FLOAT_BITS_TO_INT;
@@ -3348,7 +3346,7 @@ get_source_info(struct dump_ctx *ctx,
       }
    }
 
-   return 0;
+   return true;
 }
 
 static boolean
@@ -3374,20 +3372,17 @@ iter_instruction(struct tgsi_iterate_context *iter,
       if (!add_str_to_glsl_main(ctx, "void main(void)\n{\n"))
          return FALSE;
       if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
-         ret = emit_color_select(ctx);
-         if (ret)
+         if (!emit_color_select(ctx))
             return FALSE;
       }
       if (ctx->so)
          prepare_so_movs(ctx);
    }
 
-   ret = get_destination_info(ctx, inst, &dinfo, dsts, fp64_dsts, writemask);
-   if (ret)
+   if (!get_destination_info(ctx, inst, &dinfo, dsts, fp64_dsts, writemask))
       return FALSE;
 
-   ret = get_source_info(ctx, inst, &sinfo, srcs, src_swizzle0);
-   if (ret)
+   if (!get_source_info(ctx, inst, &sinfo, srcs, src_swizzle0))
       return FALSE;
 
    switch (inst->Instruction.Opcode) {
@@ -3648,18 +3643,15 @@ iter_instruction(struct tgsi_iterate_context *iter,
    case TGSI_OPCODE_TG4:
    case TGSI_OPCODE_TXP:
    case TGSI_OPCODE_LODQ:
-      ret = translate_tex(ctx, inst, &sinfo, &dinfo, srcs, dsts, writemask);
-      if (ret)
+      if (!translate_tex(ctx, inst, &sinfo, &dinfo, srcs, dsts, writemask))
          return FALSE;
       break;
    case TGSI_OPCODE_TXQ:
-      ret = emit_txq(ctx, inst, sinfo.sreg_index, srcs, dsts, writemask);
-      if (ret)
+      if (!emit_txq(ctx, inst, sinfo.sreg_index, srcs, dsts, writemask))
          return FALSE;
       break;
    case TGSI_OPCODE_TXQS:
-      ret = emit_txqs(ctx, inst, sinfo.sreg_index, srcs, dsts);
-      if (ret)
+      if (!emit_txqs(ctx, inst, sinfo.sreg_index, srcs, dsts))
          return FALSE;
       break;
    case TGSI_OPCODE_I2F:
@@ -3778,26 +3770,23 @@ iter_instruction(struct tgsi_iterate_context *iter,
       break;
    case TGSI_OPCODE_END:
       if (iter->processor.Processor == TGSI_PROCESSOR_VERTEX) {
-         if (handle_vertex_proc_exit(ctx) == FALSE)
+         if (!handle_vertex_proc_exit(ctx))
             return FALSE;
       } else if (iter->processor.Processor == TGSI_PROCESSOR_TESS_CTRL) {
-         ret = emit_clip_dist_movs(ctx);
-         if (ret)
+         if (!emit_clip_dist_movs(ctx))
             return FALSE;
       } else if (iter->processor.Processor == TGSI_PROCESSOR_TESS_EVAL) {
 	 if (ctx->so && !ctx->key->gs_present)
             if (emit_so_movs(ctx))
                return FALSE;
-         ret = emit_clip_dist_movs(ctx);
-         if (ret)
+         if (!emit_clip_dist_movs(ctx))
             return FALSE;
          if (!ctx->key->gs_present) {
-            ret = emit_prescale(ctx);
-            if (ret)
+            if (!emit_prescale(ctx))
                return FALSE;
          }
       } else if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
-         if (handle_fragment_proc_exit(ctx) == FALSE)
+         if (!handle_fragment_proc_exit(ctx))
             return FALSE;
       }
       if (!add_str_to_glsl_main(ctx, "}\n"))
@@ -3805,10 +3794,10 @@ iter_instruction(struct tgsi_iterate_context *iter,
       break;
    case TGSI_OPCODE_RET:
       if (iter->processor.Processor == TGSI_PROCESSOR_VERTEX) {
-         if (handle_vertex_proc_exit(ctx) == FALSE)
+         if (!handle_vertex_proc_exit(ctx))
             return FALSE;
       } else if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
-         if (handle_fragment_proc_exit(ctx) == FALSE)
+         if (!handle_fragment_proc_exit(ctx))
             return FALSE;
       }
       EMIT_BUF_WITH_RET(ctx, "return;\n");
@@ -3844,11 +3833,9 @@ iter_instruction(struct tgsi_iterate_context *iter,
       if (ctx->so && ctx->key->gs_present) {
          emit_so_movs(ctx);
       }
-      ret = emit_clip_dist_movs(ctx);
-      if (ret)
+      if (!emit_clip_dist_movs(ctx))
          return FALSE;
-      ret = emit_prescale(ctx);
-      if (ret)
+      if (!emit_prescale(ctx))
          return FALSE;
       if (imd->val[inst->Src[0].Register.SwizzleX].ui > 0) {
          ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
@@ -3977,13 +3964,11 @@ iter_instruction(struct tgsi_iterate_context *iter,
       break;
    }
    case TGSI_OPCODE_STORE:
-      ret = translate_store(ctx, inst, &sinfo, srcs, dsts);
-      if (ret)
+      if (!translate_store(ctx, inst, &sinfo, srcs, dsts))
          return FALSE;
       break;
    case TGSI_OPCODE_LOAD:
-      ret = translate_load(ctx, inst, &sinfo, &dinfo, srcs, dsts, writemask);
-      if (ret)
+      if (!translate_load(ctx, inst, &sinfo, &dinfo, srcs, dsts, writemask))
          return FALSE;
       break;
    case TGSI_OPCODE_ATOMUADD:
@@ -3996,13 +3981,11 @@ iter_instruction(struct tgsi_iterate_context *iter,
    case TGSI_OPCODE_ATOMUMAX:
    case TGSI_OPCODE_ATOMIMIN:
    case TGSI_OPCODE_ATOMIMAX:
-      ret = translate_atomic(ctx, inst, &sinfo, srcs, dsts);
-      if (ret)
+      if (!translate_atomic(ctx, inst, &sinfo, srcs, dsts))
          return FALSE;
       break;
    case TGSI_OPCODE_RESQ:
-      ret = translate_resq(ctx, inst, srcs, dsts);
-      if (ret)
+      if (!translate_resq(ctx, inst, srcs, dsts))
          return FALSE;
       break;
    case TGSI_OPCODE_CLOCK:
