@@ -130,6 +130,7 @@ struct dump_ctx {
    int prog_type;
    int size;
    char *glsl_main;
+   char *glsl_hdr;
    uint instno;
 
    uint32_t num_interps;
@@ -519,6 +520,22 @@ static bool emit_buf(struct dump_ctx *ctx, const char *buf)
 
 #define EMIT_BUF_WITH_RET(ctx, buf) do {              \
       bool _ret = emit_buf((ctx), (buf));             \
+      if (!_ret) return FALSE;                        \
+   } while(0)
+
+static bool add_str_to_glsl_hdr(struct dump_ctx *ctx, const char *buf)
+{
+   ctx->glsl_hdr = strcat_realloc(ctx->glsl_hdr, buf);
+   return ctx->glsl_hdr ? true : false;
+}
+
+static bool emit_hdr(struct dump_ctx *ctx, const char *buf)
+{
+   return add_str_to_glsl_hdr(ctx, buf);
+}
+
+#define EMIT_HDR_WITH_RET(ctx, buf) do {              \
+      bool _ret = emit_hdr((ctx), (buf));             \
       if (!_ret) return FALSE;                        \
    } while(0)
 
@@ -4019,113 +4036,108 @@ prolog(struct tgsi_iterate_context *iter)
    return TRUE;
 }
 
-#define STRCAT_WITH_RET(mainstr, buf) do {              \
-      (mainstr) = strcat_realloc((mainstr), (buf));        \
-      if ((mainstr) == NULL) return NULL;               \
-   } while(0)
-
 /* reserve space for: "#extension GL_ARB_gpu_shader5 : require\n" */
-#define PAD_GPU_SHADER5(s) \
-   STRCAT_WITH_RET(s, "                                       \n")
-#define PAD_GPU_MSINTERPOL(s) \
-   STRCAT_WITH_RET(s, "                                                            \n")
+#define PAD_GPU_SHADER5(ctx) \
+   EMIT_HDR_WITH_RET(ctx, "                                       \n")
+#define PAD_GPU_MSINTERPOL(ctx) \
+   EMIT_HDR_WITH_RET(ctx, "                                                            \n")
 
-static char *emit_header(struct dump_ctx *ctx, char *glsl_hdr)
+static bool emit_header(struct dump_ctx *ctx)
 {
    if (ctx->cfg->use_gles) {
       char buf[32];
       snprintf(buf, sizeof(buf), "#version %d es\n", ctx->cfg->glsl_version);
-      STRCAT_WITH_RET(glsl_hdr, buf);
+      EMIT_HDR_WITH_RET(ctx, buf);
 
       if (ctx->cfg->glsl_version < 320 &&
           (ctx->prog_type == TGSI_PROCESSOR_VERTEX ||
            ctx->prog_type == TGSI_PROCESSOR_GEOMETRY ||
            ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL)) {
-         PAD_GPU_SHADER5(glsl_hdr);
-         PAD_GPU_MSINTERPOL(glsl_hdr);
+         PAD_GPU_SHADER5(ctx);
+         PAD_GPU_MSINTERPOL(ctx);
       }
 
       if (ctx->shader_req_bits & SHADER_REQ_SAMPLER_MS)
-         STRCAT_WITH_RET(glsl_hdr, "#extension GL_OES_texture_storage_multisample_2d_array : require\n");
+         EMIT_HDR_WITH_RET(ctx, "#extension GL_OES_texture_storage_multisample_2d_array : require\n");
 
       if (ctx->prog_type == TGSI_PROCESSOR_FRAGMENT) {
          if (ctx->shader_req_bits & SHADER_REQ_FBFETCH)
-            STRCAT_WITH_RET(glsl_hdr, "#extension GL_EXT_shader_framebuffer_fetch : require\n");
+            EMIT_HDR_WITH_RET(ctx, "#extension GL_EXT_shader_framebuffer_fetch : require\n");
       }
 
       if (ctx->prog_type == TGSI_PROCESSOR_GEOMETRY) {
-         STRCAT_WITH_RET(glsl_hdr, "#extension GL_EXT_geometry_shader : require\n");
+         EMIT_HDR_WITH_RET(ctx, "#extension GL_EXT_geometry_shader : require\n");
          if (ctx->shader_req_bits & SHADER_REQ_PSIZE)
-            STRCAT_WITH_RET(glsl_hdr, "#extension GL_OES_geometry_point_size : enable\n");
+            EMIT_HDR_WITH_RET(ctx, "#extension GL_OES_geometry_point_size : enable\n");
       }
 
       if ((ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL ||
            ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL)) {
          if (ctx->cfg->glsl_version < 320)
-            STRCAT_WITH_RET(glsl_hdr, "#extension GL_OES_tessellation_shader : require\n");
-         STRCAT_WITH_RET(glsl_hdr, "#extension GL_OES_tessellation_point_size : enable\n");
+            EMIT_HDR_WITH_RET(ctx, "#extension GL_OES_tessellation_shader : require\n");
+         EMIT_HDR_WITH_RET(ctx, "#extension GL_OES_tessellation_point_size : enable\n");
       }
 
       if (ctx->cfg->glsl_version < 320) {
          if (ctx->shader_req_bits & SHADER_REQ_SAMPLE_SHADING)
-            STRCAT_WITH_RET(glsl_hdr, "#extension GL_OES_sample_variables : require\n");
+            EMIT_HDR_WITH_RET(ctx, "#extension GL_OES_sample_variables : require\n");
          if (ctx->shader_req_bits & SHADER_REQ_GPU_SHADER5) {
-            STRCAT_WITH_RET(glsl_hdr, "#extension GL_OES_gpu_shader5 : require\n");
-            STRCAT_WITH_RET(glsl_hdr, "#extension GL_OES_shader_multisample_interpolation : require\n");
+            EMIT_HDR_WITH_RET(ctx, "#extension GL_OES_gpu_shader5 : require\n");
+            EMIT_HDR_WITH_RET(ctx, "#extension GL_OES_shader_multisample_interpolation : require\n");
          }
          if (ctx->shader_req_bits & SHADER_REQ_CUBE_ARRAY)
-            STRCAT_WITH_RET(glsl_hdr, "#extension GL_OES_texture_cube_map_array : require\n");
+            EMIT_HDR_WITH_RET(ctx, "#extension GL_OES_texture_cube_map_array : require\n");
          if (ctx->shader_req_bits & SHADER_REQ_LAYER)
-            STRCAT_WITH_RET(glsl_hdr, "#extension GL_EXT_geometry_shader : require\n");
+            EMIT_HDR_WITH_RET(ctx, "#extension GL_EXT_geometry_shader : require\n");
          if (ctx->shader_req_bits & SHADER_REQ_IMAGE_ATOMIC)
-            STRCAT_WITH_RET(glsl_hdr, "#extension GL_OES_shader_image_atomic : require\n");
+            EMIT_HDR_WITH_RET(ctx, "#extension GL_OES_shader_image_atomic : require\n");
       }
 
 
-      PAD_GPU_SHADER5(glsl_hdr);
-      STRCAT_WITH_RET(glsl_hdr, "precision highp float;\n");
-      STRCAT_WITH_RET(glsl_hdr, "precision highp int;\n");
+      PAD_GPU_SHADER5(ctx);
+      EMIT_HDR_WITH_RET(ctx, "precision highp float;\n");
+      EMIT_HDR_WITH_RET(ctx, "precision highp int;\n");
    } else {
       char buf[128];
       if (ctx->prog_type == TGSI_PROCESSOR_COMPUTE) {
-         STRCAT_WITH_RET(glsl_hdr, "#version 330\n");
-         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_compute_shader : require\n");
+         EMIT_HDR_WITH_RET(ctx, "#version 330\n");
+         EMIT_HDR_WITH_RET(ctx, "#extension GL_ARB_compute_shader : require\n");
       } else {
          if (ctx->prog_type == TGSI_PROCESSOR_GEOMETRY ||
              ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL ||
              ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL ||
              ctx->glsl_ver_required == 150)
-            STRCAT_WITH_RET(glsl_hdr, "#version 150\n");
+            EMIT_HDR_WITH_RET(ctx, "#version 150\n");
          else if (ctx->glsl_ver_required == 140)
-            STRCAT_WITH_RET(glsl_hdr, "#version 140\n");
+            EMIT_HDR_WITH_RET(ctx, "#version 140\n");
          else
-            STRCAT_WITH_RET(glsl_hdr, "#version 130\n");
+            EMIT_HDR_WITH_RET(ctx, "#version 130\n");
          if (ctx->prog_type == TGSI_PROCESSOR_VERTEX ||
              ctx->prog_type == TGSI_PROCESSOR_GEOMETRY ||
              ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL)
-            PAD_GPU_SHADER5(glsl_hdr);
+            PAD_GPU_SHADER5(ctx);
       }
 
       if (ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL ||
           ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL)
-         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_tessellation_shader : require\n");
+         EMIT_HDR_WITH_RET(ctx, "#extension GL_ARB_tessellation_shader : require\n");
 
       if (ctx->prog_type == TGSI_PROCESSOR_VERTEX && ctx->cfg->use_explicit_locations)
-         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_explicit_attrib_location : require\n");
+         EMIT_HDR_WITH_RET(ctx, "#extension GL_ARB_explicit_attrib_location : require\n");
       if (ctx->prog_type == TGSI_PROCESSOR_FRAGMENT && fs_emit_layout(ctx))
-         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_fragment_coord_conventions : require\n");
+         EMIT_HDR_WITH_RET(ctx, "#extension GL_ARB_fragment_coord_conventions : require\n");
 
       if (ctx->num_ubo)
-         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_uniform_buffer_object : require\n");
+         EMIT_HDR_WITH_RET(ctx, "#extension GL_ARB_uniform_buffer_object : require\n");
 
       if (ctx->num_cull_dist_prop || ctx->key->prev_stage_num_cull_out)
-         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_cull_distance : require\n");
+         EMIT_HDR_WITH_RET(ctx, "#extension GL_ARB_cull_distance : require\n");
       if (ctx->ssbo_used_mask)
-         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_shader_storage_buffer_object : require\n");
+         EMIT_HDR_WITH_RET(ctx, "#extension GL_ARB_shader_storage_buffer_object : require\n");
 
       if (ctx->num_abo) {
-         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_shader_atomic_counters : require\n");
-         STRCAT_WITH_RET(glsl_hdr, "#extension GL_ARB_shader_atomic_counter_ops : require\n");
+         EMIT_HDR_WITH_RET(ctx, "#extension GL_ARB_shader_atomic_counters : require\n");
+         EMIT_HDR_WITH_RET(ctx, "#extension GL_ARB_shader_atomic_counter_ops : require\n");
       }
 
       for (uint32_t i = 0; i < ARRAY_SIZE(shader_req_table); i++) {
@@ -4134,12 +4146,12 @@ static char *emit_header(struct dump_ctx *ctx, char *glsl_hdr)
 
          if (ctx->shader_req_bits & shader_req_table[i].key) {
             snprintf(buf, 128, "#extension GL_%s : require\n", shader_req_table[i].string);
-            STRCAT_WITH_RET(glsl_hdr, buf);
+            EMIT_HDR_WITH_RET(ctx, buf);
          }
       }
    }
 
-   return glsl_hdr;
+   return true;
 }
 
 char vrend_shader_samplerreturnconv(enum tgsi_return_type type)
@@ -4229,9 +4241,9 @@ static const char *get_aux_string(unsigned location)
    }
 }
 
-static void *emit_sampler_decl(struct dump_ctx *ctx, char *glsl_hdr,
-                               uint32_t i, uint32_t range,
-                               const struct vrend_shader_sampler *sampler)
+static bool emit_sampler_decl(struct dump_ctx *ctx,
+                              uint32_t i, uint32_t range,
+                              const struct vrend_shader_sampler *sampler)
 {
    char buf[255], ptc;
    int is_shad = 0;
@@ -4252,16 +4264,16 @@ static void *emit_sampler_decl(struct dump_ctx *ctx, char *glsl_hdr,
    else
       snprintf(buf, 255, "uniform %s%csampler%s %ssamp%d;\n", precision,  ptc, stc, sname, i);
 
-   STRCAT_WITH_RET(glsl_hdr, buf);
+   EMIT_HDR_WITH_RET(ctx, buf);
    if (is_shad) {
       snprintf(buf, 255, "uniform %svec4 %sshadmask%d;\n", precision,  sname, i);
-      STRCAT_WITH_RET(glsl_hdr, buf);
+      EMIT_HDR_WITH_RET(ctx, buf);
       snprintf(buf, 255, "uniform %svec4 %sshadadd%d;\n", precision,  sname, i);
-      STRCAT_WITH_RET(glsl_hdr, buf);
+      EMIT_HDR_WITH_RET(ctx, buf);
       ctx->shadow_samp_mask |= (1 << i);
    }
 
-   return glsl_hdr;
+   return true;
 }
 
 const char *get_internalformat_string(int virgl_format, enum tgsi_return_type *stype)
@@ -4394,9 +4406,9 @@ const char *get_internalformat_string(int virgl_format, enum tgsi_return_type *s
    }
 }
 
-static void *emit_image_decl(const struct dump_ctx *ctx, char *glsl_hdr,
-                             uint32_t i, uint32_t range,
-                             const struct vrend_shader_image *image)
+static bool emit_image_decl(struct dump_ctx *ctx,
+                            uint32_t i, uint32_t range,
+                            const struct vrend_shader_image *image)
 {
    char buf[255], ptc;
    int is_shad = 0;
@@ -4422,10 +4434,10 @@ static void *emit_image_decl(const struct dump_ctx *ctx, char *glsl_hdr,
    if (ctx->cfg->use_gles) { /* TODO: enable on OpenGL 4.2 and up also */
       snprintf(buf, 255, "layout(binding=%d%s%s) ",
                i, formatstr[0] != '\0' ? ", " : "", formatstr);
-      STRCAT_WITH_RET(glsl_hdr, buf);
+      EMIT_HDR_WITH_RET(ctx, buf);
    } else if (formatstr[0] != '\0') {
       snprintf(buf, 255, "layout(%s) ", formatstr);
-      STRCAT_WITH_RET(glsl_hdr, buf);
+      EMIT_HDR_WITH_RET(ctx, buf);
    }
 
    if (range)
@@ -4435,11 +4447,11 @@ static void *emit_image_decl(const struct dump_ctx *ctx, char *glsl_hdr,
       snprintf(buf, 255, "%s%suniform %s%cimage%s %simg%d;\n",
                access, volatile_str, precision, ptc, stc, sname, i);
 
-   STRCAT_WITH_RET(glsl_hdr, buf);
-   return glsl_hdr;
+   EMIT_HDR_WITH_RET(ctx, buf);
+   return true;
 }
 
-static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
+static bool emit_ios(struct dump_ctx *ctx)
 {
    uint32_t i;
    char buf[255];
@@ -4452,7 +4464,7 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
 
    if (ctx->so && ctx->so->num_outputs >= PIPE_MAX_SO_OUTPUTS) {
       fprintf(stderr, "Num outputs exceeded, max is %u\n", PIPE_MAX_SO_OUTPUTS);
-      return NULL;
+      return false;
    }
 
    if (ctx->key->color_two_side) {
@@ -4468,22 +4480,22 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
                   upper_left ? "origin_upper_left" : "",
                   comma,
                   ctx->fs_pixel_center ? "pixel_center_integer" : "");
-         STRCAT_WITH_RET(glsl_hdr, buf);
+         EMIT_HDR_WITH_RET(ctx, buf);
       }
       if (ctx->early_depth_stencil) {
-         STRCAT_WITH_RET(glsl_hdr, "layout(early_fragment_tests) in;\n");
+         EMIT_HDR_WITH_RET(ctx, "layout(early_fragment_tests) in;\n");
       }
    }
 
    if (ctx->prog_type == TGSI_PROCESSOR_COMPUTE) {
       snprintf(buf, 255, "layout (local_size_x = %d, local_size_y = %d, local_size_z = %d) in;\n",
                ctx->local_cs_block_size[0], ctx->local_cs_block_size[1], ctx->local_cs_block_size[2]);
-      STRCAT_WITH_RET(glsl_hdr, buf);
+      EMIT_HDR_WITH_RET(ctx, buf);
 
       if (ctx->req_local_mem) {
          enum vrend_type_qualifier type = ctx->integer_memory ? INT : UINT;
          snprintf(buf, 255, "shared %s values[%d];\n", get_string(type), ctx->req_local_mem / 4);
-         STRCAT_WITH_RET(glsl_hdr, buf);
+         EMIT_HDR_WITH_RET(ctx, buf);
       }
    }
 
@@ -4495,9 +4507,9 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
 
       snprintf(buf, 255, "layout(%s%s) in;\n", prim_to_name(ctx->gs_in_prim),
                ctx->gs_num_invocations > 1 ? invocbuf : "");
-      STRCAT_WITH_RET(glsl_hdr, buf);
+      EMIT_HDR_WITH_RET(ctx, buf);
       snprintf(buf, 255, "layout(%s, max_vertices = %d) out;\n", prim_to_name(ctx->gs_out_prim), ctx->gs_max_out_verts);
-      STRCAT_WITH_RET(glsl_hdr, buf);
+      EMIT_HDR_WITH_RET(ctx, buf);
    }
 
    if (ctx_indirect_inputs(ctx)) {
@@ -4508,7 +4520,7 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
             if (size < ctx->key->num_indirect_patch_inputs)
                size = ctx->key->num_indirect_patch_inputs;
             snprintf(buf, 255, "patch in vec4 %sp%d[%d];\n", name_prefix, ctx->patch_input_range.first, size);
-            STRCAT_WITH_RET(glsl_hdr, buf);
+            EMIT_HDR_WITH_RET(ctx, buf);
          }
       }
 
@@ -4519,7 +4531,7 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
             if (size < ctx->key->num_indirect_generic_inputs)
                size = ctx->key->num_indirect_generic_inputs;
             snprintf(buf, 255, "in block { vec4 %s%d[%d]; } blk[];\n", name_prefix, ctx->generic_input_range.first, size);
-            STRCAT_WITH_RET(glsl_hdr, buf);
+            EMIT_HDR_WITH_RET(ctx, buf);
          }
       }
    }
@@ -4527,7 +4539,7 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
       if (!ctx->inputs[i].glsl_predefined_no_emit) {
          if (ctx->prog_type == TGSI_PROCESSOR_VERTEX && ctx->cfg->use_explicit_locations) {
             snprintf(buf, 255, "layout(location=%d) ", ctx->inputs[i].first);
-            STRCAT_WITH_RET(glsl_hdr, buf);
+            EMIT_HDR_WITH_RET(ctx, buf);
          }
          prefix = "";
          auxprefix = "";
@@ -4552,19 +4564,19 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
          } else
             postfix[0] = 0;
          snprintf(buf, 255, "%s%sin vec4 %s%s;\n", prefix, auxprefix, ctx->inputs[i].glsl_name, postfix);
-         STRCAT_WITH_RET(glsl_hdr, buf);
+         EMIT_HDR_WITH_RET(ctx, buf);
       }
 
       if (ctx->prog_type == TGSI_PROCESSOR_FRAGMENT && ctx->cfg->use_gles &&
           !ctx->key->winsys_adjust_y_emitted &&
          (ctx->key->coord_replace & (1 << ctx->inputs[i].sid))) {
          ctx->key->winsys_adjust_y_emitted = true;
-         STRCAT_WITH_RET(glsl_hdr, "uniform float winsys_adjust_y;\n");
+         EMIT_HDR_WITH_RET(ctx, "uniform float winsys_adjust_y;\n");
       }
    }
    if (ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL) {
       snprintf(buf, 255, "layout(vertices = %d) out;\n", ctx->tcs_vertices_out);
-      STRCAT_WITH_RET(glsl_hdr, buf);
+      EMIT_HDR_WITH_RET(ctx, buf);
    }
    if (ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL) {
       snprintf(buf, 255, "layout(%s, %s, %s%s) in;\n",
@@ -4572,7 +4584,7 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
                get_spacing_string(ctx->tes_spacing),
                ctx->tes_vertex_order ? "cw" : "ccw",
                ctx->tes_point_mode ? ", point_mode" : "");
-      STRCAT_WITH_RET(glsl_hdr, buf);
+      EMIT_HDR_WITH_RET(ctx, buf);
    }
 
    if (ctx_indirect_outputs(ctx)) {
@@ -4580,17 +4592,17 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
       if (ctx->prog_type == TGSI_PROCESSOR_VERTEX) {
          if (ctx->generic_output_range.used) {
             snprintf(buf, 255, "out block { vec4 %s%d[%d]; } oblk;\n", name_prefix, ctx->generic_output_range.first, ctx->generic_output_range.last - ctx->generic_output_range.first + 1);
-            STRCAT_WITH_RET(glsl_hdr, buf);
+            EMIT_HDR_WITH_RET(ctx, buf);
          }
       }
       if (ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL) {
          if (ctx->generic_output_range.used) {
             snprintf(buf, 255, "out block { vec4 %s%d[%d]; } oblk[];\n", name_prefix, ctx->generic_output_range.first, ctx->generic_output_range.last - ctx->generic_output_range.first + 1);
-            STRCAT_WITH_RET(glsl_hdr, buf);
+            EMIT_HDR_WITH_RET(ctx, buf);
          }
          if (ctx->patch_output_range.used) {
             snprintf(buf, 255, "patch out vec4 %sp%d[%d];\n", name_prefix, ctx->patch_output_range.first, ctx->patch_output_range.last - ctx->patch_output_range.first + 1);
-            STRCAT_WITH_RET(glsl_hdr, buf);
+            EMIT_HDR_WITH_RET(ctx, buf);
          }
       }
    }
@@ -4601,7 +4613,7 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
             snprintf(buf, 255, "layout (location=%d) out vec4 fsout_c%d;\n", i, i);
          else
             snprintf(buf, 255, "out vec4 fsout_c%d;\n", i);
-         STRCAT_WITH_RET(glsl_hdr, buf);
+         EMIT_HDR_WITH_RET(ctx, buf);
       }
    } else {
       for (i = 0; i < ctx->num_outputs; i++) {
@@ -4640,13 +4652,13 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
                         ctx->outputs[i].invariant ? "invariant " : "",
                         ctx->outputs[i].fbfetch_used ? "inout" : "out",
                         ctx->outputs[i].glsl_name);
-            STRCAT_WITH_RET(glsl_hdr, buf);
+            EMIT_HDR_WITH_RET(ctx, buf);
          } else if (ctx->outputs[i].invariant || ctx->outputs[i].precise) {
             snprintf(buf, 255, "%s%s;\n",
                ctx->outputs[i].precise ? "precise " :
                (ctx->outputs[i].invariant ? "invariant " : ""),
                ctx->outputs[i].glsl_name);
-            STRCAT_WITH_RET(glsl_hdr, buf);
+            EMIT_HDR_WITH_RET(ctx, buf);
          }
       }
    }
@@ -4655,11 +4667,11 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
       for (i = 0; i < 2; i++) {
          if (fcolor_emitted[i] && !bcolor_emitted[i]) {
             snprintf(buf, 255, "%sout vec4 ex_bc%d;\n", INTERP_PREFIX, i);
-            STRCAT_WITH_RET(glsl_hdr, buf);
+            EMIT_HDR_WITH_RET(ctx, buf);
          }
          if (bcolor_emitted[i] && !fcolor_emitted[i]) {
             snprintf(buf, 255, "%sout vec4 ex_c%d;\n", INTERP_PREFIX, i);
-            STRCAT_WITH_RET(glsl_hdr, buf);
+            EMIT_HDR_WITH_RET(ctx, buf);
          }
       }
    }
@@ -4667,13 +4679,13 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
    if (ctx->prog_type == TGSI_PROCESSOR_VERTEX ||
        ctx->prog_type == TGSI_PROCESSOR_GEOMETRY ||
        ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL) {
-      STRCAT_WITH_RET(glsl_hdr, "uniform float winsys_adjust_y;\n");
+      EMIT_HDR_WITH_RET(ctx, "uniform float winsys_adjust_y;\n");
    }
 
    if (ctx->prog_type == TGSI_PROCESSOR_VERTEX) {
       if (ctx->has_clipvertex) {
          snprintf(buf, 255, "%svec4 clipv_tmp;\n", ctx->has_clipvertex_so ? "out " : "");
-         STRCAT_WITH_RET(glsl_hdr, buf);
+         EMIT_HDR_WITH_RET(ctx, buf);
       }
       if (ctx->num_clip_dist || ctx->key->clip_plane_enable) {
          bool has_prop = (ctx->num_clip_dist_prop + ctx->num_cull_dist_prop) > 0;
@@ -4691,17 +4703,17 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
          } else
             snprintf(clip_buf, 64, "out float gl_ClipDistance[%d];\n", num_clip_dists);
          if (ctx->key->clip_plane_enable) {
-            STRCAT_WITH_RET(glsl_hdr, "uniform vec4 clipp[8];\n");
+            EMIT_HDR_WITH_RET(ctx, "uniform vec4 clipp[8];\n");
          }
          if (ctx->key->gs_present || ctx->key->tes_present) {
             ctx->vs_has_pervertex = true;
             snprintf(buf, 255, "out gl_PerVertex {\n vec4 gl_Position;\n float gl_PointSize;\n%s%s};\n", clip_buf, cull_buf);
-            STRCAT_WITH_RET(glsl_hdr, buf);
+            EMIT_HDR_WITH_RET(ctx, buf);
          } else {
             snprintf(buf, 255, "%s%s", clip_buf, cull_buf);
-            STRCAT_WITH_RET(glsl_hdr, buf);
+            EMIT_HDR_WITH_RET(ctx, buf);
          }
-         STRCAT_WITH_RET(glsl_hdr, "vec4 clip_dist_temp[2];\n");
+         EMIT_HDR_WITH_RET(ctx, "vec4 clip_dist_temp[2];\n");
       }
    }
 
@@ -4719,7 +4731,7 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
             snprintf(cull_var, 64, "float gl_CullDistance[%d];\n", cull_dist);
 
          snprintf(buf, 255, "in gl_PerVertex {\n vec4 gl_Position;\n float gl_PointSize; \n %s%s\n} gl_in[];\n", clip_var, cull_var);
-         STRCAT_WITH_RET(glsl_hdr, buf);
+         EMIT_HDR_WITH_RET(ctx, buf);
       }
       if (ctx->num_clip_dist) {
          bool has_prop = (ctx->num_clip_dist_prop + ctx->num_cull_dist_prop) > 0;
@@ -4737,20 +4749,20 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
          } else
             snprintf(clip_buf, 64, "out float gl_ClipDistance[%d];\n", num_clip_dists);
          snprintf(buf, 255, "%s%s\n", clip_buf, cull_buf);
-         STRCAT_WITH_RET(glsl_hdr, buf);
+         EMIT_HDR_WITH_RET(ctx, buf);
          snprintf(buf, 255, "vec4 clip_dist_temp[2];\n");
-         STRCAT_WITH_RET(glsl_hdr, buf);
+         EMIT_HDR_WITH_RET(ctx, buf);
       }
    }
 
    if (ctx->prog_type == TGSI_PROCESSOR_FRAGMENT && ctx->num_in_clip_dist) {
       if (ctx->key->prev_stage_num_clip_out) {
          snprintf(buf, 255, "in float gl_ClipDistance[%d];\n", ctx->key->prev_stage_num_clip_out);
-         STRCAT_WITH_RET(glsl_hdr, buf);
+         EMIT_HDR_WITH_RET(ctx, buf);
       }
       if (ctx->key->prev_stage_num_cull_out) {
          snprintf(buf, 255, "in float gl_CullDistance[%d];\n", ctx->key->prev_stage_num_cull_out);
-         STRCAT_WITH_RET(glsl_hdr, buf);
+         EMIT_HDR_WITH_RET(ctx, buf);
       }
    }
 
@@ -4768,13 +4780,13 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
             snprintf(cull_var, 64, "float gl_CullDistance[%d];\n", cull_dist);
 
          snprintf(buf, 255, "in gl_PerVertex {\n vec4 gl_Position;\n float gl_PointSize; \n %s%s} gl_in[];\n", clip_var, cull_var);
-         STRCAT_WITH_RET(glsl_hdr, buf);
+         EMIT_HDR_WITH_RET(ctx, buf);
       }
       if (ctx->num_clip_dist) {
          snprintf(buf, 255, "out gl_PerVertex {\n vec4 gl_Position;\n float gl_PointSize;\n float gl_ClipDistance[%d];\n} gl_out[];\n", ctx->num_clip_dist ? ctx->num_clip_dist : 8);
-         STRCAT_WITH_RET(glsl_hdr, buf);
+         EMIT_HDR_WITH_RET(ctx, buf);
          snprintf(buf, 255, "vec4 clip_dist_temp[2];\n");
-         STRCAT_WITH_RET(glsl_hdr, buf);
+         EMIT_HDR_WITH_RET(ctx, buf);
       }
    }
 
@@ -4793,48 +4805,48 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
             snprintf(buf, 255, "layout (stream=%d) out %s tfout%d;\n", ctx->so->output[i].stream, outtype, i);
          else
             snprintf(buf, 255, "out %s tfout%d;\n", outtype, i);
-         STRCAT_WITH_RET(glsl_hdr, buf);
+         EMIT_HDR_WITH_RET(ctx, buf);
       }
    }
    for (i = 0; i < ctx->num_temp_ranges; i++) {
       snprintf(buf, 255, "vec4 temp%d[%d];\n", ctx->temp_ranges[i].first, ctx->temp_ranges[i].last - ctx->temp_ranges[i].first + 1);
-      STRCAT_WITH_RET(glsl_hdr, buf);
+      EMIT_HDR_WITH_RET(ctx, buf);
    }
 
    if (ctx->write_mul_utemp) {
-      STRCAT_WITH_RET(glsl_hdr, "uvec4 mul_utemp;\n");
-      STRCAT_WITH_RET(glsl_hdr, "uvec4 umul_temp;\n");
+      EMIT_HDR_WITH_RET(ctx, "uvec4 mul_utemp;\n");
+      EMIT_HDR_WITH_RET(ctx, "uvec4 umul_temp;\n");
    }
 
    if (ctx->write_mul_itemp) {
-      STRCAT_WITH_RET(glsl_hdr, "ivec4 mul_itemp;\n");
-      STRCAT_WITH_RET(glsl_hdr, "ivec4 imul_temp;\n");
+      EMIT_HDR_WITH_RET(ctx, "ivec4 mul_itemp;\n");
+      EMIT_HDR_WITH_RET(ctx, "ivec4 imul_temp;\n");
    }
 
    if (ctx->ssbo_used_mask || ctx->has_file_memory) {
-     STRCAT_WITH_RET(glsl_hdr, "uint ssbo_addr_temp;\n");
+     EMIT_HDR_WITH_RET(ctx, "uint ssbo_addr_temp;\n");
    }
 
    if (ctx->shader_req_bits & SHADER_REQ_FP64) {
-      STRCAT_WITH_RET(glsl_hdr, "dvec2 fp64_dst[3];\n");
-      STRCAT_WITH_RET(glsl_hdr, "dvec2 fp64_src[4];\n");
+      EMIT_HDR_WITH_RET(ctx, "dvec2 fp64_dst[3];\n");
+      EMIT_HDR_WITH_RET(ctx, "dvec2 fp64_src[4];\n");
    }
 
    for (i = 0; i < ctx->num_address; i++) {
       snprintf(buf, 255, "int addr%d;\n", i);
-      STRCAT_WITH_RET(glsl_hdr, buf);
+      EMIT_HDR_WITH_RET(ctx, buf);
    }
    if (ctx->num_consts) {
       const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
       snprintf(buf, 255, "uniform uvec4 %sconst0[%d];\n", cname, ctx->num_consts);
-      STRCAT_WITH_RET(glsl_hdr, buf);
+      EMIT_HDR_WITH_RET(ctx, buf);
    }
 
    if (ctx->key->color_two_side) {
       if (ctx->color_in_mask & 1)
-         STRCAT_WITH_RET(glsl_hdr, "vec4 realcolor0;\n");
+         EMIT_HDR_WITH_RET(ctx, "vec4 realcolor0;\n");
       if (ctx->color_in_mask & 2)
-         STRCAT_WITH_RET(glsl_hdr, "vec4 realcolor1;\n");
+         EMIT_HDR_WITH_RET(ctx, "vec4 realcolor1;\n");
    }
    if (ctx->num_ubo) {
       const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
@@ -4842,11 +4854,11 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
       if (ctx->info.dimension_indirect_files & (1 << TGSI_FILE_CONSTANT)) {
          require_glsl_ver(ctx, 150);
          snprintf(buf, 255, "uniform %subo { vec4 ubocontents[%d]; } %suboarr[%d];\n", cname, ctx->ubo_sizes[0], cname, ctx->num_ubo);
-         STRCAT_WITH_RET(glsl_hdr, buf);
+         EMIT_HDR_WITH_RET(ctx, buf);
       } else {
          for (i = 0; i < ctx->num_ubo; i++) {
             snprintf(buf, 255, "uniform %subo%d { vec4 %subo%dcontents[%d]; };\n", cname, ctx->ubo_idx[i], cname, ctx->ubo_idx[i], ctx->ubo_sizes[i]);
-            STRCAT_WITH_RET(glsl_hdr, buf);
+            EMIT_HDR_WITH_RET(ctx, buf);
          }
       }
    }
@@ -4855,9 +4867,8 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
       for (i = 0; i < ctx->num_sampler_arrays; i++) {
          uint32_t first = ctx->sampler_arrays[i].first;
          uint32_t range = ctx->sampler_arrays[i].array_size;
-         glsl_hdr = emit_sampler_decl(ctx, glsl_hdr, first, range, ctx->samplers + first);
-         if (!glsl_hdr)
-            return NULL;
+         if (!emit_sampler_decl(ctx, first, range, ctx->samplers + first))
+            return false;
       }
    } else {
       nsamp = util_last_bit(ctx->samplers_used);
@@ -4866,9 +4877,8 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
          if ((ctx->samplers_used & (1 << i)) == 0)
             continue;
 
-         glsl_hdr = emit_sampler_decl(ctx, glsl_hdr, i, 0, ctx->samplers + i);
-         if (!glsl_hdr)
-            return NULL;
+         if (!emit_sampler_decl(ctx, i, 0, ctx->samplers + i))
+            return false;
       }
    }
 
@@ -4876,17 +4886,15 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
       for (i = 0; i < ctx->num_image_arrays; i++) {
          uint32_t first = ctx->image_arrays[i].first;
          uint32_t range = ctx->image_arrays[i].array_size;
-         glsl_hdr = emit_image_decl(ctx, glsl_hdr, first, range, ctx->images + first);
-         if (!glsl_hdr)
-            return NULL;
+         if (!emit_image_decl(ctx, first, range, ctx->images + first))
+            return false;
       }
    } else {
       uint32_t mask = ctx->images_used_mask;
       while (mask) {
          i = u_bit_scan(&mask);
-         glsl_hdr = emit_image_decl(ctx, glsl_hdr, i, 0, ctx->images + i);
-         if (!glsl_hdr)
-            return NULL;
+         if (!emit_image_decl(ctx, i, 0, ctx->images + i))
+            return false;
       }
    }
 
@@ -4895,7 +4903,7 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
          snprintf(buf, 255, "layout (binding = %d, offset = %d) uniform atomic_uint ac%d[%d];\n", ctx->abo_idx[i], ctx->abo_offsets[i] * 4, i, ctx->abo_sizes[i]);
       else
          snprintf(buf, 255, "layout (binding = %d, offset = %d) uniform atomic_uint ac%d;\n", ctx->abo_idx[i], ctx->abo_offsets[i] * 4, i);
-      STRCAT_WITH_RET(glsl_hdr, buf);
+      EMIT_HDR_WITH_RET(ctx, buf);
    }
 
    if (ctx->info.indirect_files & (1 << TGSI_FILE_BUFFER)) {
@@ -4905,7 +4913,7 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
          u_bit_scan_consecutive_range(&mask, &start, &count);
          const char *atomic = (ctx->ssbo_atomic_mask & (1 << start)) ? "atomic" : "";
          snprintf(buf, 255, "layout (binding = %d, std430) buffer %sssbo%d { uint %sssbocontents%d[]; } %sssboarr%s[%d];\n", start, sname, start, sname, start, sname, atomic, count);
-         STRCAT_WITH_RET(glsl_hdr, buf);
+         EMIT_HDR_WITH_RET(ctx, buf);
       }
    } else {
       uint32_t mask = ctx->ssbo_used_mask;
@@ -4915,15 +4923,15 @@ static char *emit_ios(struct dump_ctx *ctx, char *glsl_hdr)
          enum vrend_type_qualifier type = (ctx->ssbo_integer_mask & (1 << id)) ? INT : UINT;
          snprintf(buf, 255, "layout (binding = %d, std430) buffer %sssbo%d { %s %sssbocontents%d[]; };\n", id, sname, id,
                   get_string(type), sname, id);
-         STRCAT_WITH_RET(glsl_hdr, buf);
+         EMIT_HDR_WITH_RET(ctx, buf);
       }
    }
 
    if (ctx->prog_type == TGSI_PROCESSOR_FRAGMENT &&
        ctx->key->pstipple_tex == true) {
-      STRCAT_WITH_RET(glsl_hdr, "uniform sampler2D pstipple_sampler;\nfloat stip_temp;\n");
+      EMIT_HDR_WITH_RET(ctx, "uniform sampler2D pstipple_sampler;\nfloat stip_temp;\n");
    }
-   return glsl_hdr;
+   return true;
 }
 
 static boolean fill_fragment_interpolants(struct dump_ctx *ctx, struct vrend_shader_info *sinfo)
@@ -5001,7 +5009,6 @@ char *vrend_convert_shader(struct vrend_context *rctx,
    struct dump_ctx ctx;
    char *glsl_final = NULL;
    boolean bret;
-   char *glsl_hdr = NULL;
 
    memset(&ctx, 0, sizeof(struct dump_ctx));
 
@@ -5061,19 +5068,17 @@ char *vrend_convert_shader(struct vrend_context *rctx,
    if (bret == FALSE)
       goto fail;
 
-   glsl_hdr = malloc(1024);
-   if (!glsl_hdr)
+   ctx.glsl_hdr = malloc(1024);
+   if (!ctx.glsl_hdr)
       goto fail;
-   glsl_hdr[0] = '\0';
-   glsl_hdr = emit_header(&ctx, glsl_hdr);
-   if (!glsl_hdr)
-      goto fail;
-
-   glsl_hdr = emit_ios(&ctx, glsl_hdr);
-   if (!glsl_hdr)
+   ctx.glsl_hdr[0] = '\0';
+   if (!emit_header(&ctx))
       goto fail;
 
-   glsl_final = malloc(strlen(glsl_hdr) + strlen(ctx.glsl_main) + 1);
+   if (!emit_ios(&ctx))
+      goto fail;
+
+   glsl_final = malloc(strlen(ctx.glsl_hdr) + strlen(ctx.glsl_main) + 1);
    if (!glsl_final)
       goto fail;
 
@@ -5083,14 +5088,14 @@ char *vrend_convert_shader(struct vrend_context *rctx,
    if (bret == FALSE)
       goto fail;
 
-   strcat(glsl_final, glsl_hdr);
+   strcat(glsl_final, ctx.glsl_hdr);
    strcat(glsl_final, ctx.glsl_main);
 
    VREND_DEBUG(dbg_shader_glsl, rctx, "GLSL: %s\n", glsl_final);
 
    free(ctx.temp_ranges);
    free(ctx.glsl_main);
-   free(glsl_hdr);
+   free(ctx.glsl_hdr);
    sinfo->num_ucp = ctx.key->clip_plane_enable ? 8 : 0;
    sinfo->has_pervertex_out = ctx.vs_has_pervertex;
    sinfo->has_sample_input = ctx.has_sample_input;
@@ -5146,7 +5151,7 @@ char *vrend_convert_shader(struct vrend_context *rctx,
  fail:
    free(ctx.glsl_main);
    free(glsl_final);
-   free(glsl_hdr);
+   free(ctx.glsl_hdr);
    free(ctx.so_names);
    free(ctx.temp_ranges);
    return NULL;
