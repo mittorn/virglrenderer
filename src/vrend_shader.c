@@ -1565,7 +1565,7 @@ static bool emit_prescale(struct dump_ctx *ctx)
    return emit_buf(ctx, buf);
 }
 
-static int prepare_so_movs(struct dump_ctx *ctx)
+static void prepare_so_movs(struct dump_ctx *ctx)
 {
    uint32_t i;
    for (i = 0; i < ctx->so->num_outputs; i++) {
@@ -1585,7 +1585,6 @@ static int prepare_so_movs(struct dump_ctx *ctx)
 
       ctx->write_so_outputs[i] = false;
    }
-   return 0;
 }
 
 static bool emit_so_movs(struct dump_ctx *ctx)
