@@ -533,8 +533,8 @@ static struct vrend_temp_range *find_temp_range(struct dump_ctx *ctx, int index)
    return NULL;
 }
 
-static int add_images(struct dump_ctx *ctx, int first, int last,
-                      struct tgsi_declaration_image *img_decl)
+static bool add_images(struct dump_ctx *ctx, int first, int last,
+                       struct tgsi_declaration_image *img_decl)
 {
    int i;
 
@@ -565,7 +565,7 @@ static int add_images(struct dump_ctx *ctx, int first, int last,
              !memcmp(&ctx->images[last_array->first].decl, &ctx->images[first].decl, sizeof(ctx->images[first].decl)) &&
              ctx->images[last_array->first].image_return == ctx->images[first].image_return) {
             last_array->array_size += last - first + 1;
-            return 0;
+            return true;
          }
       }
 
@@ -573,24 +573,24 @@ static int add_images(struct dump_ctx *ctx, int first, int last,
       ctx->num_image_arrays++;
       ctx->image_arrays = realloc(ctx->image_arrays, sizeof(struct vrend_array) * ctx->num_image_arrays);
       if (!ctx->image_arrays)
-         return -1;
+         return false;
       ctx->image_arrays[ctx->num_image_arrays - 1].first = first;
       ctx->image_arrays[ctx->num_image_arrays - 1].array_size = last - first + 1;
    }
-   return 0;
+   return true;
 }
 
-static int add_sampler_array(struct dump_ctx *ctx, int first, int last)
+static bool add_sampler_array(struct dump_ctx *ctx, int first, int last)
 {
    int idx = ctx->num_sampler_arrays;
    ctx->num_sampler_arrays++;
    ctx->sampler_arrays = realloc(ctx->sampler_arrays, sizeof(struct vrend_array) * ctx->num_sampler_arrays);
    if (!ctx->sampler_arrays)
-      return -1;
+      return false;
 
    ctx->sampler_arrays[idx].first = first;
    ctx->sampler_arrays[idx].array_size = last - first + 1;
-   return 0;
+   return true;
 }
 
 static int lookup_sampler_array(struct dump_ctx *ctx, int index)
@@ -619,7 +619,7 @@ int shader_lookup_sampler_array(struct vrend_shader_info *sinfo, int index)
    return -1;
 }
 
-static int add_samplers(struct dump_ctx *ctx, int first, int last, int sview_type, enum tgsi_return_type sview_rtype)
+static bool add_samplers(struct dump_ctx *ctx, int first, int last, int sview_type, enum tgsi_return_type sview_rtype)
 {
    if (sview_rtype == TGSI_RETURN_TYPE_SINT ||
        sview_rtype == TGSI_RETURN_TYPE_UINT)
@@ -637,14 +637,14 @@ static int add_samplers(struct dump_ctx *ctx, int first, int last, int sview_typ
              ctx->samplers[last_array->first].tgsi_sampler_type == sview_type &&
              ctx->samplers[last_array->first].tgsi_sampler_return == sview_rtype) {
             last_array->array_size += last - first + 1;
-            return 0;
+            return true;
          }
       }
 
       /* allocate a new image array for this range of images */
       return add_sampler_array(ctx, first, last);
    }
-   return 0;
+   return true;
 }
 
 static bool ctx_indirect_inputs(struct dump_ctx *ctx)
@@ -1173,29 +1173,23 @@ iter_declaration(struct tgsi_iterate_context *iter,
    case TGSI_FILE_SAMPLER:
       ctx->samplers_used |= (1 << decl->Range.Last);
       break;
-   case TGSI_FILE_SAMPLER_VIEW: {
-      int ret;
+   case TGSI_FILE_SAMPLER_VIEW:
       if (decl->Range.Last >= ARRAY_SIZE(ctx->samplers)) {
          fprintf(stderr, "Sampler view exceeded, max is %lu\n", ARRAY_SIZE(ctx->samplers));
          return FALSE;
       }
-      ret = add_samplers(ctx, decl->Range.First, decl->Range.Last, decl->SamplerView.Resource, decl->SamplerView.ReturnTypeX);
-      if (ret == -1)
+      if (!add_samplers(ctx, decl->Range.First, decl->Range.Last, decl->SamplerView.Resource, decl->SamplerView.ReturnTypeX))
          return FALSE;
       break;
-   }
-   case TGSI_FILE_IMAGE: {
-      int ret;
+   case TGSI_FILE_IMAGE:
       ctx->shader_req_bits |= SHADER_REQ_IMAGE_LOAD_STORE;
       if (decl->Range.Last >= ARRAY_SIZE(ctx->images)) {
          fprintf(stderr, "Image view exceeded, max is %lu\n", ARRAY_SIZE(ctx->images));
          return FALSE;
       }
-      ret = add_images(ctx, decl->Range.First, decl->Range.Last, &decl->Image);
-      if (ret == -1)
+      if (!add_images(ctx, decl->Range.First, decl->Range.Last, &decl->Image))
          return FALSE;
       break;
-   }
    case TGSI_FILE_BUFFER:
       if (decl->Range.First >= 32) {
          fprintf(stderr, "Buffer view exceeded, max is 32\n");
