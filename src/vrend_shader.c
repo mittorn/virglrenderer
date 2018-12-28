@@ -4014,6 +4014,8 @@ iter_instruction(struct tgsi_iterate_context *iter,
       snprintf(buf, 255, "%s = clamp(%s, 0.0, 1.0);\n", dsts[0], dsts[0]);
       EMIT_BUF_WITH_RET(ctx, buf);
    }
+   if (strbuf_get_error(&ctx->glsl_main))
+       return false;
    return true;
 }
 
@@ -5062,12 +5064,19 @@ char *vrend_convert_shader(struct vrend_context *rctx,
    if (bret == false)
       goto fail;
 
+   if (strbuf_get_error(&ctx.glsl_main))
+      goto fail;
+
    if (!strbuf_alloc(&ctx.glsl_hdr, 1024))
       goto fail;
+
    if (!emit_header(&ctx))
       goto fail;
 
    if (!emit_ios(&ctx))
+      goto fail;
+
+   if (strbuf_get_error(&ctx.glsl_hdr))
       goto fail;
 
    glsl_final = malloc(strbuf_get_len(&ctx.glsl_hdr) + strbuf_get_len(&ctx.glsl_main) + 1);
