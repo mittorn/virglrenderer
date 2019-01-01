@@ -74,6 +74,7 @@ struct vrend_shader_io {
    int                        sid;
    unsigned                interpolate;
    int first;
+   int last;
    unsigned                location;
    bool                    invariant;
    bool                    precise;
@@ -758,6 +759,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
       ctx->inputs[i].interpolate = decl->Interp.Interpolate;
       ctx->inputs[i].location = decl->Interp.Location;
       ctx->inputs[i].first = decl->Range.First;
+      ctx->inputs[i].last = decl->Range.Last;
       ctx->inputs[i].glsl_predefined_no_emit = false;
       ctx->inputs[i].glsl_no_index = false;
       ctx->inputs[i].override_no_wm = false;
@@ -793,6 +795,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
                   ctx->inputs[j].interpolate = decl->Interp.Interpolate;
                   ctx->inputs[j].location = decl->Interp.Location;
                   ctx->inputs[j].first = decl->Range.First;
+                  ctx->inputs[j].last = decl->Range.Last;
                   ctx->inputs[j].glsl_predefined_no_emit = false;
                   ctx->inputs[j].glsl_no_index = false;
                   ctx->inputs[j].override_no_wm = false;
@@ -1005,6 +1008,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
       ctx->outputs[i].invariant = decl->Declaration.Invariant;
       ctx->outputs[i].precise = false;
       ctx->outputs[i].first = decl->Range.First;
+      ctx->outputs[i].last = decl->Range.Last;
       ctx->outputs[i].glsl_predefined_no_emit = false;
       ctx->outputs[i].glsl_no_index = false;
       ctx->outputs[i].override_no_wm = false;
