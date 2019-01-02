@@ -99,6 +99,7 @@ enum features_id
    feat_conditional_render_inverted,
    feat_cube_map_array,
    feat_debug_cb,
+   feat_depth_clamp,
    feat_draw_instance,
    feat_dual_src_blend,
    feat_fb_no_attach,
@@ -174,6 +175,7 @@ static const  struct {
    FEAT(debug_cb, UNAVAIL, UNAVAIL, NULL), /* special case */
    FEAT(draw_instance, 31, 30,  "GL_ARB_draw_instanced" ),
    FEAT(dual_src_blend, 33, UNAVAIL,  "GL_ARB_blend_func_extended", "GL_EXT_blend_func_extended" ),
+   FEAT(depth_clamp, 32, UNAVAIL, "GL_ARB_depth_clamp", "GL_NV_depth_clamp"),
    FEAT(fb_no_attach, 43, 31,  "GL_ARB_framebuffer_no_attachments" ),
    FEAT(framebuffer_fetch, UNAVAIL, UNAVAIL,  "GL_EXT_shader_framebuffer_fetch" ),
    FEAT(geometry_shader, 32, 32, "GL_EXT_geometry_shader", "GL_OES_geometry_shader"),
@@ -4645,7 +4647,7 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
    struct pipe_rasterizer_state *state = &ctx->sub->rs_state;
    int i;
 
-   if (vrend_state.use_gles) {
+   if (!has_feature(feat_depth_clamp)) {
       if (!state->depth_clip) {
          report_gles_warn(ctx, GLES_WARN_DEPTH_CLIP, 0);
       }
@@ -8118,9 +8120,11 @@ static void vrend_renderer_fill_caps_v1(int gl_ver, int gles_ver, union virgl_ca
       caps->v1.max_uniform_blocks = max + 1;
    }
 
+   if (has_feature(feat_depth_clamp))
+      caps->v1.bset.depth_clip_disable = 1;
+
    if (gl_ver >= 32) {
       caps->v1.bset.fragment_coord_conventions = 1;
-      caps->v1.bset.depth_clip_disable = 1;
       caps->v1.bset.seamless_cube_map = 1;
    } else {
       if (epoxy_has_gl_extension("GL_ARB_fragment_coord_conventions"))
