@@ -54,8 +54,11 @@ RUN apt-get -y install ca-certificates && \
       ninja-build \
       procps \
       psmisc \
+      python-numpy \
+      python-six \
       python3-pip \
       python3-setuptools \
+      python3-six \
       python3-wheel \
       qemu \
       spirv-headers \
