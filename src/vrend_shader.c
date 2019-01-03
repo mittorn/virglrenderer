@@ -520,7 +520,7 @@ static bool emit_buf(struct dump_ctx *ctx, const char *buf)
 
 #define EMIT_BUF_WITH_RET(ctx, buf) do {              \
       bool _ret = emit_buf((ctx), (buf));             \
-      if (!_ret) return FALSE;                        \
+      if (!_ret) return false;                        \
    } while(0)
 
 static bool add_str_to_glsl_hdr(struct dump_ctx *ctx, const char *buf)
@@ -536,7 +536,7 @@ static bool emit_hdr(struct dump_ctx *ctx, const char *buf)
 
 #define EMIT_HDR_WITH_RET(ctx, buf) do {              \
       bool _ret = emit_hdr((ctx), (buf));             \
-      if (!_ret) return FALSE;                        \
+      if (!_ret) return false;                        \
    } while(0)
 
 static bool allocate_temp_range(struct dump_ctx *ctx, int first, int last,
@@ -727,13 +727,13 @@ iter_declaration(struct tgsi_iterate_context *iter,
          if (ctx->inputs[j].name == decl->Semantic.Name &&
              ctx->inputs[j].sid == decl->Semantic.Index &&
              ctx->inputs[j].first == decl->Range.First)
-            return TRUE;
+            return true;
       }
       i = ctx->num_inputs++;
       indirect = ctx_indirect_inputs(ctx);
       if (ctx->num_inputs > ARRAY_SIZE(ctx->inputs)) {
          fprintf(stderr, "Number of inputs exceeded, max is %lu\n", ARRAY_SIZE(ctx->inputs));
-         return FALSE;
+         return false;
       }
       if (iter->processor.Processor == TGSI_PROCESSOR_VERTEX) {
          ctx->attrib_input_mask |= (1 << decl->Range.First);
@@ -770,7 +770,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
                   int j = ctx->num_inputs++;
                   if (ctx->num_inputs > ARRAY_SIZE(ctx->inputs)) {
                      fprintf(stderr, "Number of inputs exceeded, max is %lu\n", ARRAY_SIZE(ctx->inputs));
-                     return FALSE;
+                     return false;
                   }
 
                   ctx->inputs[j].name = TGSI_SEMANTIC_BCOLOR;
@@ -788,7 +788,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
                      int k = ctx->num_inputs++;
                      if (ctx->num_inputs > ARRAY_SIZE(ctx->inputs)) {
                         fprintf(stderr, "Number of inputs exceeded, max is %lu\n", ARRAY_SIZE(ctx->inputs));
-                        return FALSE;
+                        return false;
                      }
 
                      ctx->inputs[k].name = TGSI_SEMANTIC_FACE;
@@ -897,7 +897,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
          if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
             if (ctx->front_face_emitted) {
                ctx->num_inputs--;
-               return TRUE;
+               return true;
             }
             name_prefix = "gl_FrontFacing";
             ctx->inputs[i].glsl_predefined_no_emit = true;
@@ -973,13 +973,13 @@ iter_declaration(struct tgsi_iterate_context *iter,
          if (ctx->outputs[j].name == decl->Semantic.Name &&
              ctx->outputs[j].sid == decl->Semantic.Index &&
              ctx->outputs[j].first == decl->Range.First)
-            return TRUE;
+            return true;
       }
       i = ctx->num_outputs++;
       indirect = ctx_indirect_outputs(ctx);
       if (ctx->num_outputs > ARRAY_SIZE(ctx->outputs)) {
          fprintf(stderr, "Number of outputs exceeded, max is %lu\n", ARRAY_SIZE(ctx->outputs));
-         return FALSE;
+         return false;
       }
 
       ctx->outputs[i].name = decl->Semantic.Name;
@@ -1201,7 +1201,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
    case TGSI_FILE_TEMPORARY:
       if (!allocate_temp_range(ctx, decl->Range.First, decl->Range.Last,
                                decl->Array.ArrayID))
-         return FALSE;
+         return false;
       break;
    case TGSI_FILE_SAMPLER:
       ctx->samplers_used |= (1 << decl->Range.Last);
@@ -1209,24 +1209,24 @@ iter_declaration(struct tgsi_iterate_context *iter,
    case TGSI_FILE_SAMPLER_VIEW:
       if (decl->Range.Last >= ARRAY_SIZE(ctx->samplers)) {
          fprintf(stderr, "Sampler view exceeded, max is %lu\n", ARRAY_SIZE(ctx->samplers));
-         return FALSE;
+         return false;
       }
       if (!add_samplers(ctx, decl->Range.First, decl->Range.Last, decl->SamplerView.Resource, decl->SamplerView.ReturnTypeX))
-         return FALSE;
+         return false;
       break;
    case TGSI_FILE_IMAGE:
       ctx->shader_req_bits |= SHADER_REQ_IMAGE_LOAD_STORE;
       if (decl->Range.Last >= ARRAY_SIZE(ctx->images)) {
          fprintf(stderr, "Image view exceeded, max is %lu\n", ARRAY_SIZE(ctx->images));
-         return FALSE;
+         return false;
       }
       if (!add_images(ctx, decl->Range.First, decl->Range.Last, &decl->Image))
-         return FALSE;
+         return false;
       break;
    case TGSI_FILE_BUFFER:
       if (decl->Range.First >= 32) {
          fprintf(stderr, "Buffer view exceeded, max is 32\n");
-         return FALSE;
+         return false;
       }
       ctx->ssbo_used_mask |= (1 << decl->Range.First);
       if (decl->Declaration.Atomic) {
@@ -1242,7 +1242,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
       if (decl->Declaration.Dimension && decl->Dim.Index2D != 0) {
          if (ctx->num_ubo >= ARRAY_SIZE(ctx->ubo_idx)) {
             fprintf(stderr, "Number of uniforms exceeded, max is %lu\n", ARRAY_SIZE(ctx->ubo_idx));
-            return FALSE;
+            return false;
          }
          ctx->ubo_idx[ctx->num_ubo] = decl->Dim.Index2D;
          ctx->ubo_sizes[ctx->num_ubo] = decl->Range.Last + 1;
@@ -1264,7 +1264,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
       i = ctx->num_system_values++;
       if (ctx->num_system_values > ARRAY_SIZE(ctx->system_values)) {
          fprintf(stderr, "Number of system values exceeded, max is %lu\n", ARRAY_SIZE(ctx->system_values));
-         return FALSE;
+         return false;
       }
 
       ctx->system_values[i].name = decl->Semantic.Name;
@@ -1328,7 +1328,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
    case TGSI_FILE_HW_ATOMIC:
       if (ctx->num_abo >= ARRAY_SIZE(ctx->abo_idx)) {
          fprintf(stderr, "Number of atomic counter buffers exceeded, max is %lu\n", ARRAY_SIZE(ctx->abo_idx));
-         return FALSE;
+         return false;
       }
       ctx->abo_idx[ctx->num_abo] = decl->Dim.Index2D;
       ctx->abo_sizes[ctx->num_abo] = decl->Range.Last - decl->Range.First + 1;
@@ -1340,7 +1340,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
       break;
    }
 
-   return TRUE;
+   return true;
 }
 
 static boolean
@@ -1420,7 +1420,7 @@ iter_property(struct tgsi_iterate_context *iter,
       ctx->local_cs_block_size[1] = prop->u[0].Data;
    if (prop->Property.PropertyName == TGSI_PROPERTY_CS_FIXED_BLOCK_DEPTH)
       ctx->local_cs_block_size[2] = prop->u[0].Data;
-   return TRUE;
+   return true;
 }
 
 static boolean
@@ -1434,7 +1434,7 @@ iter_immediate(
 
    if (first >= ARRAY_SIZE(ctx->imm)) {
       fprintf(stderr, "Number of immediates exceeded, max is: %lu\n", ARRAY_SIZE(ctx->imm));
-      return FALSE;
+      return false;
    }
 
    ctx->imm[first].type = imm->Immediate.DataType;
@@ -1451,7 +1451,7 @@ iter_immediate(
       }
    }
    ctx->num_imm++;
-   return TRUE;
+   return true;
 }
 
 static char get_swiz_char(int swiz)
@@ -3382,17 +3382,17 @@ iter_instruction(struct tgsi_iterate_context *iter,
       EMIT_BUF_WITH_RET(ctx, "void main(void)\n{\n");
       if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
          if (!emit_color_select(ctx))
-            return FALSE;
+            return false;
       }
       if (ctx->so)
          prepare_so_movs(ctx);
    }
 
    if (!get_destination_info(ctx, inst, &dinfo, dsts, fp64_dsts, writemask))
-      return FALSE;
+      return false;
 
    if (!get_source_info(ctx, inst, &sinfo, srcs, src_swizzle0))
-      return FALSE;
+      return false;
 
    switch (inst->Instruction.Opcode) {
    case TGSI_OPCODE_SQRT:
@@ -3653,15 +3653,15 @@ iter_instruction(struct tgsi_iterate_context *iter,
    case TGSI_OPCODE_TXP:
    case TGSI_OPCODE_LODQ:
       if (!translate_tex(ctx, inst, &sinfo, &dinfo, srcs, dsts, writemask))
-         return FALSE;
+         return false;
       break;
    case TGSI_OPCODE_TXQ:
       if (!emit_txq(ctx, inst, sinfo.sreg_index, srcs, dsts, writemask))
-         return FALSE;
+         return false;
       break;
    case TGSI_OPCODE_TXQS:
       if (!emit_txqs(ctx, inst, sinfo.sreg_index, srcs, dsts))
-         return FALSE;
+         return false;
       break;
    case TGSI_OPCODE_I2F:
       snprintf(buf, 255, "%s = %s(ivec4(%s)%s);\n", dsts[0], get_string(dinfo.dstconv), srcs[0], writemask);
@@ -3780,33 +3780,33 @@ iter_instruction(struct tgsi_iterate_context *iter,
    case TGSI_OPCODE_END:
       if (iter->processor.Processor == TGSI_PROCESSOR_VERTEX) {
          if (!handle_vertex_proc_exit(ctx))
-            return FALSE;
+            return false;
       } else if (iter->processor.Processor == TGSI_PROCESSOR_TESS_CTRL) {
          if (!emit_clip_dist_movs(ctx))
-            return FALSE;
+            return false;
       } else if (iter->processor.Processor == TGSI_PROCESSOR_TESS_EVAL) {
 	 if (ctx->so && !ctx->key->gs_present)
             if (!emit_so_movs(ctx))
-               return FALSE;
+               return false;
          if (!emit_clip_dist_movs(ctx))
-            return FALSE;
+            return false;
          if (!ctx->key->gs_present) {
             if (!emit_prescale(ctx))
-               return FALSE;
+               return false;
          }
       } else if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
          if (!handle_fragment_proc_exit(ctx))
-            return FALSE;
+            return false;
       }
       EMIT_BUF_WITH_RET(ctx, "}\n");
       break;
    case TGSI_OPCODE_RET:
       if (iter->processor.Processor == TGSI_PROCESSOR_VERTEX) {
          if (!handle_vertex_proc_exit(ctx))
-            return FALSE;
+            return false;
       } else if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
          if (!handle_fragment_proc_exit(ctx))
-            return FALSE;
+            return false;
       }
       EMIT_BUF_WITH_RET(ctx, "return;\n");
       break;
@@ -3842,9 +3842,9 @@ iter_instruction(struct tgsi_iterate_context *iter,
          emit_so_movs(ctx);
       }
       if (!emit_clip_dist_movs(ctx))
-         return FALSE;
+         return false;
       if (!emit_prescale(ctx))
-         return FALSE;
+         return false;
       if (imd->val[inst->Src[0].Register.SwizzleX].ui > 0) {
          ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
          snprintf(buf, 255, "EmitStreamVertex(%d);\n", imd->val[inst->Src[0].Register.SwizzleX].ui);
@@ -3973,11 +3973,11 @@ iter_instruction(struct tgsi_iterate_context *iter,
    }
    case TGSI_OPCODE_STORE:
       if (!translate_store(ctx, inst, &sinfo, srcs, dsts))
-         return FALSE;
+         return false;
       break;
    case TGSI_OPCODE_LOAD:
       if (!translate_load(ctx, inst, &sinfo, &dinfo, srcs, dsts, writemask))
-         return FALSE;
+         return false;
       break;
    case TGSI_OPCODE_ATOMUADD:
    case TGSI_OPCODE_ATOMXCHG:
@@ -3990,11 +3990,11 @@ iter_instruction(struct tgsi_iterate_context *iter,
    case TGSI_OPCODE_ATOMIMIN:
    case TGSI_OPCODE_ATOMIMAX:
       if (!translate_atomic(ctx, inst, &sinfo, srcs, dsts))
-         return FALSE;
+         return false;
       break;
    case TGSI_OPCODE_RESQ:
       if (!translate_resq(ctx, inst, srcs, dsts))
-         return FALSE;
+         return false;
       break;
    case TGSI_OPCODE_CLOCK:
       ctx->shader_req_bits |= SHADER_REQ_SHADER_CLOCK;
@@ -4017,7 +4017,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
       snprintf(buf, 255, "%s = clamp(%s, 0.0, 1.0);\n", dsts[0], dsts[0]);
       EMIT_BUF_WITH_RET(ctx, buf);
    }
-   return TRUE;
+   return true;
 }
 
 static boolean
@@ -4032,7 +4032,7 @@ prolog(struct tgsi_iterate_context *iter)
        ctx->key->gs_present)
       require_glsl_ver(ctx, 150);
 
-   return TRUE;
+   return true;
 }
 
 /* reserve space for: "#extension GL_ARB_gpu_shader5 : require\n" */
@@ -4947,7 +4947,7 @@ static boolean fill_fragment_interpolants(struct dump_ctx *ctx, struct vrend_sha
 
       if (index >= ctx->num_interps) {
          fprintf(stderr, "mismatch in number of interps %d %d\n", index, ctx->num_interps);
-         return TRUE;
+         return true;
       }
       sinfo->interpinfo[index].semantic_name = ctx->inputs[i].name;
       sinfo->interpinfo[index].semantic_index = ctx->inputs[i].sid;
@@ -4955,7 +4955,7 @@ static boolean fill_fragment_interpolants(struct dump_ctx *ctx, struct vrend_sha
       sinfo->interpinfo[index].location = ctx->inputs[i].location;
       index++;
    }
-   return TRUE;
+   return true;
 }
 
 static boolean fill_interpolants(struct dump_ctx *ctx, struct vrend_shader_info *sinfo)
@@ -4963,23 +4963,23 @@ static boolean fill_interpolants(struct dump_ctx *ctx, struct vrend_shader_info 
    boolean ret;
 
    if (!ctx->num_interps)
-      return TRUE;
+      return true;
    if (ctx->prog_type == TGSI_PROCESSOR_VERTEX || ctx->prog_type == TGSI_PROCESSOR_GEOMETRY)
-      return TRUE;
+      return true;
 
    free(sinfo->interpinfo);
    sinfo->interpinfo = calloc(ctx->num_interps, sizeof(struct vrend_interp_info));
    if (!sinfo->interpinfo)
-      return FALSE;
+      return false;
 
    ret = fill_fragment_interpolants(ctx, sinfo);
    if (ret == FALSE)
       goto out_fail;
 
-   return TRUE;
+   return true;
  out_fail:
    free(sinfo->interpinfo);
-   return FALSE;
+   return false;
 }
 
 static boolean analyze_instruction(struct tgsi_iterate_context *iter,
