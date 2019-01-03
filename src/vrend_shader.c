@@ -1514,7 +1514,7 @@ static bool emit_color_select(struct dump_ctx *ctx)
    bool ret = true;
 
    if (!ctx->key->color_two_side || !(ctx->color_in_mask & 0x3))
-      return 0;
+      return true;
 
    if (ctx->color_in_mask & 1) {
       snprintf(buf, 255, "realcolor0 = gl_FrontFacing ? ex_c0 : ex_bc0;\n");
@@ -3777,7 +3777,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
             return FALSE;
       } else if (iter->processor.Processor == TGSI_PROCESSOR_TESS_EVAL) {
 	 if (ctx->so && !ctx->key->gs_present)
-            if (emit_so_movs(ctx))
+            if (!emit_so_movs(ctx))
                return FALSE;
          if (!emit_clip_dist_movs(ctx))
             return FALSE;
