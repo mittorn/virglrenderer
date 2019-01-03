@@ -4973,7 +4973,7 @@ static boolean fill_interpolants(struct dump_ctx *ctx, struct vrend_shader_info 
       return false;
 
    ret = fill_fragment_interpolants(ctx, sinfo);
-   if (ret == FALSE)
+   if (ret == false)
       goto out_fail;
 
    return true;
@@ -5014,7 +5014,7 @@ char *vrend_convert_shader(struct vrend_context *rctx,
    /* First pass to deal with edge cases. */
    ctx.iter.iterate_instruction = analyze_instruction;
    bret = tgsi_iterate_shader(tokens, &ctx.iter);
-   if (bret == FALSE)
+   if (bret == false)
       return NULL;
 
    ctx.iter.prolog = prolog;
@@ -5064,7 +5064,7 @@ char *vrend_convert_shader(struct vrend_context *rctx,
 
    ctx.glsl_main[0] = '\0';
    bret = tgsi_iterate_shader(tokens, &ctx.iter);
-   if (bret == FALSE)
+   if (bret == false)
       goto fail;
 
    ctx.glsl_hdr = malloc(1024);
@@ -5084,7 +5084,7 @@ char *vrend_convert_shader(struct vrend_context *rctx,
    glsl_final[0] = '\0';
 
    bret = fill_interpolants(&ctx, sinfo);
-   if (bret == FALSE)
+   if (bret == false)
       goto fail;
 
    strcat(glsl_final, ctx.glsl_hdr);
