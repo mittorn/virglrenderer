@@ -8024,17 +8024,8 @@ static void vrend_fill_caps_glsl_version(int gl_ver, int gles_ver,
    if (gles_ver > 0) {
       caps->v1.glsl_level = 120;
 
-      if (gles_ver >= 31) {
+      if (gles_ver >= 31)
          caps->v1.glsl_level = 310;
-         if (has_feature(feat_tessellation) &&
-             has_feature(feat_geometry_shader) &&
-             has_feature(feat_gpu_shader5))
-            /* This is probably a lie, but Gallium enables
-             * OES_geometry_shader and ARB_gpu_shader5
-             * based on this value, apart from that it doesn't
-             * seem to be a crucial value */
-            caps->v1.glsl_level = 400;
-      }
       else if (gles_ver >= 30)
          caps->v1.glsl_level = 130;
    }
@@ -8056,6 +8047,17 @@ static void vrend_fill_caps_glsl_version(int gl_ver, int gles_ver,
          caps->v1.glsl_level = 420;
       else if (gl_ver >= 43)
          caps->v1.glsl_level = 430;
+   }
+
+   if (caps->v1.glsl_level < 400) {
+      if (has_feature(feat_tessellation) &&
+          has_feature(feat_geometry_shader) &&
+          has_feature(feat_gpu_shader5))
+         /* This is probably a lie, but Gallium enables
+          * OES_geometry_shader and ARB_gpu_shader5
+          * based on this value, apart from that it doesn't
+          * seem to be a crucial value */
+         caps->v1.glsl_level = 400;
    }
 }
 
@@ -8500,6 +8502,8 @@ void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
    }
 
    vrend_fill_caps_glsl_version(gl_ver, gles_ver, caps);
+   VREND_DEBUG(dbg_features, NULL, "GLSL support level: %d", caps->v1.glsl_level);
+
    vrend_renderer_fill_caps_v1(gl_ver, gles_ver, caps);
 
    if (!fill_capset2)
