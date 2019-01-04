@@ -31,6 +31,7 @@
 #include <netinet/in.h>
 #include <sys/un.h>
 #include <fcntl.h>
+#include <getopt.h>
 
 #include "util.h"
 #include "util/u_memory.h"
@@ -121,19 +122,47 @@ start:
 #endif
 }
 
+#define OPT_NO_FORK 'f'
+#define OPT_NO_LOOP_OR_FORK 'l'
+
 static void vtest_main_parse_args(int argc, char **argv)
 {
-   if (argc > 1) {
-      if (!strcmp(argv[1], "--no-loop-or-fork")) {
+   int ret;
+
+   static struct option long_options[] = {
+      {"no-fork",         no_argument, NULL, OPT_NO_FORK},
+      {"no-loop-or-fork", no_argument, NULL, OPT_NO_LOOP_OR_FORK},
+      {0, 0, 0, 0}
+   };
+
+   /* getopt_long stores the option index here. */
+   int option_index = 0;
+
+   do {
+      ret = getopt_long(argc, argv, "", long_options, &option_index);
+
+      switch (ret) {
+      case -1:
+         break;
+      case OPT_NO_FORK:
+         prog.do_fork = false;
+         break;
+      case OPT_NO_LOOP_OR_FORK:
          prog.do_fork = false;
          prog.loop = false;
-      } else if (!strcmp(argv[1], "--no-fork")) {
-         prog.do_fork = false;
-      } else {
-         prog.read_file = argv[1];
-         prog.loop = false;
-         prog.do_fork = false;
+         break;
+      default:
+         printf("Usage: %s [--no-fork] [--no-loop-or-fork] [file]\n", argv[0]);
+         exit(EXIT_FAILURE);
+         break;
       }
+
+   } while (ret >= 0);
+
+   if (optind < argc) {
+      prog.read_file = argv[optind];
+      prog.loop = false;
+      prog.do_fork = false;
    }
 }
 
