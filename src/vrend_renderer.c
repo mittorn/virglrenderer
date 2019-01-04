@@ -8610,7 +8610,6 @@ void vrend_renderer_force_ctx_0(void)
    vrend_state.current_ctx = NULL;
    vrend_state.current_hw_ctx = NULL;
    vrend_hw_switch_context(ctx0, true);
-   vrend_clicbs->make_current(ctx0->sub->gl_context);
 }
 
 void vrend_renderer_get_rect(int res_handle, struct iovec *iov, unsigned int num_iovs,
