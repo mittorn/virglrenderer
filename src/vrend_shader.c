@@ -2571,7 +2571,7 @@ static const char *get_atomic_opname(int tgsi_opcode, bool *is_cas)
 
 static bool
 translate_resq(struct dump_ctx *ctx, struct tgsi_full_instruction *inst,
-               char srcs[4][255], char dsts[3][255])
+               char srcs[4][255], char dsts[3][255], const char *writemask)
 {
    char buf[512];
    const struct tgsi_full_src_register *src = &inst->Src[0];
@@ -2584,7 +2584,10 @@ translate_resq(struct dump_ctx *ctx, struct tgsi_full_instruction *inst,
       }
       if (inst->Dst[0].Register.WriteMask & 0x7) {
          ctx->shader_req_bits |= SHADER_REQ_IMAGE_SIZE | SHADER_REQ_INTS;
-         snprintf(buf, 255, "%s = %s(imageSize(%s));\n", dsts[0], get_string(INT_BITS_TO_FLOAT), srcs[0]);
+         bool skip_emit_writemask = inst->Memory.Texture == TGSI_TEXTURE_BUFFER ||
+                                    inst->Memory.Texture == TGSI_TEXTURE_1D;
+         snprintf(buf, 255, "%s = %s(imageSize(%s)%s);\n", dsts[0], get_string(INT_BITS_TO_FLOAT), srcs[0],
+                  skip_emit_writemask ? "" : writemask);
          EMIT_BUF_WITH_RET(ctx, buf);
       }
    } else if (src->Register.File == TGSI_FILE_BUFFER) {
@@ -3993,7 +3996,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
          return false;
       break;
    case TGSI_OPCODE_RESQ:
-      if (!translate_resq(ctx, inst, srcs, dsts))
+      if (!translate_resq(ctx, inst, srcs, dsts, writemask))
          return false;
       break;
    case TGSI_OPCODE_CLOCK:
