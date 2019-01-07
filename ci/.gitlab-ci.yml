@@ -52,13 +52,14 @@ make check:
     - echo 0 > /proc/sys/kernel/core_uses_pid || true
     - if [[ -n "$RENDER_DEVICE" ]]; then RD_CONFIG="--device=$RENDER_DEVICE -e RENDER_DEVICE=$RENDER_DEVICE"; fi
     - echo RD_CONFIG=$RD_CONFIG
-    - time docker run
+    - docker run
              --ulimit core=99999999999:99999999999
              $RD_CONFIG
              -v $PWD:/virglrenderer
              $CI_REGISTRY_IMAGE:latest
              bash -c "/virglrenderer/ci/run_tests.sh --make-check"
              2>&1 | tee results/docker_test_log.txt
+    - echo "\n\n"
 
   artifacts:
     when: always
@@ -77,13 +78,14 @@ piglit:
     - echo 0 > /proc/sys/kernel/core_uses_pid || true
     - if [[ -n "$RENDER_DEVICE" ]]; then RD_CONFIG="--device=$RENDER_DEVICE -e RENDER_DEVICE=$RENDER_DEVICE"; fi
     - echo RD_CONFIG=$RD_CONFIG
-    - time docker run
+    - docker run
              --ulimit core=99999999999:99999999999
              $RD_CONFIG
              -v $PWD:/virglrenderer
              $CI_REGISTRY_IMAGE:latest
              bash -c "/virglrenderer/ci/run_tests.sh --piglit-gl --piglit-gles"
              2>&1 | tee results/docker_test_log.txt
+    - echo "\n\n"
 
   artifacts:
     when: always
@@ -102,13 +104,14 @@ cts - gl host:
     - echo 0 > /proc/sys/kernel/core_uses_pid || true
     - if [[ -n "$RENDER_DEVICE" ]]; then RD_CONFIG="--device=$RENDER_DEVICE -e RENDER_DEVICE=$RENDER_DEVICE"; fi
     - echo RD_CONFIG=$RD_CONFIG
-    - time docker run
+    - docker run
              --ulimit core=99999999999:99999999999
              $RD_CONFIG
              -v $PWD:/virglrenderer
              $CI_REGISTRY_IMAGE:latest
              bash -c "/virglrenderer/ci/run_tests.sh --deqp-gl"
              2>&1 | tee results/docker_test_log.txt
+    - echo "\n\n"
 
   artifacts:
     when: always
@@ -127,13 +130,14 @@ cts - gles host:
     - echo 0 > /proc/sys/kernel/core_uses_pid || true
     - if [[ -n "$RENDER_DEVICE" ]]; then RD_CONFIG="--device=$RENDER_DEVICE -e RENDER_DEVICE=$RENDER_DEVICE"; fi
     - echo RD_CONFIG=$RD_CONFIG
-    - time docker run
+    - docker run
              --ulimit core=99999999999:99999999999
              $RD_CONFIG
              -v $PWD:/virglrenderer
              $CI_REGISTRY_IMAGE:latest
              bash -c "/virglrenderer/ci/run_tests.sh --deqp-gles"
              2>&1 | tee results/docker_test_log.txt
+    - echo "\n\n"
 
   artifacts:
     when: always
@@ -152,13 +156,14 @@ unreliable tests:
     - echo 0 > /proc/sys/kernel/core_uses_pid || true
     - if [[ -n "$RENDER_DEVICE" ]]; then RD_CONFIG="--device=$RENDER_DEVICE -e RENDER_DEVICE=$RENDER_DEVICE"; fi
     - echo RD_CONFIG=$RD_CONFIG
-    - time docker run
+    - docker run
              --ulimit core=99999999999:99999999999
              $RD_CONFIG
              -v $PWD:/virglrenderer
              $CI_REGISTRY_IMAGE:latest
              bash -c "/virglrenderer/ci/run_tests.sh --deqp-gl-unreliable --deqp-gles-unreliable --piglit-gl-unreliable --piglit-gles-unreliable || true"
              2>&1 | tee results/docker_test_log.txt
+    - echo "\n\n"
 
   artifacts:
     when: always
