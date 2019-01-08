@@ -66,7 +66,7 @@ make check:
     paths:
       - results/
 
-piglit:
+piglit - gl host:
   stage: test
   services:
     - docker:dind
@@ -83,7 +83,28 @@ piglit:
              $RD_CONFIG
              -v $PWD:/virglrenderer
              $CI_REGISTRY_IMAGE:latest
-             bash -c "/virglrenderer/ci/run_tests.sh --piglit-gl --piglit-gles"
+             bash -c "/virglrenderer/ci/run_tests.sh --piglit-gl"
+             2>&1 | tee results/docker_test_log.txt
+    - echo "\n\n"
+
+piglit - gles host:
+  stage: test
+  services:
+    - docker:dind
+  before_script:
+    - mkdir -p ccache
+    - mkdir -p results
+  script:
+    - echo core > /proc/sys/kernel/core_pattern || true
+    - echo 0 > /proc/sys/kernel/core_uses_pid || true
+    - if [[ -n "$RENDER_DEVICE" ]]; then RD_CONFIG="--device=$RENDER_DEVICE -e RENDER_DEVICE=$RENDER_DEVICE"; fi
+    - echo RD_CONFIG=$RD_CONFIG
+    - docker run
+             --ulimit core=99999999999:99999999999
+             $RD_CONFIG
+             -v $PWD:/virglrenderer
+             $CI_REGISTRY_IMAGE:latest
+             bash -c "/virglrenderer/ci/run_tests.sh --piglit-gles"
              2>&1 | tee results/docker_test_log.txt
     - echo "\n\n"
 
