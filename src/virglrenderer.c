@@ -205,7 +205,8 @@ int virgl_has_gl_colorspace(void)
 {
    bool egl_colorspace = false;
 #ifdef HAVE_EPOXY_EGL_H
-   egl_colorspace = virgl_has_egl_khr_gl_colorspace(egl_info);
+   if (egl_info)
+      egl_colorspace = virgl_has_egl_khr_gl_colorspace(egl_info);
 #endif
    return use_context == CONTEXT_GLX ||
          (use_context == CONTEXT_EGL && egl_colorspace);
