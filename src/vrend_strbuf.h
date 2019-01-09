@@ -24,6 +24,7 @@
 #ifndef VREND_STRBUF_H
 #define VREND_STRBUF_H
 
+#include <assert.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -92,9 +93,10 @@ static inline bool strbuf_alloc(struct vrend_strbuf *sb, int initial_size)
 /* this might need tuning */
 #define STRBUF_MIN_MALLOC 1024
 
-static inline void strbuf_append(struct vrend_strbuf *sb, const char *addstr)
+static inline void strbuf_append_buffer(struct vrend_strbuf *sb, const char *data, size_t len)
 {
-   int new_len = strlen(addstr) + sb->indent_level;
+   assert(!memchr(data, '\0', len));
+   int new_len = len + sb->indent_level;
    if (strbuf_get_error(sb))
       return;
    if (sb->size + new_len + 1 > sb->alloc_size) {
@@ -116,9 +118,14 @@ static inline void strbuf_append(struct vrend_strbuf *sb, const char *addstr)
       sb->buf[sb->size] = '\0';
       new_len -= sb->indent_level;
    }
-   memcpy(sb->buf + sb->size, addstr, new_len);
+   memcpy(sb->buf + sb->size, data, new_len);
    sb->size += new_len;
    sb->buf[sb->size] = '\0';
+}
+
+static inline void strbuf_append(struct vrend_strbuf *sb, const char *addstr)
+{
+   strbuf_append_buffer(sb, addstr, strlen(addstr));
 }
 
 static inline void strbuf_vappendf(struct vrend_strbuf *sb, const char *fmt, va_list ap)
@@ -130,7 +137,7 @@ static inline void strbuf_vappendf(struct vrend_strbuf *sb, const char *fmt, va_
 
    int len = vsnprintf(buf, sizeof(buf), fmt, ap);
    if (len < (int)sizeof(buf)) {
-      strbuf_append(sb, buf);
+      strbuf_append_buffer(sb, buf, len);
       return;
    }
 
@@ -140,7 +147,7 @@ static inline void strbuf_vappendf(struct vrend_strbuf *sb, const char *fmt, va_
       return;
    }
    vsnprintf(tmp, len, fmt, cp);
-   strbuf_append(sb, tmp);
+   strbuf_append_buffer(sb, tmp, len);
    free(tmp);
 }
 
