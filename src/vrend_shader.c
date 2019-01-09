@@ -4487,6 +4487,97 @@ static void emit_ios_vs(struct dump_ctx *ctx)
    }
 }
 
+
+static void emit_ios_fs(struct dump_ctx *ctx)
+{
+   uint32_t i;
+   const char *prefix = "", *auxprefix = "";
+
+   if (fs_emit_layout(ctx)) {
+      bool upper_left = !(ctx->fs_coord_origin ^ ctx->key->invert_fs_origin);
+      char comma = (upper_left && ctx->fs_pixel_center) ? ',' : ' ';
+
+      emit_hdrf(ctx, "layout(%s%c%s) in vec4 gl_FragCoord;\n",
+                upper_left ? "origin_upper_left" : "",
+                comma,
+                ctx->fs_pixel_center ? "pixel_center_integer" : "");
+   }
+   if (ctx->early_depth_stencil) {
+      emit_hdr(ctx, "layout(early_fragment_tests) in;\n");
+   }
+
+   if (ctx_indirect_inputs(ctx) && ctx->generic_input_range.used) {
+      const char *name_prefix = get_stage_input_name_prefix(ctx, ctx->prog_type);
+      int size = ctx->generic_input_range.last - ctx->generic_input_range.first + 1;
+      if (size < ctx->key->num_indirect_generic_inputs)
+         ctx->key->num_indirect_generic_inputs = size;  // This is wrong but needed for debugging
+      emit_hdrf(ctx, "in block { vec4 %s%d[%d]; } blk;\n", name_prefix, ctx->generic_input_range.first, size);
+   }
+
+   for (i = 0; i < ctx->num_inputs; i++) {
+      if (!ctx->inputs[i].glsl_predefined_no_emit) {
+         prefix = "";
+         auxprefix = "";
+
+         if (ctx->inputs[i].name == TGSI_SEMANTIC_GENERIC ||
+              ctx->inputs[i].name == TGSI_SEMANTIC_COLOR ||
+              ctx->inputs[i].name == TGSI_SEMANTIC_BCOLOR) {
+            prefix = get_interp_string(ctx->cfg, ctx->inputs[i].interpolate, ctx->key->flatshade);
+            if (!prefix)
+               prefix = "";
+            auxprefix = get_aux_string(ctx->inputs[i].location);
+            ctx->num_interps++;
+         }
+         emit_hdrf(ctx, "%s%sin vec4 %s;\n", prefix, auxprefix, ctx->inputs[i].glsl_name);
+      }
+
+      if (ctx->cfg->use_gles && !ctx->key->winsys_adjust_y_emitted &&
+          (ctx->key->coord_replace & (1 << ctx->inputs[i].sid))) {
+         ctx->key->winsys_adjust_y_emitted = true;
+         emit_hdr(ctx, "uniform float winsys_adjust_y;\n");
+      }
+   }
+
+   if (ctx->write_all_cbufs) {
+      for (i = 0; i < (uint32_t)ctx->cfg->max_draw_buffers; i++) {
+         if (ctx->cfg->use_gles)
+            emit_hdrf(ctx, "layout (location=%d) out vec4 fsout_c%d;\n", i, i);
+         else
+            emit_hdrf(ctx, "out vec4 fsout_c%d;\n", i);
+      }
+   } else {
+      for (i = 0; i < ctx->num_outputs; i++) {
+
+         if (!ctx->outputs[i].glsl_predefined_no_emit) {
+            prefix = "";
+
+            /* ugly leave spaces to patch interp in later */
+            emit_hdrf(ctx, "%s%s%s%s vec4 %s;\n",
+                      prefix,
+                      ctx->outputs[i].precise ? "precise " : "",
+                      ctx->outputs[i].invariant ? "invariant " : "",
+                      ctx->outputs[i].fbfetch_used ? "inout" : "out",
+                      ctx->outputs[i].glsl_name);
+         } else if (ctx->outputs[i].invariant || ctx->outputs[i].precise) {
+            emit_hdrf(ctx, "%s%s;\n",
+                      ctx->outputs[i].precise ? "precise " :
+                      (ctx->outputs[i].invariant ? "invariant " : ""),
+                      ctx->outputs[i].glsl_name);
+         }
+      }
+   }
+
+   if (ctx->num_in_clip_dist) {
+      if (ctx->key->prev_stage_num_clip_out) {
+         emit_hdrf(ctx, "in float gl_ClipDistance[%d];\n", ctx->key->prev_stage_num_clip_out);
+      }
+      if (ctx->key->prev_stage_num_cull_out) {
+         emit_hdrf(ctx, "in float gl_CullDistance[%d];\n", ctx->key->prev_stage_num_cull_out);
+      }
+   }
+}
+
+
 static void emit_ios_others(struct dump_ctx *ctx)
 {
    uint32_t i;
@@ -4801,6 +4892,9 @@ static void emit_ios(struct dump_ctx *ctx)
    switch (ctx->prog_type) {
    case TGSI_PROCESSOR_VERTEX:
       emit_ios_vs(ctx);
+      break;
+   case TGSI_PROCESSOR_FRAGMENT:
+      emit_ios_fs(ctx);
       break;
    default:
       emit_ios_others(ctx);
