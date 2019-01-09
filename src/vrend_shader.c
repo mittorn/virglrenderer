@@ -148,6 +148,8 @@ struct dump_ctx {
    struct vrend_strbuf glsl_ver_ext;
    uint instno;
 
+   struct vrend_strbuf src_bufs[4];
+
    uint32_t num_interps;
    uint32_t num_inputs;
    uint32_t attrib_input_mask;
@@ -2071,7 +2073,7 @@ static void set_texture_reqs(struct dump_ctx *ctx,
 static void emit_txq(struct dump_ctx *ctx,
                      struct tgsi_full_instruction *inst,
                      uint32_t sreg_index,
-                     char srcs[4][255],
+                     const char *srcs[4],
                      char dsts[3][255],
                      const char *writemask)
 {
@@ -2165,7 +2167,7 @@ static void emit_txq(struct dump_ctx *ctx,
 static void emit_txqs(struct dump_ctx *ctx,
                       struct tgsi_full_instruction *inst,
                       uint32_t sreg_index,
-                      char srcs[4][255],
+                      const char *srcs[4],
                       char dsts[3][255])
 {
    const int sampler_index = 0;
@@ -2344,7 +2346,7 @@ static void translate_tex(struct dump_ctx *ctx,
                           struct tgsi_full_instruction *inst,
                           struct source_info *sinfo,
                           struct dest_info *dinfo,
-                          char srcs[4][255],
+                          const char *srcs[4],
                           char dsts[3][255],
                           const char *writemask)
 {
@@ -2563,6 +2565,8 @@ static void translate_tex(struct dump_ctx *ctx,
         inst->Texture.Texture == TGSI_TEXTURE_SHADOWRECT)) {
 
       char buf[255];
+      const char *new_srcs[4] = { buf, srcs[1], srcs[2], srcs[3] };
+
       switch (inst->Instruction.Opcode) {
       case TGSI_OPCODE_TXP:
          snprintf(buf, 255, "vec4(%s)/vec4(textureSize(%s, 0), 1, 1)", srcs[0], srcs[sampler_index]);
@@ -2579,8 +2583,7 @@ static void translate_tex(struct dump_ctx *ctx,
          } else
             snprintf(buf, 255, "%s.xy/vec2(textureSize(%s, 0))", srcs[0], srcs[sampler_index]);
       }
-      strcpy(srcs[0], buf);
-
+      srcs = new_srcs;
    }
 
    if (inst->Instruction.Opcode == TGSI_OPCODE_TXF) {
@@ -2657,7 +2660,7 @@ static void translate_tex(struct dump_ctx *ctx,
 
 static void
 create_swizzled_clipdist(struct dump_ctx *ctx,
-                         char *result,
+                         struct vrend_strbuf *result,
                          const struct tgsi_full_src_register *src,
                          int input_idx,
                          bool gl_in,
@@ -2711,12 +2714,12 @@ create_swizzled_clipdist(struct dump_ctx *ctx,
       else
          snprintf(clipdistvec[cc], 64, "%s%s%s[%s %d]", prefix, arrayname, cc_name, clip_indirect, idx);
    }
-   snprintf(result, 255, "%s(vec4(%s,%s,%s,%s))", stypeprefix, clipdistvec[0], clipdistvec[1], clipdistvec[2], clipdistvec[3]);
+   strbuf_fmt(result, "%s(vec4(%s,%s,%s,%s))", stypeprefix, clipdistvec[0], clipdistvec[1], clipdistvec[2], clipdistvec[3]);
 }
 
 static
 void load_clipdist_fs(struct dump_ctx *ctx,
-                      char *result,
+                      struct vrend_strbuf *result,
                       const struct tgsi_full_src_register *src,
                       int input_idx,
                       bool gl_in,
@@ -2735,9 +2738,9 @@ void load_clipdist_fs(struct dump_ctx *ctx,
       snprintf(clip_indirect, 32, "%d + %d", src->Register.Index - offset, base_idx);
 
    if (gl_in)
-      snprintf(result, 255, "%s(clip_dist_temp[%s])", stypeprefix, clip_indirect);
+      strbuf_fmt(result, "%s(clip_dist_temp[%s])", stypeprefix, clip_indirect);
    else
-      snprintf(result, 255, "%s(clip_dist_temp[%s])", stypeprefix, clip_indirect);
+      strbuf_fmt(result, "%s(clip_dist_temp[%s])", stypeprefix, clip_indirect);
 }
 
 
@@ -2799,7 +2802,7 @@ static void set_memory_qualifier(struct dump_ctx *ctx,
 }
 
 static void emit_store_mem(struct dump_ctx *ctx, const char *dst, int writemask,
-                           char srcs[4][255], const char *conversion)
+                           const char *srcs[4], const char *conversion)
 {
    static const char swizzle_char[] = "xyzw";
    for (int i = 0; i < 4; ++i) {
@@ -2814,7 +2817,7 @@ static void
 translate_store(struct dump_ctx *ctx,
                 struct tgsi_full_instruction *inst,
                 struct source_info *sinfo,
-                char srcs[4][255],
+                const char *srcs[4],
                 char dsts[3][255])
 {
    const struct tgsi_full_dst_register *dst = &inst->Dst[0];
@@ -2910,7 +2913,7 @@ translate_load(struct dump_ctx *ctx,
                struct tgsi_full_instruction *inst,
                struct source_info *sinfo,
                struct dest_info *dinfo,
-               char srcs[4][255],
+               const char *srcs[4],
                char dsts[3][255],
                const char *writemask)
 {
@@ -3064,7 +3067,7 @@ static const char *get_atomic_opname(int tgsi_opcode, bool *is_cas)
 
 static void
 translate_resq(struct dump_ctx *ctx, struct tgsi_full_instruction *inst,
-               char srcs[4][255], char dsts[3][255], const char *writemask)
+               const char *srcs[4], char dsts[3][255], const char *writemask)
 {
    const struct tgsi_full_src_register *src = &inst->Src[0];
 
@@ -3092,7 +3095,7 @@ static void
 translate_atomic(struct dump_ctx *ctx,
                  struct tgsi_full_instruction *inst,
                  struct source_info *sinfo,
-                 char srcs[4][255],
+                 const char *srcs[4],
                  char dsts[3][255])
 {
    const struct tgsi_full_src_register *src = &inst->Src[0];
@@ -3508,7 +3511,7 @@ static void get_source_info_generic(struct dump_ctx *ctx,
                                     const struct vrend_shader_io *io,
                                     const  char *arrayname,
                                     const char *swizzle,
-                                    char srcs[255])
+                                    struct vrend_strbuf *result)
 {
    int swz_offset = 0;
    char swizzle_shifted[6] = "";
@@ -3521,7 +3524,7 @@ static void get_source_info_generic(struct dump_ctx *ctx,
    swizzle = shift_swizzles(io, src, swz_offset, swizzle_shifted, swizzle);
 
    if (io->first == io->last) {
-      snprintf(srcs, 255, "%s(%s%s%s%s)", get_string(srcstypeprefix),
+      strbuf_fmt(result, "%s(%s%s%s%s)", get_string(srcstypeprefix),
                prefix, io->glsl_name, arrayname, io->is_int ? "" : swizzle);
    } else {
 
@@ -3532,23 +3535,23 @@ static void get_source_info_generic(struct dump_ctx *ctx,
 
          get_blockvarname(outvarname, stage_prefix, io, arrayname);
          if (src->Register.Indirect)
-            snprintf(srcs, 255, "%s(%s %s.%s[addr%d + %d] %s)", get_string(srcstypeprefix), prefix,
+            strbuf_fmt(result, "%s(%s %s.%s[addr%d + %d] %s)", get_string(srcstypeprefix), prefix,
                      outvarname, io->glsl_name, src->Indirect.Index, src->Register.Index - io->first,
                      io->is_int ? "" : swizzle);
          else
-            snprintf(srcs, 255, "%s(%s %s.%s[%d] %s)", get_string(srcstypeprefix), prefix,
+            strbuf_fmt(result, "%s(%s %s.%s[%d] %s)", get_string(srcstypeprefix), prefix,
                      outvarname, io->glsl_name, src->Register.Index - io->first,
                      io->is_int ? "" : swizzle);
       } else {
          if (src->Register.Indirect)
-            snprintf(srcs, 255, "%s(%s %s%s[addr%d + %d] %s)", get_string(srcstypeprefix), prefix,
+            strbuf_fmt(result, "%s(%s %s%s[addr%d + %d] %s)", get_string(srcstypeprefix), prefix,
                      io->glsl_name,
                      arrayname,
                      src->Indirect.Index,
                      src->Register.Index - io->first,
                      io->is_int ? "" : swizzle);
          else
-            snprintf(srcs, 255, "%s(%s %s%s[%d] %s)", get_string(srcstypeprefix), prefix,
+            strbuf_fmt(result, "%s(%s %s%s[%d] %s)", get_string(srcstypeprefix), prefix,
                      io->glsl_name,
                      arrayname,
                      src->Register.Index - io->first,
@@ -3564,7 +3567,7 @@ static void get_source_info_patch(enum vrend_type_qualifier srcstypeprefix,
                                   const struct vrend_shader_io *io,
                                   const  char *arrayname,
                                   const char *swizzle,
-                                  char srcs[255])
+                                  struct vrend_strbuf *result)
 {
    int swz_offset = 0;
    char swizzle_shifted[7] = "";
@@ -3577,14 +3580,14 @@ static void get_source_info_patch(enum vrend_type_qualifier srcstypeprefix,
    const char *wm = io->is_int ? "" : swizzle;
 
    if (io->last == io->first)
-      snprintf(srcs, 255, "%s(%s%s%s%s)", get_string(srcstypeprefix), prefix, io->glsl_name,
+      strbuf_fmt(result, "%s(%s%s%s%s)", get_string(srcstypeprefix), prefix, io->glsl_name,
                arrayname, wm);
    else {
       if (src->Register.Indirect)
-         snprintf(srcs, 255, "%s(%s %s[addr%d + %d] %s)", get_string(srcstypeprefix), prefix,
+         strbuf_fmt(result, "%s(%s %s[addr%d + %d] %s)", get_string(srcstypeprefix), prefix,
                   io->glsl_name, src->Indirect.Index, src->Register.Index - io->first, wm);
       else
-         snprintf(srcs, 255, "%s(%s %s[%d] %s)", get_string(srcstypeprefix), prefix,
+         strbuf_fmt(result, "%s(%s %s[%d] %s)", get_string(srcstypeprefix), prefix,
                   io->glsl_name, src->Register.Index - io->first, wm);
    }
 
@@ -3595,7 +3598,7 @@ static bool
 get_source_info(struct dump_ctx *ctx,
                 const struct tgsi_full_instruction *inst,
                 struct source_info *sinfo,
-                char srcs[4][255], char src_swizzle0[10])
+                struct vrend_strbuf srcs[4], char src_swizzle0[10])
 {
    bool stprefix = false;
 
@@ -3629,6 +3632,7 @@ get_source_info(struct dump_ctx *ctx,
 
    for (uint32_t i = 0; i < inst->Instruction.NumSrcRegs; i++) {
       const struct tgsi_full_src_register *src = &inst->Src[i];
+      struct vrend_strbuf *src_buf = &srcs[i];
       char swizzle[8] = {0};
       int usage_mask = 0;
       char *swizzle_writer = swizzle;
@@ -3688,24 +3692,24 @@ get_source_info(struct dump_ctx *ctx,
                 ctx->inputs[j].last >= src->Register.Index &&
                 (ctx->inputs[j].usage_mask & usage_mask)) {
                if (ctx->key->color_two_side && ctx->inputs[j].name == TGSI_SEMANTIC_COLOR)
-                  snprintf(srcs[i], 255, "%s(%s%s%d%s%s)", get_string(stypeprefix), prefix, "realcolor", ctx->inputs[j].sid, arrayname, swizzle);
+                  strbuf_fmt(src_buf, "%s(%s%s%d%s%s)", get_string(stypeprefix), prefix, "realcolor", ctx->inputs[j].sid, arrayname, swizzle);
                else if (ctx->inputs[j].glsl_gl_block) {
                   /* GS input clipdist requires a conversion */
                   if (ctx->inputs[j].name == TGSI_SEMANTIC_CLIPDIST) {
-                     create_swizzled_clipdist(ctx, srcs[i], src, j, true, get_string(stypeprefix), prefix, arrayname, ctx->inputs[j].first);
+                     create_swizzled_clipdist(ctx, src_buf, src, j, true, get_string(stypeprefix), prefix, arrayname, ctx->inputs[j].first);
                   } else {
-                     snprintf(srcs[i], 255, "%s(vec4(%sgl_in%s.%s)%s)", get_string(stypeprefix), prefix, arrayname, ctx->inputs[j].glsl_name, swizzle);
+                     strbuf_fmt(src_buf, "%s(vec4(%sgl_in%s.%s)%s)", get_string(stypeprefix), prefix, arrayname, ctx->inputs[j].glsl_name, swizzle);
                   }
                }
                else if (ctx->inputs[j].name == TGSI_SEMANTIC_PRIMID)
-                  snprintf(srcs[i], 255, "%s(vec4(intBitsToFloat(%s)))", get_string(stypeprefix), ctx->inputs[j].glsl_name);
+                  strbuf_fmt(src_buf, "%s(vec4(intBitsToFloat(%s)))", get_string(stypeprefix), ctx->inputs[j].glsl_name);
                else if (ctx->inputs[j].name == TGSI_SEMANTIC_FACE)
-                  snprintf(srcs[i], 255, "%s(%s ? 1.0 : -1.0)", get_string(stypeprefix), ctx->inputs[j].glsl_name);
+                  strbuf_fmt(src_buf, "%s(%s ? 1.0 : -1.0)", get_string(stypeprefix), ctx->inputs[j].glsl_name);
                else if (ctx->inputs[j].name == TGSI_SEMANTIC_CLIPDIST) {
                   if (ctx->prog_type == TGSI_PROCESSOR_FRAGMENT)
-                     load_clipdist_fs(ctx, srcs[i], src, j, false, get_string(stypeprefix), ctx->inputs[j].first);
+                     load_clipdist_fs(ctx, src_buf, src, j, false, get_string(stypeprefix), ctx->inputs[j].first);
                   else
-                     create_swizzled_clipdist(ctx, srcs[i], src, j, false, get_string(stypeprefix), prefix, arrayname, ctx->inputs[j].first);
+                     create_swizzled_clipdist(ctx, src_buf, src, j, false, get_string(stypeprefix), prefix, arrayname, ctx->inputs[j].first);
                } else {
                   enum vrend_type_qualifier srcstypeprefix = stypeprefix;
                   if ((stype == TGSI_TYPE_UNSIGNED || stype == TGSI_TYPE_SIGNED) &&
@@ -3713,23 +3717,23 @@ get_source_info(struct dump_ctx *ctx,
                      srcstypeprefix = TYPE_CONVERSION_NONE;
 
                   if (inst->Instruction.Opcode == TGSI_OPCODE_INTERP_SAMPLE && i == 1) {
-                     snprintf(srcs[i], 255, "floatBitsToInt(%s%s%s%s)", prefix, ctx->inputs[j].glsl_name, arrayname, swizzle);
+                     strbuf_fmt(src_buf, "floatBitsToInt(%s%s%s%s)", prefix, ctx->inputs[j].glsl_name, arrayname, swizzle);
                   } else if (ctx->inputs[j].name == TGSI_SEMANTIC_GENERIC) {
                      struct vrend_shader_io *io = ctx->generic_input_range.used ? &ctx->generic_input_range.io : &ctx->inputs[j];
-                     get_source_info_generic(ctx, io_in, srcstypeprefix, prefix, src, io, arrayname, swizzle, srcs[i]);
+                     get_source_info_generic(ctx, io_in, srcstypeprefix, prefix, src, io, arrayname, swizzle, src_buf);
                   } else if (ctx->inputs[j].name == TGSI_SEMANTIC_PATCH) {
                      struct vrend_shader_io *io = ctx->patch_input_range.used ? &ctx->patch_input_range.io : &ctx->inputs[j];
-                     get_source_info_patch(srcstypeprefix, prefix, src, io, arrayname, swizzle, srcs[i]);
+                     get_source_info_patch(srcstypeprefix, prefix, src, io, arrayname, swizzle, src_buf);
                   } else if (ctx->inputs[j].name == TGSI_SEMANTIC_POSITION && ctx->prog_type == TGSI_PROCESSOR_VERTEX &&
                              ctx->inputs[j].first != ctx->inputs[j].last) {
                      if (src->Register.Indirect)
-                        snprintf(srcs[i], 255, "%s(%s%s%s[addr%d + %d]%s)", get_string(srcstypeprefix), prefix, ctx->inputs[j].glsl_name, arrayname,
-                                 src->Indirect.Index, src->Register.Index, ctx->inputs[j].is_int ? "" : swizzle);
+                        strbuf_fmt(src_buf, "%s(%s%s%s[addr%d + %d]%s)", get_string(srcstypeprefix), prefix, ctx->inputs[j].glsl_name, arrayname,
+                                   src->Indirect.Index, src->Register.Index, ctx->inputs[j].is_int ? "" : swizzle);
                      else
-                        snprintf(srcs[i], 255, "%s(%s%s%s[%d]%s)", get_string(srcstypeprefix), prefix, ctx->inputs[j].glsl_name, arrayname,
-                                 src->Register.Index, ctx->inputs[j].is_int ? "" : swizzle);
+                        strbuf_fmt(src_buf, "%s(%s%s%s[%d]%s)", get_string(srcstypeprefix), prefix, ctx->inputs[j].glsl_name, arrayname,
+                                   src->Register.Index, ctx->inputs[j].is_int ? "" : swizzle);
                   } else
-                     snprintf(srcs[i], 255, "%s(%s%s%s%s)", get_string(srcstypeprefix), prefix, ctx->inputs[j].glsl_name, arrayname, ctx->inputs[j].is_int ? "" : swizzle);
+                     strbuf_fmt(src_buf, "%s(%s%s%s%s)", get_string(srcstypeprefix), prefix, ctx->inputs[j].glsl_name, arrayname, ctx->inputs[j].is_int ? "" : swizzle);
                }
                sinfo->override_no_wm[i] = ctx->inputs[j].override_no_wm;
                break;
@@ -3756,16 +3760,16 @@ get_source_info(struct dump_ctx *ctx,
                         else
                            snprintf(clip_indirect, sizeof(clip_indirect), "+ %d", src->Register.Index - ctx->outputs[j].first);
                      }
-		     snprintf(srcs[i], 255, "clip_dist_temp[%d%s]", ctx->outputs[j].sid, clip_indirect);
+                     strbuf_fmt(src_buf, "clip_dist_temp[%d%s]", ctx->outputs[j].sid, clip_indirect);
                   }
                } else if (ctx->outputs[j].name == TGSI_SEMANTIC_GENERIC) {
                   struct vrend_shader_io *io = ctx->generic_output_range.used ? &ctx->generic_output_range.io : &ctx->outputs[j];
-                  get_source_info_generic(ctx, io_out, srcstypeprefix, prefix, src, io, arrayname, swizzle, srcs[i]);
+                  get_source_info_generic(ctx, io_out, srcstypeprefix, prefix, src, io, arrayname, swizzle, src_buf);
                } else if (ctx->outputs[j].name == TGSI_SEMANTIC_PATCH) {
                   struct vrend_shader_io *io = ctx->patch_output_range.used ? &ctx->patch_output_range.io : &ctx->outputs[j];
-                  get_source_info_patch(srcstypeprefix, prefix, src, io, arrayname, swizzle, srcs[i]);
+                  get_source_info_patch(srcstypeprefix, prefix, src, io, arrayname, swizzle, src_buf);
                } else {
-                  snprintf(srcs[i], 255, "%s(%s%s%s%s)", get_string(srcstypeprefix), prefix, ctx->outputs[j].glsl_name, arrayname, ctx->outputs[j].is_int ? "" : swizzle);
+                  strbuf_fmt(src_buf, "%s(%s%s%s%s)", get_string(srcstypeprefix), prefix, ctx->outputs[j].glsl_name, arrayname, ctx->outputs[j].is_int ? "" : swizzle);
                }
                sinfo->override_no_wm[i] = ctx->outputs[j].override_no_wm;
                break;
@@ -3782,9 +3786,9 @@ get_source_info(struct dump_ctx *ctx,
 
          if (src->Register.Indirect) {
             assert(src->Indirect.File == TGSI_FILE_ADDRESS);
-            snprintf(srcs[i], 255, "%s%c%stemp%d[addr%d + %d]%s%c", get_string(stypeprefix), stprefix ? '(' : ' ', prefix, range->first, src->Indirect.Index, src->Register.Index - range->first, swizzle, stprefix ? ')' : ' ');
+            strbuf_fmt(src_buf, "%s%c%stemp%d[addr%d + %d]%s%c", get_string(stypeprefix), stprefix ? '(' : ' ', prefix, range->first, src->Indirect.Index, src->Register.Index - range->first, swizzle, stprefix ? ')' : ' ');
          } else
-            snprintf(srcs[i], 255, "%s%c%stemp%d[%d]%s%c", get_string(stypeprefix), stprefix ? '(' : ' ', prefix, range->first, src->Register.Index - range->first, swizzle, stprefix ? ')' : ' ');
+            strbuf_fmt(src_buf, "%s%c%stemp%d[%d]%s%c", get_string(stypeprefix), stprefix ? '(' : ' ', prefix, range->first, src->Register.Index - range->first, swizzle, stprefix ? ')' : ' ');
       } else if (src->Register.File == TGSI_FILE_CONSTANT) {
          const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
          int dim = 0;
@@ -3795,20 +3799,20 @@ get_source_info(struct dump_ctx *ctx,
                ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
                if (src->Register.Indirect) {
                   assert(src->Indirect.File == TGSI_FILE_ADDRESS);
-                  snprintf(srcs[i], 255, "%s(%s%suboarr[addr%d].ubocontents[addr%d + %d]%s)", get_string(stypeprefix), prefix, cname, src->DimIndirect.Index, src->Indirect.Index, src->Register.Index, swizzle);
+                  strbuf_fmt(src_buf, "%s(%s%suboarr[addr%d].ubocontents[addr%d + %d]%s)", get_string(stypeprefix), prefix, cname, src->DimIndirect.Index, src->Indirect.Index, src->Register.Index, swizzle);
                } else
-                  snprintf(srcs[i], 255, "%s(%s%suboarr[addr%d].ubocontents[%d]%s)", get_string(stypeprefix), prefix, cname, src->DimIndirect.Index, src->Register.Index, swizzle);
+                  strbuf_fmt(src_buf, "%s(%s%suboarr[addr%d].ubocontents[%d]%s)", get_string(stypeprefix), prefix, cname, src->DimIndirect.Index, src->Register.Index, swizzle);
             } else {
                if (ctx->info.dimension_indirect_files & (1 << TGSI_FILE_CONSTANT)) {
                   if (src->Register.Indirect) {
-                     snprintf(srcs[i], 255, "%s(%s%suboarr[%d].ubocontents[addr%d + %d]%s)", get_string(stypeprefix), prefix, cname, dim - ctx->ubo_base, src->Indirect.Index, src->Register.Index, swizzle);
+                     strbuf_fmt(src_buf, "%s(%s%suboarr[%d].ubocontents[addr%d + %d]%s)", get_string(stypeprefix), prefix, cname, dim - ctx->ubo_base, src->Indirect.Index, src->Register.Index, swizzle);
                   } else
-                     snprintf(srcs[i], 255, "%s(%s%suboarr[%d].ubocontents[%d]%s)", get_string(stypeprefix), prefix, cname, dim - ctx->ubo_base, src->Register.Index, swizzle);
+                     strbuf_fmt(src_buf, "%s(%s%suboarr[%d].ubocontents[%d]%s)", get_string(stypeprefix), prefix, cname, dim - ctx->ubo_base, src->Register.Index, swizzle);
                } else {
                   if (src->Register.Indirect) {
-                     snprintf(srcs[i], 255, "%s(%s%subo%dcontents[addr0 + %d]%s)", get_string(stypeprefix), prefix, cname, dim, src->Register.Index, swizzle);
+                     strbuf_fmt(src_buf, "%s(%s%subo%dcontents[addr0 + %d]%s)", get_string(stypeprefix), prefix, cname, dim, src->Register.Index, swizzle);
                   } else
-                     snprintf(srcs[i], 255, "%s(%s%subo%dcontents[%d]%s)", get_string(stypeprefix), prefix, cname, dim, src->Register.Index, swizzle);
+                     strbuf_fmt(src_buf, "%s(%s%subo%dcontents[%d]%s)", get_string(stypeprefix), prefix, cname, dim, src->Register.Index, swizzle);
                }
             }
          } else {
@@ -3822,21 +3826,21 @@ get_source_info(struct dump_ctx *ctx,
                csp = IVEC4;
 
             if (src->Register.Indirect) {
-               snprintf(srcs[i], 255, "%s%s(%sconst%d[addr0 + %d]%s)", prefix, get_string(csp), cname, dim, src->Register.Index, swizzle);
+               strbuf_fmt(src_buf, "%s%s(%sconst%d[addr0 + %d]%s)", prefix, get_string(csp), cname, dim, src->Register.Index, swizzle);
             } else
-               snprintf(srcs[i], 255, "%s%s(%sconst%d[%d]%s)", prefix, get_string(csp), cname, dim, src->Register.Index, swizzle);
+               strbuf_fmt(src_buf, "%s%s(%sconst%d[%d]%s)", prefix, get_string(csp), cname, dim, src->Register.Index, swizzle);
          }
       } else if (src->Register.File == TGSI_FILE_SAMPLER) {
          const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
          if (ctx->info.indirect_files & (1 << TGSI_FILE_SAMPLER)) {
             int basearrayidx = lookup_sampler_array(ctx, src->Register.Index);
             if (src->Register.Indirect) {
-               snprintf(srcs[i], 255, "%ssamp%d[addr%d+%d]%s", cname, basearrayidx, src->Indirect.Index, src->Register.Index - basearrayidx, swizzle);
+               strbuf_fmt(src_buf, "%ssamp%d[addr%d+%d]%s", cname, basearrayidx, src->Indirect.Index, src->Register.Index - basearrayidx, swizzle);
             } else {
-               snprintf(srcs[i], 255, "%ssamp%d[%d]%s", cname, basearrayidx, src->Register.Index - basearrayidx, swizzle);
+               strbuf_fmt(src_buf, "%ssamp%d[%d]%s", cname, basearrayidx, src->Register.Index - basearrayidx, swizzle);
             }
          } else {
-            snprintf(srcs[i], 255, "%ssamp%d%s", cname, src->Register.Index, swizzle);
+            strbuf_fmt(src_buf, "%ssamp%d%s", cname, src->Register.Index, swizzle);
          }
          sinfo->sreg_index = src->Register.Index;
       } else if (src->Register.File == TGSI_FILE_IMAGE) {
@@ -3845,11 +3849,11 @@ get_source_info(struct dump_ctx *ctx,
             int basearrayidx = lookup_image_array(ctx, src->Register.Index);
             if (src->Register.Indirect) {
                assert(src->Indirect.File == TGSI_FILE_ADDRESS);
-               snprintf(srcs[i], 255, "%simg%d[addr%d + %d]", cname, basearrayidx, src->Indirect.Index, src->Register.Index - basearrayidx);
+               strbuf_fmt(src_buf, "%simg%d[addr%d + %d]", cname, basearrayidx, src->Indirect.Index, src->Register.Index - basearrayidx);
             } else
-               snprintf(srcs[i], 255, "%simg%d[%d]", cname, basearrayidx, src->Register.Index - basearrayidx);
+               strbuf_fmt(src_buf, "%simg%d[%d]", cname, basearrayidx, src->Register.Index - basearrayidx);
          } else
-            snprintf(srcs[i], 255, "%simg%d%s", cname, src->Register.Index, swizzle);
+            strbuf_fmt(src_buf, "%simg%d%s", cname, src->Register.Index, swizzle);
          sinfo->sreg_index = src->Register.Index;
       } else if (src->Register.File == TGSI_FILE_BUFFER) {
          const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
@@ -3858,16 +3862,16 @@ get_source_info(struct dump_ctx *ctx,
             const char *atomic_str = atomic_ssbo ? "atomic" : "";
             int base = atomic_ssbo ? ctx->ssbo_atomic_array_base : ctx->ssbo_array_base;
             if (src->Register.Indirect) {
-               snprintf(srcs[i], 255, "%sssboarr%s[addr%d+%d].%sssbocontents%d%s", cname, atomic_str, src->Indirect.Index, src->Register.Index - base, cname, base, swizzle);
+               strbuf_fmt(src_buf, "%sssboarr%s[addr%d+%d].%sssbocontents%d%s", cname, atomic_str, src->Indirect.Index, src->Register.Index - base, cname, base, swizzle);
             } else {
-               snprintf(srcs[i], 255, "%sssboarr%s[%d].%sssbocontents%d%s", cname, atomic_str, src->Register.Index - base, cname, base, swizzle);
+               strbuf_fmt(src_buf, "%sssboarr%s[%d].%sssbocontents%d%s", cname, atomic_str, src->Register.Index - base, cname, base, swizzle);
             }
          } else {
-            snprintf(srcs[i], 255, "%sssbocontents%d%s", cname, src->Register.Index, swizzle);
+            strbuf_fmt(src_buf, "%sssbocontents%d%s", cname, src->Register.Index, swizzle);
          }
          sinfo->sreg_index = src->Register.Index;
       } else if (src->Register.File == TGSI_FILE_MEMORY) {
-         snprintf(srcs[i], 255, "values");
+         strbuf_fmt(src_buf, "values");
          sinfo->sreg_index = src->Register.Index;
       } else if (src->Register.File == TGSI_FILE_IMMEDIATE) {
          if (src->Register.Index >= (int)ARRAY_SIZE(ctx->imm)) {
@@ -3910,7 +3914,7 @@ get_source_info(struct dump_ctx *ctx,
          }
 
          /* build up a vec4 of immediates */
-         snprintf(srcs[i], 255, "%s(%s%s(", get_string(imm_stypeprefix), prefix, get_string(vtype));
+         strbuf_fmt(src_buf, "%s(%s%s(", get_string(imm_stypeprefix), prefix, get_string(vtype));
          for (uint32_t j = 0; j < 4; j++) {
             if (j == 0)
                idx = src->Register.SwizzleX;
@@ -3951,12 +3955,12 @@ get_source_info(struct dump_ctx *ctx,
                vrend_printf( "unhandled imm type: %x\n", imd->type);
                return false;
             }
-            strncat(srcs[i], temp, 255);
+            strbuf_append(src_buf, temp);
             if (j < 3)
-               strcat(srcs[i], ",");
+               strbuf_append(src_buf, ",");
             else {
                snprintf(temp, 4, "))%c", isfloatabsolute ? ')' : 0);
-               strncat(srcs[i], temp, 255);
+               strbuf_append(src_buf, temp);
             }
          }
       } else if (src->Register.File == TGSI_FILE_SYSTEM_VALUE) {
@@ -3969,19 +3973,19 @@ get_source_info(struct dump_ctx *ctx,
                    ctx->system_values[j].name == TGSI_SEMANTIC_INVOCATIONID ||
                    ctx->system_values[j].name == TGSI_SEMANTIC_SAMPLEID) {
                   if (inst->Instruction.Opcode == TGSI_OPCODE_INTERP_SAMPLE && i == 1)
-                     snprintf(srcs[i], 255, "ivec4(%s)", ctx->system_values[j].glsl_name);
+                     strbuf_fmt(src_buf, "ivec4(%s)", ctx->system_values[j].glsl_name);
                   else
-                     snprintf(srcs[i], 255, "%s(vec4(intBitsToFloat(%s)))", get_string(stypeprefix), ctx->system_values[j].glsl_name);
+                     strbuf_fmt(src_buf, "%s(vec4(intBitsToFloat(%s)))", get_string(stypeprefix), ctx->system_values[j].glsl_name);
                } else if (ctx->system_values[j].name == TGSI_SEMANTIC_HELPER_INVOCATION) {
-                  snprintf(srcs[i], 255, "uvec4(%s)", ctx->system_values[j].glsl_name);
+                  strbuf_fmt(src_buf, "uvec4(%s)", ctx->system_values[j].glsl_name);
                } else if (ctx->system_values[j].name == TGSI_SEMANTIC_TESSINNER ||
                         ctx->system_values[j].name == TGSI_SEMANTIC_TESSOUTER) {
-                  snprintf(srcs[i], 255, "%s(vec4(%s[%d], %s[%d], %s[%d], %s[%d]))",
-                           prefix,
-                           ctx->system_values[j].glsl_name, src->Register.SwizzleX,
-                           ctx->system_values[j].glsl_name, src->Register.SwizzleY,
-                           ctx->system_values[j].glsl_name, src->Register.SwizzleZ,
-                           ctx->system_values[j].glsl_name, src->Register.SwizzleW);
+                  strbuf_fmt(src_buf, "%s(vec4(%s[%d], %s[%d], %s[%d], %s[%d]))",
+                             prefix,
+                             ctx->system_values[j].glsl_name, src->Register.SwizzleX,
+                             ctx->system_values[j].glsl_name, src->Register.SwizzleY,
+                             ctx->system_values[j].glsl_name, src->Register.SwizzleZ,
+                             ctx->system_values[j].glsl_name, src->Register.SwizzleW);
                } else if (ctx->system_values[j].name == TGSI_SEMANTIC_SAMPLEPOS) {
                   /* gl_SamplePosition is a vec2, but TGSI_SEMANTIC_SAMPLEPOS
                    * is a vec4 with z = w = 0
@@ -3989,27 +3993,27 @@ get_source_info(struct dump_ctx *ctx,
                   const char *components[4] = {
                      "gl_SamplePosition.x", "gl_SamplePosition.y", "0.0", "0.0"
                   };
-                  snprintf(srcs[i], 255, "%s(vec4(%s, %s, %s, %s))",
-                           prefix,
-                           components[src->Register.SwizzleX],
-                           components[src->Register.SwizzleY],
-                           components[src->Register.SwizzleZ],
-                           components[src->Register.SwizzleW]);
+                  strbuf_fmt(src_buf, "%s(vec4(%s, %s, %s, %s))",
+                             prefix,
+                             components[src->Register.SwizzleX],
+                             components[src->Register.SwizzleY],
+                             components[src->Register.SwizzleZ],
+                             components[src->Register.SwizzleW]);
                } else if (ctx->system_values[j].name == TGSI_SEMANTIC_TESSCOORD) {
-                  snprintf(srcs[i], 255, "%s(vec4(%s.%c, %s.%c, %s.%c, %s.%c))",
-                           prefix,
-                           ctx->system_values[j].glsl_name, get_swiz_char(src->Register.SwizzleX),
-                           ctx->system_values[j].glsl_name, get_swiz_char(src->Register.SwizzleY),
-                           ctx->system_values[j].glsl_name, get_swiz_char(src->Register.SwizzleZ),
-                           ctx->system_values[j].glsl_name, get_swiz_char(src->Register.SwizzleW));
+                  strbuf_fmt(src_buf, "%s(vec4(%s.%c, %s.%c, %s.%c, %s.%c))",
+                             prefix,
+                             ctx->system_values[j].glsl_name, get_swiz_char(src->Register.SwizzleX),
+                             ctx->system_values[j].glsl_name, get_swiz_char(src->Register.SwizzleY),
+                             ctx->system_values[j].glsl_name, get_swiz_char(src->Register.SwizzleZ),
+                             ctx->system_values[j].glsl_name, get_swiz_char(src->Register.SwizzleW));
                } else if (ctx->system_values[j].name == TGSI_SEMANTIC_GRID_SIZE ||
                           ctx->system_values[j].name == TGSI_SEMANTIC_THREAD_ID ||
                           ctx->system_values[j].name == TGSI_SEMANTIC_BLOCK_ID) {
-                  snprintf(srcs[i], 255, "uvec4(%s.%c, %s.%c, %s.%c, %s.%c)",
-                           ctx->system_values[j].glsl_name, get_swiz_char(src->Register.SwizzleX),
-                           ctx->system_values[j].glsl_name, get_swiz_char(src->Register.SwizzleY),
-                           ctx->system_values[j].glsl_name, get_swiz_char(src->Register.SwizzleZ),
-                           ctx->system_values[j].glsl_name, get_swiz_char(src->Register.SwizzleW));
+                  strbuf_fmt(src_buf, "uvec4(%s.%c, %s.%c, %s.%c, %s.%c)",
+                             ctx->system_values[j].glsl_name, get_swiz_char(src->Register.SwizzleX),
+                             ctx->system_values[j].glsl_name, get_swiz_char(src->Register.SwizzleY),
+                             ctx->system_values[j].glsl_name, get_swiz_char(src->Register.SwizzleZ),
+                             ctx->system_values[j].glsl_name, get_swiz_char(src->Register.SwizzleW));
                   sinfo->override_no_cast[i] = true;
                } else if (ctx->system_values[j].name == TGSI_SEMANTIC_SAMPLEMASK) {
                   const char *vec_type = "ivec4";
@@ -4018,14 +4022,14 @@ get_source_info(struct dump_ctx *ctx,
                       (stype == TGSI_TYPE_UNSIGNED))
                      vec_type = "uvec4";
                   ctx->shader_req_bits |= SHADER_REQ_SAMPLE_SHADING | SHADER_REQ_INTS;
-                  snprintf(srcs[i], 255, "%s(%s, %s, %s, %s)",
+                  strbuf_fmt(src_buf, "%s(%s, %s, %s, %s)",
                      vec_type,
                      src->Register.SwizzleX == TGSI_SWIZZLE_X ? ctx->system_values[j].glsl_name : "0",
                      src->Register.SwizzleY == TGSI_SWIZZLE_X ? ctx->system_values[j].glsl_name : "0",
                      src->Register.SwizzleZ == TGSI_SWIZZLE_X ? ctx->system_values[j].glsl_name : "0",
                      src->Register.SwizzleW == TGSI_SWIZZLE_X ? ctx->system_values[j].glsl_name : "0");
                } else
-                  snprintf(srcs[i], 255, "%s%s", prefix, ctx->system_values[j].glsl_name);
+                  strbuf_fmt(src_buf, "%s%s", prefix, ctx->system_values[j].glsl_name);
                sinfo->override_no_wm[i] = ctx->system_values[j].override_no_wm;
                break;
             }
@@ -4038,11 +4042,11 @@ get_source_info(struct dump_ctx *ctx,
                   int offset = src->Register.Index - ctx->abo_offsets[j];
                   if (src->Register.Indirect) {
                      assert(src->Indirect.File == TGSI_FILE_ADDRESS);
-                     snprintf(srcs[i], 255, "ac%d[addr%d + %d]", j, src->Indirect.Index, offset);
+                     strbuf_fmt(src_buf, "ac%d[addr%d + %d]", j, src->Indirect.Index, offset);
                   } else
-                     snprintf(srcs[i], 255, "ac%d[%d]", j, offset);
+                     strbuf_fmt(src_buf, "ac%d[%d]", j, offset);
                } else
-                  snprintf(srcs[i], 255, "ac%d", j);
+                  strbuf_fmt(src_buf, "ac%d", j);
                break;
             }
          }
@@ -4051,27 +4055,36 @@ get_source_info(struct dump_ctx *ctx,
 
       if (stype == TGSI_TYPE_DOUBLE) {
          boolean isabsolute = src->Register.Absolute;
-         strcpy(fp64_src, srcs[i]);
-         snprintf(srcs[i], 255, "fp64_src[%d]", i);
-         emit_buff(ctx, "%s.x = %spackDouble2x32(uvec2(%s%s))%s;\n", srcs[i], isabsolute ? "abs(" : "", fp64_src, swizzle, isabsolute ? ")" : "");
+         strcpy(fp64_src, src_buf->buf);
+         strbuf_fmt(src_buf, "fp64_src[%d]", i);
+         emit_buff(ctx, "%s.x = %spackDouble2x32(uvec2(%s%s))%s;\n", src_buf->buf, isabsolute ? "abs(" : "", fp64_src, swizzle, isabsolute ? ")" : "");
       }
    }
 
    return true;
 }
 
-static void rewrite_1d_image_coordinate(char src[255], const struct tgsi_full_instruction *inst)
+static bool rewrite_1d_image_coordinate(struct vrend_strbuf *src, const struct tgsi_full_instruction *inst)
 {
    if (inst->Src[0].Register.File == TGSI_FILE_IMAGE &&
        (inst->Memory.Texture == TGSI_TEXTURE_1D ||
         inst->Memory.Texture == TGSI_TEXTURE_1D_ARRAY))  {
-      char buf[255] = "";
-      strncpy(buf, src, 255);
+
+      /* duplicate src */
+      size_t len = strbuf_get_len(src);
+      char *buf = malloc(len);
+      if (!buf)
+         return false;
+      strncpy(buf, src->buf, len);
+
       if (inst->Memory.Texture == TGSI_TEXTURE_1D)
-         snprintf(src, 255, "vec2(vec4(%s).x, 0)", buf);
+         strbuf_fmt(src, "vec2(vec4(%s).x, 0)", buf);
       else if (inst->Memory.Texture == TGSI_TEXTURE_1D_ARRAY)
-         snprintf(src, 255, "vec3(%s.xy, 0).xzy", buf);
+         strbuf_fmt(src, "vec3(%s.xy, 0).xzy", buf);
+
+      free(buf);
    }
+   return true;
 }
 /* We have indirect IO access, but the guest actually send separate values, so
  * now we have to emulate an array.
@@ -4507,7 +4520,8 @@ iter_instruction(struct tgsi_iterate_context *iter,
    struct dump_ctx *ctx = (struct dump_ctx *)iter;
    struct dest_info dinfo = { 0 };
    struct source_info sinfo = { 0 };
-   char srcs[4][255], dsts[3][255];
+   const char *srcs[4];
+   char dsts[3][255];
    char fp64_dsts[3][255];
    uint instno = ctx->instno++;
    char writemask[6] = {0};
@@ -4541,8 +4555,11 @@ iter_instruction(struct tgsi_iterate_context *iter,
    if (!get_destination_info(ctx, inst, &dinfo, dsts, fp64_dsts, writemask))
       return false;
 
-   if (!get_source_info(ctx, inst, &sinfo, srcs, src_swizzle0))
+   if (!get_source_info(ctx, inst, &sinfo, ctx->src_bufs, src_swizzle0))
       return false;
+
+   for (size_t i = 0; i < ARRAY_SIZE(srcs); ++i)
+      srcs[i] = ctx->src_bufs[i].buf;
 
    switch (inst->Instruction.Opcode) {
    case TGSI_OPCODE_SQRT:
@@ -5010,13 +5027,19 @@ iter_instruction(struct tgsi_iterate_context *iter,
       break;
    }
    case TGSI_OPCODE_STORE:
-      if (ctx->cfg->use_gles)
-         rewrite_1d_image_coordinate(srcs[1], inst);
+      if (ctx->cfg->use_gles) {
+         if (!rewrite_1d_image_coordinate(ctx->src_bufs + 1, inst))
+            return false;
+         srcs[1] = ctx->src_bufs[1].buf;
+      }
       translate_store(ctx, inst, &sinfo, srcs, dsts);
       break;
    case TGSI_OPCODE_LOAD:
-      if (ctx->cfg->use_gles)
-         rewrite_1d_image_coordinate(srcs[1], inst);
+      if (ctx->cfg->use_gles) {
+         if (!rewrite_1d_image_coordinate(ctx->src_bufs + 1, inst))
+            return false;
+         srcs[1] = ctx->src_bufs[1].buf;
+      }
       translate_load(ctx, inst, &sinfo, &dinfo, srcs, dsts, writemask);
       break;
    case TGSI_OPCODE_ATOMUADD:
@@ -5029,8 +5052,11 @@ iter_instruction(struct tgsi_iterate_context *iter,
    case TGSI_OPCODE_ATOMUMAX:
    case TGSI_OPCODE_ATOMIMIN:
    case TGSI_OPCODE_ATOMIMAX:
-      if (ctx->cfg->use_gles)
-         rewrite_1d_image_coordinate(srcs[1], inst);
+      if (ctx->cfg->use_gles) {
+         if (!rewrite_1d_image_coordinate(ctx->src_bufs + 1, inst))
+            return false;
+         srcs[1] = ctx->src_bufs[1].buf;
+      }
       translate_atomic(ctx, inst, &sinfo, srcs, dsts);
       break;
    case TGSI_OPCODE_RESQ:
@@ -5054,6 +5080,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
    if (inst->Instruction.Saturate) {
       emit_buff(ctx, "%s = clamp(%s, 0.0, 1.0);\n", dsts[0], dsts[0]);
    }
+
    if (strbuf_get_error(&ctx->glsl_main))
        return false;
    return true;
@@ -6539,6 +6566,8 @@ bool vrend_convert_shader(struct vrend_context *rctx,
    if (bret == false)
       goto fail;
 
+   for (size_t i = 0; i < ARRAY_SIZE(ctx.src_bufs); ++i)
+      strbuf_free(ctx.src_bufs + i);
 
    emit_header(&ctx);
    emit_ios(&ctx);
