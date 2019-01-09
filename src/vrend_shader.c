@@ -4378,6 +4378,11 @@ static void emit_ios_streamout(struct dump_ctx *ctx)
    }
 }
 
+static inline void emit_winsys_correction(struct dump_ctx *ctx)
+{
+   emit_hdr(ctx, "uniform float winsys_adjust_y;\n");
+}
+
 static void emit_ios_vs(struct dump_ctx *ctx)
 {
    uint32_t i;
@@ -4454,7 +4459,7 @@ static void emit_ios_vs(struct dump_ctx *ctx)
       }
    }
 
-   emit_hdr(ctx, "uniform float winsys_adjust_y;\n");
+   emit_winsys_correction(ctx);
 
    if (ctx->has_clipvertex) {
       emit_hdrf(ctx, "%svec4 clipv_tmp;\n", ctx->has_clipvertex_so ? "out " : "");
@@ -4632,7 +4637,7 @@ static void emit_ios_geom(struct dump_ctx *ctx)
       }
    }
 
-   emit_hdr(ctx, "uniform float winsys_adjust_y;\n");
+   emit_winsys_correction(ctx);
 
    if (ctx->num_in_clip_dist || ctx->key->clip_plane_enable || ctx->key->prev_stage_pervertex_out) {
       int clip_dist, cull_dist;
@@ -4819,7 +4824,7 @@ static void emit_ios_tes(struct dump_ctx *ctx)
       }
    }
 
-   emit_hdr(ctx, "uniform float winsys_adjust_y;\n");
+   emit_winsys_correction(ctx);
 
    if (ctx->num_in_clip_dist || ctx->key->prev_stage_pervertex_out) {
       int clip_dist, cull_dist;
