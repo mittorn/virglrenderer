@@ -79,11 +79,8 @@ static inline bool strbuf_alloc(struct vrend_strbuf *sb, int initial_size)
 /* this might need tuning */
 #define STRBUF_MIN_MALLOC 1024
 
-static inline void strbuf_append_buffer(struct vrend_strbuf *sb, const char *data, size_t len)
+static inline bool strbuf_grow(struct vrend_strbuf *sb, int len)
 {
-   assert(!memchr(data, '\0', len));
-   if (strbuf_get_error(sb))
-      return;
    if (sb->size + len + 1 > sb->alloc_size) {
       /* Reallocate to the larger size of current alloc + min realloc,
        * or the resulting string size if larger.
@@ -92,11 +89,20 @@ static inline void strbuf_append_buffer(struct vrend_strbuf *sb, const char *dat
       char *new = realloc(sb->buf, new_size);
       if (!new) {
          strbuf_set_error(sb);
-         return;
+         return false;
       }
       sb->buf = new;
       sb->alloc_size = new_size;
    }
+   return true;
+}
+
+static inline void strbuf_append_buffer(struct vrend_strbuf *sb, const char *data, size_t len)
+{
+   assert(!memchr(data, '\0', len));
+   if (strbuf_get_error(sb) ||
+       !strbuf_grow(sb, len))
+      return;
    memcpy(sb->buf + sb->size, data, len);
    sb->size += len;
    sb->buf[sb->size] = '\0';
