@@ -2839,7 +2839,7 @@ static bool
 get_source_info(struct dump_ctx *ctx,
                 const struct tgsi_full_instruction *inst,
                 struct source_info *sinfo,
-                char srcs[3][255], char src_swizzle0[10])
+                char srcs[4][255], char src_swizzle0[10])
 {
    bool stprefix = false;
 
