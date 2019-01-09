@@ -4585,8 +4585,6 @@ static void emit_ios_fs(struct dump_ctx *ctx)
 static void emit_ios_geom(struct dump_ctx *ctx)
 {
    uint32_t i;
-   char postfix[8];
-   const char *prefix = "", *auxprefix = "";
    char invocbuf[25];
 
    if (ctx->gs_num_invocations)
