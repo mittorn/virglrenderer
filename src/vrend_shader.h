@@ -28,6 +28,7 @@
 #include "pipe/p_state.h"
 #include "pipe/p_shader_tokens.h"
 
+#include "vrend_strbuf.h"
 /* need to store patching info for interpolation */
 struct vrend_interp_info {
    int semantic_name;
@@ -113,19 +114,22 @@ struct vrend_shader_cfg {
 
 struct vrend_context;
 
+#define SHADER_MAX_STRINGS 2
+
 bool vrend_patch_vertex_shader_interpolants(struct vrend_context *rctx,
                                             struct vrend_shader_cfg *cfg,
-                                            char *program,
+                                            struct vrend_strarray *shader,
                                             struct vrend_shader_info *vs_info,
                                             struct vrend_shader_info *fs_info,
                                             const char *oprefix, bool flatshade);
 
-char *vrend_convert_shader(struct  vrend_context *rctx,
-                           struct vrend_shader_cfg *cfg,
-                           const struct tgsi_token *tokens,
-                           uint32_t req_local_mem,
-                           struct vrend_shader_key *key,
-                           struct vrend_shader_info *sinfo);
+bool vrend_convert_shader(struct  vrend_context *rctx,
+                          struct vrend_shader_cfg *cfg,
+                          const struct tgsi_token *tokens,
+                          uint32_t req_local_mem,
+                          struct vrend_shader_key *key,
+                          struct vrend_shader_info *sinfo,
+                          struct vrend_strarray *shader);
 
 const char *vrend_shader_samplertypeconv(bool use_gles, int sampler_type, int *is_shad);
 

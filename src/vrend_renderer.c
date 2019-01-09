@@ -311,7 +311,7 @@ struct vrend_shader {
    struct vrend_shader *next_variant;
    struct vrend_shader_selector *sel;
 
-   GLchar *glsl_prog;
+   struct vrend_strarray glsl_strings;
    GLuint id;
    GLuint compiled_fs_id;
    struct vrend_shader_key key;
@@ -823,7 +823,9 @@ vrend_so_target_reference(struct vrend_so_target **ptr, struct vrend_so_target *
 static void vrend_shader_dump(struct vrend_shader *shader)
 {
    const char *prefix = pipe_shader_to_prefix(shader->sel->type);
-   vrend_printf("%s: %d GLSL:\n%s\n", prefix, shader->id, shader->glsl_prog);
+   vrend_printf("%s: %d GLSL:\n", prefix, shader->id);
+   strarray_dump(&shader->glsl_strings);
+   vrend_printf("\n");
 }
 
 static void vrend_shader_destroy(struct vrend_shader *shader)
@@ -835,7 +837,7 @@ static void vrend_shader_destroy(struct vrend_shader *shader)
    }
 
    glDeleteShader(shader->id);
-   free(shader->glsl_prog);
+   strarray_free(&shader->glsl_strings, true);
    free(shader);
 }
 
@@ -864,7 +866,11 @@ static bool vrend_compile_shader(struct vrend_context *ctx,
                                  struct vrend_shader *shader)
 {
    GLint param;
-   glShaderSource(shader->id, 1, (const char **)&shader->glsl_prog, NULL);
+   const char *shader_parts[SHADER_MAX_STRINGS];
+
+   for (int i = 0; i < shader->glsl_strings.num_strings; i++)
+      shader_parts[i] = shader->glsl_strings.strings[i].buf;
+   glShaderSource(shader->id, shader->glsl_strings.num_strings, shader_parts, NULL);
    glCompileShader(shader->id);
    glGetShaderiv(shader->id, GL_COMPILE_STATUS, &param);
    if (param == GL_FALSE) {
@@ -1300,15 +1306,15 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
       bool ret;
 
       if (gs)
-         vrend_patch_vertex_shader_interpolants(ctx, &ctx->shader_cfg, gs->glsl_prog,
+         vrend_patch_vertex_shader_interpolants(ctx, &ctx->shader_cfg, &gs->glsl_strings,
                                                 &gs->sel->sinfo,
                                                 &fs->sel->sinfo, "gso", fs->key.flatshade);
       else if (tes)
-         vrend_patch_vertex_shader_interpolants(ctx, &ctx->shader_cfg, tes->glsl_prog,
+         vrend_patch_vertex_shader_interpolants(ctx, &ctx->shader_cfg, &tes->glsl_strings,
                                                 &tes->sel->sinfo,
                                                 &fs->sel->sinfo, "teo", fs->key.flatshade);
       else
-         vrend_patch_vertex_shader_interpolants(ctx, &ctx->shader_cfg, vs->glsl_prog,
+         vrend_patch_vertex_shader_interpolants(ctx, &ctx->shader_cfg, &vs->glsl_strings,
                                                 &vs->sel->sinfo,
                                                 &fs->sel->sinfo, "vso", fs->key.flatshade);
       ret = vrend_compile_shader(ctx, gs ? gs : (tes ? tes : vs));
@@ -2937,9 +2943,9 @@ static int vrend_shader_create(struct vrend_context *ctx,
 
    shader->id = glCreateShader(conv_shader_type(shader->sel->type));
    shader->compiled_fs_id = 0;
-   shader->glsl_prog = vrend_convert_shader(ctx, &ctx->shader_cfg, shader->sel->tokens,
-                                            shader->sel->req_local_mem, &key, &shader->sel->sinfo);
-   if (!shader->glsl_prog) {
+   bool ret = vrend_convert_shader(ctx, &ctx->shader_cfg, shader->sel->tokens,
+                                   shader->sel->req_local_mem, &key, &shader->sel->sinfo, &shader->glsl_strings);
+   if (!ret) {
       report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SHADER, 0);
       glDeleteShader(shader->id);
       return -1;
@@ -2951,7 +2957,7 @@ static int vrend_shader_create(struct vrend_context *ctx,
       ret = vrend_compile_shader(ctx, shader);
       if (ret == false) {
          glDeleteShader(shader->id);
-         free(shader->glsl_prog);
+         strarray_free(&shader->glsl_strings, true);
          return -1;
       }
    }
@@ -2989,6 +2995,7 @@ static int vrend_shader_select(struct vrend_context *ctx,
       shader = CALLOC_STRUCT(vrend_shader);
       shader->sel = sel;
       list_inithead(&shader->programs);
+      strarray_alloc(&shader->glsl_strings, SHADER_MAX_STRINGS);
 
       r = vrend_shader_create(ctx, shader, key);
       if (r) {

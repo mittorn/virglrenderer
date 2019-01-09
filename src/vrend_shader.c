@@ -4956,15 +4956,15 @@ static boolean analyze_instruction(struct tgsi_iterate_context *iter,
    return true;
 }
 
-char *vrend_convert_shader(struct vrend_context *rctx,
-                           struct vrend_shader_cfg *cfg,
-                           const struct tgsi_token *tokens,
-                           uint32_t req_local_mem,
-                           struct vrend_shader_key *key,
-                           struct vrend_shader_info *sinfo)
+bool vrend_convert_shader(struct vrend_context *rctx,
+			  struct vrend_shader_cfg *cfg,
+			  const struct tgsi_token *tokens,
+			  uint32_t req_local_mem,
+			  struct vrend_shader_key *key,
+			  struct vrend_shader_info *sinfo,
+                          struct vrend_strarray *shader)
 {
    struct dump_ctx ctx;
-   char *glsl_final = NULL;
    boolean bret;
 
    memset(&ctx, 0, sizeof(struct dump_ctx));
@@ -4973,7 +4973,7 @@ char *vrend_convert_shader(struct vrend_context *rctx,
    ctx.iter.iterate_instruction = analyze_instruction;
    bret = tgsi_iterate_shader(tokens, &ctx.iter);
    if (bret == false)
-      return NULL;
+      return false;
 
    ctx.iter.prolog = prolog;
    ctx.iter.iterate_instruction = iter_instruction;
@@ -5035,21 +5035,11 @@ char *vrend_convert_shader(struct vrend_context *rctx,
    if (strbuf_get_error(&ctx.glsl_hdr))
       goto fail;
 
-   glsl_final = malloc(strbuf_get_len(&ctx.glsl_hdr) + strbuf_get_len(&ctx.glsl_main) + 1);
-   if (!glsl_final)
-      goto fail;
-
    bret = fill_interpolants(&ctx, sinfo);
    if (bret == false)
       goto fail;
 
-   memcpy(glsl_final, ctx.glsl_hdr.buf, strbuf_get_len(&ctx.glsl_hdr));
-   memcpy(glsl_final + strbuf_get_len(&ctx.glsl_hdr), ctx.glsl_main.buf, strbuf_get_len(&ctx.glsl_main));
-   glsl_final[strbuf_get_len(&ctx.glsl_hdr) + strbuf_get_len(&ctx.glsl_main)] = '\0';
-
    free(ctx.temp_ranges);
-   strbuf_free(&ctx.glsl_main);
-   strbuf_free(&ctx.glsl_hdr);
    sinfo->num_ucp = ctx.key->clip_plane_enable ? 8 : 0;
    sinfo->has_pervertex_out = ctx.vs_has_pervertex;
    sinfo->has_sample_input = ctx.has_sample_input;
@@ -5105,25 +5095,28 @@ char *vrend_convert_shader(struct vrend_context *rctx,
    sinfo->image_arrays = ctx.image_arrays;
    sinfo->num_image_arrays = ctx.num_image_arrays;
 
-   VREND_DEBUG(dbg_shader_glsl, rctx, "GLSL: %s\n", glsl_final);
-   return glsl_final;
+   strarray_addstrbuf(shader, &ctx.glsl_hdr);
+   strarray_addstrbuf(shader, &ctx.glsl_main);
+   VREND_DEBUG(dbg_shader_glsl, rctx, "GLSL:");
+   VREND_DEBUG_EXT(dbg_shader_glsl, rctx, strarray_dump(shader));
+   VREND_DEBUG(dbg_shader_glsl, rctx, "\n");
+   return true;
  fail:
    strbuf_free(&ctx.glsl_main);
-   free(glsl_final);
    strbuf_free(&ctx.glsl_hdr);
    free(ctx.so_names);
    free(ctx.temp_ranges);
-   return NULL;
+   return false;
 }
 
-static void replace_interp(char *program,
+static void replace_interp(struct vrend_strarray *program,
                            const char *var_name,
                            const char *pstring, const char *auxstring)
 {
    char *ptr;
    int mylen = strlen(INTERP_PREFIX) + strlen("out vec4 ");
 
-   ptr = strstr(program, var_name);
+   ptr = strstr(program->strings[0].buf, var_name);
 
    if (!ptr)
       return;
@@ -5137,10 +5130,10 @@ static void replace_interp(char *program,
 
 static const char *gpu_shader5_string = "#extension GL_ARB_gpu_shader5 : require\n";
 
-static void require_gpu_shader5(char *program)
+static void require_gpu_shader5(struct vrend_strarray *program)
 {
    /* the first line is the #version line */
-   char *ptr = strchr(program, '\n');
+   char *ptr = strchr(program->strings[0].buf, '\n');
    if (!ptr)
       return;
    ptr++;
@@ -5152,10 +5145,10 @@ static const char *gpu_shader5_and_msinterp_string =
       "#extension GL_OES_gpu_shader5 : require\n"
       "#extension GL_OES_shader_multisample_interpolation : require\n";
 
-static void require_gpu_shader5_and_msinterp(char *program)
+static void require_gpu_shader5_and_msinterp(struct vrend_strarray *program)
 {
    /* the first line is the #version line */
-   char *ptr = strchr(program, '\n');
+   char *ptr = strchr(program->strings[0].buf, '\n');
    if (!ptr)
       return;
    ptr++;
@@ -5164,7 +5157,8 @@ static void require_gpu_shader5_and_msinterp(char *program)
 }
 
 bool vrend_patch_vertex_shader_interpolants(struct vrend_context *rctx,
-                                            struct vrend_shader_cfg *cfg, char *program,
+                                            struct vrend_shader_cfg *cfg,
+                                            struct vrend_strarray *prog_strings,
                                             struct vrend_shader_info *vs_info,
                                             struct vrend_shader_info *fs_info,
                                             const char *oprefix, bool flatshade)
@@ -5180,10 +5174,10 @@ bool vrend_patch_vertex_shader_interpolants(struct vrend_context *rctx,
 
    if (fs_info->has_sample_input) {
       if (!cfg->use_gles && (cfg->glsl_version >= 320))
-          require_gpu_shader5(program);
+         require_gpu_shader5(prog_strings);
 
       if (cfg->use_gles && (cfg->glsl_version < 320))
-         require_gpu_shader5_and_msinterp(program);
+         require_gpu_shader5_and_msinterp(prog_strings);
    }
 
    for (i = 0; i < fs_info->num_interps; i++) {
@@ -5199,22 +5193,22 @@ bool vrend_patch_vertex_shader_interpolants(struct vrend_context *rctx,
          /* color is a bit trickier */
          if (fs_info->glsl_ver < 140) {
             if (fs_info->interpinfo[i].semantic_index == 1) {
-               replace_interp(program, "gl_FrontSecondaryColor", pstring, auxstring);
-               replace_interp(program, "gl_BackSecondaryColor", pstring, auxstring);
+               replace_interp(prog_strings, "gl_FrontSecondaryColor", pstring, auxstring);
+               replace_interp(prog_strings, "gl_BackSecondaryColor", pstring, auxstring);
             } else {
-               replace_interp(program, "gl_FrontColor", pstring, auxstring);
-               replace_interp(program, "gl_BackColor", pstring, auxstring);
+               replace_interp(prog_strings, "gl_FrontColor", pstring, auxstring);
+               replace_interp(prog_strings, "gl_BackColor", pstring, auxstring);
             }
          } else {
             snprintf(glsl_name, 64, "ex_c%d", fs_info->interpinfo[i].semantic_index);
-            replace_interp(program, glsl_name, pstring, auxstring);
+            replace_interp(prog_strings, glsl_name, pstring, auxstring);
             snprintf(glsl_name, 64, "ex_bc%d", fs_info->interpinfo[i].semantic_index);
-            replace_interp(program, glsl_name, pstring, auxstring);
+            replace_interp(prog_strings, glsl_name, pstring, auxstring);
          }
          break;
       case TGSI_SEMANTIC_GENERIC:
          snprintf(glsl_name, 64, "%s_g%d", oprefix, fs_info->interpinfo[i].semantic_index);
-         replace_interp(program, glsl_name, pstring, auxstring);
+         replace_interp(prog_strings, glsl_name, pstring, auxstring);
          break;
       default:
          vrend_printf("unhandled semantic: %x\n", fs_info->interpinfo[i].semantic_name);
@@ -5222,7 +5216,9 @@ bool vrend_patch_vertex_shader_interpolants(struct vrend_context *rctx,
       }
    }
 
-   VREND_DEBUG(dbg_shader_glsl, rctx, "GLSL: post interp:  %s\n", program);
+   VREND_DEBUG(dbg_shader_glsl, rctx, "GLSL:");
+   VREND_DEBUG_EXT(dbg_shader_glsl, rctx, strarray_dump(prog_strings));
+   VREND_DEBUG(dbg_shader_glsl, rctx, "\n");
 
    return true;
 }
