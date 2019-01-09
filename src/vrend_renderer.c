@@ -820,6 +820,12 @@ vrend_so_target_reference(struct vrend_so_target **ptr, struct vrend_so_target *
    *ptr = target;
 }
 
+static void vrend_shader_dump(struct vrend_shader *shader)
+{
+   const char *prefix = pipe_shader_to_prefix(shader->sel->type);
+   vrend_printf("%s: %d GLSL:\n%s\n", prefix, shader->id, shader->glsl_prog);
+}
+
 static void vrend_shader_destroy(struct vrend_shader *shader)
 {
    struct vrend_linked_shader_program *ent, *tmp;
@@ -867,7 +873,7 @@ static bool vrend_compile_shader(struct vrend_context *ctx,
       glGetShaderInfoLog(shader->id, 65536, &len, infolog);
       report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SHADER, 0);
       vrend_printf("shader failed to compile\n%s\n", infolog);
-      vrend_printf("GLSL:\n%s\n", shader->glsl_prog);
+      vrend_shader_dump(shader);
       return false;
    }
    return true;
@@ -1244,7 +1250,7 @@ static struct vrend_linked_shader_program *add_cs_shader_program(struct vrend_co
       vrend_printf("got error linking\n%s\n", infolog);
       /* dump shaders */
       report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SHADER, 0);
-      vrend_printf("compute shader: %d GLSL\n%s\n", cs->id, cs->glsl_prog);
+      vrend_shader_dump(cs);
       glDeleteProgram(prog_id);
       free(sprog);
       return NULL;
@@ -1368,10 +1374,10 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
       vrend_printf("got error linking\n%s\n", infolog);
       /* dump shaders */
       report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SHADER, 0);
-      vrend_printf("vert shader: %d GLSL\n%s\n", vs->id, vs->glsl_prog);
+      vrend_shader_dump(vs);
       if (gs)
-         vrend_printf("geom shader: %d GLSL\n%s\n", gs->id, gs->glsl_prog);
-      vrend_printf("frag shader: %d GLSL\n%s\n", fs->id, fs->glsl_prog);
+         vrend_shader_dump(gs);
+      vrend_shader_dump(fs);
       glDeleteProgram(prog_id);
       free(sprog);
       return NULL;
