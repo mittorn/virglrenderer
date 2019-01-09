@@ -4797,7 +4797,7 @@ static void emit_ios_tes(struct dump_ctx *ctx)
       } else if (ctx->outputs[i].invariant || ctx->outputs[i].precise) {
          emit_hdrf(ctx, "%s%s;\n",
                    ctx->outputs[i].precise ? "precise " :
-                                             (ctx->outputs[i].invariant ? "invariant " : ""),
+                    (ctx->outputs[i].invariant ? "invariant " : ""),
                    ctx->outputs[i].glsl_name);
       }
    }
@@ -4806,7 +4806,7 @@ static void emit_ios_tes(struct dump_ctx *ctx)
 
    if (ctx->num_in_clip_dist || ctx->key->prev_stage_pervertex_out) {
       int clip_dist, cull_dist;
-      char clip_var[64] = {}, cull_var[64] = {};
+      char clip_var[64] = "", cull_var[64] = "";
 
       clip_dist = ctx->key->prev_stage_num_clip_out ? ctx->key->prev_stage_num_clip_out : ctx->num_in_clip_dist;
       cull_dist = ctx->key->prev_stage_num_cull_out;
