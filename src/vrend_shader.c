@@ -4748,6 +4748,99 @@ static void emit_ios_tcs(struct dump_ctx *ctx)
    }
 }
 
+static void emit_ios_tes(struct dump_ctx *ctx)
+{
+   uint32_t i;
+   char postfix[8];
+   const char *prefix = "", *auxprefix = "";
+
+   if (ctx_indirect_inputs(ctx)) {
+      const char *name_prefix = get_stage_input_name_prefix(ctx, ctx->prog_type);
+      if (ctx->patch_input_range.used) {
+         int size = ctx->patch_input_range.last - ctx->patch_input_range.first + 1;
+         if (size < ctx->key->num_indirect_patch_inputs)
+            size = ctx->key->num_indirect_patch_inputs;
+         emit_hdrf(ctx, "patch in vec4 %sp%d[%d];\n", name_prefix, ctx->patch_input_range.first, size);
+      }
+
+      if (ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL) {
+         if (ctx->generic_input_range.used) {
+            int size = ctx->generic_input_range.last - ctx->generic_input_range.first + 1;
+            if (size < ctx->key->num_indirect_generic_inputs)
+               size = ctx->key->num_indirect_generic_inputs;
+            emit_hdrf(ctx, "in block { vec4 %s%d[%d]; } blk[];\n", name_prefix, ctx->generic_input_range.first, size);
+         }
+      }
+   }
+   for (i = 0; i < ctx->num_inputs; i++) {
+      if (!ctx->inputs[i].glsl_predefined_no_emit) {
+         prefix = "";
+         auxprefix = "";
+         if (ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL && ctx->inputs[i].name == TGSI_SEMANTIC_PATCH)
+            prefix = "patch ";
+
+         if (ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL && ctx->inputs[i].name != TGSI_SEMANTIC_PATCH) {
+            snprintf(postfix, 8, "[]");
+         } else
+            postfix[0] = 0;
+         emit_hdrf(ctx, "%s%sin vec4 %s%s;\n", prefix, auxprefix, ctx->inputs[i].glsl_name, postfix);
+      }
+
+   }
+
+   emit_hdrf(ctx, "layout(%s, %s, %s%s) in;\n",
+             prim_to_tes_name(ctx->tes_prim_mode),
+             get_spacing_string(ctx->tes_spacing),
+             ctx->tes_vertex_order ? "cw" : "ccw",
+             ctx->tes_point_mode ? ", point_mode" : "");
+
+   for (i = 0; i < ctx->num_outputs; i++) {
+      if (!ctx->outputs[i].glsl_predefined_no_emit) {
+         if (ctx->outputs[i].name == TGSI_SEMANTIC_GENERIC ||
+             ctx->outputs[i].name == TGSI_SEMANTIC_COLOR ||
+             ctx->outputs[i].name == TGSI_SEMANTIC_BCOLOR) {
+            ctx->num_interps++;
+            prefix = INTERP_PREFIX;
+         } else
+            prefix = "";
+
+         /* ugly leave spaces to patch interp in later */
+         emit_hdrf(ctx, "%s%s%s%s vec4 %s;\n",
+                   prefix,
+                   ctx->outputs[i].precise ? "precise " : "",
+                   ctx->outputs[i].invariant ? "invariant " : "",
+                   ctx->outputs[i].fbfetch_used ? "inout" : "out",
+                   ctx->outputs[i].glsl_name);
+      } else if (ctx->outputs[i].invariant || ctx->outputs[i].precise) {
+         emit_hdrf(ctx, "%s%s;\n",
+                   ctx->outputs[i].precise ? "precise " :
+                                             (ctx->outputs[i].invariant ? "invariant " : ""),
+                   ctx->outputs[i].glsl_name);
+      }
+   }
+
+   emit_hdr(ctx, "uniform float winsys_adjust_y;\n");
+
+   if (ctx->num_in_clip_dist || ctx->key->prev_stage_pervertex_out) {
+      int clip_dist, cull_dist;
+      char clip_var[64] = {}, cull_var[64] = {};
+
+      clip_dist = ctx->key->prev_stage_num_clip_out ? ctx->key->prev_stage_num_clip_out : ctx->num_in_clip_dist;
+      cull_dist = ctx->key->prev_stage_num_cull_out;
+
+      if (clip_dist)
+         snprintf(clip_var, 64, "float gl_ClipDistance[%d];\n", clip_dist);
+      if (cull_dist)
+         snprintf(cull_var, 64, "float gl_CullDistance[%d];\n", cull_dist);
+
+      emit_hdrf(ctx, "in gl_PerVertex {\n vec4 gl_Position;\n float gl_PointSize; \n %s%s} gl_in[];\n", clip_var, cull_var);
+   }
+   if (ctx->num_clip_dist) {
+      emit_hdrf(ctx, "out gl_PerVertex {\n vec4 gl_Position;\n float gl_PointSize;\n float gl_ClipDistance[%d];\n} gl_out[];\n", ctx->num_clip_dist ? ctx->num_clip_dist : 8);
+      emit_hdr(ctx, "vec4 clip_dist_temp[2];\n");
+   }
+}
+
 
 static void emit_ios_others(struct dump_ctx *ctx)
 {
@@ -5072,6 +5165,9 @@ static void emit_ios(struct dump_ctx *ctx)
       break;
    case TGSI_PROCESSOR_TESS_CTRL:
       emit_ios_tcs(ctx);
+      break;
+   case TGSI_PROCESSOR_TESS_EVAL:
+      emit_ios_tes(ctx);
       break;
    default:
       emit_ios_others(ctx);
