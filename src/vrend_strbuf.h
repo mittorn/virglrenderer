@@ -31,6 +31,8 @@
 #include <stdarg.h>
 #include "util/u_math.h"
 
+#include "vrend_debug.h"
+
 /* shader string buffer */
 struct vrend_strbuf {
    /* NULL terminated string storage */
@@ -159,4 +161,46 @@ static inline void strbuf_appendf(struct vrend_strbuf *sb, const char *fmt, ...)
    strbuf_vappendf(sb, fmt, va);
    va_end(va);
 }
+
+struct vrend_strarray {
+   int num_strings;
+   int num_alloced_strings;
+   struct vrend_strbuf *strings;
+};
+
+static inline bool strarray_alloc(struct vrend_strarray *sa, int init_alloc)
+{
+   sa->num_strings = 0;
+   sa->num_alloced_strings = init_alloc;
+   sa->strings = calloc(init_alloc, sizeof(struct vrend_strbuf));
+   if (!sa->strings)
+      return false;
+   return true;
+}
+
+static inline bool strarray_addstrbuf(struct vrend_strarray *sa, struct vrend_strbuf *sb)
+{
+   assert(sa->num_strings < sa->num_alloced_strings);
+   if (sa->num_strings >= sa->num_alloced_strings)
+      return false;
+   sa->strings[sa->num_strings] = *sb;
+   sa->num_strings++;
+   return true;
+}
+
+static inline void strarray_free(struct vrend_strarray *sa, bool free_strings)
+{
+   if (free_strings) {
+      for (int i = 0; i < sa->num_strings; i++)
+         strbuf_free(&sa->strings[i]);
+   }
+   free(sa->strings);
+}
+
+static inline void strarray_dump(struct vrend_strarray *sa)
+{
+   for (int i = 0; i < sa->num_strings; i++)
+      vrend_printf("%s", sa->strings[i].buf);
+}
+
 #endif
