@@ -4240,14 +4240,130 @@ static void emit_image_decl(struct dump_ctx *ctx,
                access, volatile_str, precision, ptc, stc, sname, i);
 }
 
+static void emit_ios_common(struct dump_ctx *ctx)
+{
+   uint i;
+   const char *sname = tgsi_proc_to_prefix(ctx->prog_type);
+
+   for (i = 0; i < ctx->num_temp_ranges; i++) {
+      emit_hdrf(ctx, "vec4 temp%d[%d];\n", ctx->temp_ranges[i].first, ctx->temp_ranges[i].last - ctx->temp_ranges[i].first + 1);
+   }
+
+   if (ctx->write_mul_utemp) {
+      emit_hdr(ctx, "uvec4 mul_utemp;\n");
+      emit_hdr(ctx, "uvec4 umul_temp;\n");
+   }
+
+   if (ctx->write_mul_itemp) {
+      emit_hdr(ctx, "ivec4 mul_itemp;\n");
+      emit_hdr(ctx, "ivec4 imul_temp;\n");
+   }
+
+   if (ctx->ssbo_used_mask || ctx->has_file_memory) {
+     emit_hdr(ctx, "uint ssbo_addr_temp;\n");
+   }
+
+   if (ctx->shader_req_bits & SHADER_REQ_FP64) {
+      emit_hdr(ctx, "dvec2 fp64_dst[3];\n");
+      emit_hdr(ctx, "dvec2 fp64_src[4];\n");
+   }
+
+   for (i = 0; i < ctx->num_address; i++) {
+      emit_hdrf(ctx, "int addr%d;\n", i);
+   }
+   if (ctx->num_consts) {
+      const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
+      emit_hdrf(ctx, "uniform uvec4 %sconst0[%d];\n", cname, ctx->num_consts);
+   }
+
+   if (ctx->key->color_two_side) {
+      if (ctx->color_in_mask & 1)
+         emit_hdr(ctx, "vec4 realcolor0;\n");
+      if (ctx->color_in_mask & 2)
+         emit_hdr(ctx, "vec4 realcolor1;\n");
+   }
+   if (ctx->ubo_used_mask) {
+      const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
+
+      if (ctx->info.dimension_indirect_files & (1 << TGSI_FILE_CONSTANT)) {
+         require_glsl_ver(ctx, 150);
+         int first = ffs(ctx->ubo_used_mask) - 1;
+         unsigned num_ubo = util_bitcount(ctx->ubo_used_mask);
+         emit_hdrf(ctx, "uniform %subo { vec4 ubocontents[%d]; } %suboarr[%d];\n", cname, ctx->ubo_sizes[first], cname, num_ubo);
+      } else {
+         unsigned mask = ctx->ubo_used_mask;
+         while (mask) {
+            uint32_t i = u_bit_scan(&mask);
+            emit_hdrf(ctx, "uniform %subo%d { vec4 %subo%dcontents[%d]; };\n", cname, i, cname, i, ctx->ubo_sizes[i]);
+         }
+      }
+   }
+
+   if (ctx->info.indirect_files & (1 << TGSI_FILE_SAMPLER)) {
+      for (i = 0; i < ctx->num_sampler_arrays; i++) {
+         uint32_t first = ctx->sampler_arrays[i].first;
+         uint32_t range = ctx->sampler_arrays[i].array_size;
+         emit_sampler_decl(ctx, first, range, ctx->samplers + first);
+      }
+   } else {
+      uint nsamp = util_last_bit(ctx->samplers_used);
+      for (i = 0; i < nsamp; i++) {
+
+         if ((ctx->samplers_used & (1 << i)) == 0)
+            continue;
+
+         emit_sampler_decl(ctx, i, 0, ctx->samplers + i);
+      }
+   }
+
+   if (ctx->info.indirect_files & (1 << TGSI_FILE_IMAGE)) {
+      for (i = 0; i < ctx->num_image_arrays; i++) {
+         uint32_t first = ctx->image_arrays[i].first;
+         uint32_t range = ctx->image_arrays[i].array_size;
+         emit_image_decl(ctx, first, range, ctx->images + first);
+      }
+   } else {
+      uint32_t mask = ctx->images_used_mask;
+      while (mask) {
+         i = u_bit_scan(&mask);
+         emit_image_decl(ctx, i, 0, ctx->images + i);
+      }
+   }
+
+   for (i = 0; i < ctx->num_abo; i++){
+      if (ctx->abo_sizes[i] > 1)
+         emit_hdrf(ctx, "layout (binding = %d, offset = %d) uniform atomic_uint ac%d[%d];\n", ctx->abo_idx[i], ctx->abo_offsets[i] * 4, i, ctx->abo_sizes[i]);
+      else
+         emit_hdrf(ctx, "layout (binding = %d, offset = %d) uniform atomic_uint ac%d;\n", ctx->abo_idx[i], ctx->abo_offsets[i] * 4, i);
+   }
+
+   if (ctx->info.indirect_files & (1 << TGSI_FILE_BUFFER)) {
+      uint32_t mask = ctx->ssbo_used_mask;
+      while (mask) {
+         int start, count;
+         u_bit_scan_consecutive_range(&mask, &start, &count);
+         const char *atomic = (ctx->ssbo_atomic_mask & (1 << start)) ? "atomic" : "";
+         emit_hdrf(ctx, "layout (binding = %d, std430) buffer %sssbo%d { uint %sssbocontents%d[]; } %sssboarr%s[%d];\n", start, sname, start, sname, start, sname, atomic, count);
+      }
+   } else {
+      uint32_t mask = ctx->ssbo_used_mask;
+      while (mask) {
+         uint32_t id = u_bit_scan(&mask);
+         enum vrend_type_qualifier type = (ctx->ssbo_integer_mask & (1 << id)) ? INT : UINT;
+         emit_hdrf(ctx, "layout (binding = %d, std430) buffer %sssbo%d { %s %sssbocontents%d[]; };\n", id, sname, id,
+                  get_string(type), sname, id);
+      }
+   }
+
+}
+
 static void emit_ios(struct dump_ctx *ctx)
 {
    uint32_t i;
    char postfix[8];
    const char *prefix = "", *auxprefix = "";
    bool fcolor_emitted[2], bcolor_emitted[2];
-   uint32_t nsamp;
-   const char *sname = tgsi_proc_to_prefix(ctx->prog_type);
+
    ctx->num_interps = 0;
 
    if (ctx->so && ctx->so->num_outputs >= PIPE_MAX_SO_OUTPUTS) {
@@ -4566,116 +4682,8 @@ static void emit_ios(struct dump_ctx *ctx)
             emit_hdrf(ctx, "out %s tfout%d;\n", outtype, i);
       }
    }
-   for (i = 0; i < ctx->num_temp_ranges; i++) {
-      emit_hdrf(ctx, "vec4 temp%d[%d];\n", ctx->temp_ranges[i].first, ctx->temp_ranges[i].last - ctx->temp_ranges[i].first + 1);
-   }
 
-   if (ctx->write_mul_utemp) {
-      emit_hdr(ctx, "uvec4 mul_utemp;\n");
-      emit_hdr(ctx, "uvec4 umul_temp;\n");
-   }
-
-   if (ctx->write_mul_itemp) {
-      emit_hdr(ctx, "ivec4 mul_itemp;\n");
-      emit_hdr(ctx, "ivec4 imul_temp;\n");
-   }
-
-   if (ctx->ssbo_used_mask || ctx->has_file_memory) {
-     emit_hdr(ctx, "uint ssbo_addr_temp;\n");
-   }
-
-   if (ctx->shader_req_bits & SHADER_REQ_FP64) {
-      emit_hdr(ctx, "dvec2 fp64_dst[3];\n");
-      emit_hdr(ctx, "dvec2 fp64_src[4];\n");
-   }
-
-   for (i = 0; i < ctx->num_address; i++) {
-      emit_hdrf(ctx, "int addr%d;\n", i);
-   }
-   if (ctx->num_consts) {
-      const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
-      emit_hdrf(ctx, "uniform uvec4 %sconst0[%d];\n", cname, ctx->num_consts);
-   }
-
-   if (ctx->key->color_two_side) {
-      if (ctx->color_in_mask & 1)
-         emit_hdr(ctx, "vec4 realcolor0;\n");
-      if (ctx->color_in_mask & 2)
-         emit_hdr(ctx, "vec4 realcolor1;\n");
-   }
-   if (ctx->ubo_used_mask) {
-      const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
-
-      if (ctx->info.dimension_indirect_files & (1 << TGSI_FILE_CONSTANT)) {
-         require_glsl_ver(ctx, 150);
-         int first = ffs(ctx->ubo_used_mask) - 1;
-         unsigned num_ubo = util_bitcount(ctx->ubo_used_mask);
-         emit_hdrf(ctx, "uniform %subo { vec4 ubocontents[%d]; } %suboarr[%d];\n", cname, ctx->ubo_sizes[first], cname, num_ubo);
-      } else {
-         unsigned mask = ctx->ubo_used_mask;
-         while (mask) {
-            uint32_t i = u_bit_scan(&mask);
-            emit_hdrf(ctx, "uniform %subo%d { vec4 %subo%dcontents[%d]; };\n", cname, i, cname, i, ctx->ubo_sizes[i]);
-         }
-      }
-   }
-
-   if (ctx->info.indirect_files & (1 << TGSI_FILE_SAMPLER)) {
-      for (i = 0; i < ctx->num_sampler_arrays; i++) {
-         uint32_t first = ctx->sampler_arrays[i].first;
-         uint32_t range = ctx->sampler_arrays[i].array_size;
-         emit_sampler_decl(ctx, first, range, ctx->samplers + first);
-      }
-   } else {
-      nsamp = util_last_bit(ctx->samplers_used);
-      for (i = 0; i < nsamp; i++) {
-
-         if ((ctx->samplers_used & (1 << i)) == 0)
-            continue;
-
-         emit_sampler_decl(ctx, i, 0, ctx->samplers + i);
-      }
-   }
-
-   if (ctx->info.indirect_files & (1 << TGSI_FILE_IMAGE)) {
-      for (i = 0; i < ctx->num_image_arrays; i++) {
-         uint32_t first = ctx->image_arrays[i].first;
-         uint32_t range = ctx->image_arrays[i].array_size;
-         emit_image_decl(ctx, first, range, ctx->images + first);
-      }
-   } else {
-      uint32_t mask = ctx->images_used_mask;
-      while (mask) {
-         i = u_bit_scan(&mask);
-         emit_image_decl(ctx, i, 0, ctx->images + i);
-      }
-   }
-
-   for (i = 0; i < ctx->num_abo; i++){
-      if (ctx->abo_sizes[i] > 1)
-         emit_hdrf(ctx, "layout (binding = %d, offset = %d) uniform atomic_uint ac%d[%d];\n", ctx->abo_idx[i], ctx->abo_offsets[i] * 4, i, ctx->abo_sizes[i]);
-      else
-         emit_hdrf(ctx, "layout (binding = %d, offset = %d) uniform atomic_uint ac%d;\n", ctx->abo_idx[i], ctx->abo_offsets[i] * 4, i);
-   }
-
-   if (ctx->info.indirect_files & (1 << TGSI_FILE_BUFFER)) {
-      uint32_t mask = ctx->ssbo_used_mask;
-      while (mask) {
-         int start, count;
-         u_bit_scan_consecutive_range(&mask, &start, &count);
-         const char *atomic = (ctx->ssbo_atomic_mask & (1 << start)) ? "atomic" : "";
-         emit_hdrf(ctx, "layout (binding = %d, std430) buffer %sssbo%d { uint %sssbocontents%d[]; } %sssboarr%s[%d];\n", start, sname, start, sname, start, sname, atomic, count);
-      }
-   } else {
-      uint32_t mask = ctx->ssbo_used_mask;
-      while (mask) {
-         uint32_t id = u_bit_scan(&mask);
-         sname = tgsi_proc_to_prefix(ctx->prog_type);
-         enum vrend_type_qualifier type = (ctx->ssbo_integer_mask & (1 << id)) ? INT : UINT;
-         emit_hdrf(ctx, "layout (binding = %d, std430) buffer %sssbo%d { %s %sssbocontents%d[]; };\n", id, sname, id,
-                  get_string(type), sname, id);
-      }
-   }
+   emit_ios_common(ctx);
 
    if (ctx->prog_type == TGSI_PROCESSOR_FRAGMENT &&
        ctx->key->pstipple_tex == true) {
