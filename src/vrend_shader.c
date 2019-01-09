@@ -4596,24 +4596,21 @@ static void emit_ios_geom(struct dump_ctx *ctx)
 
 
    for (i = 0; i < ctx->num_inputs; i++) {
-      if (!ctx->inputs[i].glsl_predefined_no_emit) {
-         prefix = "";
-         auxprefix = "";
-         snprintf(postfix, 8, "[%d]", gs_input_prim_to_size(ctx->gs_in_prim));
-         emit_hdrf(ctx, "%s%sin vec4 %s%s;\n", prefix, auxprefix, ctx->inputs[i].glsl_name, postfix);
-      }
+      if (!ctx->inputs[i].glsl_predefined_no_emit)
+         emit_hdrf(ctx, "in vec4 %s[%d];\n", ctx->inputs[i].glsl_name, gs_input_prim_to_size(ctx->gs_in_prim));
    }
 
    for (i = 0; i < ctx->num_outputs; i++) {
 
       if (!ctx->outputs[i].glsl_predefined_no_emit) {
+         const char *prefix = "";
          if (ctx->outputs[i].name == TGSI_SEMANTIC_GENERIC ||
              ctx->outputs[i].name == TGSI_SEMANTIC_COLOR ||
              ctx->outputs[i].name == TGSI_SEMANTIC_BCOLOR) {
             ctx->num_interps++;
             prefix = INTERP_PREFIX;
-         } else
-            prefix = "";
+         }
+
          /* ugly leave spaces to patch interp in later */
          if (ctx->outputs[i].stream)
             emit_hdrf(ctx, "layout (stream = %d) %s%s%sout vec4 %s;\n", ctx->outputs[i].stream, prefix,
@@ -4630,7 +4627,7 @@ static void emit_ios_geom(struct dump_ctx *ctx)
       } else if (ctx->outputs[i].invariant || ctx->outputs[i].precise) {
          emit_hdrf(ctx, "%s%s;\n",
                    ctx->outputs[i].precise ? "precise " :
-                        (ctx->outputs[i].invariant ? "invariant " : ""),
+                   (ctx->outputs[i].invariant ? "invariant " : ""),
                    ctx->outputs[i].glsl_name);
       }
    }
