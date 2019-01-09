@@ -143,6 +143,7 @@ struct dump_ctx {
    int prog_type;
    int size;
    struct vrend_strbuf glsl_main;
+   int indent_level;
    struct vrend_strbuf glsl_hdr;
    struct vrend_strbuf glsl_ver_ext;
    uint instno;
@@ -547,19 +548,36 @@ static void require_glsl_ver(struct dump_ctx *ctx, int glsl_ver)
       ctx->glsl_ver_required = glsl_ver;
 }
 
+static void emit_indent(struct dump_ctx *ctx)
+{
+   if (ctx->indent_level > 0) {
+      /* very high levels of indentation doesn't improve readability */
+      int indent_level = MIN2(ctx->indent_level, 15);
+      char buf[16];
+      memset(buf, '\t', indent_level);
+      buf[indent_level] = '\0';
+      strbuf_append(&ctx->glsl_main, buf);
+   }
+}
+
 static void emit_buf(struct dump_ctx *ctx, const char *buf)
 {
+   emit_indent(ctx);
    strbuf_append(&ctx->glsl_main, buf);
 }
 
 static void indent_buf(struct dump_ctx *ctx)
 {
-   return strbuf_indent(&ctx->glsl_main);
+   ctx->indent_level++;
 }
 
 static void outdent_buf(struct dump_ctx *ctx)
 {
-   return strbuf_outdent(&ctx->glsl_main);
+   if (ctx->indent_level <= 0) {
+      strbuf_set_error(&ctx->glsl_main);
+      return;
+   }
+   ctx->indent_level--;
 }
 
 static void set_buf_error(struct dump_ctx *ctx)
@@ -572,6 +590,7 @@ static void emit_buff(struct dump_ctx *ctx, const char *fmt, ...)
 {
    va_list va;
    va_start(va, fmt);
+   emit_indent(ctx);
    strbuf_vappendf(&ctx->glsl_main, fmt, va);
    va_end(va);
 }

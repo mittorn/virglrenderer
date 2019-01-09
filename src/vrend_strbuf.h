@@ -42,7 +42,6 @@ struct vrend_strbuf {
    /* size of string stored without terminating NULL */
    size_t size;
    bool error_state;
-   int indent_level;
 };
 
 static inline void strbuf_set_error(struct vrend_strbuf *sb)
@@ -53,20 +52,6 @@ static inline void strbuf_set_error(struct vrend_strbuf *sb)
 static inline bool strbuf_get_error(struct vrend_strbuf *sb)
 {
    return sb->error_state;
-}
-
-static inline void strbuf_indent(struct vrend_strbuf *sb)
-{
-   sb->indent_level++;
-}
-
-static inline void strbuf_outdent(struct vrend_strbuf *sb)
-{
-   if (sb->indent_level <= 0) {
-      strbuf_set_error(sb);
-      return;
-   }
-   sb->indent_level--;
 }
 
 static inline size_t strbuf_get_len(struct vrend_strbuf *sb)
@@ -88,7 +73,6 @@ static inline bool strbuf_alloc(struct vrend_strbuf *sb, int initial_size)
    sb->buf[0] = 0;
    sb->error_state = false;
    sb->size = 0;
-   sb->indent_level = 0;
    return true;
 }
 
@@ -98,14 +82,13 @@ static inline bool strbuf_alloc(struct vrend_strbuf *sb, int initial_size)
 static inline void strbuf_append_buffer(struct vrend_strbuf *sb, const char *data, size_t len)
 {
    assert(!memchr(data, '\0', len));
-   int new_len = len + sb->indent_level;
    if (strbuf_get_error(sb))
       return;
-   if (sb->size + new_len + 1 > sb->alloc_size) {
+   if (sb->size + len + 1 > sb->alloc_size) {
       /* Reallocate to the larger size of current alloc + min realloc,
        * or the resulting string size if larger.
        */
-      size_t new_size = MAX2(sb->size + new_len + 1, sb->alloc_size + STRBUF_MIN_MALLOC);
+      size_t new_size = MAX2(sb->size + len + 1, sb->alloc_size + STRBUF_MIN_MALLOC);
       char *new = realloc(sb->buf, new_size);
       if (!new) {
          strbuf_set_error(sb);
@@ -114,14 +97,8 @@ static inline void strbuf_append_buffer(struct vrend_strbuf *sb, const char *dat
       sb->buf = new;
       sb->alloc_size = new_size;
    }
-   if (sb->indent_level) {
-      memset(sb->buf + sb->size, '\t', sb->indent_level);
-      sb->size += sb->indent_level;
-      sb->buf[sb->size] = '\0';
-      new_len -= sb->indent_level;
-   }
-   memcpy(sb->buf + sb->size, data, new_len);
-   sb->size += new_len;
+   memcpy(sb->buf + sb->size, data, len);
+   sb->size += len;
    sb->buf[sb->size] = '\0';
 }
 

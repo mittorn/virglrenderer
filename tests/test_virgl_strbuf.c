@@ -159,57 +159,6 @@ START_TEST(strbuf_test_boundary2)
 }
 END_TEST
 
-START_TEST(strbuf_test_indent)
-{
-   struct vrend_strbuf sb;
-   bool ret;
-   char str[9];
-   ret = strbuf_alloc(&sb, 1024);
-   ck_assert_int_eq(ret, true);
-
-   for (int i = 0; i < 8; i++)
-      str[i] = 'a' + i;
-   str[8] = 0;
-
-   strbuf_indent(&sb);
-   strbuf_append(&sb, str);
-   strbuf_outdent(&sb);
-   strbuf_append(&sb, str);
-   /* make sure the TAB got added */
-   ck_assert_int_eq(strbuf_get_error(&sb), false);
-
-   ck_assert_str_eq(sb.buf, "\tabcdefghabcdefgh");
-   strbuf_free(&sb);
-}
-END_TEST
-
-START_TEST(strbuf_test_indent2)
-{
-   struct vrend_strbuf sb;
-   bool ret;
-   char str[513];
-   ret = strbuf_alloc(&sb, 1024);
-   ck_assert_int_eq(ret, true);
-
-   strbuf_indent(&sb);
-   for (int i = 0; i < 512; i++)
-      str[i] = 'a' + (i % 26);
-   str[512] = 0;
-   strbuf_append(&sb, str);
-   strbuf_outdent(&sb);
-   /* make sure the TAB got added */
-   ck_assert_int_eq(strbuf_get_len(&sb), strlen(str) + 1);
-   strbuf_append(&sb, str);
-   ck_assert_int_eq(strbuf_get_error(&sb), false);
-   ck_assert_int_eq(strbuf_get_len(&sb), strlen(sb.buf));
-   /* we should have 512 + 512 + 1 at least */
-   ck_assert_int_ge(sb.alloc_size, strbuf_get_len(&sb) + 1);
-   ck_assert_int_gt(sb.alloc_size, 1024);
-
-   strbuf_free(&sb);
-}
-END_TEST
-
 START_TEST(strbuf_test_appendf)
 {
    struct vrend_strbuf sb;
@@ -251,8 +200,6 @@ static Suite *init_suite(void)
   tcase_add_test(tc_core, strbuf_add_huge_string);
   tcase_add_test(tc_core, strbuf_test_boundary);
   tcase_add_test(tc_core, strbuf_test_boundary2);
-  tcase_add_test(tc_core, strbuf_test_indent);
-  tcase_add_test(tc_core, strbuf_test_indent2);
   tcase_add_test(tc_core, strbuf_test_appendf);
   tcase_add_test(tc_core, strbuf_test_appendf_str);
   return s;
