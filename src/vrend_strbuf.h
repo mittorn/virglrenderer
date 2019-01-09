@@ -115,25 +115,16 @@ static inline void strbuf_append(struct vrend_strbuf *sb, const char *addstr)
 
 static inline void strbuf_vappendf(struct vrend_strbuf *sb, const char *fmt, va_list ap)
 {
-   char buf[512];
-
    va_list cp;
    va_copy(cp, ap);
 
-   int len = vsnprintf(buf, sizeof(buf), fmt, ap);
-   if (len < (int)sizeof(buf)) {
-      strbuf_append_buffer(sb, buf, len);
-      return;
+   int len = vsnprintf(sb->buf + sb->size, sb->alloc_size - sb->size, fmt, ap);
+   if (len >= (int)(sb->alloc_size - sb->size)) {
+      if (!strbuf_grow(sb, len))
+        return;
+      vsnprintf(sb->buf + sb->size, sb->alloc_size - sb->size, fmt, cp);
    }
-
-   char *tmp = malloc(len);
-   if (!tmp) {
-      strbuf_set_error(sb);
-      return;
-   }
-   vsnprintf(tmp, len, fmt, cp);
-   strbuf_append_buffer(sb, tmp, len);
-   free(tmp);
+   sb->size += len;
 }
 
 __attribute__((format(printf, 2, 3)))
