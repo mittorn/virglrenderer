@@ -4669,6 +4669,85 @@ static void emit_ios_geom(struct dump_ctx *ctx)
 }
 
 
+static void emit_ios_tcs(struct dump_ctx *ctx)
+{
+   uint32_t i;
+   char postfix[8];
+   const char *prefix = "";
+
+   if (ctx_indirect_inputs(ctx)) {
+      const char *name_prefix = get_stage_input_name_prefix(ctx, ctx->prog_type);
+
+      if (ctx->generic_input_range.used) {
+         int size = ctx->generic_input_range.last - ctx->generic_input_range.first + 1;
+         if (size < ctx->key->num_indirect_generic_inputs)
+            size = ctx->key->num_indirect_generic_inputs;
+         emit_hdrf(ctx, "in block { vec4 %s%d[%d]; } blk[];\n", name_prefix, ctx->generic_input_range.first, size);
+      }
+   }
+
+   for (i = 0; i < ctx->num_inputs; i++) {
+      if (!ctx->inputs[i].glsl_predefined_no_emit) {
+         if (ctx->inputs[i].name != TGSI_SEMANTIC_PATCH) {
+            snprintf(postfix, 8, "[]");
+         } else
+            postfix[0] = 0;
+         emit_hdrf(ctx, "in vec4 %s%s;\n", ctx->inputs[i].glsl_name, postfix);
+      }
+   }
+
+   emit_hdrf(ctx, "layout(vertices = %d) out;\n", ctx->tcs_vertices_out);
+
+   if (ctx_indirect_outputs(ctx)) {
+      const char *name_prefix = get_stage_output_name_prefix(ctx->prog_type);
+      if (ctx->generic_output_range.used) {
+         emit_hdrf(ctx, "out block { vec4 %s%d[%d]; } oblk[];\n", name_prefix, ctx->generic_output_range.first, ctx->generic_output_range.last - ctx->generic_output_range.first + 1);
+      }
+      if (ctx->patch_output_range.used) {
+         emit_hdrf(ctx, "patch out vec4 %sp%d[%d];\n", name_prefix, ctx->patch_output_range.first, ctx->patch_output_range.last - ctx->patch_output_range.first + 1);
+      }
+   }
+
+   for (i = 0; i < ctx->num_outputs; i++) {
+      if (!ctx->outputs[i].glsl_predefined_no_emit) {
+         prefix = "";
+         /* ugly leave spaces to patch interp in later */
+         if (ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL) {
+            if (ctx->outputs[i].name == TGSI_SEMANTIC_PATCH)
+               emit_hdrf(ctx, "patch out vec4 %s;\n", ctx->outputs[i].glsl_name);
+            else
+               emit_hdrf(ctx, "%sout vec4 %s[];\n", prefix, ctx->outputs[i].glsl_name);
+         }
+      } else if (ctx->outputs[i].invariant || ctx->outputs[i].precise) {
+         emit_hdrf(ctx, "%s%s;\n",
+                   ctx->outputs[i].precise ? "precise " :
+                   (ctx->outputs[i].invariant ? "invariant " : ""),
+                   ctx->outputs[i].glsl_name);
+      }
+   }
+
+   if (ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL) {
+      if (ctx->num_in_clip_dist || ctx->key->prev_stage_pervertex_out) {
+         int clip_dist, cull_dist;
+         char clip_var[64] = {}, cull_var[64] = {};
+
+         clip_dist = ctx->key->prev_stage_num_clip_out ? ctx->key->prev_stage_num_clip_out : ctx->num_in_clip_dist;
+         cull_dist = ctx->key->prev_stage_num_cull_out;
+
+         if (clip_dist)
+            snprintf(clip_var, 64, "float gl_ClipDistance[%d];\n", clip_dist);
+         if (cull_dist)
+            snprintf(cull_var, 64, "float gl_CullDistance[%d];\n", cull_dist);
+
+         emit_hdrf(ctx, "in gl_PerVertex {\n vec4 gl_Position;\n float gl_PointSize; \n %s%s} gl_in[];\n", clip_var, cull_var);
+      }
+      if (ctx->num_clip_dist) {
+         emit_hdrf(ctx, "out gl_PerVertex {\n vec4 gl_Position;\n float gl_PointSize;\n float gl_ClipDistance[%d];\n} gl_out[];\n", ctx->num_clip_dist ? ctx->num_clip_dist : 8);
+         emit_hdr(ctx, "vec4 clip_dist_temp[2];\n");
+      }
+   }
+}
+
 
 static void emit_ios_others(struct dump_ctx *ctx)
 {
@@ -4990,6 +5069,9 @@ static void emit_ios(struct dump_ctx *ctx)
       break;
    case TGSI_PROCESSOR_GEOMETRY:
       emit_ios_geom(ctx);
+      break;
+   case TGSI_PROCESSOR_TESS_CTRL:
+      emit_ios_tcs(ctx);
       break;
    default:
       emit_ios_others(ctx);
