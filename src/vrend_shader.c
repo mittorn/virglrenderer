@@ -4577,6 +4577,98 @@ static void emit_ios_fs(struct dump_ctx *ctx)
    }
 }
 
+static void emit_ios_geom(struct dump_ctx *ctx)
+{
+   uint32_t i;
+   char postfix[8];
+   const char *prefix = "", *auxprefix = "";
+   char invocbuf[25];
+
+   if (ctx->gs_num_invocations)
+      snprintf(invocbuf, 25, ", invocations = %d", ctx->gs_num_invocations);
+
+   emit_hdrf(ctx, "layout(%s%s) in;\n", prim_to_name(ctx->gs_in_prim),
+             ctx->gs_num_invocations > 1 ? invocbuf : "");
+   emit_hdrf(ctx, "layout(%s, max_vertices = %d) out;\n", prim_to_name(ctx->gs_out_prim), ctx->gs_max_out_verts);
+
+
+   for (i = 0; i < ctx->num_inputs; i++) {
+      if (!ctx->inputs[i].glsl_predefined_no_emit) {
+         prefix = "";
+         auxprefix = "";
+         snprintf(postfix, 8, "[%d]", gs_input_prim_to_size(ctx->gs_in_prim));
+         emit_hdrf(ctx, "%s%sin vec4 %s%s;\n", prefix, auxprefix, ctx->inputs[i].glsl_name, postfix);
+      }
+   }
+
+   for (i = 0; i < ctx->num_outputs; i++) {
+
+      if (!ctx->outputs[i].glsl_predefined_no_emit) {
+         if (ctx->outputs[i].name == TGSI_SEMANTIC_GENERIC ||
+             ctx->outputs[i].name == TGSI_SEMANTIC_COLOR ||
+             ctx->outputs[i].name == TGSI_SEMANTIC_BCOLOR) {
+            ctx->num_interps++;
+            prefix = INTERP_PREFIX;
+         } else
+            prefix = "";
+         /* ugly leave spaces to patch interp in later */
+         if (ctx->outputs[i].stream)
+            emit_hdrf(ctx, "layout (stream = %d) %s%s%sout vec4 %s;\n", ctx->outputs[i].stream, prefix,
+                      ctx->outputs[i].precise ? "precise " : "",
+                      ctx->outputs[i].invariant ? "invariant " : "",
+                      ctx->outputs[i].glsl_name);
+         else
+            emit_hdrf(ctx, "%s%s%s%s vec4 %s;\n",
+                      prefix,
+                      ctx->outputs[i].precise ? "precise " : "",
+                      ctx->outputs[i].invariant ? "invariant " : "",
+                      ctx->outputs[i].fbfetch_used ? "inout" : "out",
+                      ctx->outputs[i].glsl_name);
+      } else if (ctx->outputs[i].invariant || ctx->outputs[i].precise) {
+         emit_hdrf(ctx, "%s%s;\n",
+                   ctx->outputs[i].precise ? "precise " :
+                        (ctx->outputs[i].invariant ? "invariant " : ""),
+                   ctx->outputs[i].glsl_name);
+      }
+   }
+
+   emit_hdr(ctx, "uniform float winsys_adjust_y;\n");
+
+   if (ctx->num_in_clip_dist || ctx->key->clip_plane_enable || ctx->key->prev_stage_pervertex_out) {
+      int clip_dist, cull_dist;
+      char clip_var[64] = {}, cull_var[64] = {};
+
+      clip_dist = ctx->key->prev_stage_num_clip_out ? ctx->key->prev_stage_num_clip_out : ctx->num_in_clip_dist;
+      cull_dist = ctx->key->prev_stage_num_cull_out;
+
+      if (clip_dist)
+         snprintf(clip_var, 64, "float gl_ClipDistance[%d];\n", clip_dist);
+      if (cull_dist)
+         snprintf(cull_var, 64, "float gl_CullDistance[%d];\n", cull_dist);
+
+      emit_hdrf(ctx, "in gl_PerVertex {\n vec4 gl_Position;\n float gl_PointSize; \n %s%s\n} gl_in[];\n", clip_var, cull_var);
+   }
+   if (ctx->num_clip_dist) {
+      bool has_prop = (ctx->num_clip_dist_prop + ctx->num_cull_dist_prop) > 0;
+      int num_clip_dists = ctx->num_clip_dist ? ctx->num_clip_dist : 8;
+      int num_cull_dists = 0;
+      char cull_buf[64] = { 0 };
+      char clip_buf[64] = { 0 };
+      if (has_prop) {
+         num_clip_dists = ctx->num_clip_dist_prop;
+         num_cull_dists = ctx->num_cull_dist_prop;
+         if (num_clip_dists)
+            snprintf(clip_buf, 64, "out float gl_ClipDistance[%d];\n", num_clip_dists);
+         if (num_cull_dists)
+            snprintf(cull_buf, 64, "out float gl_CullDistance[%d];\n", num_cull_dists);
+      } else
+         snprintf(clip_buf, 64, "out float gl_ClipDistance[%d];\n", num_clip_dists);
+      emit_hdrf(ctx, "%s%s\n", clip_buf, cull_buf);
+      emit_hdrf(ctx, "vec4 clip_dist_temp[2];\n");
+   }
+}
+
+
 
 static void emit_ios_others(struct dump_ctx *ctx)
 {
@@ -4895,6 +4987,9 @@ static void emit_ios(struct dump_ctx *ctx)
       break;
    case TGSI_PROCESSOR_FRAGMENT:
       emit_ios_fs(ctx);
+      break;
+   case TGSI_PROCESSOR_GEOMETRY:
+      emit_ios_geom(ctx);
       break;
    default:
       emit_ios_others(ctx);
