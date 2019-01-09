@@ -124,6 +124,10 @@ static inline void strbuf_append(struct vrend_strbuf *sb, const char *addstr)
 static inline void strbuf_vappendf(struct vrend_strbuf *sb, const char *fmt, va_list ap)
 {
    char buf[512];
+
+   va_list cp;
+   va_copy(cp, ap);
+
    int len = vsnprintf(buf, sizeof(buf), fmt, ap);
    if (len < (int)sizeof(buf)) {
       strbuf_append(sb, buf);
@@ -135,7 +139,7 @@ static inline void strbuf_vappendf(struct vrend_strbuf *sb, const char *fmt, va_
       strbuf_set_error(sb);
       return;
    }
-   vsnprintf(tmp, len, fmt, ap);
+   vsnprintf(tmp, len, fmt, cp);
    strbuf_append(sb, tmp);
    free(tmp);
 }
