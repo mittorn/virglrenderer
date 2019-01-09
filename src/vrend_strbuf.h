@@ -136,6 +136,29 @@ static inline void strbuf_appendf(struct vrend_strbuf *sb, const char *fmt, ...)
    va_end(va);
 }
 
+static inline void strbuf_vfmt(struct vrend_strbuf *sb, const char *fmt, va_list ap)
+{
+   va_list cp;
+   va_copy(cp, ap);
+
+   int len = vsnprintf(sb->buf, sb->alloc_size, fmt, ap);
+   if (len >= (int)(sb->alloc_size)) {
+      if (!strbuf_grow(sb, len))
+        return;
+      vsnprintf(sb->buf, sb->alloc_size, fmt, cp);
+   }
+   sb->size = len;
+}
+
+__attribute__((format(printf, 2, 3)))
+static inline void strbuf_fmt(struct vrend_strbuf *sb, const char *fmt, ...)
+{
+   va_list va;
+   va_start(va, fmt);
+   strbuf_vfmt(sb, fmt, va);
+   va_end(va);
+}
+
 struct vrend_strarray {
    int num_strings;
    int num_alloced_strings;
