@@ -134,6 +134,7 @@ struct dump_ctx {
    int size;
    struct vrend_strbuf glsl_main;
    struct vrend_strbuf glsl_hdr;
+   struct vrend_strbuf glsl_ver_ext;
    uint instno;
 
    uint32_t num_interps;
@@ -536,6 +537,25 @@ static void emit_hdrf(struct dump_ctx *ctx, const char *fmt, ...)
    va_list va;
    va_start(va, fmt);
    strbuf_vappendf(&ctx->glsl_hdr, fmt, va);
+   va_end(va);
+}
+
+static void emit_ver_ext(struct dump_ctx *ctx, const char *buf)
+{
+   strbuf_append(&ctx->glsl_ver_ext, buf);
+}
+
+static void set_ver_ext_error(struct dump_ctx *ctx)
+{
+   strbuf_set_error(&ctx->glsl_ver_ext);
+}
+
+__attribute__((format(printf, 2, 3)))
+static void emit_ver_extf(struct dump_ctx *ctx, const char *fmt, ...)
+{
+   va_list va;
+   va_start(va, fmt);
+   strbuf_vappendf(&ctx->glsl_ver_ext, fmt, va);
    va_end(va);
 }
 
@@ -3839,30 +3859,16 @@ prolog(struct tgsi_iterate_context *iter)
    return true;
 }
 
-/* reserve space for: "#extension GL_ARB_gpu_shader5 : require\n" */
-#define PAD_GPU_SHADER5(ctx) \
-   emit_hdr(ctx, "                                       \n")
-#define PAD_GPU_MSINTERPOL(ctx) \
-   emit_hdr(ctx, "                                                            \n")
-
 static void emit_ext(struct dump_ctx *ctx, const char *name,
                      const char *verb)
 {
-   emit_hdrf(ctx, "#extension GL_%s : %s\n", name, verb);
+   emit_ver_extf(ctx, "#extension GL_%s : %s\n", name, verb);
 }
 
 static void emit_header(struct dump_ctx *ctx)
 {
    if (ctx->cfg->use_gles) {
-      emit_hdrf(ctx, "#version %d es\n", ctx->cfg->glsl_version);
-
-      if (ctx->cfg->glsl_version < 320 &&
-          (ctx->prog_type == TGSI_PROCESSOR_VERTEX ||
-           ctx->prog_type == TGSI_PROCESSOR_GEOMETRY ||
-           ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL)) {
-         PAD_GPU_SHADER5(ctx);
-         PAD_GPU_MSINTERPOL(ctx);
-      }
+      emit_ver_extf(ctx, "#version %d es\n", ctx->cfg->glsl_version);
 
       if ((ctx->shader_req_bits & SHADER_REQ_CLIP_DISTANCE)||
           (ctx->num_clip_dist == 0 && ctx->key->clip_plane_enable)) {
@@ -3906,28 +3912,22 @@ static void emit_header(struct dump_ctx *ctx)
             emit_ext(ctx, "OES_shader_image_atomic", "require");
       }
 
-
-      PAD_GPU_SHADER5(ctx);
       emit_hdr(ctx, "precision highp float;\n");
       emit_hdr(ctx, "precision highp int;\n");
    } else {
       if (ctx->prog_type == TGSI_PROCESSOR_COMPUTE) {
-         emit_hdr(ctx, "#version 330\n");
+         emit_ver_ext(ctx, "#version 330\n");
          emit_ext(ctx, "ARB_compute_shader", "require");
       } else {
          if (ctx->prog_type == TGSI_PROCESSOR_GEOMETRY ||
              ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL ||
              ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL ||
              ctx->glsl_ver_required == 150)
-            emit_hdr(ctx, "#version 150\n");
+            emit_ver_ext(ctx, "#version 150\n");
          else if (ctx->glsl_ver_required == 140)
-            emit_hdr(ctx, "#version 140\n");
+            emit_ver_ext(ctx, "#version 140\n");
          else
-            emit_hdr(ctx, "#version 130\n");
-         if (ctx->prog_type == TGSI_PROCESSOR_VERTEX ||
-             ctx->prog_type == TGSI_PROCESSOR_GEOMETRY ||
-             ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL)
-            PAD_GPU_SHADER5(ctx);
+            emit_ver_ext(ctx, "#version 130\n");
       }
 
       if (ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL ||
@@ -5029,6 +5029,9 @@ bool vrend_convert_shader(struct vrend_context *rctx,
    if (!strbuf_alloc(&ctx.glsl_hdr, 1024))
       goto fail;
 
+   if (!strbuf_alloc(&ctx.glsl_ver_ext, 1024))
+      goto fail;
+
    emit_header(&ctx);
    emit_ios(&ctx);
 
@@ -5095,6 +5098,7 @@ bool vrend_convert_shader(struct vrend_context *rctx,
    sinfo->image_arrays = ctx.image_arrays;
    sinfo->num_image_arrays = ctx.num_image_arrays;
 
+   strarray_addstrbuf(shader, &ctx.glsl_ver_ext);
    strarray_addstrbuf(shader, &ctx.glsl_hdr);
    strarray_addstrbuf(shader, &ctx.glsl_main);
    VREND_DEBUG(dbg_shader_glsl, rctx, "GLSL:");
@@ -5104,6 +5108,7 @@ bool vrend_convert_shader(struct vrend_context *rctx,
  fail:
    strbuf_free(&ctx.glsl_main);
    strbuf_free(&ctx.glsl_hdr);
+   strbuf_free(&ctx.glsl_ver_ext);
    free(ctx.so_names);
    free(ctx.temp_ranges);
    return false;
@@ -5116,7 +5121,7 @@ static void replace_interp(struct vrend_strarray *program,
    char *ptr;
    int mylen = strlen(INTERP_PREFIX) + strlen("out vec4 ");
 
-   ptr = strstr(program->strings[0].buf, var_name);
+   ptr = strstr(program->strings[SHADER_STRING_HDR].buf, var_name);
 
    if (!ptr)
       return;
@@ -5132,13 +5137,7 @@ static const char *gpu_shader5_string = "#extension GL_ARB_gpu_shader5 : require
 
 static void require_gpu_shader5(struct vrend_strarray *program)
 {
-   /* the first line is the #version line */
-   char *ptr = strchr(program->strings[0].buf, '\n');
-   if (!ptr)
-      return;
-   ptr++;
-
-   memcpy(ptr, gpu_shader5_string, strlen(gpu_shader5_string));
+   strbuf_append(&program->strings[SHADER_STRING_VER_EXT], gpu_shader5_string);
 }
 
 static const char *gpu_shader5_and_msinterp_string =
@@ -5147,13 +5146,7 @@ static const char *gpu_shader5_and_msinterp_string =
 
 static void require_gpu_shader5_and_msinterp(struct vrend_strarray *program)
 {
-   /* the first line is the #version line */
-   char *ptr = strchr(program->strings[0].buf, '\n');
-   if (!ptr)
-      return;
-   ptr++;
-
-   memcpy(ptr, gpu_shader5_and_msinterp_string, strlen(gpu_shader5_and_msinterp_string));
+   strbuf_append(&program->strings[SHADER_STRING_VER_EXT], gpu_shader5_and_msinterp_string);
 }
 
 bool vrend_patch_vertex_shader_interpolants(struct vrend_context *rctx,

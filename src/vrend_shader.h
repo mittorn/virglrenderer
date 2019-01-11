@@ -114,7 +114,9 @@ struct vrend_shader_cfg {
 
 struct vrend_context;
 
-#define SHADER_MAX_STRINGS 2
+#define SHADER_MAX_STRINGS 3
+#define SHADER_STRING_VER_EXT 0
+#define SHADER_STRING_HDR 1
 
 bool vrend_patch_vertex_shader_interpolants(struct vrend_context *rctx,
                                             struct vrend_shader_cfg *cfg,
