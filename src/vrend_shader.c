@@ -178,9 +178,8 @@ struct dump_ctx {
    uint32_t req_local_mem;
    bool integer_memory;
 
-   uint32_t num_ubo;
    uint32_t ubo_base;
-   int ubo_idx[32];
+   uint32_t ubo_used_mask;
    int ubo_sizes[32];
    uint32_t num_address;
 
@@ -1240,13 +1239,16 @@ iter_declaration(struct tgsi_iterate_context *iter,
       break;
    case TGSI_FILE_CONSTANT:
       if (decl->Declaration.Dimension && decl->Dim.Index2D != 0) {
-         if (ctx->num_ubo >= ARRAY_SIZE(ctx->ubo_idx)) {
-            fprintf(stderr, "Number of uniforms exceeded, max is %lu\n", ARRAY_SIZE(ctx->ubo_idx));
+         if (decl->Dim.Index2D > 31) {
+            fprintf(stderr, "Number of uniforms exceeded, max is 32\n");
             return false;
          }
-         ctx->ubo_idx[ctx->num_ubo] = decl->Dim.Index2D;
-         ctx->ubo_sizes[ctx->num_ubo] = decl->Range.Last + 1;
-         ctx->num_ubo++;
+         if (ctx->ubo_used_mask & (1 << decl->Dim.Index2D)) {
+            fprintf(stderr, "UBO #%d is already defined\n", decl->Dim.Index2D);
+            return false;
+         }
+         ctx->ubo_used_mask |= (1 << decl->Dim.Index2D);
+         ctx->ubo_sizes[decl->Dim.Index2D] = decl->Range.Last + 1;
       } else {
          /* if we have a normal single const set then ubo base should be 1 */
          ctx->ubo_base = 1;
@@ -3927,7 +3929,7 @@ static void emit_header(struct dump_ctx *ctx)
       if (ctx->prog_type == TGSI_PROCESSOR_FRAGMENT && fs_emit_layout(ctx))
          emit_ext(ctx, "ARB_fragment_coord_conventions", "require");
 
-      if (ctx->num_ubo)
+      if (ctx->ubo_used_mask)
          emit_ext(ctx, "ARB_uniform_buffer_object", "require");
 
       if (ctx->num_cull_dist_prop || ctx->key->prev_stage_num_cull_out)
@@ -4601,15 +4603,19 @@ static void emit_ios(struct dump_ctx *ctx)
       if (ctx->color_in_mask & 2)
          emit_hdr(ctx, "vec4 realcolor1;\n");
    }
-   if (ctx->num_ubo) {
+   if (ctx->ubo_used_mask) {
       const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
 
       if (ctx->info.dimension_indirect_files & (1 << TGSI_FILE_CONSTANT)) {
          require_glsl_ver(ctx, 150);
-         emit_hdrf(ctx, "uniform %subo { vec4 ubocontents[%d]; } %suboarr[%d];\n", cname, ctx->ubo_sizes[0], cname, ctx->num_ubo);
+         int first = ffs(ctx->ubo_used_mask) - 1;
+         unsigned num_ubo = util_bitcount(ctx->ubo_used_mask);
+         emit_hdrf(ctx, "uniform %subo { vec4 ubocontents[%d]; } %suboarr[%d];\n", cname, ctx->ubo_sizes[first], cname, num_ubo);
       } else {
-         for (i = 0; i < ctx->num_ubo; i++) {
-            emit_hdrf(ctx, "uniform %subo%d { vec4 %subo%dcontents[%d]; };\n", cname, ctx->ubo_idx[i], cname, ctx->ubo_idx[i], ctx->ubo_sizes[i]);
+         unsigned mask = ctx->ubo_used_mask;
+         while (mask) {
+            uint32_t i = u_bit_scan(&mask);
+            emit_hdrf(ctx, "uniform %subo%d { vec4 %subo%dcontents[%d]; };\n", cname, i, cname, i, ctx->ubo_sizes[i]);
          }
       }
    }
@@ -4847,8 +4853,7 @@ char *vrend_convert_shader(struct vrend_context *rctx,
    sinfo->samplers_used_mask = ctx.samplers_used;
    sinfo->images_used_mask = ctx.images_used_mask;
    sinfo->num_consts = ctx.num_consts;
-   sinfo->num_ubos = ctx.num_ubo;
-   memcpy(sinfo->ubo_idx, ctx.ubo_idx, ctx.num_ubo * sizeof(*ctx.ubo_idx));
+   sinfo->ubo_used_mask = ctx.ubo_used_mask;
 
    sinfo->ssbo_used_mask = ctx.ssbo_used_mask;
 

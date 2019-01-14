@@ -44,13 +44,12 @@ struct vrend_array {
 struct vrend_shader_info {
    uint32_t samplers_used_mask;
    uint32_t images_used_mask;
+   uint32_t ubo_used_mask;
    uint32_t ssbo_used_mask;
    int num_consts;
    int num_inputs;
    int num_interps;
    int num_outputs;
-   int num_ubos;
-   int ubo_idx[32];
    bool ubo_indirect;
    uint8_t num_indirect_generic_outputs;
    uint8_t num_indirect_patch_outputs;
