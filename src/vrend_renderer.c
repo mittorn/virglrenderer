@@ -501,6 +501,7 @@ struct vrend_sub_context {
 
    struct pipe_constant_buffer cbs[PIPE_SHADER_TYPES][PIPE_MAX_CONSTANT_BUFFERS];
    uint32_t const_bufs_used_mask[PIPE_SHADER_TYPES];
+   uint32_t const_bufs_dirty[PIPE_SHADER_TYPES];
 
    int num_sampler_states[PIPE_SHADER_TYPES];
 
@@ -2440,6 +2441,7 @@ void vrend_set_uniform_buffer(struct vrend_context *ctx,
       ctx->sub->cbs[shader][index].buffer_size = 0;
       ctx->sub->const_bufs_used_mask[shader] &= ~(1 << index);
    }
+   ctx->sub->const_bufs_dirty[shader] |= (1 << index);
 }
 
 void vrend_set_index_buffer(struct vrend_context *ctx,
@@ -3648,7 +3650,7 @@ static void vrend_draw_bind_samplers_shader(struct vrend_context *ctx,
 static void vrend_draw_bind_ubo_shader(struct vrend_context *ctx,
                                        int shader_type, int *ubo_id)
 {
-   uint32_t mask;
+   uint32_t mask, dirty, update;
    struct pipe_constant_buffer *cb;
    struct vrend_resource *res;
    struct vrend_shader_info* sinfo;
@@ -3656,7 +3658,10 @@ static void vrend_draw_bind_ubo_shader(struct vrend_context *ctx,
    if (!has_feature(feat_ubo))
       return;
 
-   if (!ctx->sub->const_bufs_used_mask[shader_type])
+   dirty = ctx->sub->const_bufs_dirty[shader_type];
+   update = dirty & ctx->sub->const_bufs_used_mask[shader_type];
+
+   if (!update)
       return;
 
    sinfo = &ctx->sub->prog->ss[shader_type]->sel->sinfo;
@@ -3666,16 +3671,18 @@ static void vrend_draw_bind_ubo_shader(struct vrend_context *ctx,
       /* The const_bufs_used_mask stores the gallium uniform buffer indices */
       int i = u_bit_scan(&mask);
 
-      if (ctx->sub->const_bufs_used_mask[shader_type] & (1 << i)) {
+      if (update & (1 << i)) {
          /* The cbs array is indexed using the gallium uniform buffer index */
          cb = &ctx->sub->cbs[shader_type][i];
          res = (struct vrend_resource *)cb->buffer;
 
          glBindBufferRange(GL_UNIFORM_BUFFER, *ubo_id, res->id,
                            cb->buffer_offset, cb->buffer_size);
+         dirty &= ~(1 << i);
       }
       (*ubo_id)++;
    }
+   ctx->sub->const_bufs_dirty[shader_type] = dirty;
 }
 
 static void vrend_draw_bind_const_shader(struct vrend_context *ctx,
@@ -3957,6 +3964,11 @@ int vrend_draw_vbo(struct vrend_context *ctx,
          if (ctx->sub->shaders[PIPE_SHADER_TESS_EVAL])
             ctx->sub->prog_ids[PIPE_SHADER_TESS_EVAL] = ctx->sub->shaders[PIPE_SHADER_TESS_EVAL]->current->id;
          ctx->sub->prog = prog;
+
+         /* mark all constbufs as dirty */
+         for (int stage = PIPE_SHADER_VERTEX; stage <= PIPE_SHADER_FRAGMENT; stage++)
+            ctx->sub->const_bufs_dirty[stage] = ~0;
+
          prog->ref_context = ctx->sub;
       }
    }
