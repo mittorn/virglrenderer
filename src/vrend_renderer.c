@@ -4135,7 +4135,7 @@ void vrend_launch_grid(struct vrend_context *ctx,
 
    if (ctx->sub->cs_shader_dirty) {
       struct vrend_linked_shader_program *prog;
-      bool same_prog, cs_dirty;
+      bool cs_dirty;
       if (!ctx->sub->shaders[PIPE_SHADER_COMPUTE]) {
          fprintf(stderr,"dropping rendering due to missing shaders: %s\n", ctx->debug_name);
          return;
@@ -4146,10 +4146,7 @@ void vrend_launch_grid(struct vrend_context *ctx,
          fprintf(stderr, "failure to compile shader variants: %s\n", ctx->debug_name);
          return;
       }
-      same_prog = true;
-      if (ctx->sub->shaders[PIPE_SHADER_COMPUTE]->current->id != (GLuint)ctx->sub->prog_ids[PIPE_SHADER_COMPUTE])
- same_prog = false;
-      if (!same_prog) {
+      if (ctx->sub->shaders[PIPE_SHADER_COMPUTE]->current->id != (GLuint)ctx->sub->prog_ids[PIPE_SHADER_COMPUTE]) {
          prog = lookup_cs_shader_program(ctx, ctx->sub->shaders[PIPE_SHADER_COMPUTE]->current->id);
          if (!prog) {
             prog = add_cs_shader_program(ctx, ctx->sub->shaders[PIPE_SHADER_COMPUTE]->current);
