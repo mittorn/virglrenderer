@@ -289,7 +289,6 @@ struct vrend_linked_shader_program {
    GLuint *attrib_locs;
    uint32_t shadow_samp_mask[PIPE_SHADER_TYPES];
 
-   GLuint ubo_locs[PIPE_SHADER_TYPES][32];
    GLuint vs_ws_adjust_loc;
    float viewport_neg_val;
 
@@ -1131,7 +1130,7 @@ static void bind_const_locs(struct vrend_linked_shader_program *sprog,
 }
 
 static void bind_ubo_locs(struct vrend_linked_shader_program *sprog,
-                          int id)
+                          int id, int *ubo_id)
 {
    if (!has_feature(feat_ubo))
       return;
@@ -1147,7 +1146,9 @@ static void bind_ubo_locs(struct vrend_linked_shader_program *sprog,
          else
             snprintf(name, 32, "%subo%d", prefix, ubo_idx);
 
-         sprog->ubo_locs[id][ubo_idx] = glGetUniformBlockIndex(sprog->id, name);
+         GLuint loc = glGetUniformBlockIndex(sprog->id, name);
+         glUniformBlockBinding(sprog->id, loc, *ubo_id);
+         (*ubo_id)++;
       }
    }
 }
@@ -1251,7 +1252,8 @@ static struct vrend_linked_shader_program *add_cs_shader_program(struct vrend_co
    list_addtail(&sprog->head, &ctx->sub->programs);
 
    bind_sampler_locs(sprog, PIPE_SHADER_COMPUTE);
-   bind_ubo_locs(sprog, PIPE_SHADER_COMPUTE);
+   int ubo_id = 0;
+   bind_ubo_locs(sprog, PIPE_SHADER_COMPUTE, &ubo_id);
    bind_ssbo_locs(sprog, PIPE_SHADER_COMPUTE);
    bind_const_locs(sprog, PIPE_SHADER_COMPUTE);
    bind_image_locs(sprog, PIPE_SHADER_COMPUTE);
@@ -1396,13 +1398,15 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
    else
       sprog->fs_stipple_loc = -1;
    sprog->vs_ws_adjust_loc = glGetUniformLocation(prog_id, "winsys_adjust_y");
+
+   int ubo_id = 0;
    for (id = PIPE_SHADER_VERTEX; id <= last_shader; id++) {
       if (!sprog->ss[id])
          continue;
 
       bind_sampler_locs(sprog, id);
       bind_const_locs(sprog, id);
-      bind_ubo_locs(sprog, id);
+      bind_ubo_locs(sprog, id, &ubo_id);
       bind_image_locs(sprog, id);
       bind_ssbo_locs(sprog, id);
    }
@@ -3655,24 +3659,21 @@ static void vrend_draw_bind_ubo_shader(struct vrend_context *ctx,
    if (!ctx->sub->const_bufs_used_mask[shader_type])
       return;
 
-   if (!ctx->sub->prog->ubo_locs[shader_type])
-      return;
-
    sinfo = &ctx->sub->prog->ss[shader_type]->sel->sinfo;
 
-   mask = ctx->sub->const_bufs_used_mask[shader_type] & sinfo->ubo_used_mask;
+   mask = sinfo->ubo_used_mask;
    while (mask) {
       /* The const_bufs_used_mask stores the gallium uniform buffer indices */
       int i = u_bit_scan(&mask);
 
-      /* The cbs array is indexed using the gallium uniform buffer index */
-      cb = &ctx->sub->cbs[shader_type][i];
-      res = (struct vrend_resource *)cb->buffer;
+      if (ctx->sub->const_bufs_used_mask[shader_type] & (1 << i)) {
+         /* The cbs array is indexed using the gallium uniform buffer index */
+         cb = &ctx->sub->cbs[shader_type][i];
+         res = (struct vrend_resource *)cb->buffer;
 
-      glBindBufferRange(GL_UNIFORM_BUFFER, *ubo_id, res->id,
-                        cb->buffer_offset, cb->buffer_size);
-      /* The ubo_locs array is indexed using the shader ubo index */
-      glUniformBlockBinding(ctx->sub->prog->id, ctx->sub->prog->ubo_locs[shader_type][i], *ubo_id);
+         glBindBufferRange(GL_UNIFORM_BUFFER, *ubo_id, res->id,
+                           cb->buffer_offset, cb->buffer_size);
+      }
       (*ubo_id)++;
    }
 }
