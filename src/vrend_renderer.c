@@ -3620,13 +3620,12 @@ static void vrend_draw_bind_samplers_shader(struct vrend_context *ctx,
                                             int *sampler_id)
 {
    int index = 0;
-   for (int i = 0; i < ctx->sub->views[shader_type].num_views; i++) {
+   uint32_t mask = ctx->sub->prog->samplers_used_mask[shader_type];
+   while (mask) {
+      int i = u_bit_scan(&mask);
       struct vrend_sampler_view *tview = ctx->sub->views[shader_type].views[i];
 
       if (!tview)
-         continue;
-
-      if (!(ctx->sub->prog->samplers_used_mask[shader_type] & (1 << i)))
          continue;
 
       if (ctx->sub->prog->samp_locs[shader_type])
