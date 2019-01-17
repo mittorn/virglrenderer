@@ -337,6 +337,12 @@ struct vrend_shader_selector {
 struct vrend_texture {
    struct vrend_resource base;
    struct pipe_sampler_state state;
+   GLenum cur_swizzle_r;
+   GLenum cur_swizzle_g;
+   GLenum cur_swizzle_b;
+   GLenum cur_swizzle_a;
+   GLuint cur_srgb_decode;
+   GLuint cur_base, cur_max;
 };
 
 struct vrend_surface {
@@ -372,14 +378,8 @@ struct vrend_sampler_view {
    GLuint gl_swizzle_g;
    GLuint gl_swizzle_b;
    GLuint gl_swizzle_a;
-   GLenum cur_swizzle_r;
-   GLenum cur_swizzle_g;
-   GLenum cur_swizzle_b;
-   GLenum cur_swizzle_a;
-   GLuint cur_base, cur_max;
    GLenum depth_texture_mode;
    GLuint srgb_decode;
-   GLuint cur_srgb_decode;
    struct vrend_resource *texture;
 };
 
@@ -1791,8 +1791,6 @@ int vrend_create_sampler_view(struct vrend_context *ctx,
    view->target = tgsitargettogltarget((format >> 24) & 0xff, res->base.nr_samples);
    view->val0 = val0;
    view->val1 = val1;
-   view->cur_base = -1;
-   view->cur_max = 10000;
 
    swizzle[0] = swizzle_packed & 0x7;
    swizzle[1] = (swizzle_packed >> 3) & 0x7;
@@ -1803,45 +1801,6 @@ int vrend_create_sampler_view(struct vrend_context *ctx,
 
    view->id = view->texture->id;
 
-   if (has_feature(feat_texture_view) && !view->texture->is_buffer)  {
-      enum pipe_format format;
-      bool needs_view = false;
-
-      /*
-       * Need to use a texture view if the gallium
-       * view target is different than the underlying
-       * texture target.
-       */
-      if (view->target != view->texture->target)
-         needs_view = true;
-
-      /*
-       * If the formats are different and this isn't
-       * a DS texture a view is required.
-       * DS are special as they use different gallium
-       * formats for DS views into a combined resource.
-       * GL texture views can't be use for this, stencil
-       * texturing is used instead. For DS formats
-       * aways program the underlying DS format as a
-       * view could be required for layers.
-       */
-      format = view->format;
-      if (util_format_is_depth_or_stencil(view->texture->base.format))
-         format = view->texture->base.format;
-      else if (view->format != view->texture->base.format)
-         needs_view = true;
-      if (needs_view) {
-        glGenTextures(1, &view->id);
-        GLenum internalformat = tex_conv_table[format].internalformat;
-        unsigned base_layer = view->val0 & 0xffff;
-        unsigned max_layer = (view->val0 >> 16) & 0xffff;
-        view->cur_base = view->val1 & 0xff;
-        view->cur_max = (view->val1 >> 8) & 0xff;
-        glTextureView(view->id, view->target, view->texture->id, internalformat,
-                      view->cur_base, (view->cur_max - view->cur_base) + 1,
-                      base_layer, max_layer - base_layer + 1);
-     }
-   }
    view->srgb_decode = GL_DECODE_EXT;
    if (view->format != view->texture->base.format) {
       if (util_format_is_srgb(view->texture->base.format) &&
@@ -1876,8 +1835,58 @@ int vrend_create_sampler_view(struct vrend_context *ctx,
    view->gl_swizzle_b = to_gl_swizzle(swizzle[2]);
    view->gl_swizzle_a = to_gl_swizzle(swizzle[3]);
 
-   view->cur_swizzle_r = view->cur_swizzle_g =
-         view->cur_swizzle_b = view->cur_swizzle_a = -1;
+   if (has_feature(feat_texture_view) && !view->texture->is_buffer) {
+      enum pipe_format format;
+      bool needs_view = false;
+
+      /*
+       * Need to use a texture view if the gallium
+       * view target is different than the underlying
+       * texture target.
+       */
+      if (view->target != view->texture->target)
+         needs_view = true;
+
+      /*
+       * If the formats are different and this isn't
+       * a DS texture a view is required.
+       * DS are special as they use different gallium
+       * formats for DS views into a combined resource.
+       * GL texture views can't be use for this, stencil
+       * texturing is used instead. For DS formats
+       * aways program the underlying DS format as a
+       * view could be required for layers.
+       */
+      format = view->format;
+      if (util_format_is_depth_or_stencil(view->texture->base.format))
+         format = view->texture->base.format;
+      else if (view->format != view->texture->base.format)
+         needs_view = true;
+      if (needs_view) {
+        glGenTextures(1, &view->id);
+        GLenum internalformat = tex_conv_table[format].internalformat;
+        unsigned base_layer = view->val0 & 0xffff;
+        unsigned max_layer = (view->val0 >> 16) & 0xffff;
+        int base_level = view->val1 & 0xff;
+        int max_level = (view->val1 >> 8) & 0xff;
+        glTextureView(view->id, view->target, view->texture->id, internalformat,
+                      base_level, (max_level - base_level) + 1,
+                      base_layer, max_layer - base_layer + 1);
+
+        glBindTexture(view->texture->target, view->id);
+        glTexParameteri(view->texture->target, GL_TEXTURE_BASE_LEVEL, base_level);
+        glTexParameteri(view->texture->target, GL_TEXTURE_MAX_LEVEL, max_level);
+        glTexParameteri(view->texture->target, GL_TEXTURE_SWIZZLE_R, view->gl_swizzle_r);
+        glTexParameteri(view->texture->target, GL_TEXTURE_SWIZZLE_G, view->gl_swizzle_g);
+        glTexParameteri(view->texture->target, GL_TEXTURE_SWIZZLE_B, view->gl_swizzle_b);
+        glTexParameteri(view->texture->target, GL_TEXTURE_SWIZZLE_A, view->gl_swizzle_a);
+        if (util_format_is_srgb(view->texture->base.format) &&
+            has_feature(feat_texture_srgb_decode)) {
+           glTexParameteri(view->texture->target, GL_TEXTURE_SRGB_DECODE_EXT,
+                            view->srgb_decode);
+        }
+     }
+   }
 
    ret_handle = vrend_renderer_object_insert(ctx, view, sizeof(*view), handle, VIRGL_OBJECT_SAMPLER_VIEW);
    if (ret_handle == 0) {
@@ -2566,37 +2575,41 @@ void vrend_set_single_sampler_view(struct vrend_context *ctx,
             }
          }
 
-         if (view->cur_base != (view->val1 & 0xff)) {
-            view->cur_base = view->val1 & 0xff;
-            glTexParameteri(view->texture->target, GL_TEXTURE_BASE_LEVEL, view->cur_base);
-         }
-         if (view->cur_max != ((view->val1 >> 8) & 0xff)) {
-            view->cur_max = (view->val1 >> 8) & 0xff;
-            glTexParameteri(view->texture->target, GL_TEXTURE_MAX_LEVEL, view->cur_max);
-         }
-         if (view->cur_swizzle_r != view->gl_swizzle_r) {
-            glTexParameteri(view->texture->target, GL_TEXTURE_SWIZZLE_R, view->gl_swizzle_r);
-            view->cur_swizzle_r = view->gl_swizzle_r;
-         }
-         if (view->cur_swizzle_g != view->gl_swizzle_g) {
-            glTexParameteri(view->texture->target, GL_TEXTURE_SWIZZLE_G, view->gl_swizzle_g);
-            view->cur_swizzle_g = view->gl_swizzle_g;
-         }
-         if (view->cur_swizzle_b != view->gl_swizzle_b) {
-            glTexParameteri(view->texture->target, GL_TEXTURE_SWIZZLE_B, view->gl_swizzle_b);
-            view->cur_swizzle_b = view->gl_swizzle_b;
-         }
-         if (view->cur_swizzle_a != view->gl_swizzle_a) {
-            glTexParameteri(view->texture->target, GL_TEXTURE_SWIZZLE_A, view->gl_swizzle_a);
-            view->cur_swizzle_a = view->gl_swizzle_a;
-         }
-         if (view->cur_srgb_decode != view->srgb_decode && util_format_is_srgb(view->format)) {
-            if (has_feature(feat_samplers))
-               ctx->sub->sampler_state_dirty = true;
-            else if (has_feature(feat_texture_srgb_decode)) {
-               glTexParameteri(view->texture->target, GL_TEXTURE_SRGB_DECODE_EXT,
-                               view->srgb_decode);
-               view->cur_srgb_decode = view->srgb_decode;
+         if (view->texture->id == view->id) {
+            if (tex->cur_base != (view->val1 & 0xff)) {
+               int base_level = view->val1 & 0xff;
+               glTexParameteri(view->texture->target, GL_TEXTURE_BASE_LEVEL, base_level);
+               tex->cur_base = base_level;
+            }
+            if (tex->cur_max != ((view->val1 >> 8) & 0xff)) {
+               int max_level = (view->val1 >> 8) & 0xff;
+               glTexParameteri(view->texture->target, GL_TEXTURE_MAX_LEVEL, max_level);
+               tex->cur_max = max_level;
+            }
+            if (tex->cur_swizzle_r != view->gl_swizzle_r) {
+               glTexParameteri(view->texture->target, GL_TEXTURE_SWIZZLE_R, view->gl_swizzle_r);
+               tex->cur_swizzle_r = view->gl_swizzle_r;
+            }
+            if (tex->cur_swizzle_g != view->gl_swizzle_g) {
+               glTexParameteri(view->texture->target, GL_TEXTURE_SWIZZLE_G, view->gl_swizzle_g);
+               tex->cur_swizzle_g = view->gl_swizzle_g;
+            }
+            if (tex->cur_swizzle_b != view->gl_swizzle_b) {
+               glTexParameteri(view->texture->target, GL_TEXTURE_SWIZZLE_B, view->gl_swizzle_b);
+               tex->cur_swizzle_b = view->gl_swizzle_b;
+            }
+            if (tex->cur_swizzle_a != view->gl_swizzle_a) {
+               glTexParameteri(view->texture->target, GL_TEXTURE_SWIZZLE_A, view->gl_swizzle_a);
+               tex->cur_swizzle_a = view->gl_swizzle_a;
+            }
+            if (tex->cur_srgb_decode != view->srgb_decode && util_format_is_srgb(tex->base.base.format)) {
+               if (has_feature(feat_samplers))
+                  ctx->sub->sampler_state_dirty = true;
+               else if (has_feature(feat_texture_srgb_decode)) {
+                  glTexParameteri(view->texture->target, GL_TEXTURE_SRGB_DECODE_EXT,
+                                  view->srgb_decode);
+                  tex->cur_srgb_decode = view->srgb_decode;
+               }
             }
          }
       } else {
@@ -5822,6 +5835,9 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
    }
 
    gt->state.max_lod = -1;
+   gt->cur_swizzle_r = gt->cur_swizzle_g = gt->cur_swizzle_b = gt->cur_swizzle_a = -1;
+   gt->cur_base = -1;
+   gt->cur_max = 10000;
    return 0;
 }
 
