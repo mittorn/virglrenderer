@@ -281,7 +281,6 @@ struct vrend_linked_shader_program {
    struct vrend_shader *ss[PIPE_SHADER_TYPES];
 
    uint32_t samplers_used_mask[PIPE_SHADER_TYPES];
-   GLuint *samp_locs[PIPE_SHADER_TYPES];
 
    GLuint *shadow_samp_mask_locs[PIPE_SHADER_TYPES];
    GLuint *shadow_samp_add_locs[PIPE_SHADER_TYPES];
@@ -1090,7 +1089,7 @@ static void set_stream_out_varyings(struct vrend_context *ctx, int prog_id,
 }
 
 static void bind_sampler_locs(struct vrend_linked_shader_program *sprog,
-                              int id)
+                              int id, int *sampler_id)
 {
    if (sprog->ss[id]->sel->sinfo.samplers_used_mask) {
       uint32_t mask = sprog->ss[id]->sel->sinfo.samplers_used_mask;
@@ -1103,30 +1102,29 @@ static void bind_sampler_locs(struct vrend_linked_shader_program *sprog,
       } else {
          sprog->shadow_samp_mask_locs[id] = sprog->shadow_samp_add_locs[id] = NULL;
       }
-      sprog->samp_locs[id] = calloc(nsamp, sizeof(uint32_t));
-      if (sprog->samp_locs[id]) {
-         const char *prefix = pipe_shader_to_prefix(id);
-         index = 0;
-         while(mask) {
-            uint32_t i = u_bit_scan(&mask);
-            char name[64];
-            if (sprog->ss[id]->sel->sinfo.num_sampler_arrays) {
-               int arr_idx = shader_lookup_sampler_array(&sprog->ss[id]->sel->sinfo, i);
-               snprintf(name, 32, "%ssamp%d[%d]", prefix, arr_idx, i - arr_idx);
-            } else
-               snprintf(name, 32, "%ssamp%d", prefix, i);
-            sprog->samp_locs[id][index] = glGetUniformLocation(sprog->id, name);
-            if (sprog->ss[id]->sel->sinfo.shadow_samp_mask & (1 << i)) {
-               snprintf(name, 32, "%sshadmask%d", prefix, i);
-               sprog->shadow_samp_mask_locs[id][index] = glGetUniformLocation(sprog->id, name);
-               snprintf(name, 32, "%sshadadd%d", prefix, i);
-               sprog->shadow_samp_add_locs[id][index] = glGetUniformLocation(sprog->id, name);
-            }
-            index++;
+      const char *prefix = pipe_shader_to_prefix(id);
+      index = 0;
+      while(mask) {
+         uint32_t i = u_bit_scan(&mask);
+         char name[64];
+         if (sprog->ss[id]->sel->sinfo.num_sampler_arrays) {
+            int arr_idx = shader_lookup_sampler_array(&sprog->ss[id]->sel->sinfo, i);
+            snprintf(name, 32, "%ssamp%d[%d]", prefix, arr_idx, i - arr_idx);
+         } else
+            snprintf(name, 32, "%ssamp%d", prefix, i);
+
+         glUniform1i(glGetUniformLocation(sprog->id, name), *sampler_id);
+
+         if (sprog->ss[id]->sel->sinfo.shadow_samp_mask & (1 << i)) {
+            snprintf(name, 32, "%sshadmask%d", prefix, i);
+            sprog->shadow_samp_mask_locs[id][index] = glGetUniformLocation(sprog->id, name);
+            snprintf(name, 32, "%sshadadd%d", prefix, i);
+            sprog->shadow_samp_add_locs[id][index] = glGetUniformLocation(sprog->id, name);
          }
+         index++;
+         (*sampler_id)++;
       }
    } else {
-      sprog->samp_locs[id] = NULL;
       sprog->shadow_samp_mask_locs[id] = NULL;
       sprog->shadow_samp_add_locs[id] = NULL;
       sprog->shadow_samp_mask[id] = 0;
@@ -1267,8 +1265,10 @@ static struct vrend_linked_shader_program *add_cs_shader_program(struct vrend_co
    sprog->id = prog_id;
    list_addtail(&sprog->head, &ctx->sub->programs);
 
-   bind_sampler_locs(sprog, PIPE_SHADER_COMPUTE);
-   int ubo_id = 0;
+   vrend_use_program(ctx, prog_id);
+
+   int sampler_id = 0, ubo_id = 0;
+   bind_sampler_locs(sprog, PIPE_SHADER_COMPUTE, &sampler_id);
    bind_ubo_locs(sprog, PIPE_SHADER_COMPUTE, &ubo_id);
    bind_ssbo_locs(sprog, PIPE_SHADER_COMPUTE);
    bind_const_locs(sprog, PIPE_SHADER_COMPUTE);
@@ -1415,12 +1415,14 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
       sprog->fs_stipple_loc = -1;
    sprog->vs_ws_adjust_loc = glGetUniformLocation(prog_id, "winsys_adjust_y");
 
-   int ubo_id = 0;
+   vrend_use_program(ctx, prog_id);
+
+   int ubo_id = 0, sampler_id = 0;
    for (id = PIPE_SHADER_VERTEX; id <= last_shader; id++) {
       if (!sprog->ss[id])
          continue;
 
-      bind_sampler_locs(sprog, id);
+      bind_sampler_locs(sprog, id, &sampler_id);
       bind_const_locs(sprog, id);
       bind_ubo_locs(sprog, id, &ubo_id);
       bind_image_locs(sprog, id);
@@ -1508,7 +1510,6 @@ static void vrend_destroy_program(struct vrend_linked_shader_program *ent)
          list_del(&ent->sl[i]);
       free(ent->shadow_samp_mask_locs[i]);
       free(ent->shadow_samp_add_locs[i]);
-      free(ent->samp_locs[i]);
       free(ent->ssbo_locs[i]);
       free(ent->img_locs[i]);
    }
@@ -3625,46 +3626,42 @@ static void vrend_draw_bind_samplers_shader(struct vrend_context *ctx,
       int i = u_bit_scan(&mask);
       struct vrend_sampler_view *tview = ctx->sub->views[shader_type].views[i];
 
-      if (!tview)
-         continue;
-
-      if (ctx->sub->prog->samp_locs[shader_type])
-         glUniform1i(ctx->sub->prog->samp_locs[shader_type][index], *sampler_id);
-
-      if (ctx->sub->prog->shadow_samp_mask[shader_type] & (1 << i)) {
-         glUniform4f(ctx->sub->prog->shadow_samp_mask_locs[shader_type][index],
-                     (tview->gl_swizzle_r == GL_ZERO || tview->gl_swizzle_r == GL_ONE) ? 0.0 : 1.0,
-                     (tview->gl_swizzle_g == GL_ZERO || tview->gl_swizzle_g == GL_ONE) ? 0.0 : 1.0,
-                     (tview->gl_swizzle_b == GL_ZERO || tview->gl_swizzle_b == GL_ONE) ? 0.0 : 1.0,
-                     (tview->gl_swizzle_a == GL_ZERO || tview->gl_swizzle_a == GL_ONE) ? 0.0 : 1.0);
-         glUniform4f(ctx->sub->prog->shadow_samp_add_locs[shader_type][index],
-                     tview->gl_swizzle_r == GL_ONE ? 1.0 : 0.0,
-                     tview->gl_swizzle_g == GL_ONE ? 1.0 : 0.0,
-                     tview->gl_swizzle_b == GL_ONE ? 1.0 : 0.0,
-                     tview->gl_swizzle_a == GL_ONE ? 1.0 : 0.0);
-      }
-
-      glActiveTexture(GL_TEXTURE0 + *sampler_id);
-      if (tview->texture) {
-         GLuint id;
-         struct vrend_resource *texture = tview->texture;
-         GLenum target = tview->target;
-
-         debug_texture(__func__, tview->texture);
-
-         if (texture->is_buffer) {
-            id = texture->tbo_tex_id;
-            target = GL_TEXTURE_BUFFER;
-         } else
-            id = tview->id;
-
-         glBindTexture(target, id);
-         if (ctx->sub->views[shader_type].old_ids[i] != id || ctx->sub->sampler_state_dirty) {
-            vrend_apply_sampler_state(ctx, texture, shader_type, i, *sampler_id, tview);
-            ctx->sub->views[shader_type].old_ids[i] = id;
+      if (tview) {
+         if (ctx->sub->prog->shadow_samp_mask[shader_type] & (1 << i)) {
+            glUniform4f(ctx->sub->prog->shadow_samp_mask_locs[shader_type][index],
+                        (tview->gl_swizzle_r == GL_ZERO || tview->gl_swizzle_r == GL_ONE) ? 0.0 : 1.0,
+                        (tview->gl_swizzle_g == GL_ZERO || tview->gl_swizzle_g == GL_ONE) ? 0.0 : 1.0,
+                        (tview->gl_swizzle_b == GL_ZERO || tview->gl_swizzle_b == GL_ONE) ? 0.0 : 1.0,
+                        (tview->gl_swizzle_a == GL_ZERO || tview->gl_swizzle_a == GL_ONE) ? 0.0 : 1.0);
+            glUniform4f(ctx->sub->prog->shadow_samp_add_locs[shader_type][index],
+                        tview->gl_swizzle_r == GL_ONE ? 1.0 : 0.0,
+                        tview->gl_swizzle_g == GL_ONE ? 1.0 : 0.0,
+                        tview->gl_swizzle_b == GL_ONE ? 1.0 : 0.0,
+                        tview->gl_swizzle_a == GL_ONE ? 1.0 : 0.0);
          }
-         (*sampler_id)++;
+
+         glActiveTexture(GL_TEXTURE0 + *sampler_id);
+         if (tview->texture) {
+            GLuint id;
+            struct vrend_resource *texture = tview->texture;
+            GLenum target = tview->target;
+
+            debug_texture(__func__, tview->texture);
+
+            if (texture->is_buffer) {
+               id = texture->tbo_tex_id;
+               target = GL_TEXTURE_BUFFER;
+            } else
+               id = tview->id;
+
+            glBindTexture(target, id);
+            if (ctx->sub->views[shader_type].old_ids[i] != id || ctx->sub->sampler_state_dirty) {
+               vrend_apply_sampler_state(ctx, texture, shader_type, i, *sampler_id, tview);
+               ctx->sub->views[shader_type].old_ids[i] = id;
+            }
+         }
       }
+      (*sampler_id)++;
       index++;
    }
 }
