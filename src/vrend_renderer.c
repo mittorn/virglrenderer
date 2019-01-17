@@ -1889,6 +1889,25 @@ int vrend_create_sampler_view(struct vrend_context *ctx,
                       base_layer, max_layer - base_layer + 1);
 
         glBindTexture(view->texture->target, view->id);
+
+        if (util_format_is_depth_or_stencil(view->format)) {
+           if (vrend_state.use_core_profile == false) {
+              /* setting depth texture mode is deprecated in core profile */
+              if (view->depth_texture_mode != GL_RED) {
+                 glTexParameteri(view->texture->target, GL_DEPTH_TEXTURE_MODE, GL_RED);
+                 view->depth_texture_mode = GL_RED;
+              }
+           }
+           if (has_feature(feat_stencil_texturing)) {
+              const struct util_format_description *desc = util_format_description(view->format);
+              if (!util_format_has_depth(desc)) {
+                 glTexParameteri(view->texture->target, GL_DEPTH_STENCIL_TEXTURE_MODE, GL_STENCIL_INDEX);
+              } else {
+                 glTexParameteri(view->texture->target, GL_DEPTH_STENCIL_TEXTURE_MODE, GL_DEPTH_COMPONENT);
+              }
+           }
+        }
+
         glTexParameteri(view->texture->target, GL_TEXTURE_BASE_LEVEL, base_level);
         glTexParameteri(view->texture->target, GL_TEXTURE_MAX_LEVEL, max_level);
         glTexParameteri(view->texture->target, GL_TEXTURE_SWIZZLE_R, view->gl_swizzle_r);
@@ -2570,27 +2589,27 @@ void vrend_set_single_sampler_view(struct vrend_context *ctx,
          return;
       }
       if (!view->texture->is_buffer) {
-         glBindTexture(view->target, view->id);
-
-         if (util_format_is_depth_or_stencil(view->format)) {
-            if (vrend_state.use_core_profile == false) {
-               /* setting depth texture mode is deprecated in core profile */
-               if (view->depth_texture_mode != GL_RED) {
-                  glTexParameteri(view->texture->target, GL_DEPTH_TEXTURE_MODE, GL_RED);
-                  view->depth_texture_mode = GL_RED;
-               }
-            }
-            if (has_feature(feat_stencil_texturing)) {
-               const struct util_format_description *desc = util_format_description(view->format);
-               if (!util_format_has_depth(desc)) {
-                  glTexParameteri(view->texture->target, GL_DEPTH_STENCIL_TEXTURE_MODE, GL_STENCIL_INDEX);
-               } else {
-                  glTexParameteri(view->texture->target, GL_DEPTH_STENCIL_TEXTURE_MODE, GL_DEPTH_COMPONENT);
-               }
-            }
-         }
-
          if (view->texture->id == view->id) {
+            glBindTexture(view->target, view->id);
+
+            if (util_format_is_depth_or_stencil(view->format)) {
+               if (vrend_state.use_core_profile == false) {
+                  /* setting depth texture mode is deprecated in core profile */
+                  if (view->depth_texture_mode != GL_RED) {
+                     glTexParameteri(view->texture->target, GL_DEPTH_TEXTURE_MODE, GL_RED);
+                     view->depth_texture_mode = GL_RED;
+                  }
+               }
+               if (has_feature(feat_stencil_texturing)) {
+                  const struct util_format_description *desc = util_format_description(view->format);
+                  if (!util_format_has_depth(desc)) {
+                     glTexParameteri(view->texture->target, GL_DEPTH_STENCIL_TEXTURE_MODE, GL_STENCIL_INDEX);
+                  } else {
+                     glTexParameteri(view->texture->target, GL_DEPTH_STENCIL_TEXTURE_MODE, GL_DEPTH_COMPONENT);
+                  }
+               }
+            }
+
             if (tex->cur_base != (view->val1 & 0xff)) {
                int base_level = view->val1 & 0xff;
                glTexParameteri(view->texture->target, GL_TEXTURE_BASE_LEVEL, base_level);
