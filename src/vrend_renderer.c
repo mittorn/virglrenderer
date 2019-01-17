@@ -3637,14 +3637,6 @@ static void vrend_draw_bind_samplers_shader(struct vrend_context *ctx,
             vrend_apply_sampler_state(ctx, texture, shader_type, i, *sampler_id, tview->srgb_decode);
             ctx->sub->views[shader_type].old_ids[i] = id;
          }
-         if (ctx->sub->rs_state.point_quad_rasterization) {
-            if (vrend_state.use_core_profile == false) {
-               if (ctx->sub->rs_state.sprite_coord_enable & (1 << i))
-                  glTexEnvi(GL_POINT_SPRITE_ARB, GL_COORD_REPLACE_ARB, GL_TRUE);
-               else
-                  glTexEnvi(GL_POINT_SPRITE_ARB, GL_COORD_REPLACE_ARB, GL_FALSE);
-            }
-         }
          (*sampler_id)++;
       }
       index++;
