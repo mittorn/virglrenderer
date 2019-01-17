@@ -3640,7 +3640,6 @@ static void vrend_draw_bind_samplers_shader(struct vrend_context *ctx,
                         tview->gl_swizzle_a == GL_ONE ? 1.0 : 0.0);
          }
 
-         glActiveTexture(GL_TEXTURE0 + *sampler_id);
          if (tview->texture) {
             GLuint id;
             struct vrend_resource *texture = tview->texture;
@@ -3654,7 +3653,9 @@ static void vrend_draw_bind_samplers_shader(struct vrend_context *ctx,
             } else
                id = tview->id;
 
+            glActiveTexture(GL_TEXTURE0 + *sampler_id);
             glBindTexture(target, id);
+
             if (ctx->sub->views[shader_type].old_ids[i] != id || ctx->sub->sampler_state_dirty) {
                vrend_apply_sampler_state(ctx, texture, shader_type, i, *sampler_id, tview);
                ctx->sub->views[shader_type].old_ids[i] = id;
