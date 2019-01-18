@@ -32,6 +32,7 @@
 #include <sys/un.h>
 #include <fcntl.h>
 #include <getopt.h>
+#include <string.h>
 
 #include "util.h"
 #include "util/u_memory.h"
