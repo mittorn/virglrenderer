@@ -296,6 +296,11 @@ static struct vrend_format_table gles_z32_format[] = {
   { VIRGL_FORMAT_Z32_UNORM, GL_DEPTH_COMPONENT24, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, NO_SWIZZLE },
 };
 
+static struct vrend_format_table gles_bit10_formats[] = {
+  { VIRGL_FORMAT_B10G10R10X2_UNORM, GL_RGB10_A2, GL_RGBA, GL_UNSIGNED_INT_2_10_10_10_REV, RGB1_SWIZZLE },
+  { VIRGL_FORMAT_B10G10R10A2_UNORM, GL_RGB10_A2, GL_RGBA, GL_UNSIGNED_INT_2_10_10_10_REV, NO_SWIZZLE },
+};
+
 static void vrend_add_formats(struct vrend_format_table *table, int num_entries)
 {
   int i;
@@ -479,6 +484,7 @@ void vrend_build_format_list_gles(void)
    * and hope nobody notices.
    */
   add_formats(gles_z32_format);
+  add_formats(gles_bit10_formats);
 }
 
 /* glTexStorage may not support all that is supported by glTexImage,
