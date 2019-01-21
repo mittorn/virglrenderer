@@ -37,9 +37,11 @@ parse_input()
    	-t|--test)
          TEST_NAME="$2"
          shift
-         TMP_TEST_FILE=$(mktemp /tmp/deqp_test.XXXXXX)
-         echo "$TEST_NAME" > "$TMP_TEST_FILE"
-         TESTS="$TESTS custom"
+         if [ -z "$TMP_TEST_FILE" ]; then
+            TMP_TEST_FILE=$(mktemp /tmp/deqp_test.XXXXXX)
+            TESTS="$TESTS custom"
+         fi
+         echo "$TEST_NAME" >> "$TMP_TEST_FILE"
          ;;
 
    	-v|--vtest)
