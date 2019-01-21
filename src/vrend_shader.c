@@ -2947,6 +2947,7 @@ get_source_info(struct dump_ctx *ctx,
    for (uint32_t i = 0; i < inst->Instruction.NumSrcRegs; i++) {
       const struct tgsi_full_src_register *src = &inst->Src[i];
       char swizzle[8] = {0};
+      char *swizzle_writer = swizzle;
       char prefix[6] = {0};
       char arrayname[16] = {0};
       char fp64_src[255];
@@ -2971,16 +2972,27 @@ get_source_info(struct dump_ctx *ctx,
             sprintf(arrayname, "[%d]", src->Dimension.Index);
       }
 
+      /* These instructions don't support swizzles in the first parameter
+       * pass the swizzle to the caller instead */
+      if ((inst->Instruction.Opcode == TGSI_OPCODE_INTERP_SAMPLE ||
+           inst->Instruction.Opcode == TGSI_OPCODE_INTERP_OFFSET ||
+           inst->Instruction.Opcode == TGSI_OPCODE_INTERP_CENTROID) &&
+          i == 0) {
+         swizzle_writer = src_swizzle0;
+      }
+
       if (src->Register.SwizzleX != TGSI_SWIZZLE_X ||
           src->Register.SwizzleY != TGSI_SWIZZLE_Y ||
           src->Register.SwizzleZ != TGSI_SWIZZLE_Z ||
           src->Register.SwizzleW != TGSI_SWIZZLE_W) {
-         swizzle[swz_idx++] = '.';
-         swizzle[swz_idx++] = get_swiz_char(src->Register.SwizzleX);
-         swizzle[swz_idx++] = get_swiz_char(src->Register.SwizzleY);
-         swizzle[swz_idx++] = get_swiz_char(src->Register.SwizzleZ);
-         swizzle[swz_idx++] = get_swiz_char(src->Register.SwizzleW);
+         swizzle_writer[swz_idx++] = '.';
+         swizzle_writer[swz_idx++] = get_swiz_char(src->Register.SwizzleX);
+         swizzle_writer[swz_idx++] = get_swiz_char(src->Register.SwizzleY);
+         swizzle_writer[swz_idx++] = get_swiz_char(src->Register.SwizzleZ);
+         swizzle_writer[swz_idx++] = get_swiz_char(src->Register.SwizzleW);
       }
+      swizzle_writer[swz_idx] = 0;
+
       if (src->Register.File == TGSI_FILE_INPUT) {
          for (uint32_t j = 0; j < ctx->num_inputs; j++)
             if (ctx->inputs[j].first == src->Register.Index) {
@@ -3024,13 +3036,6 @@ get_source_info(struct dump_ctx *ctx,
                         snprintf(srcs[i], 255, "%s(%s%sp%d[%d]%s)", get_string(srcstypeprefix), prefix, get_stage_input_name_prefix(ctx, ctx->prog_type), ctx->patch_input_range.first, src->Register.Index - ctx->patch_input_range.array_id, ctx->inputs[j].is_int ? "" : swizzle);
                   } else
                      snprintf(srcs[i], 255, "%s(%s%s%s%s)", get_string(srcstypeprefix), prefix, ctx->inputs[j].glsl_name, arrayname, ctx->inputs[j].is_int ? "" : swizzle);
-               }
-               if ((inst->Instruction.Opcode == TGSI_OPCODE_INTERP_SAMPLE ||
-                    inst->Instruction.Opcode == TGSI_OPCODE_INTERP_OFFSET ||
-                    inst->Instruction.Opcode == TGSI_OPCODE_INTERP_CENTROID) &&
-                   i == 0) {
-                  snprintf(srcs[0], 255, "%s", ctx->inputs[j].glsl_name);
-                  snprintf(src_swizzle0, 10, "%s", swizzle);
                }
                sinfo->override_no_wm[i] = ctx->inputs[j].override_no_wm;
                break;
