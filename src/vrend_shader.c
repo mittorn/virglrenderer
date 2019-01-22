@@ -2976,8 +2976,11 @@ static void fill_blkarray(struct dump_ctx *ctx,
    }
 }
 
-static void get_source_info_generic(enum vrend_type_qualifier srcstypeprefix,
+static void get_source_info_generic(struct dump_ctx *ctx,
+                                    enum io_type iot,
+                                    enum vrend_type_qualifier srcstypeprefix,
                                     const char *prefix,
+                                    const struct tgsi_full_src_register *src,
                                     const struct vrend_shader_io *io,
                                     const  char *arrayname,
                                     const char *swizzle,
@@ -2987,7 +2990,38 @@ static void get_source_info_generic(enum vrend_type_qualifier srcstypeprefix,
       snprintf(srcs, 255, "%s(%s%s%s%s)", get_string(srcstypeprefix),
                prefix, io->glsl_name, arrayname, io->is_int ? "" : swizzle);
    } else {
-      assert(0 && "Array access not yet implemented");
+      if (prefer_generic_io_block(ctx, iot)) {
+         if (src->Register.Indirect)
+            snprintf(srcs, 255, "%s(%s %s%s[addr%d + %d] %s)", get_string(srcstypeprefix), prefix,
+                     io->glsl_name,
+                     arrayname,
+                     src->Indirect.Index,
+                     src->Register.Index - io->first,
+                     io->is_int ? "" : swizzle);
+         else
+            snprintf(srcs, 255, "%s(%s %s%s[%d] %s)", get_string(srcstypeprefix), prefix,
+                     io->glsl_name,
+                     arrayname,
+                     src->Register.Index - io->first,
+                     io->is_int ? "" : swizzle);
+      } else {
+         const char *stage_prefix = iot == io_in ? get_stage_input_name_prefix(ctx, ctx->prog_type) :
+                                                   get_stage_output_name_prefix(ctx->prog_type);
+         if (src->Register.Indirect)
+            snprintf(srcs, 255, "%s(%s %sg%d%s.%s[addr%d + %d] %s)", get_string(srcstypeprefix), prefix,
+                     stage_prefix, io->sid, arrayname,
+                     io->glsl_name,
+                     src->Indirect.Index,
+                     src->Register.Index - io->first,
+                     io->is_int ? "" : swizzle);
+         else
+            snprintf(srcs, 255, "%s(%s %sg%d%s.%s[%d] %s)", get_string(srcstypeprefix), prefix,
+                     stage_prefix, io->sid, arrayname,
+                     io->glsl_name,
+                     src->Register.Index - io->first,
+                     io->is_int ? "" : swizzle);
+      }
+
    }
 }
 
@@ -3129,7 +3163,7 @@ get_source_info(struct dump_ctx *ctx,
                         else
                            snprintf(srcs[i], 255, "%s(%sblk%s.%s%d[%d]%s)", get_string(srcstypeprefix), prefix, blkarray, get_stage_input_name_prefix(ctx, ctx->prog_type), ctx->generic_input_range.first, src->Register.Index - ctx->generic_input_range.array_id, ctx->inputs[j].is_int ? "" : swizzle);
                      } else {
-                        get_source_info_generic(srcstypeprefix, prefix, &ctx->inputs[j], arrayname, swizzle, srcs[i]);
+                        get_source_info_generic(ctx, io_in, srcstypeprefix, prefix, src, &ctx->inputs[j], arrayname, swizzle, srcs[i]);
                      }
                   } else if (ctx->inputs[j].name == TGSI_SEMANTIC_PATCH) {
                      if (ctx_indirect_inputs(ctx)) {
@@ -3170,7 +3204,7 @@ get_source_info(struct dump_ctx *ctx,
                      else
                         snprintf(srcs[i], 255, "%s(%soblk%s.%s%d[%d]%s)", get_string(srcstypeprefix), prefix, blkarray, get_stage_output_name_prefix(ctx->prog_type), ctx->generic_output_range.first, src->Register.Index - ctx->generic_output_range.array_id, ctx->outputs[j].is_int ? "" : swizzle);
                   } else
-                     get_source_info_generic(srcstypeprefix, prefix, &ctx->outputs[j], arrayname, swizzle, srcs[i]);
+                     get_source_info_generic(ctx, io_out, srcstypeprefix, prefix, src, &ctx->outputs[j], arrayname, swizzle, srcs[i]);
                } else if (ctx->outputs[j].name == TGSI_SEMANTIC_PATCH) {
                   if (ctx_indirect_outputs(ctx)) {
                      if (src->Register.Indirect)
