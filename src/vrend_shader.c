@@ -2687,6 +2687,20 @@ translate_atomic(struct dump_ctx *ctx,
 
 }
 
+static void get_destination_info_generic(struct dump_ctx *ctx,
+                                         const struct vrend_shader_io *io,
+                                         const char *writemask, char dsts[255])
+{
+   const char *blkarray = (ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL) ? "[gl_InvocationID]" : "";
+   const char *wm = io->override_no_wm ? "" : writemask;
+
+   if (io->first == io->last)
+      snprintf(dsts, 255, "%s%s%s", io->glsl_name, blkarray, wm);
+   else {
+      assert(0 && "IO arrays not yet implemented");
+   }
+}
+
 static bool
 get_destination_info(struct dump_ctx *ctx,
                      const struct tgsi_full_instruction *inst,
@@ -2804,29 +2818,38 @@ get_destination_info(struct dump_ctx *ctx,
                               ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL ? "gl_InvocationID" : "0",
                               ctx->outputs[j].glsl_name,
                               ctx->outputs[j].override_no_wm ? "" : writemask);
-                  } else if (ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL && ctx->outputs[j].name != TGSI_SEMANTIC_PATCH) {
+                  } else if (ctx->outputs[j].name == TGSI_SEMANTIC_GENERIC) {
+                     if (ctx_indirect_outputs(ctx)) {
+                        if (ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL) {
+
+                           if (dst_reg->Register.Indirect)
+                              snprintf(dsts[i], 255, "oblk[gl_InvocationID].%s%d[addr%d + %d]%s", get_stage_output_name_prefix(ctx->prog_type), ctx->generic_output_range.first, dst_reg->Indirect.Index, dst_reg->Register.Index - ctx->generic_output_range.array_id, ctx->outputs[j].override_no_wm ? "" : writemask);
+                           else
+                              snprintf(dsts[i], 255, "oblk[gl_InvocationID].%s%d[%d]%s", get_stage_output_name_prefix(ctx->prog_type), ctx->generic_output_range.first, dst_reg->Register.Index - ctx->generic_output_range.array_id, ctx->outputs[j].override_no_wm ? "" : writemask);
+                        } else {
+                           if (dst_reg->Register.Indirect)
+                              snprintf(dsts[i], 255, "oblk.%s%d[addr%d + %d]%s", get_stage_output_name_prefix(ctx->prog_type), ctx->generic_output_range.first, dst_reg->Indirect.Index, dst_reg->Register.Index - ctx->generic_output_range.array_id, ctx->outputs[j].override_no_wm ? "" : writemask);
+                           else
+                              snprintf(dsts[i], 255, "oblk.%s%d[%d]%s", get_stage_output_name_prefix(ctx->prog_type), ctx->generic_output_range.first, dst_reg->Register.Index - ctx->generic_output_range.array_id, ctx->outputs[j].override_no_wm ? "" : writemask);
+                        }
+                     } else
+                        get_destination_info_generic(ctx, &ctx->outputs[j], writemask, dsts[i]);
+                     dinfo->dst_override_no_wm[i] = ctx->outputs[j].override_no_wm;
+                  } else if (ctx->outputs[j].name == TGSI_SEMANTIC_PATCH) {
                      if (ctx_indirect_outputs(ctx)) {
                         if (dst_reg->Register.Indirect)
-                           snprintf(dsts[i], 255, "oblk[gl_InvocationID].%s%d[addr%d + %d]%s", get_stage_output_name_prefix(ctx->prog_type), ctx->generic_output_range.first, dst_reg->Indirect.Index, dst_reg->Register.Index - ctx->generic_output_range.array_id, ctx->outputs[j].override_no_wm ? "" : writemask);
+                           snprintf(dsts[i], 255, "%sp%d[addr%d + %d]%s", get_stage_output_name_prefix(ctx->prog_type), ctx->patch_output_range.first, dst_reg->Indirect.Index, dst_reg->Register.Index - ctx->patch_output_range.array_id, ctx->outputs[j].override_no_wm ? "" : writemask);
                         else
-                           snprintf(dsts[i], 255, "oblk[gl_InvocationID].%s%d[%d]%s", get_stage_output_name_prefix(ctx->prog_type), ctx->generic_output_range.first, dst_reg->Register.Index - ctx->generic_output_range.array_id, ctx->outputs[j].override_no_wm ? "" : writemask);
-
+                           snprintf(dsts[i], 255, "%sp%d[%d]%s", get_stage_output_name_prefix(ctx->prog_type), ctx->patch_output_range.first, dst_reg->Register.Index - ctx->patch_output_range.array_id, ctx->outputs[j].override_no_wm ? "" : writemask);
                      } else
-                        snprintf(dsts[i], 255, "%s[gl_InvocationID]%s", ctx->outputs[j].glsl_name, ctx->outputs[j].override_no_wm ? "" : writemask);
-                  } else if (ctx_indirect_outputs(ctx) && ctx->outputs[j].name == TGSI_SEMANTIC_GENERIC) {
-                     if (dst_reg->Register.Indirect)
-                        snprintf(dsts[i], 255, "oblk.%s%d[addr%d + %d]%s", get_stage_output_name_prefix(ctx->prog_type), ctx->generic_output_range.first, dst_reg->Indirect.Index, dst_reg->Register.Index - ctx->generic_output_range.array_id, ctx->outputs[j].override_no_wm ? "" : writemask);
-                     else
-                        snprintf(dsts[i], 255, "oblk.%s%d[%d]%s", get_stage_output_name_prefix(ctx->prog_type), ctx->generic_output_range.first, dst_reg->Register.Index - ctx->generic_output_range.array_id, ctx->outputs[j].override_no_wm ? "" : writemask);
-                     dinfo->dst_override_no_wm[i] = ctx->outputs[j].override_no_wm;
-                  } else if (ctx_indirect_outputs(ctx) && ctx->outputs[j].name == TGSI_SEMANTIC_PATCH) {
-                     if (dst_reg->Register.Indirect)
-                        snprintf(dsts[i], 255, "%sp%d[addr%d + %d]%s", get_stage_output_name_prefix(ctx->prog_type), ctx->patch_output_range.first, dst_reg->Indirect.Index, dst_reg->Register.Index - ctx->patch_output_range.array_id, ctx->outputs[j].override_no_wm ? "" : writemask);
-                     else
-                        snprintf(dsts[i], 255, "%sp%d[%d]%s", get_stage_output_name_prefix(ctx->prog_type), ctx->patch_output_range.first, dst_reg->Register.Index - ctx->patch_output_range.array_id, ctx->outputs[j].override_no_wm ? "" : writemask);
+                        snprintf(dsts[i], 255, "%s%s", ctx->outputs[j].glsl_name, ctx->outputs[j].override_no_wm ? "" : writemask);
                      dinfo->dst_override_no_wm[i] = ctx->outputs[j].override_no_wm;
                   } else {
-                     snprintf(dsts[i], 255, "%s%s", ctx->outputs[j].glsl_name, ctx->outputs[j].override_no_wm ? "" : writemask);
+                     if (ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL) {
+                        snprintf(dsts[i], 255, "%s[gl_InvocationID]%s", ctx->outputs[j].glsl_name, ctx->outputs[j].override_no_wm ? "" : writemask);
+                     } else {
+                        snprintf(dsts[i], 255, "%s%s", ctx->outputs[j].glsl_name, ctx->outputs[j].override_no_wm ? "" : writemask);
+                     }
                      dinfo->dst_override_no_wm[i] = ctx->outputs[j].override_no_wm;
                   }
                   if (ctx->outputs[j].is_int) {
