@@ -3791,7 +3791,10 @@ static void vrend_draw_bind_images_shader(struct vrend_context *ctx, int shader_
 
          glBindBufferARB(GL_TEXTURE_BUFFER, iview->texture->id);
          glBindTexture(GL_TEXTURE_BUFFER, iview->texture->tbo_tex_id);
-         glTexBuffer(GL_TEXTURE_BUFFER, format, iview->texture->id);
+
+         if (has_feature(feat_arb_or_gles_ext_texture_buffer))
+            glTexBuffer(GL_TEXTURE_BUFFER, format, iview->texture->id);
+
          tex_id = iview->texture->tbo_tex_id;
          level = first_layer = 0;
          layered = GL_TRUE;
