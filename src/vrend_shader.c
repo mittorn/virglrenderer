@@ -723,24 +723,6 @@ static bool add_samplers(struct dump_ctx *ctx, int first, int last, int sview_ty
    return true;
 }
 
-static bool ctx_indirect_inputs(struct dump_ctx *ctx)
-{
-   if (ctx->info.indirect_files & (1 << TGSI_FILE_INPUT))
-      return true;
-   if (ctx->key->num_indirect_generic_inputs || ctx->key->num_indirect_patch_inputs)
-      return true;
-   return false;
-}
-
-static bool ctx_indirect_outputs(struct dump_ctx *ctx)
-{
-   if (ctx->info.indirect_files & (1 << TGSI_FILE_OUTPUT))
-      return true;
-   if (ctx->key->num_indirect_generic_outputs || ctx->key->num_indirect_patch_outputs)
-      return true;
-   return false;
-}
-
 static int lookup_image_array(struct dump_ctx *ctx, int index)
 {
    uint32_t i;
@@ -4774,8 +4756,7 @@ static void emit_ios_vs(struct dump_ctx *ctx)
       }
    }
 
-   if (ctx_indirect_outputs(ctx))
-      emit_ios_indirect_generics_output(ctx, "");
+   emit_ios_indirect_generics_output(ctx, "");
 
    for (i = 0; i < ctx->num_outputs; i++) {
       if (ctx->key->color_two_side && ctx->outputs[i].sid < 2) {
@@ -4870,8 +4851,7 @@ static void emit_ios_fs(struct dump_ctx *ctx)
       emit_hdr(ctx, "layout(early_fragment_tests) in;\n");
    }
 
-   if (ctx_indirect_inputs(ctx) && ctx->generic_input_range.used)
-      emit_ios_indirect_generics_input(ctx, "");
+   emit_ios_indirect_generics_input(ctx, "");
 
    for (i = 0; i < ctx->num_inputs; i++) {
       if (!ctx->inputs[i].glsl_predefined_no_emit) {
@@ -5038,8 +5018,7 @@ static void emit_ios_tcs(struct dump_ctx *ctx)
 {
    uint32_t i;
 
-   if (ctx_indirect_inputs(ctx))
-      emit_ios_indirect_generics_input(ctx, "[]");
+   emit_ios_indirect_generics_input(ctx, "[]");
 
    for (i = 0; i < ctx->num_inputs; i++) {
       if (!ctx->inputs[i].glsl_predefined_no_emit) {
@@ -5396,18 +5375,16 @@ bool vrend_convert_shader(struct vrend_context *rctx,
    sinfo->ssbo_used_mask = ctx.ssbo_used_mask;
 
    sinfo->ubo_indirect = ctx.info.dimension_indirect_files & (1 << TGSI_FILE_CONSTANT);
-   if (ctx_indirect_inputs(&ctx)) {
-      if (ctx.generic_input_range.used)
-         sinfo->num_indirect_generic_inputs = ctx.generic_input_range.io.last - ctx.generic_input_range.io.sid + 1;
-      if (ctx.patch_input_range.used)
-         sinfo->num_indirect_patch_inputs = ctx.patch_input_range.io.last - ctx.patch_input_range.io.sid + 1;
-   }
-   if (ctx_indirect_outputs(&ctx)) {
-      if (ctx.generic_output_range.used)
-         sinfo->num_indirect_generic_outputs = ctx.generic_output_range.io.last - ctx.generic_output_range.io.sid + 1;
-      if (ctx.patch_output_range.used)
-         sinfo->num_indirect_patch_outputs = ctx.patch_output_range.io.last - ctx.patch_output_range.io.sid + 1;
-   }
+
+   if (ctx.generic_input_range.used)
+      sinfo->num_indirect_generic_inputs = ctx.generic_input_range.io.last - ctx.generic_input_range.io.sid + 1;
+   if (ctx.patch_input_range.used)
+      sinfo->num_indirect_patch_inputs = ctx.patch_input_range.io.last - ctx.patch_input_range.io.sid + 1;
+
+   if (ctx.generic_output_range.used)
+      sinfo->num_indirect_generic_outputs = ctx.generic_output_range.io.last - ctx.generic_output_range.io.sid + 1;
+   if (ctx.patch_output_range.used)
+      sinfo->num_indirect_patch_outputs = ctx.patch_output_range.io.last - ctx.patch_output_range.io.sid + 1;
 
    sinfo->num_inputs = ctx.num_inputs;
    sinfo->num_interps = ctx.num_interps;
