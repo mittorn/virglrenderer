@@ -318,6 +318,34 @@ static const struct vrend_shader_table conversion_table[] =
    {DVEC2, "dvec2"},
 };
 
+enum io_type {
+   io_in,
+   io_out
+};
+
+/* On D-GL we prefer using IO blocks because they are supported since 3.1 and
+ * arrays of arrays are only available since 4.3 (or with an extension).
+ * On the other hand on GLES arrays of arrays are available since 3.1 but
+ * interface blocks are only part odf the spec since 3.2.
+ *
+ * In any case the transfer from TCS to TES has to be an interface block
+ * and the output of FS should not be an interface block because interpolateAt*
+ * doesn't support this.
+ */
+static inline bool prefer_generic_io_block(struct dump_ctx *ctx, enum io_type io)
+{
+   switch (ctx->prog_type) {
+   case TGSI_PROCESSOR_FRAGMENT:
+      return io == io_in ?  (!ctx->cfg->use_gles) : false;
+   case TGSI_PROCESSOR_TESS_CTRL:
+      return io == io_in ?  (!ctx->cfg->use_gles) : true;
+   case TGSI_PROCESSOR_TESS_EVAL:
+      return io == io_in ?  true : (!ctx->cfg->use_gles);
+   default:
+      return !ctx->cfg->use_gles;
+   }
+}
+
 static inline const char *get_string(enum vrend_type_qualifier key)
 {
    if (key >= ARRAY_SIZE(conversion_table)) {
@@ -4534,7 +4562,8 @@ static void emit_ios_indirect_generics_input(struct dump_ctx *ctx, const char *p
 }
 
 static void
-emit_ios_generics(struct dump_ctx *ctx, const char *prefix,
+emit_ios_generics(struct dump_ctx *ctx, enum io_type io_type,
+                  const char *prefix, const char *stage_prefix,
                   const struct vrend_shader_io *io, const char *inout,
                   const char *postfix)
 {
@@ -4546,8 +4575,30 @@ emit_ios_generics(struct dump_ctx *ctx, const char *prefix,
                 io->invariant ? "invariant " : "",
                 inout,
                 io->glsl_name, postfix);
-   else
-    assert(0 && "emission of IO arrays not yet supported");
+   else {
+      if (prefer_generic_io_block(ctx, io_type))
+         emit_hdrf(ctx, "%s block_%sg%d {\n   %s%s%s     vec4 %s[%d]; \n} %sg%d%s;\n",
+                   inout,
+                   stage_prefix,
+                   io->sid,
+                   prefix,
+                   io->precise ? "precise " : "",
+                   io->invariant ? "invariant " : "",
+                   io->glsl_name,
+                   io->last - io->first +1,
+                   stage_prefix,
+                   io->sid,
+                   postfix);
+      else
+         emit_hdrf(ctx, "%s%s%s     %s vec4 %s%s[%d];\n",
+                   prefix,
+                   io->precise ? "precise " : "",
+                   io->invariant ? "invariant " : "",
+                   inout,
+                   io->glsl_name,
+                   postfix,
+                   io->last - io->first +1);
+   }
 }
 
 static void emit_ios_vs(struct dump_ctx *ctx)
@@ -4596,9 +4647,10 @@ static void emit_ios_vs(struct dump_ctx *ctx)
          } else
             prefix = "";
 
-         emit_ios_generics(ctx, prefix, &ctx->outputs[i],
-                           ctx->outputs[i].fbfetch_used ? "inout" : "out",
-                           "");
+         emit_ios_generics(ctx, io_out, prefix,
+                           get_stage_output_name_prefix(ctx->prog_type),
+                           &ctx->outputs[i],
+                           ctx->outputs[i].fbfetch_used ? "inout" : "out", "");
 
       } else if (ctx->outputs[i].invariant || ctx->outputs[i].precise) {
          emit_hdrf(ctx, "%s%s;\n",
@@ -4691,7 +4743,8 @@ static void emit_ios_fs(struct dump_ctx *ctx)
 
          char prefixes[64];
          snprintf(prefixes, sizeof(prefixes), "%s %s", prefix, auxprefix);
-         emit_ios_generics(ctx, prefixes,
+         emit_ios_generics(ctx, io_in, prefixes,
+                           get_stage_input_name_prefix(ctx, ctx->prog_type),
                            &ctx->inputs[i], "in", "");
       }
 
@@ -4720,7 +4773,9 @@ static void emit_ios_fs(struct dump_ctx *ctx)
       for (i = 0; i < ctx->num_outputs; i++) {
 
          if (!ctx->outputs[i].glsl_predefined_no_emit) {
-            emit_ios_generics(ctx, "", &ctx->outputs[i],
+            emit_ios_generics(ctx, io_out, "",
+                              get_stage_output_name_prefix(ctx->prog_type),
+                              &ctx->outputs[i],
                               ctx->outputs[i].fbfetch_used ? "inout" : "out", "");
 
          } else if (ctx->outputs[i].invariant || ctx->outputs[i].precise) {
@@ -4759,7 +4814,9 @@ static void emit_ios_geom(struct dump_ctx *ctx)
       if (!ctx->inputs[i].glsl_predefined_no_emit) {
          char postfix[64];
          snprintf(postfix, sizeof(postfix), "[%d]", gs_input_prim_to_size(ctx->gs_in_prim));
-         emit_ios_generics(ctx, "", &ctx->inputs[i], "in", postfix);
+         emit_ios_generics(ctx, io_in, "",
+                           get_stage_input_name_prefix(ctx, ctx->prog_type),
+                           &ctx->inputs[i], "in", postfix);
       }
    }
 
@@ -4781,7 +4838,9 @@ static void emit_ios_geom(struct dump_ctx *ctx)
                       ctx->outputs[i].invariant ? "invariant " : "",
                       ctx->outputs[i].glsl_name);
          else
-            emit_ios_generics(ctx, prefix, &ctx->outputs[i],
+            emit_ios_generics(ctx, io_out, prefix,
+                              get_stage_output_name_prefix(ctx->prog_type),
+                              &ctx->outputs[i],
                               ctx->outputs[i].fbfetch_used ? "inout" : "out", "");
       } else if (ctx->outputs[i].invariant || ctx->outputs[i].precise) {
          emit_hdrf(ctx, "%s%s;\n",
@@ -4840,7 +4899,9 @@ static void emit_ios_tcs(struct dump_ctx *ctx)
          if (ctx->inputs[i].name == TGSI_SEMANTIC_PATCH)
             emit_hdrf(ctx, "in vec4 %s;\n", ctx->inputs[i].glsl_name);
          else
-            emit_ios_generics(ctx, "",  &ctx->inputs[i], "in", "[]");
+            emit_ios_generics(ctx, io_in, "",
+                              get_stage_input_name_prefix(ctx, ctx->prog_type),
+                              &ctx->inputs[i], "in", "[]");
       }
    }
 
@@ -4861,7 +4922,9 @@ static void emit_ios_tcs(struct dump_ctx *ctx)
          if (ctx->outputs[i].name == TGSI_SEMANTIC_PATCH)
             emit_hdrf(ctx, "patch out vec4 %s;\n", ctx->outputs[i].glsl_name);
          else
-            emit_ios_generics(ctx, "", &ctx->outputs[i], "out", "[]");
+            emit_ios_generics(ctx, io_out, "",
+                              get_stage_output_name_prefix(ctx->prog_type),
+                              &ctx->outputs[i], "out", "[]");
       } else if (ctx->outputs[i].invariant || ctx->outputs[i].precise) {
          emit_hdrf(ctx, "%s%s;\n",
                    ctx->outputs[i].precise ? "precise " :
@@ -4894,8 +4957,8 @@ static void emit_ios_tes(struct dump_ctx *ctx)
 {
    uint32_t i;
 
+   const char *name_prefix = get_stage_input_name_prefix(ctx, ctx->prog_type);
    if (ctx_indirect_inputs(ctx)) {
-      const char *name_prefix = get_stage_input_name_prefix(ctx, ctx->prog_type);
       if (ctx->patch_input_range.used) {
          int size = ctx->patch_input_range.last - ctx->patch_input_range.first + 1;
          if (size < ctx->key->num_indirect_patch_inputs)
@@ -4912,7 +4975,8 @@ static void emit_ios_tes(struct dump_ctx *ctx)
          if (ctx->inputs[i].name == TGSI_SEMANTIC_PATCH)
             emit_hdrf(ctx, "in vec4 %s;\n", ctx->inputs[i].glsl_name);
          else
-            emit_ios_generics(ctx, "",  &ctx->inputs[i], "in", "[]");
+            emit_ios_generics(ctx, io_in, "", name_prefix,
+                              &ctx->inputs[i], "in", "[]");
       }
    }
 
@@ -4931,7 +4995,9 @@ static void emit_ios_tes(struct dump_ctx *ctx)
             ctx->num_interps++;
             prefix = INTERP_PREFIX;
          }
-         emit_ios_generics(ctx, prefix,  &ctx->outputs[i],
+         emit_ios_generics(ctx, io_out, prefix,
+                           get_stage_output_name_prefix(ctx->prog_type),
+                           &ctx->outputs[i],
                            ctx->outputs[i].fbfetch_used ? "inout" : "out", "");
 
       } else if (ctx->outputs[i].invariant || ctx->outputs[i].precise) {
