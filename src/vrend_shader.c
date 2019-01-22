@@ -1621,6 +1621,29 @@ static void prepare_so_movs(struct dump_ctx *ctx)
    }
 }
 
+static const struct vrend_shader_io *get_io_slot(const struct vrend_shader_io *slots, unsigned nslots, int idx)
+{
+   const struct vrend_shader_io *result = slots;
+   for (unsigned i = 0; i < nslots; ++i, ++result) {
+      if ((result->first <=  idx) && (result->last >=  idx))
+         return result;
+   }
+   assert(0 && "Output not found");
+}
+
+static void get_so_name(bool use_gles, const struct vrend_shader_io *output, int index, char out_var[255],
+                        const char *prefix, const char *stage_prefix)
+{
+   if (output->first == output->last || output->name != TGSI_SEMANTIC_GENERIC)
+      snprintf(out_var, 255, "%s", output->glsl_name);
+   else
+      if (use_gles)
+         snprintf(out_var, 255, "%s[%d]",  output->glsl_name, index - output->first);
+      else
+         snprintf(out_var, 255, "%s%sg%d.%s[%d]",  prefix, stage_prefix, output->sid,
+                  output->glsl_name, index - output->first);
+}
+
 static void emit_so_movs(struct dump_ctx *ctx)
 {
    uint32_t i, j;
@@ -1633,7 +1656,10 @@ static void emit_so_movs(struct dump_ctx *ctx)
       return;
    }
 
+   const char *stage_prefix = get_stage_output_name_prefix(ctx->prog_type);
+
    for (i = 0; i < ctx->so->num_outputs; i++) {
+      const struct vrend_shader_io *output = get_io_slot(&ctx->outputs[0], ctx->num_outputs, ctx->so->output[i].register_index);
       if (ctx->so->output[i].start_component != 0) {
          int wm_idx = 0;
          writemask[wm_idx++] = '.';
@@ -1659,7 +1685,9 @@ static void emit_so_movs(struct dump_ctx *ctx)
             ctx->so_names[i] = strdup("clipv_tmp");
             ctx->has_clipvertex_so = true;
          } else {
-            ctx->so_names[i] = strdup(ctx->outputs[ctx->so->output[i].register_index].glsl_name);
+            char out_var[255];
+            get_so_name(ctx->cfg->use_gles, output, ctx->so->output[i].register_index, out_var, "block_", stage_prefix);
+            ctx->so_names[i] = strdup(out_var);
          }
       } else {
          char ntemp[8];
@@ -1681,8 +1709,11 @@ static void emit_so_movs(struct dump_ctx *ctx)
          emit_buff(ctx, "tfout%d = %s(clip_dist_temp[%d]%s);\n", i, outtype, ctx->outputs[ctx->so->output[i].register_index].sid,
                   writemask);
       } else {
-         if (ctx->write_so_outputs[i])
-            emit_buff(ctx, "tfout%d = %s(%s%s);\n", i, outtype, ctx->outputs[ctx->so->output[i].register_index].glsl_name, writemask);
+         if (ctx->write_so_outputs[i]) {
+            char out_var[255];
+            get_so_name(ctx->cfg->use_gles, output, ctx->so->output[i].register_index, out_var, "", stage_prefix);
+            emit_buff(ctx, "tfout%d = %s(%s%s);\n", i, outtype, out_var, writemask);
+         }
       }
    }
 }
