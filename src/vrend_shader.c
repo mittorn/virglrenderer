@@ -145,6 +145,7 @@ struct dump_ctx {
    uint32_t num_system_values;
    struct vrend_shader_io system_values[32];
 
+   bool guest_sent_io_arrays;
    struct vrend_io_range generic_input_range;
    struct vrend_io_range patch_input_range;
    struct vrend_io_range generic_output_range;
@@ -963,6 +964,13 @@ iter_declaration(struct tgsi_iterate_context *iter,
                break;
             }
          }
+
+         if (ctx->inputs[i].first != ctx->inputs[i].last) {
+            ctx->guest_sent_io_arrays = true;
+            if (!ctx->cfg->use_gles)
+               require_glsl_ver(ctx, 150);
+         }
+
          /* fallthrough */
       default:
          name_prefix = get_stage_input_name_prefix(ctx, iter->processor.Processor);
@@ -1175,6 +1183,12 @@ iter_declaration(struct tgsi_iterate_context *iter,
          if (iter->processor.Processor == TGSI_PROCESSOR_VERTEX)
             if (ctx->outputs[i].name == TGSI_SEMANTIC_GENERIC)
                color_offset = -1;
+
+         if (ctx->outputs[i].first != ctx->outputs[i].last) {
+            ctx->guest_sent_io_arrays = true;
+            if (!ctx->cfg->use_gles)
+               require_glsl_ver(ctx, 150);
+         }
          /* fallthrough */
       default:
          name_prefix = get_stage_output_name_prefix(iter->processor.Processor);
@@ -2807,7 +2821,8 @@ get_destination_info(struct dump_ctx *ctx,
 
       if (dst_reg->Register.File == TGSI_FILE_OUTPUT) {
          for (uint32_t j = 0; j < ctx->num_outputs; j++) {
-            if (ctx->outputs[j].first == dst_reg->Register.Index) {
+            if (ctx->outputs[j].first <= dst_reg->Register.Index &&
+                ctx->outputs[j].last >= dst_reg->Register.Index) {
 
                if (inst->Instruction.Precise) {
                   if (!ctx->outputs[j].invariant) {
@@ -2884,6 +2899,7 @@ get_destination_info(struct dump_ctx *ctx,
                      break;
                   }
                }
+               break;
             }
          }
       }
@@ -3097,7 +3113,8 @@ get_source_info(struct dump_ctx *ctx,
 
       if (src->Register.File == TGSI_FILE_INPUT) {
          for (uint32_t j = 0; j < ctx->num_inputs; j++)
-            if (ctx->inputs[j].first == src->Register.Index) {
+            if (ctx->inputs[j].first <= src->Register.Index &&
+                ctx->inputs[j].last >= src->Register.Index) {
                if (ctx->key->color_two_side && ctx->inputs[j].name == TGSI_SEMANTIC_COLOR)
                   snprintf(srcs[i], 255, "%s(%s%s%d%s%s)", get_string(stypeprefix), prefix, "realcolor", ctx->inputs[j].sid, arrayname, swizzle);
                else if (ctx->inputs[j].glsl_gl_block) {
@@ -3136,7 +3153,8 @@ get_source_info(struct dump_ctx *ctx,
             }
       } else if (src->Register.File == TGSI_FILE_OUTPUT) {
          for (uint32_t j = 0; j < ctx->num_outputs; j++) {
-            if (ctx->outputs[j].first == src->Register.Index) {
+            if (ctx->outputs[j].first <= src->Register.Index &&
+                ctx->outputs[j].last >= src->Register.Index) {
                if (inst->Instruction.Opcode == TGSI_OPCODE_FBFETCH) {
                   ctx->outputs[j].fbfetch_used = true;
                   ctx->shader_req_bits |= SHADER_REQ_FBFETCH;
@@ -3158,6 +3176,7 @@ get_source_info(struct dump_ctx *ctx,
                } else {
                   snprintf(srcs[i], 255, "%s(%s%s%s%s)", get_string(srcstypeprefix), prefix, ctx->outputs[j].glsl_name, arrayname, ctx->outputs[j].is_int ? "" : swizzle);
                }
+               break;
             }
          }
       } else if (src->Register.File == TGSI_FILE_TEMPORARY) {
@@ -3560,7 +3579,12 @@ iter_instruction(struct tgsi_iterate_context *iter,
       ctx->prog_type = iter->processor.Processor;
 
    if (instno == 0) {
-      rewrite_io_ranged(ctx);
+
+      /* If the guest sent real IO arrays then we declare them individually,
+       * otherwise we might have to add a big array for all generic and patch
+       * inputs */
+      if (!ctx->guest_sent_io_arrays)
+         rewrite_io_ranged(ctx);
 
       emit_buf(ctx, "void main(void)\n{\n");
       if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
