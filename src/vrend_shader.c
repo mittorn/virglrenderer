@@ -2886,8 +2886,24 @@ get_destination_info(struct dump_ctx *ctx,
                            snprintf(dsts[i], 255, "%sp%d[addr%d + %d]%s", get_stage_output_name_prefix(ctx->prog_type), ctx->patch_output_range.first, dst_reg->Indirect.Index, dst_reg->Register.Index - ctx->patch_output_range.array_id, ctx->outputs[j].override_no_wm ? "" : writemask);
                         else
                            snprintf(dsts[i], 255, "%sp%d[%d]%s", get_stage_output_name_prefix(ctx->prog_type), ctx->patch_output_range.first, dst_reg->Register.Index - ctx->patch_output_range.array_id, ctx->outputs[j].override_no_wm ? "" : writemask);
-                     } else
-                        snprintf(dsts[i], 255, "%s%s", ctx->outputs[j].glsl_name, ctx->outputs[j].override_no_wm ? "" : writemask);
+                     } else {
+                        struct vrend_shader_io *io = &ctx->outputs[j];
+                        if (io->last != io->first) {
+                           if (dst_reg->Register.Indirect)
+                              snprintf(dsts[i], 255, "%s[addr%d + %d]%s",
+                                       io->glsl_name,
+                                       dst_reg->Indirect.Index,
+                                       dst_reg->Register.Index - io->first,
+                                       io->override_no_wm ? "" : writemask);
+                           else
+                              snprintf(dsts[i], 255, "%s[%d]%s",
+                                       io->glsl_name,
+                                       dst_reg->Register.Index - io->first,
+                                       io->override_no_wm ? "" : writemask);
+                        } else {
+                           snprintf(dsts[i], 255, "%s%s", io->glsl_name, ctx->outputs[j].override_no_wm ? "" : writemask);
+                        }
+                     }
                      dinfo->dst_override_no_wm[i] = ctx->outputs[j].override_no_wm;
                   } else {
                      if (ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL) {
