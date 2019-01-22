@@ -2711,20 +2711,19 @@ static void get_destination_info_generic(struct dump_ctx *ctx,
    else {
       if (prefer_generic_io_block(ctx, io_out)) {
          if (dst_reg->Register.Indirect)
-            snprintf(dsts, 255, "%s%s[addr%d + %d]%s",  io->glsl_name, blkarray,
-                     dst_reg->Indirect.Index, dst_reg->Register.Index - io->first, wm);
-         else
-            snprintf(dsts, 255, "%s%s[%d]%s", io->glsl_name, blkarray,
-                     dst_reg->Register.Index - io->first, wm);
-      } else {
-         if (dst_reg->Register.Indirect)
             snprintf(dsts, 255, "%sg%d%s.%s[addr%d + %d]%s",  stage_prefix, io->sid, blkarray,
                      io->glsl_name, dst_reg->Indirect.Index, dst_reg->Register.Index - io->first, wm);
          else
             snprintf(dsts, 255, "%sg%d%s.%s[%d]%s",  stage_prefix, io->sid, blkarray,
                      io->glsl_name, dst_reg->Register.Index - io->first, wm);
+      } else {
+         if (dst_reg->Register.Indirect)
+            snprintf(dsts, 255, "%s%s[addr%d + %d]%s",  io->glsl_name, blkarray,
+                     dst_reg->Indirect.Index, dst_reg->Register.Index - io->first, wm);
+         else
+            snprintf(dsts, 255, "%s%s[%d]%s", io->glsl_name, blkarray,
+                     dst_reg->Register.Index - io->first, wm);
       }
-
    }
 }
 
@@ -2850,28 +2849,21 @@ get_destination_info(struct dump_ctx *ctx,
                      get_destination_info_generic(ctx, dst_reg, io, writemask, dsts[i]);
                      dinfo->dst_override_no_wm[i] = ctx->outputs[j].override_no_wm;
                   } else if (ctx->outputs[j].name == TGSI_SEMANTIC_PATCH) {
-                     if (ctx_indirect_outputs(ctx)) {
+                     struct vrend_shader_io *io = ctx->patch_output_range.used ? &ctx->patch_output_range.io : &ctx->outputs[j];
+                     if (io->last != io->first) {
                         if (dst_reg->Register.Indirect)
-                           snprintf(dsts[i], 255, "%sp%d[addr%d + %d]%s", get_stage_output_name_prefix(ctx->prog_type), ctx->patch_output_range.io.sid, dst_reg->Indirect.Index, dst_reg->Register.Index - ctx->patch_output_range.io.first, ctx->outputs[j].override_no_wm ? "" : writemask);
+                           snprintf(dsts[i], 255, "%s[addr%d + %d]%s",
+                                    io->glsl_name,
+                                    dst_reg->Indirect.Index,
+                                    dst_reg->Register.Index - io->first,
+                                    io->override_no_wm ? "" : writemask);
                         else
-                           snprintf(dsts[i], 255, "%sp%d[%d]%s", get_stage_output_name_prefix(ctx->prog_type), ctx->patch_output_range.io.sid, dst_reg->Register.Index - ctx->patch_output_range.io.first, ctx->outputs[j].override_no_wm ? "" : writemask);
+                           snprintf(dsts[i], 255, "%s[%d]%s",
+                                    io->glsl_name,
+                                    dst_reg->Register.Index - io->first,
+                                    io->override_no_wm ? "" : writemask);
                      } else {
-                        struct vrend_shader_io *io = &ctx->outputs[j];
-                        if (io->last != io->first) {
-                           if (dst_reg->Register.Indirect)
-                              snprintf(dsts[i], 255, "%s[addr%d + %d]%s",
-                                       io->glsl_name,
-                                       dst_reg->Indirect.Index,
-                                       dst_reg->Register.Index - io->first,
-                                       io->override_no_wm ? "" : writemask);
-                           else
-                              snprintf(dsts[i], 255, "%s[%d]%s",
-                                       io->glsl_name,
-                                       dst_reg->Register.Index - io->first,
-                                       io->override_no_wm ? "" : writemask);
-                        } else {
                            snprintf(dsts[i], 255, "%s%s", io->glsl_name, ctx->outputs[j].override_no_wm ? "" : writemask);
-                        }
                      }
                      dinfo->dst_override_no_wm[i] = ctx->outputs[j].override_no_wm;
                   } else {
@@ -2959,20 +2951,6 @@ static void get_source_info_generic(struct dump_ctx *ctx,
                prefix, io->glsl_name, arrayname, io->is_int ? "" : swizzle);
    } else {
       if (prefer_generic_io_block(ctx, iot)) {
-         if (src->Register.Indirect)
-            snprintf(srcs, 255, "%s(%s %s%s[addr%d + %d] %s)", get_string(srcstypeprefix), prefix,
-                     io->glsl_name,
-                     arrayname,
-                     src->Indirect.Index,
-                     src->Register.Index - io->first,
-                     io->is_int ? "" : swizzle);
-         else
-            snprintf(srcs, 255, "%s(%s %s%s[%d] %s)", get_string(srcstypeprefix), prefix,
-                     io->glsl_name,
-                     arrayname,
-                     src->Register.Index - io->first,
-                     io->is_int ? "" : swizzle);
-      } else {
          const char *stage_prefix = iot == io_in ? get_stage_input_name_prefix(ctx, ctx->prog_type) :
                                                    get_stage_output_name_prefix(ctx->prog_type);
          if (src->Register.Indirect)
@@ -2986,6 +2964,20 @@ static void get_source_info_generic(struct dump_ctx *ctx,
             snprintf(srcs, 255, "%s(%s %sg%d%s.%s[%d] %s)", get_string(srcstypeprefix), prefix,
                      stage_prefix, io->sid, arrayname,
                      io->glsl_name,
+                     src->Register.Index - io->first,
+                     io->is_int ? "" : swizzle);
+      } else {
+         if (src->Register.Indirect)
+            snprintf(srcs, 255, "%s(%s %s%s[addr%d + %d] %s)", get_string(srcstypeprefix), prefix,
+                     io->glsl_name,
+                     arrayname,
+                     src->Indirect.Index,
+                     src->Register.Index - io->first,
+                     io->is_int ? "" : swizzle);
+         else
+            snprintf(srcs, 255, "%s(%s %s%s[%d] %s)", get_string(srcstypeprefix), prefix,
+                     io->glsl_name,
+                     arrayname,
                      src->Register.Index - io->first,
                      io->is_int ? "" : swizzle);
       }
@@ -3134,14 +3126,8 @@ get_source_info(struct dump_ctx *ctx,
                      struct vrend_shader_io *io = ctx->generic_input_range.used ? &ctx->generic_input_range.io : &ctx->inputs[j];
                      get_source_info_generic(ctx, io_in, srcstypeprefix, prefix, src, io, arrayname, swizzle, srcs[i]);
                   } else if (ctx->inputs[j].name == TGSI_SEMANTIC_PATCH) {
-                     if (ctx_indirect_inputs(ctx)) {
-                        if (src->Register.Indirect)
-                           snprintf(srcs[i], 255, "%s(%s%sp%d[addr%d + %d]%s)", get_string(srcstypeprefix), prefix, get_stage_input_name_prefix(ctx, ctx->prog_type), ctx->patch_input_range.io.sid, src->Indirect.Index, src->Register.Index - ctx->patch_input_range.io.first, ctx->inputs[j].is_int ? "" : swizzle);
-                        else
-                           snprintf(srcs[i], 255, "%s(%s%sp%d[%d]%s)", get_string(srcstypeprefix), prefix, get_stage_input_name_prefix(ctx, ctx->prog_type), ctx->patch_input_range.io.sid, src->Register.Index - ctx->patch_input_range.io.first, ctx->inputs[j].is_int ? "" : swizzle);
-                     } else {
-                        get_source_info_patch(srcstypeprefix, prefix, src, &ctx->inputs[j], arrayname, swizzle, srcs[i]);
-                     }
+                     struct vrend_shader_io *io = ctx->patch_input_range.used ? &ctx->patch_input_range.io : &ctx->inputs[j];
+                     get_source_info_patch(srcstypeprefix, prefix, src, io, arrayname, swizzle, srcs[i]);
                   } else
                      snprintf(srcs[i], 255, "%s(%s%s%s%s)", get_string(srcstypeprefix), prefix, ctx->inputs[j].glsl_name, arrayname, ctx->inputs[j].is_int ? "" : swizzle);
                }
@@ -3167,14 +3153,8 @@ get_source_info(struct dump_ctx *ctx,
                   struct vrend_shader_io *io = ctx->generic_output_range.used ? &ctx->generic_output_range.io : &ctx->outputs[j];
                   get_source_info_generic(ctx, io_out, srcstypeprefix, prefix, src, io, arrayname, swizzle, srcs[i]);
                } else if (ctx->outputs[j].name == TGSI_SEMANTIC_PATCH) {
-                  if (ctx_indirect_outputs(ctx)) {
-                     if (src->Register.Indirect)
-                        snprintf(srcs[i], 255, "%s(%s%sp%d[addr%d + %d]%s)", get_string(srcstypeprefix), prefix, get_stage_output_name_prefix(ctx->prog_type), ctx->patch_output_range.io.sid, src->Indirect.Index, src->Register.Index - ctx->patch_output_range.io.first, ctx->outputs[j].is_int ? "" : swizzle);
-                     else
-                        snprintf(srcs[i], 255, "%s(%s%sp%d[%d]%s)", get_string(srcstypeprefix), prefix, get_stage_output_name_prefix(ctx->prog_type), ctx->patch_output_range.io.sid, src->Register.Index - ctx->patch_output_range.io.first, ctx->outputs[j].is_int ? "" : swizzle);
-                  } else {
-                     get_source_info_patch(srcstypeprefix, prefix, src, &ctx->outputs[j], arrayname, swizzle, srcs[i]);
-                  }
+                  struct vrend_shader_io *io = ctx->patch_output_range.used ? &ctx->patch_output_range.io : &ctx->outputs[j];
+                  get_source_info_patch(srcstypeprefix, prefix, src, io, arrayname, swizzle, srcs[i]);
                } else {
                   snprintf(srcs[i], 255, "%s(%s%s%s%s)", get_string(srcstypeprefix), prefix, ctx->outputs[j].glsl_name, arrayname, ctx->outputs[j].is_int ? "" : swizzle);
                }
@@ -4648,14 +4628,20 @@ static void emit_ios_indirect_generics_output(struct dump_ctx *ctx, const char *
    if (ctx->generic_output_range.used) {
       const char *stage_prefix = get_stage_output_name_prefix(ctx->prog_type);
       int size = ctx->generic_output_range.io.last - ctx->generic_output_range.io.sid + 1;
-      emit_hdrf(ctx, "out block_%sg%d {\n  vec4 %s[%d]; \n} %sg%d%s;\n",
-                stage_prefix,
-                ctx->generic_output_range.io.sid,
-                ctx->generic_output_range.io.glsl_name,
-                size,
-                stage_prefix,
-                ctx->generic_output_range.io.sid,
-                postfix);
+      if (prefer_generic_io_block(ctx, io_out))
+         emit_hdrf(ctx, "out block_%sg%d {\n  vec4 %s[%d]; \n} %sg%d%s;\n",
+                   stage_prefix,
+                   ctx->generic_output_range.io.sid,
+                   ctx->generic_output_range.io.glsl_name,
+                   size,
+                   stage_prefix,
+                   ctx->generic_output_range.io.sid,
+                   postfix);
+      else
+         emit_hdrf(ctx, "out vec4 %s%s[%d];\n",
+                   ctx->generic_input_range.io.glsl_name,
+                   postfix,
+                   size);
    }
 }
 
@@ -4668,14 +4654,21 @@ static void emit_ios_indirect_generics_input(struct dump_ctx *ctx, const char *p
       if (size < ctx->key->num_indirect_generic_inputs)
          ctx->key->num_indirect_generic_inputs = (unsigned char)size;  // This is wrong but needed for debugging
 
-      emit_hdrf(ctx, "in block_%sg%d {\n  vec4 %s[%d]; \n} %sg%d%s;\n",
-                stage_prefix,
-                ctx->generic_input_range.io.sid,
-                ctx->generic_input_range.io.glsl_name,
-                size,
-                stage_prefix,
-                ctx->generic_input_range.io.sid,
-                postfix);
+      if (prefer_generic_io_block(ctx, io_in))
+         emit_hdrf(ctx,
+                   "in block_%sg%d {\n        vec4 %s[%d]; \n} %sg%d%s;\n",
+                   stage_prefix,
+                   ctx->generic_input_range.io.sid,
+                   ctx->generic_input_range.io.glsl_name,
+                   size,
+                   stage_prefix,
+                   ctx->generic_input_range.io.sid,
+                   postfix);
+      else
+         emit_hdrf(ctx, "in vec4 %s%s[%d];\n",
+                   ctx->generic_input_range.io.glsl_name,
+                   postfix,
+                   size);
    }
 }
 
@@ -4718,6 +4711,18 @@ emit_ios_generics(struct dump_ctx *ctx, enum io_type io_type,
                    io->last - io->first +1);
    }
 }
+
+static void
+emit_ios_patch(struct dump_ctx *ctx, const char *prefix, const char *stage_prefix,
+               const struct vrend_shader_io *io, const char *inout, int size)
+{
+   if (io->last == io->first)
+      emit_hdrf(ctx, "%s %s vec4 %s;\n", prefix, inout, io->glsl_name);
+   else
+      emit_hdrf(ctx, "%s %s vec4 %s_p%d[%d];\n", prefix, inout, stage_prefix,
+                io->sid, size);
+}
+
 
 static void emit_ios_vs(struct dump_ctx *ctx)
 {
@@ -5015,7 +5020,8 @@ static void emit_ios_tcs(struct dump_ctx *ctx)
    for (i = 0; i < ctx->num_inputs; i++) {
       if (!ctx->inputs[i].glsl_predefined_no_emit) {
          if (ctx->inputs[i].name == TGSI_SEMANTIC_PATCH)
-            emit_hdrf(ctx, "in vec4 %s;\n", ctx->inputs[i].glsl_name);
+            emit_ios_patch(ctx, "", get_stage_input_name_prefix(ctx, ctx->prog_type),
+                           &ctx->inputs[i], "in", ctx->inputs[i].last - ctx->inputs[i].first + 1);
          else
             emit_ios_generics(ctx, io_in, "",
                               get_stage_input_name_prefix(ctx, ctx->prog_type),
@@ -5025,23 +5031,22 @@ static void emit_ios_tcs(struct dump_ctx *ctx)
 
    emit_hdrf(ctx, "layout(vertices = %d) out;\n", ctx->tcs_vertices_out);
 
-   if (ctx_indirect_outputs(ctx)) {
-      const char *name_prefix = get_stage_output_name_prefix(ctx->prog_type);
-      emit_ios_indirect_generics_output(ctx, "[]");
+   emit_ios_indirect_generics_output(ctx, "[]");
 
-      if (ctx->patch_output_range.used) {
-         emit_hdrf(ctx, "patch out vec4 %sp%d[%d];\n", name_prefix, ctx->patch_output_range.io.sid, ctx->patch_output_range.io.last - ctx->patch_output_range.io.sid + 1);
-      }
-   }
+   const char *stage_prefix = get_stage_output_name_prefix(ctx->prog_type);
+
+   if (ctx->patch_output_range.used)
+      emit_ios_patch(ctx, "patch", stage_prefix, &ctx->patch_output_range.io, "out",
+                     ctx->patch_output_range.io.last - ctx->patch_output_range.io.sid + 1);
 
    for (i = 0; i < ctx->num_outputs; i++) {
       if (!ctx->outputs[i].glsl_predefined_no_emit) {
-         /* ugly leave spaces to patch interp in later */
+         const char *stage_prefix = get_stage_output_name_prefix(ctx->prog_type);
          if (ctx->outputs[i].name == TGSI_SEMANTIC_PATCH)
-            emit_hdrf(ctx, "patch out vec4 %s;\n", ctx->outputs[i].glsl_name);
+            emit_ios_patch(ctx, "patch", stage_prefix, &ctx->outputs[i], "out",
+                           ctx->outputs[i].last - ctx->outputs[i].first + 1);
          else
-            emit_ios_generics(ctx, io_out, "",
-                              get_stage_output_name_prefix(ctx->prog_type),
+            emit_ios_generics(ctx, io_out, "", stage_prefix,
                               &ctx->outputs[i], "out", "[]");
       } else if (ctx->outputs[i].invariant || ctx->outputs[i].precise) {
          emit_hdrf(ctx, "%s%s;\n",
@@ -5076,22 +5081,19 @@ static void emit_ios_tes(struct dump_ctx *ctx)
    uint32_t i;
 
    const char *name_prefix = get_stage_input_name_prefix(ctx, ctx->prog_type);
-   if (ctx_indirect_inputs(ctx)) {
-      if (ctx->patch_input_range.used) {
-         int size = ctx->patch_input_range.io.last - ctx->patch_input_range.io.sid + 1;
-         if (size < ctx->key->num_indirect_patch_inputs)
-            size = ctx->key->num_indirect_patch_inputs;
-         emit_hdrf(ctx, "patch in vec4 %sp%d[%d];\n", name_prefix, ctx->patch_input_range.io.sid, size);
-      }
 
-      if (ctx->generic_input_range.used)
-         emit_ios_indirect_generics_input(ctx, "[]");
-   }
+   if (ctx->patch_input_range.used)
+      emit_ios_patch(ctx, "patch", name_prefix, &ctx->patch_input_range.io, "in",
+                     ctx->patch_input_range.io.last - ctx->patch_input_range.io.sid + 1);
+
+   if (ctx->generic_input_range.used)
+      emit_ios_indirect_generics_input(ctx, "[]");
 
    for (i = 0; i < ctx->num_inputs; i++) {
       if (!ctx->inputs[i].glsl_predefined_no_emit) {
          if (ctx->inputs[i].name == TGSI_SEMANTIC_PATCH)
-            emit_hdrf(ctx, "in vec4 %s;\n", ctx->inputs[i].glsl_name);
+            emit_ios_patch(ctx, "patch", name_prefix, &ctx->inputs[i], "in",
+                           ctx->inputs[i].last - ctx->inputs[i].first + 1);
          else
             emit_ios_generics(ctx, io_in, "", name_prefix,
                               &ctx->inputs[i], "in", "[]");
