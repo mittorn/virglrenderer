@@ -4443,6 +4443,30 @@ static inline void emit_winsys_correction(struct dump_ctx *ctx)
    emit_hdr(ctx, "uniform float winsys_adjust_y;\n");
 }
 
+static void emit_ios_indirect_generics_output(struct dump_ctx *ctx, const char *postfix)
+{
+   if (ctx->generic_output_range.used) {
+      const char *stage_prefix = get_stage_output_name_prefix(ctx->prog_type);
+      int size = ctx->generic_output_range.last - ctx->generic_output_range.first + 1;
+      emit_hdrf(ctx, "out block {\n  vec4 %s%d[%d]; \n} oblk%s;\n",
+                stage_prefix, ctx->generic_output_range.first, size, postfix);
+   }
+}
+
+static void emit_ios_indirect_generics_input(struct dump_ctx *ctx, const char *postfix)
+{
+   if (ctx->generic_input_range.used) {
+      const char *stage_prefix = get_stage_input_name_prefix(ctx, ctx->prog_type);
+      int size = ctx->generic_input_range.last - ctx->generic_input_range.first + 1;
+      assert(size < 256 && size >= 0);
+      if (size < ctx->key->num_indirect_generic_inputs)
+         ctx->key->num_indirect_generic_inputs = (unsigned char)size;  // This is wrong but needed for debugging
+
+      emit_hdrf(ctx, "in block {\n  vec4 %s%d[%d]; \n} blk%s;\n",
+                stage_prefix, ctx->generic_input_range.first, size, postfix);
+   }
+}
+
 static void
 emit_ios_generics(struct dump_ctx *ctx, const char *prefix,
                   const struct vrend_shader_io *io, const char *inout,
@@ -4486,12 +4510,8 @@ static void emit_ios_vs(struct dump_ctx *ctx)
       }
    }
 
-   if (ctx_indirect_outputs(ctx)) {
-      const char *name_prefix = get_stage_output_name_prefix(ctx->prog_type);
-      if (ctx->generic_output_range.used) {
-         emit_hdrf(ctx, "out block { vec4 %s%d[%d]; } oblk;\n", name_prefix, ctx->generic_output_range.first, ctx->generic_output_range.last - ctx->generic_output_range.first + 1);
-      }
-   }
+   if (ctx_indirect_outputs(ctx))
+      emit_ios_indirect_generics_output(ctx, "");
 
    for (i = 0; i < ctx->num_outputs; i++) {
       if (ctx->key->color_two_side && ctx->outputs[i].sid < 2) {
@@ -4585,13 +4605,8 @@ static void emit_ios_fs(struct dump_ctx *ctx)
       emit_hdr(ctx, "layout(early_fragment_tests) in;\n");
    }
 
-   if (ctx_indirect_inputs(ctx) && ctx->generic_input_range.used) {
-      const char *name_prefix = get_stage_input_name_prefix(ctx, ctx->prog_type);
-      int size = ctx->generic_input_range.last - ctx->generic_input_range.first + 1;
-      if (size < ctx->key->num_indirect_generic_inputs)
-         ctx->key->num_indirect_generic_inputs = size;  // This is wrong but needed for debugging
-      emit_hdrf(ctx, "in block { vec4 %s%d[%d]; } blk;\n", name_prefix, ctx->generic_input_range.first, size);
-   }
+   if (ctx_indirect_inputs(ctx) && ctx->generic_input_range.used)
+      emit_ios_indirect_generics_input(ctx, "");
 
    for (i = 0; i < ctx->num_inputs; i++) {
       if (!ctx->inputs[i].glsl_predefined_no_emit) {
@@ -4607,7 +4622,11 @@ static void emit_ios_fs(struct dump_ctx *ctx)
             auxprefix = get_aux_string(ctx->inputs[i].location);
             ctx->num_interps++;
          }
-         emit_hdrf(ctx, "%s%sin vec4 %s;\n", prefix, auxprefix, ctx->inputs[i].glsl_name);
+
+         char prefixes[64];
+         snprintf(prefixes, sizeof(prefixes), "%s %s", prefix, auxprefix);
+         emit_ios_generics(ctx, prefixes,
+                           &ctx->inputs[i], "in", "");
       }
 
       if (ctx->cfg->use_gles && !ctx->key->winsys_adjust_y_emitted &&
@@ -4747,16 +4766,8 @@ static void emit_ios_tcs(struct dump_ctx *ctx)
 {
    uint32_t i;
 
-   if (ctx_indirect_inputs(ctx)) {
-      const char *name_prefix = get_stage_input_name_prefix(ctx, ctx->prog_type);
-
-      if (ctx->generic_input_range.used) {
-         int size = ctx->generic_input_range.last - ctx->generic_input_range.first + 1;
-         if (size < ctx->key->num_indirect_generic_inputs)
-            size = ctx->key->num_indirect_generic_inputs;
-         emit_hdrf(ctx, "in block { vec4 %s%d[%d]; } blk[];\n", name_prefix, ctx->generic_input_range.first, size);
-      }
-   }
+   if (ctx_indirect_inputs(ctx))
+      emit_ios_indirect_generics_input(ctx, "[]");
 
    for (i = 0; i < ctx->num_inputs; i++) {
       if (!ctx->inputs[i].glsl_predefined_no_emit) {
@@ -4771,9 +4782,8 @@ static void emit_ios_tcs(struct dump_ctx *ctx)
 
    if (ctx_indirect_outputs(ctx)) {
       const char *name_prefix = get_stage_output_name_prefix(ctx->prog_type);
-      if (ctx->generic_output_range.used) {
-         emit_hdrf(ctx, "out block { vec4 %s%d[%d]; } oblk[];\n", name_prefix, ctx->generic_output_range.first, ctx->generic_output_range.last - ctx->generic_output_range.first + 1);
-      }
+      emit_ios_indirect_generics_output(ctx, "[]");
+
       if (ctx->patch_output_range.used) {
          emit_hdrf(ctx, "patch out vec4 %sp%d[%d];\n", name_prefix, ctx->patch_output_range.first, ctx->patch_output_range.last - ctx->patch_output_range.first + 1);
       }
@@ -4827,12 +4837,8 @@ static void emit_ios_tes(struct dump_ctx *ctx)
          emit_hdrf(ctx, "patch in vec4 %sp%d[%d];\n", name_prefix, ctx->patch_input_range.first, size);
       }
 
-      if (ctx->generic_input_range.used) {
-         int size = ctx->generic_input_range.last - ctx->generic_input_range.first + 1;
-         if (size < ctx->key->num_indirect_generic_inputs)
-            size = ctx->key->num_indirect_generic_inputs;
-         emit_hdrf(ctx, "in block { vec4 %s%d[%d]; } blk[];\n", name_prefix, ctx->generic_input_range.first, size);
-      }
+      if (ctx->generic_input_range.used)
+         emit_ios_indirect_generics_input(ctx, "[]");
    }
 
    for (i = 0; i < ctx->num_inputs; i++) {
