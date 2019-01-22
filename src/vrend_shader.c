@@ -761,7 +761,6 @@ iter_declaration(struct tgsi_iterate_context *iter,
    int color_offset = 0;
    const char *name_prefix = "";
    bool add_two_side = false;
-   bool indirect = false;
 
    switch (decl->Declaration.File) {
    case TGSI_FILE_INPUT:
@@ -772,7 +771,6 @@ iter_declaration(struct tgsi_iterate_context *iter,
             return true;
       }
       i = ctx->num_inputs++;
-      indirect = ctx_indirect_inputs(ctx);
       if (ctx->num_inputs > ARRAY_SIZE(ctx->inputs)) {
          vrend_printf( "Number of inputs exceeded, max is %lu\n", ARRAY_SIZE(ctx->inputs));
          return false;
@@ -953,17 +951,6 @@ iter_declaration(struct tgsi_iterate_context *iter,
          }
          /* fallthrough */
       case TGSI_SEMANTIC_PATCH:
-	 if (indirect && ctx->inputs[i].name == TGSI_SEMANTIC_PATCH) {
-            ctx->inputs[i].glsl_predefined_no_emit = true;
-	    if (ctx->inputs[i].sid < ctx->patch_input_range.io.sid || ctx->patch_input_range.used == false) {
-	       ctx->patch_input_range.io.sid = ctx->inputs[i].sid;
-	       ctx->patch_input_range.io.first = i;
-	       ctx->patch_input_range.used = true;
-	    }
-	    if (ctx->inputs[i].sid > ctx->patch_input_range.io.last)
-               ctx->patch_input_range.io.last = ctx->inputs[i].sid;
-         }
-         /* fallthrough */
       case TGSI_SEMANTIC_GENERIC:
          if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
             if (ctx->key->coord_replace & (1 << ctx->inputs[i].sid)) {
@@ -975,16 +962,6 @@ iter_declaration(struct tgsi_iterate_context *iter,
                ctx->inputs[i].glsl_no_index = true;
                break;
             }
-         }
-         if (indirect && ctx->inputs[i].name == TGSI_SEMANTIC_GENERIC) {
-            ctx->inputs[i].glsl_predefined_no_emit = true;
-            if (ctx->inputs[i].sid < ctx->generic_input_range.io.sid || ctx->generic_input_range.used == false) {
-               ctx->generic_input_range.io.sid = ctx->inputs[i].sid;
-               ctx->generic_input_range.io.first = i;
-               ctx->generic_input_range.used = true;
-            }
-            if (ctx->inputs[i].sid > ctx->generic_input_range.io.last)
-               ctx->generic_input_range.io.last = ctx->inputs[i].sid;
          }
          /* fallthrough */
       default:
@@ -1022,7 +999,6 @@ iter_declaration(struct tgsi_iterate_context *iter,
             return true;
       }
       i = ctx->num_outputs++;
-      indirect = ctx_indirect_outputs(ctx);
       if (ctx->num_outputs > ARRAY_SIZE(ctx->outputs)) {
          vrend_printf( "Number of outputs exceeded, max is %lu\n", ARRAY_SIZE(ctx->outputs));
          return false;
@@ -1194,34 +1170,11 @@ iter_declaration(struct tgsi_iterate_context *iter,
             break;
          }
          /* fallthrough */
+      case TGSI_SEMANTIC_PATCH:
       case TGSI_SEMANTIC_GENERIC:
          if (iter->processor.Processor == TGSI_PROCESSOR_VERTEX)
             if (ctx->outputs[i].name == TGSI_SEMANTIC_GENERIC)
                color_offset = -1;
-         if (indirect && ctx->outputs[i].name == TGSI_SEMANTIC_GENERIC) {
-            ctx->outputs[i].glsl_predefined_no_emit = true;
-            require_glsl_ver(ctx, 150);
-            if (ctx->outputs[i].sid < ctx->generic_output_range.io.sid || ctx->generic_output_range.used == false) {
-               ctx->generic_output_range.io.first = i;
-               ctx->generic_output_range.io.sid = ctx->outputs[i].sid;
-               ctx->generic_output_range.used = true;
-            }
-            if (ctx->outputs[i].sid > ctx->generic_output_range.io.last)
-               ctx->generic_output_range.io.last = ctx->outputs[i].sid;
-         }
-         /* fallthrough */
-      case TGSI_SEMANTIC_PATCH:
-         if (indirect && ctx->outputs[i].name == TGSI_SEMANTIC_PATCH) {
-            ctx->outputs[i].glsl_predefined_no_emit = true;
-            require_glsl_ver(ctx, 150);
-            if (ctx->outputs[i].sid < ctx->patch_output_range.io.sid || ctx->patch_output_range.used == false) {
-               ctx->patch_output_range.io.first = i;
-               ctx->patch_output_range.io.sid = ctx->outputs[i].sid;
-               ctx->patch_output_range.used = true;
-            }
-            if (ctx->outputs[i].sid > ctx->patch_output_range.io.last)
-               ctx->patch_output_range.io.last = ctx->outputs[i].sid;
-         }
          /* fallthrough */
       default:
          name_prefix = get_stage_output_name_prefix(iter->processor.Processor);
@@ -3561,6 +3514,98 @@ get_source_info(struct dump_ctx *ctx,
    return true;
 }
 
+/* We have indirect IO access, but the guest actually send separate values, so
+ * now we have to emulate an array.
+ */
+static
+void rewrite_io_ranged(struct dump_ctx *ctx)
+{
+   if ((ctx->info.indirect_files & (1 << TGSI_FILE_INPUT)) ||
+       ctx->key->num_indirect_generic_inputs ||
+       ctx->key->num_indirect_patch_inputs) {
+
+      for (uint i = 0; i < ctx->num_inputs; ++i) {
+         if (ctx->inputs[i].name == TGSI_SEMANTIC_PATCH) {
+            ctx->inputs[i].glsl_predefined_no_emit = true;
+            if (ctx->inputs[i].sid < ctx->patch_input_range.io.sid || ctx->patch_input_range.used == false) {
+               ctx->patch_input_range.io.first = i;
+               ctx->patch_input_range.io.name = TGSI_SEMANTIC_PATCH;
+               ctx->patch_input_range.io.sid = ctx->inputs[i].sid;
+               ctx->patch_input_range.used = true;
+            }
+            if (ctx->inputs[i].sid > ctx->patch_input_range.io.last)
+               ctx->patch_input_range.io.last = ctx->inputs[i].sid;
+         }
+
+         if (ctx->inputs[i].name == TGSI_SEMANTIC_GENERIC) {
+            ctx->inputs[i].glsl_predefined_no_emit = true;
+            if (ctx->inputs[i].sid < ctx->generic_input_range.io.sid || ctx->generic_input_range.used == false) {
+               ctx->generic_input_range.io.sid = ctx->inputs[i].sid;
+               ctx->generic_input_range.io.first = i;
+               ctx->generic_input_range.io.name = TGSI_SEMANTIC_GENERIC;
+               ctx->generic_input_range.used = true;
+            }
+            if (ctx->inputs[i].sid > ctx->generic_input_range.io.last)
+               ctx->generic_input_range.io.last = ctx->inputs[i].sid;
+         }
+
+         if (ctx->key->num_indirect_generic_inputs > 0)
+            ctx->generic_input_range.io.last = ctx->generic_input_range.io.sid + ctx->key->num_indirect_generic_inputs - 1;
+         if (ctx->key->num_indirect_patch_inputs > 0)
+            ctx->patch_input_range.io.last = ctx->patch_input_range.io.sid + ctx->key->num_indirect_patch_inputs - 1;
+      }
+      snprintf(ctx->patch_input_range.io.glsl_name, 64, "%s_p%d",
+               get_stage_input_name_prefix(ctx, ctx->prog_type), ctx->patch_input_range.io.sid);
+      snprintf(ctx->generic_input_range.io.glsl_name, 64, "%s_g%d",
+               get_stage_input_name_prefix(ctx, ctx->prog_type), ctx->generic_input_range.io.sid);
+
+      if (prefer_generic_io_block(ctx, io_in))
+          require_glsl_ver(ctx, 150);
+   }
+
+   if ((ctx->info.indirect_files & (1 << TGSI_FILE_OUTPUT)) ||
+       ctx->key->num_indirect_generic_outputs ||
+       ctx->key->num_indirect_patch_outputs) {
+
+      for (uint i = 0; i < ctx->num_outputs; ++i) {
+         if (ctx->outputs[i].name == TGSI_SEMANTIC_PATCH) {
+            ctx->outputs[i].glsl_predefined_no_emit = true;
+            if (ctx->outputs[i].sid < ctx->patch_output_range.io.sid || ctx->patch_output_range.used == false) {
+               ctx->patch_output_range.io.first = i;
+               ctx->patch_output_range.io.name = TGSI_SEMANTIC_PATCH;
+               ctx->patch_output_range.io.sid = ctx->outputs[i].sid;
+               ctx->patch_output_range.used = true;
+            }
+            if (ctx->outputs[i].sid > ctx->patch_output_range.io.last) {
+               ctx->patch_output_range.io.last = ctx->outputs[i].sid;
+            }
+         }
+
+         if (ctx->outputs[i].name == TGSI_SEMANTIC_GENERIC) {
+            ctx->outputs[i].glsl_predefined_no_emit = true;
+            if (ctx->outputs[i].sid < ctx->generic_output_range.io.sid || ctx->generic_output_range.used == false) {
+               ctx->generic_output_range.io.sid = ctx->outputs[i].sid;
+               ctx->generic_output_range.io.first = i;
+               ctx->generic_output_range.io.name = TGSI_SEMANTIC_GENERIC;
+               ctx->generic_output_range.used = true;
+            }
+            if (ctx->outputs[i].sid > ctx->generic_output_range.io.last) {
+               ctx->generic_output_range.io.last = ctx->outputs[i].sid;
+            }
+         }
+      }
+      snprintf(ctx->patch_output_range.io.glsl_name, 64, "%s_p%d",
+               get_stage_output_name_prefix(ctx->prog_type), ctx->patch_output_range.io.sid);
+      snprintf(ctx->generic_output_range.io.glsl_name, 64, "%s_g%d",
+               get_stage_output_name_prefix(ctx->prog_type), ctx->generic_output_range.io.sid);
+
+      if (prefer_generic_io_block(ctx, io_out))
+          require_glsl_ver(ctx, 150);
+   }
+}
+
+
+
 static boolean
 iter_instruction(struct tgsi_iterate_context *iter,
                  struct tgsi_full_instruction *inst)
@@ -3580,6 +3625,8 @@ iter_instruction(struct tgsi_iterate_context *iter,
       ctx->prog_type = iter->processor.Processor;
 
    if (instno == 0) {
+      rewrite_io_ranged(ctx);
+
       emit_buf(ctx, "void main(void)\n{\n");
       if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
          emit_color_select(ctx);
