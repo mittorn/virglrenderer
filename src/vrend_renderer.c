@@ -612,7 +612,8 @@ static void vrend_destroy_program(struct vrend_linked_shader_program *ent);
 static void vrend_apply_sampler_state(struct vrend_context *ctx,
                                       struct vrend_resource *res,
                                       uint32_t shader_type,
-                                      int id, int sampler_id, uint32_t srgb_decode);
+                                      int id, int sampler_id,
+                                      struct vrend_sampler_view *tview);
 static GLenum tgsitargettogltarget(const enum pipe_texture_target target, int nr_samples);
 
 void vrend_update_stencil_state(struct vrend_context *ctx);
@@ -3634,7 +3635,7 @@ static void vrend_draw_bind_samplers_shader(struct vrend_context *ctx,
 
          glBindTexture(target, id);
          if (ctx->sub->views[shader_type].old_ids[i] != id || ctx->sub->sampler_state_dirty) {
-            vrend_apply_sampler_state(ctx, texture, shader_type, i, *sampler_id, tview->srgb_decode);
+            vrend_apply_sampler_state(ctx, texture, shader_type, i, *sampler_id, tview);
             ctx->sub->views[shader_type].old_ids[i] = id;
          }
          (*sampler_id)++;
@@ -4947,7 +4948,7 @@ static void vrend_apply_sampler_state(struct vrend_context *ctx,
                                       uint32_t shader_type,
                                       int id,
                                       int sampler_id,
-                                      uint32_t srgb_decode)
+                                      struct vrend_sampler_view *tview)
 {
    struct vrend_texture *tex = (struct vrend_texture *)res;
    struct vrend_sampler_state *vstate = ctx->sub->sampler_state[shader_type][id];
@@ -4976,7 +4977,7 @@ static void vrend_apply_sampler_state(struct vrend_context *ctx,
     */
    bool is_emulated_alpha = vrend_format_is_emulated_alpha(res->base.format);
    if (has_feature(feat_samplers)) {
-      int sampler = vstate->ids[srgb_decode == GL_SKIP_DECODE_EXT ? 0 : 1];
+      int sampler = vstate->ids[tview->srgb_decode == GL_SKIP_DECODE_EXT ? 0 : 1];
       if (is_emulated_alpha) {
          union pipe_color_union border_color;
          border_color = state->border_color;
