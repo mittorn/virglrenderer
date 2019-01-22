@@ -2946,6 +2946,23 @@ static void get_source_info_generic(enum vrend_type_qualifier srcstypeprefix,
    }
 }
 
+static void get_source_info_patch(enum vrend_type_qualifier srcstypeprefix,
+                                  const char *prefix,
+                                  const struct vrend_shader_io *io,
+                                  const  char *arrayname,
+                                  const char *swizzle,
+                                  char srcs[255])
+{
+   const char *wm = io->is_int ? "" : swizzle;
+
+   if (io->last == io->first)
+      snprintf(srcs, 255, "%s(%s%s%s%s)", get_string(srcstypeprefix), prefix, io->glsl_name,
+               arrayname, wm);
+   else
+      assert(0 && "Array access not yet implemented");
+}
+
+
 static bool
 get_source_info(struct dump_ctx *ctx,
                 const struct tgsi_full_instruction *inst,
@@ -3069,12 +3086,15 @@ get_source_info(struct dump_ctx *ctx,
                      } else {
                         get_source_info_generic(srcstypeprefix, prefix, &ctx->inputs[j], arrayname, swizzle, srcs[i]);
                      }
-                  } else if (ctx->inputs[j].name == TGSI_SEMANTIC_PATCH &&
-                             ctx_indirect_inputs(ctx)) {
-                     if (src->Register.Indirect)
-                        snprintf(srcs[i], 255, "%s(%s%sp%d[addr%d + %d]%s)", get_string(srcstypeprefix), prefix, get_stage_input_name_prefix(ctx, ctx->prog_type), ctx->patch_input_range.first, src->Indirect.Index, src->Register.Index - ctx->patch_input_range.array_id, ctx->inputs[j].is_int ? "" : swizzle);
-                     else
-                        snprintf(srcs[i], 255, "%s(%s%sp%d[%d]%s)", get_string(srcstypeprefix), prefix, get_stage_input_name_prefix(ctx, ctx->prog_type), ctx->patch_input_range.first, src->Register.Index - ctx->patch_input_range.array_id, ctx->inputs[j].is_int ? "" : swizzle);
+                  } else if (ctx->inputs[j].name == TGSI_SEMANTIC_PATCH) {
+                     if (ctx_indirect_inputs(ctx)) {
+                        if (src->Register.Indirect)
+                           snprintf(srcs[i], 255, "%s(%s%sp%d[addr%d + %d]%s)", get_string(srcstypeprefix), prefix, get_stage_input_name_prefix(ctx, ctx->prog_type), ctx->patch_input_range.first, src->Indirect.Index, src->Register.Index - ctx->patch_input_range.array_id, ctx->inputs[j].is_int ? "" : swizzle);
+                        else
+                           snprintf(srcs[i], 255, "%s(%s%sp%d[%d]%s)", get_string(srcstypeprefix), prefix, get_stage_input_name_prefix(ctx, ctx->prog_type), ctx->patch_input_range.first, src->Register.Index - ctx->patch_input_range.array_id, ctx->inputs[j].is_int ? "" : swizzle);
+                     } else {
+                        get_source_info_patch(srcstypeprefix, prefix, &ctx->inputs[j], arrayname, swizzle, srcs[i]);
+                     }
                   } else
                      snprintf(srcs[i], 255, "%s(%s%s%s%s)", get_string(srcstypeprefix), prefix, ctx->inputs[j].glsl_name, arrayname, ctx->inputs[j].is_int ? "" : swizzle);
                }
@@ -3106,12 +3126,15 @@ get_source_info(struct dump_ctx *ctx,
                         snprintf(srcs[i], 255, "%s(%soblk%s.%s%d[%d]%s)", get_string(srcstypeprefix), prefix, blkarray, get_stage_output_name_prefix(ctx->prog_type), ctx->generic_output_range.first, src->Register.Index - ctx->generic_output_range.array_id, ctx->outputs[j].is_int ? "" : swizzle);
                   } else
                      get_source_info_generic(srcstypeprefix, prefix, &ctx->outputs[j], arrayname, swizzle, srcs[i]);
-               } else if (ctx->outputs[j].name == TGSI_SEMANTIC_PATCH &&
-                          ctx_indirect_outputs(ctx)) {
-                  if (src->Register.Indirect)
-                     snprintf(srcs[i], 255, "%s(%s%sp%d[addr%d + %d]%s)", get_string(srcstypeprefix), prefix, get_stage_output_name_prefix(ctx->prog_type), ctx->patch_output_range.first, src->Indirect.Index, src->Register.Index - ctx->patch_output_range.array_id, ctx->outputs[j].is_int ? "" : swizzle);
-                  else
-                     snprintf(srcs[i], 255, "%s(%s%sp%d[%d]%s)", get_string(srcstypeprefix), prefix, get_stage_output_name_prefix(ctx->prog_type), ctx->patch_output_range.first, src->Register.Index - ctx->patch_output_range.array_id, ctx->outputs[j].is_int ? "" : swizzle);
+               } else if (ctx->outputs[j].name == TGSI_SEMANTIC_PATCH) {
+                  if (ctx_indirect_outputs(ctx)) {
+                     if (src->Register.Indirect)
+                        snprintf(srcs[i], 255, "%s(%s%sp%d[addr%d + %d]%s)", get_string(srcstypeprefix), prefix, get_stage_output_name_prefix(ctx->prog_type), ctx->patch_output_range.first, src->Indirect.Index, src->Register.Index - ctx->patch_output_range.array_id, ctx->outputs[j].is_int ? "" : swizzle);
+                     else
+                        snprintf(srcs[i], 255, "%s(%s%sp%d[%d]%s)", get_string(srcstypeprefix), prefix, get_stage_output_name_prefix(ctx->prog_type), ctx->patch_output_range.first, src->Register.Index - ctx->patch_output_range.array_id, ctx->outputs[j].is_int ? "" : swizzle);
+                  } else {
+                     get_source_info_patch(srcstypeprefix, prefix, &ctx->outputs[j], arrayname, swizzle, srcs[i]);
+                  }
                } else {
                   snprintf(srcs[i], 255, "%s(%s%s%s%s)", get_string(srcstypeprefix), prefix, ctx->outputs[j].glsl_name, arrayname, ctx->outputs[j].is_int ? "" : swizzle);
                }
