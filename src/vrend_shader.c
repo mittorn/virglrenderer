@@ -3027,6 +3027,7 @@ static void get_source_info_generic(struct dump_ctx *ctx,
 
 static void get_source_info_patch(enum vrend_type_qualifier srcstypeprefix,
                                   const char *prefix,
+                                  const struct tgsi_full_src_register *src,
                                   const struct vrend_shader_io *io,
                                   const  char *arrayname,
                                   const char *swizzle,
@@ -3037,8 +3038,15 @@ static void get_source_info_patch(enum vrend_type_qualifier srcstypeprefix,
    if (io->last == io->first)
       snprintf(srcs, 255, "%s(%s%s%s%s)", get_string(srcstypeprefix), prefix, io->glsl_name,
                arrayname, wm);
-   else
-      assert(0 && "Array access not yet implemented");
+   else {
+      if (src->Register.Indirect)
+         snprintf(srcs, 255, "%s(%s %s[addr%d + %d] %s)", get_string(srcstypeprefix), prefix,
+                  io->glsl_name, src->Indirect.Index, src->Register.Index - io->first, wm);
+      else
+         snprintf(srcs, 255, "%s(%s %s[%d] %s)", get_string(srcstypeprefix), prefix,
+                  io->glsl_name, src->Register.Index - io->first, wm);
+   }
+
 }
 
 
@@ -3172,7 +3180,7 @@ get_source_info(struct dump_ctx *ctx,
                         else
                            snprintf(srcs[i], 255, "%s(%s%sp%d[%d]%s)", get_string(srcstypeprefix), prefix, get_stage_input_name_prefix(ctx, ctx->prog_type), ctx->patch_input_range.first, src->Register.Index - ctx->patch_input_range.array_id, ctx->inputs[j].is_int ? "" : swizzle);
                      } else {
-                        get_source_info_patch(srcstypeprefix, prefix, &ctx->inputs[j], arrayname, swizzle, srcs[i]);
+                        get_source_info_patch(srcstypeprefix, prefix, src, &ctx->inputs[j], arrayname, swizzle, srcs[i]);
                      }
                   } else
                      snprintf(srcs[i], 255, "%s(%s%s%s%s)", get_string(srcstypeprefix), prefix, ctx->inputs[j].glsl_name, arrayname, ctx->inputs[j].is_int ? "" : swizzle);
@@ -3212,7 +3220,7 @@ get_source_info(struct dump_ctx *ctx,
                      else
                         snprintf(srcs[i], 255, "%s(%s%sp%d[%d]%s)", get_string(srcstypeprefix), prefix, get_stage_output_name_prefix(ctx->prog_type), ctx->patch_output_range.first, src->Register.Index - ctx->patch_output_range.array_id, ctx->outputs[j].is_int ? "" : swizzle);
                   } else {
-                     get_source_info_patch(srcstypeprefix, prefix, &ctx->outputs[j], arrayname, swizzle, srcs[i]);
+                     get_source_info_patch(srcstypeprefix, prefix, src, &ctx->outputs[j], arrayname, swizzle, srcs[i]);
                   }
                } else {
                   snprintf(srcs[i], 255, "%s(%s%s%s%s)", get_string(srcstypeprefix), prefix, ctx->outputs[j].glsl_name, arrayname, ctx->outputs[j].is_int ? "" : swizzle);
