@@ -2716,16 +2716,33 @@ translate_atomic(struct dump_ctx *ctx,
 }
 
 static void get_destination_info_generic(struct dump_ctx *ctx,
+                                         const struct tgsi_full_dst_register *dst_reg,
                                          const struct vrend_shader_io *io,
                                          const char *writemask, char dsts[255])
 {
    const char *blkarray = (ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL) ? "[gl_InvocationID]" : "";
+   const char *stage_prefix = get_stage_output_name_prefix(ctx->prog_type);
    const char *wm = io->override_no_wm ? "" : writemask;
 
    if (io->first == io->last)
       snprintf(dsts, 255, "%s%s%s", io->glsl_name, blkarray, wm);
    else {
-      assert(0 && "IO arrays not yet implemented");
+      if (prefer_generic_io_block(ctx, io_out)) {
+         if (dst_reg->Register.Indirect)
+            snprintf(dsts, 255, "%s%s[addr%d + %d]%s",  io->glsl_name, blkarray,
+                     dst_reg->Indirect.Index, dst_reg->Register.Index - io->first, wm);
+         else
+            snprintf(dsts, 255, "%s%s[%d]%s", io->glsl_name, blkarray,
+                     dst_reg->Register.Index - io->first, wm);
+      } else {
+         if (dst_reg->Register.Indirect)
+            snprintf(dsts, 255, "%sg%d%s.%s[addr%d + %d]%s",  stage_prefix, io->sid, blkarray,
+                     io->glsl_name, dst_reg->Indirect.Index, dst_reg->Register.Index - io->first, wm);
+         else
+            snprintf(dsts, 255, "%sg%d%s.%s[%d]%s",  stage_prefix, io->sid, blkarray,
+                     io->glsl_name, dst_reg->Register.Index - io->first, wm);
+      }
+
    }
 }
 
@@ -2861,7 +2878,7 @@ get_destination_info(struct dump_ctx *ctx,
                               snprintf(dsts[i], 255, "oblk.%s%d[%d]%s", get_stage_output_name_prefix(ctx->prog_type), ctx->generic_output_range.first, dst_reg->Register.Index - ctx->generic_output_range.array_id, ctx->outputs[j].override_no_wm ? "" : writemask);
                         }
                      } else
-                        get_destination_info_generic(ctx, &ctx->outputs[j], writemask, dsts[i]);
+                        get_destination_info_generic(ctx, dst_reg, &ctx->outputs[j], writemask, dsts[i]);
                      dinfo->dst_override_no_wm[i] = ctx->outputs[j].override_no_wm;
                   } else if (ctx->outputs[j].name == TGSI_SEMANTIC_PATCH) {
                      if (ctx_indirect_outputs(ctx)) {
