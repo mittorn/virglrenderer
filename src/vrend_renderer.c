@@ -1802,8 +1802,6 @@ int vrend_create_sampler_view(struct vrend_context *ctx,
    vrend_resource_reference(&view->texture, res);
 
    view->id = view->texture->id;
-   if (!view->target)
-      view->target = view->texture->target;
 
    if (has_feature(feat_texture_view) && !view->texture->is_buffer)  {
       enum pipe_format format;
