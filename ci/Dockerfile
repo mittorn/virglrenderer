@@ -56,6 +56,7 @@ RUN apt-get -y install ca-certificates && \
       psmisc \
       python-numpy \
       python-six \
+      python-mako \
       python3-pip \
       python3-setuptools \
       python3-six \
