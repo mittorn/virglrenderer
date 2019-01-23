@@ -365,7 +365,7 @@ struct vrend_so_target {
 struct vrend_sampler_view {
    struct pipe_reference reference;
    GLuint id;
-   GLuint format;
+   enum pipe_format format;
    GLenum target;
    GLuint val0, val1;
    GLuint gl_swizzle_r;
