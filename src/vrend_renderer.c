@@ -4975,7 +4975,7 @@ static void vrend_apply_sampler_state(struct vrend_context *ctx,
     * the sampler to use the red channel and not the alpha one
     * by swizzling the GL_TEXTURE_BORDER_COLOR parameter.
     */
-   bool is_emulated_alpha = vrend_format_is_emulated_alpha(res->base.format);
+   bool is_emulated_alpha = vrend_format_is_emulated_alpha(tview->format);
    if (has_feature(feat_samplers)) {
       int sampler = vstate->ids[tview->srgb_decode == GL_SKIP_DECODE_EXT ? 0 : 1];
       if (is_emulated_alpha) {
