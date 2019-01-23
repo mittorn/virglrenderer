@@ -34,7 +34,7 @@ RUN apt-get -y install ca-certificates && \
       g++-7 \
       gcc-7 \
       gdb \
-      gdc-6 \
+      gdc \
       git \
       golang-go \
       kbd \
