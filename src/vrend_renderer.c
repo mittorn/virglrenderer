@@ -2432,13 +2432,13 @@ void vrend_set_uniform_buffer(struct vrend_context *ctx,
          report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, res_handle);
          return;
       }
-      vrend_resource_reference((struct vrend_resource **)&ctx->sub->cbs[shader][index].buffer, res);
+      ctx->sub->cbs[shader][index].buffer = (struct pipe_resource *)res;
       ctx->sub->cbs[shader][index].buffer_offset = offset;
       ctx->sub->cbs[shader][index].buffer_size = length;
 
       ctx->sub->const_bufs_used_mask[shader] |= (1 << index);
    } else {
-      vrend_resource_reference((struct vrend_resource **)&ctx->sub->cbs[shader][index].buffer, NULL);
+      ctx->sub->cbs[shader][index].buffer = NULL;
       ctx->sub->cbs[shader][index].buffer_offset = 0;
       ctx->sub->cbs[shader][index].buffer_size = 0;
       ctx->sub->const_bufs_used_mask[shader] &= ~(1 << index);
