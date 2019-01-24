@@ -325,6 +325,11 @@ create_result_dir()
    PREVIOUS_RESULTS_DIR=$VIRGL_PATH/ci/previous_results/${TEST_PATH}
    IGNORE_TESTS_FILE=$PREVIOUS_RESULTS_DIR/ignore_tests.txt
 
+   # Remove comments from test-list
+   FILTERED_TEST_FILE=$(mktemp /tmp/virgl-ci.XXXXX)
+   cat $IGNORE_TESTS_FILE 2>/dev/null | grep -Ev "^#" | sed '/^$/d' > $FILTERED_TEST_FILE
+   IGNORE_TESTS_FILE=$FILTERED_TEST_FILE
+
    mkdir -p "$RESULTS_DIR"
 
    export OUTPUT_PATH="${RESULTS_DIR}"
