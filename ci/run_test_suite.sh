@@ -122,7 +122,7 @@ compare_previous()
    # which enables us to ignore tests by driver
    # BUT: We're not able to get the driver name and
    # use it to disambiguate between HW-based drivers
-   IGNORE_TESTS=$(cat $PREVIOUS_RESULTS_DIR/ignore_tests.txt 2>/dev/null)
+   IGNORE_TESTS=$(cat $IGNORE_TESTS_FILE 2>/dev/null)
 
    # Avoid introducing changes while doing this comparison
    TMP_RESULTS=$(mktemp /tmp/virgl_ci_results.XXXXXX)
@@ -237,7 +237,7 @@ run_test_suite()
       PIGLIT_TESTS=" -x glx"
 
       if [ $VERIFY_UNRELIABLE_TESTS -eq 1 ]; then
-         UNRELIABLE_TESTS=$(cat $PREVIOUS_RESULTS_DIR/ignore_tests.txt 2>/dev/null)
+         UNRELIABLE_TESTS=$(cat $IGNORE_TESTS_FILE 2>/dev/null)
          if [[ -z $UNRELIABLE_TESTS ]]; then
             echo "Ignore - No unreliable tests found"
             return 0
@@ -267,7 +267,7 @@ run_test_suite()
    elif [ "$TEST_APP" = "deqp" ]; then
 
       if [ $VERIFY_UNRELIABLE_TESTS -eq 1 ]; then
-         TEST_FILE="$PREVIOUS_RESULTS_DIR/ignore_tests.txt"
+         TEST_FILE="$IGNORE_TESTS_FILE"
          if [ ! -f $TEST_FILE ]; then
             echo "Ignore - No unreliable tests found"
             return 0
@@ -323,6 +323,7 @@ create_result_dir()
    TEST_PATH=${HOST_GL}_host${HOST_DRIVER}/${TEST_APP}_${TEST_NAME}
    RESULTS_DIR=$VIRGL_PATH/results/${TEST_PATH}
    PREVIOUS_RESULTS_DIR=$VIRGL_PATH/ci/previous_results/${TEST_PATH}
+   IGNORE_TESTS_FILE=$PREVIOUS_RESULTS_DIR/ignore_tests.txt
 
    mkdir -p "$RESULTS_DIR"
 
