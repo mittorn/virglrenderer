@@ -250,17 +250,13 @@ static struct vrend_format_table srgb_formats[] = {
 
   { VIRGL_FORMAT_L8_SRGB, GL_SR8_EXT, GL_RED, GL_UNSIGNED_BYTE, RRR1_SWIZZLE },
   { VIRGL_FORMAT_L8A8_SRGB, GL_SLUMINANCE8_ALPHA8_EXT, GL_LUMINANCE_ALPHA, GL_UNSIGNED_BYTE, NO_SWIZZLE },
+  { VIRGL_FORMAT_R8_SRGB, GL_SR8_EXT, GL_RED, GL_UNSIGNED_BYTE, NO_SWIZZLE },
 };
 
 static struct vrend_format_table gl_srgb_formats[] =
 {
   { VIRGL_FORMAT_B8G8R8X8_SRGB, GL_SRGB8_ALPHA8, GL_BGRA, GL_UNSIGNED_BYTE, RGB1_SWIZZLE },
   { VIRGL_FORMAT_B8G8R8A8_SRGB, GL_SRGB8_ALPHA8, GL_BGRA, GL_UNSIGNED_BYTE, NO_SWIZZLE },
-};
-
-static struct vrend_format_table gles_srgb_r8_format[] =
-{
-   { VIRGL_FORMAT_R8_SRGB, GL_SR8_EXT, GL_RED, GL_UNSIGNED_BYTE, NO_SWIZZLE },
 };
 
 static struct vrend_format_table bit10_formats[] = {
@@ -476,8 +472,6 @@ void vrend_build_format_list_gles(void)
    * GL_BGRA_EXT format is not supported by OpenGL Desktop.
    */
   add_formats(gles_bgra_formats);
-
-  add_formats(gles_srgb_r8_format);
 
   /* The Z32 format is required, but OpenGL ES does not support
    * using it as a depth buffer. We just fake support with Z24
