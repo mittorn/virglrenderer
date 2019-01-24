@@ -149,7 +149,7 @@ RUN git clone --depth=1 https://github.com/VoltLang/Watt.git && \
     rm -rf /volt
 WORKDIR /
 
-ARG KNOWN_GOOD_DRM=libdrm-2.4.95
+ARG KNOWN_GOOD_DRM=libdrm-2.4.97
 WORKDIR /drm
 RUN git clone --shallow-since="$GIT_DATE" https://gitlab.freedesktop.org/mesa/drm.git . && \
     git checkout ${KNOWN_GOOD_DRM} && \
@@ -161,7 +161,7 @@ RUN git clone --shallow-since="$GIT_DATE" https://gitlab.freedesktop.org/mesa/dr
     rm -rf /drm
 WORKDIR /
 
-ARG KNOWN_GOOD_MESA=9575cd289325ddbfa96291d7886cfc32a0487e79
+ARG KNOWN_GOOD_MESA=e166003cb7a480fb2672b06201688d4717cbc316
 WORKDIR /mesa
 RUN git clone --shallow-since="$GIT_DATE" https://gitlab.freedesktop.org/mesa/mesa.git . && \
     git checkout ${KNOWN_GOOD_MESA} && \
