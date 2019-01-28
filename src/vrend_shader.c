@@ -65,6 +65,7 @@
 #define SHADER_REQ_SHADER_CLOCK       (1 << 20)
 #define SHADER_REQ_PSIZE              (1 << 21)
 #define SHADER_REQ_IMAGE_ATOMIC       (1 << 22)
+#define SHADER_REQ_CLIP_DISTANCE      (1 << 23)
 
 struct vrend_shader_io {
    unsigned                name;
@@ -867,12 +868,14 @@ iter_declaration(struct tgsi_iterate_context *iter,
             ctx->inputs[i].glsl_no_index = true;
             ctx->inputs[i].glsl_gl_block = true;
             ctx->num_in_clip_dist += 4;
+            ctx->shader_req_bits |= SHADER_REQ_CLIP_DISTANCE;
             break;
          } else if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
             name_prefix = "gl_ClipDistance";
             ctx->inputs[i].glsl_predefined_no_emit = true;
             ctx->inputs[i].glsl_no_index = true;
             ctx->num_in_clip_dist += 4;
+            ctx->shader_req_bits |= SHADER_REQ_CLIP_DISTANCE;
             break;
          }
          /* fallthrough */
@@ -1024,6 +1027,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
          }
          break;
       case TGSI_SEMANTIC_CLIPDIST:
+         ctx->shader_req_bits |= SHADER_REQ_CLIP_DISTANCE;
          name_prefix = "gl_ClipDistance";
          ctx->outputs[i].glsl_predefined_no_emit = true;
          ctx->outputs[i].glsl_no_index = true;
@@ -1381,6 +1385,7 @@ iter_property(struct tgsi_iterate_context *iter,
    }
 
    if (prop->Property.PropertyName == TGSI_PROPERTY_NUM_CLIPDIST_ENABLED) {
+      ctx->shader_req_bits |= SHADER_REQ_CLIP_DISTANCE;
       ctx->num_clip_dist_prop = prop->u[0].Data;
    }
 
@@ -3857,6 +3862,11 @@ static void emit_header(struct dump_ctx *ctx)
            ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL)) {
          PAD_GPU_SHADER5(ctx);
          PAD_GPU_MSINTERPOL(ctx);
+      }
+
+      if ((ctx->shader_req_bits & SHADER_REQ_CLIP_DISTANCE)||
+          (ctx->num_clip_dist == 0 && ctx->key->clip_plane_enable)) {
+         emit_ext(ctx, "EXT_clip_cull_distance", "require");
       }
 
       if (ctx->shader_req_bits & SHADER_REQ_SAMPLER_MS)
