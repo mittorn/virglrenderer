@@ -4276,12 +4276,6 @@ static void emit_ios_common(struct dump_ctx *ctx)
       emit_hdrf(ctx, "uniform uvec4 %sconst0[%d];\n", cname, ctx->num_consts);
    }
 
-   if (ctx->key->color_two_side) {
-      if (ctx->color_in_mask & 1)
-         emit_hdr(ctx, "vec4 realcolor0;\n");
-      if (ctx->color_in_mask & 2)
-         emit_hdr(ctx, "vec4 realcolor1;\n");
-   }
    if (ctx->ubo_used_mask) {
       const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
 
@@ -4541,6 +4535,13 @@ static void emit_ios_fs(struct dump_ctx *ctx)
          ctx->key->winsys_adjust_y_emitted = true;
          emit_hdr(ctx, "uniform float winsys_adjust_y;\n");
       }
+   }
+
+   if (ctx->key->color_two_side) {
+      if (ctx->color_in_mask & 1)
+         emit_hdr(ctx, "vec4 realcolor0;\n");
+      if (ctx->color_in_mask & 2)
+         emit_hdr(ctx, "vec4 realcolor1;\n");
    }
 
    if (ctx->write_all_cbufs) {
