@@ -3963,6 +3963,7 @@ int vrend_draw_vbo(struct vrend_context *ctx,
             ctx->sub->prog_ids[PIPE_SHADER_TESS_CTRL] = ctx->sub->shaders[PIPE_SHADER_TESS_CTRL]->current->id;
          if (ctx->sub->shaders[PIPE_SHADER_TESS_EVAL])
             ctx->sub->prog_ids[PIPE_SHADER_TESS_EVAL] = ctx->sub->shaders[PIPE_SHADER_TESS_EVAL]->current->id;
+         ctx->sub->prog_ids[PIPE_SHADER_COMPUTE] = -1;
          ctx->sub->prog = prog;
 
          /* mark all constbufs as dirty */
