@@ -5047,8 +5047,6 @@ char *vrend_convert_shader(struct vrend_context *rctx,
    memcpy(glsl_final + strbuf_get_len(&ctx.glsl_hdr), ctx.glsl_main.buf, strbuf_get_len(&ctx.glsl_main));
    glsl_final[strbuf_get_len(&ctx.glsl_hdr) + strbuf_get_len(&ctx.glsl_main)] = '\0';
 
-   VREND_DEBUG(dbg_shader_glsl, rctx, "GLSL: %s\n", glsl_final);
-
    free(ctx.temp_ranges);
    strbuf_free(&ctx.glsl_main);
    strbuf_free(&ctx.glsl_hdr);
@@ -5106,6 +5104,8 @@ char *vrend_convert_shader(struct vrend_context *rctx,
       free(sinfo->image_arrays);
    sinfo->image_arrays = ctx.image_arrays;
    sinfo->num_image_arrays = ctx.num_image_arrays;
+
+   VREND_DEBUG(dbg_shader_glsl, rctx, "GLSL: %s\n", glsl_final);
    return glsl_final;
  fail:
    strbuf_free(&ctx.glsl_main);
