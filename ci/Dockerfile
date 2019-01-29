@@ -105,11 +105,12 @@ RUN git clone --shallow-since="$GIT_DATE" https://github.com/anholt/libepoxy.git
     rm -rf /libepoxy
 WORKDIR /
 
-ARG KNOWN_GOOD_CTS=fd68124a565e
+ARG KNOWN_GOOD_CTS=6c709dc9a99b70572aceb0f7698ab044383ff948
 WORKDIR /VK-GL-CTS
 RUN git clone --shallow-since="$GIT_DATE" https://github.com/KhronosGroup/VK-GL-CTS.git . && \
     git checkout ${KNOWN_GOOD_CTS} && \
     git log --oneline -n 1 && \
+    python3 external/fetch_sources.py && \
     mkdir build && \
     cd build && \
     cmake -DDEQP_TARGET=x11_egl -DCMAKE_BUILD_TYPE=Release .. && \
