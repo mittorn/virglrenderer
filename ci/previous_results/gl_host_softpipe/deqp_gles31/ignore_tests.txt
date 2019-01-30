@@ -2,7 +2,10 @@ dEQP-GLES31.functional.debug.negative_coverage.callbacks.compute.exceed_atomic_c
 dEQP-GLES31.functional.debug.negative_coverage.get_error.compute.exceed_atomic_counters_limit
 dEQP-GLES31.functional.debug.negative_coverage.log.compute.exceed_atomic_counters_limit
 dEQP-GLES31.functional.image_load_store.2d.format_reinterpret.rgba16ui_rgba16f
+
+# Float precision error https://gitlab.freedesktop.org/virgl/virglrenderer/issues/82
 dEQP-GLES31.functional.shaders.builtin_functions.precision.frexp.highp_fragment.vec4
+dEQP-GLES31.functional.shaders.builtin_functions.precision.frexp.highp_vertex.scalar
 dEQP-GLES31.functional.shaders.builtin_functions.precision.frexp.highp_vertex.vec2
 dEQP-GLES31.functional.shaders.builtin_functions.precision.frexp.lowp_fragment.scalar
 dEQP-GLES31.functional.shaders.builtin_functions.precision.frexp.lowp_vertex.scalar
