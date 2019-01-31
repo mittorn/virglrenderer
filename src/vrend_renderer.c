@@ -975,21 +975,21 @@ static void dump_stream_out(struct pipe_stream_output_info *so)
    unsigned i;
    if (!so)
       return;
-   printf("streamout: %d\n", so->num_outputs);
-   printf("strides: ");
+   vrend_printf("streamout: %d\n", so->num_outputs);
+   vrend_printf("strides: ");
    for (i = 0; i < 4; i++)
-      printf("%d ", so->stride[i]);
-   printf("\n");
-   printf("outputs:\n");
+      vrend_printf("%d ", so->stride[i]);
+   vrend_printf("\n");
+   vrend_printf("outputs:\n");
    for (i = 0; i < so->num_outputs; i++) {
-      printf("\t%d: reg: %d sc: %d, nc: %d ob: %d do: %d st: %d\n",
-             i,
-             so->output[i].register_index,
-             so->output[i].start_component,
-             so->output[i].num_components,
-             so->output[i].output_buffer,
-             so->output[i].dst_offset,
-             so->output[i].stream);
+      vrend_printf("\t%d: reg: %d sc: %d, nc: %d ob: %d do: %d st: %d\n",
+                   i,
+                   so->output[i].register_index,
+                   so->output[i].start_component,
+                   so->output[i].num_components,
+                   so->output[i].output_buffer,
+                   so->output[i].dst_offset,
+                   so->output[i].stream);
    }
 }
 
