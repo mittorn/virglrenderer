@@ -210,21 +210,21 @@ struct virgl_egl *virgl_egl_init(int fd, bool surfaceless, bool gles)
 
    extension_list = eglQueryString(d->egl_display, EGL_EXTENSIONS);
 #ifdef VIRGL_EGL_DEBUG
-   fprintf(stderr, "EGL major/minor: %d.%d\n", major, minor);
-   fprintf(stderr, "EGL version: %s\n",
+   vrend_printf( "EGL major/minor: %d.%d\n", major, minor);
+   vrend_printf( "EGL version: %s\n",
            eglQueryString(d->egl_display, EGL_VERSION));
-   fprintf(stderr, "EGL vendor: %s\n",
+   vrend_printf( "EGL vendor: %s\n",
            eglQueryString(d->egl_display, EGL_VENDOR));
-   fprintf(stderr, "EGL extensions: %s\n", extension_list);
+   vrend_printf( "EGL extensions: %s\n", extension_list);
 #endif
    /* require surfaceless context */
    if (!virgl_egl_has_extension_in_string(extension_list, "EGL_KHR_surfaceless_context")) {
-      fprintf(stderr, "failed to find support for surfaceless context\n");
+      vrend_printf( "failed to find support for surfaceless context\n");
       goto fail;
    }
 
    if (!virgl_egl_has_extension_in_string(extension_list, "EGL_KHR_create_context")) {
-      fprintf(stderr, "failed to find EGL_KHR_create_context extensions\n");
+      vrend_printf( "failed to find EGL_KHR_create_context extensions\n");
       goto fail;
    }
 
@@ -237,7 +237,7 @@ struct virgl_egl *virgl_egl_init(int fd, bool surfaceless, bool gles)
       d->have_mesa_dma_buf_img_export = true;
 
    if (d->have_mesa_drm_image == false && d->have_mesa_dma_buf_img_export == false) {
-      fprintf(stderr, "failed to find drm image extensions\n");
+      vrend_printf( "failed to find drm image extensions\n");
       goto fail;
    }
 
@@ -409,7 +409,7 @@ int virgl_egl_get_fd_for_texture(struct virgl_egl *ve, uint32_t tex_id, int *fd)
       if (!b)
 	 goto out_destroy;
 
-      fprintf(stderr,"image exported %d %d\n", handle, stride);
+      vrend_printf("image exported %d %d\n", handle, stride);
 
       r = drmPrimeHandleToFD(ve->fd, handle, DRM_CLOEXEC, fd);
       if (r < 0)
@@ -433,7 +433,7 @@ uint32_t virgl_egl_get_gbm_format(uint32_t format)
    case VIRGL_FORMAT_B8G8R8A8_UNORM:
       return GBM_FORMAT_ARGB8888;
    default:
-      fprintf(stderr, "unknown format to convert to GBM %d\n", format);
+      vrend_printf( "unknown format to convert to GBM %d\n", format);
       return 0;
    }
 }

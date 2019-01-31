@@ -343,7 +343,7 @@ int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks
          return -1;
       use_context = CONTEXT_EGL;
 #else
-      fprintf(stderr, "EGL is not supported on this platform\n");
+      vrend_printf( "EGL is not supported on this platform\n");
       return -1;
 #endif
    } else if (flags & VIRGL_RENDERER_USE_GLX) {
@@ -353,7 +353,7 @@ int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks
          return -1;
       use_context = CONTEXT_GLX;
 #else
-      fprintf(stderr, "GLX is not supported on this platform\n");
+      vrend_printf( "GLX is not supported on this platform\n");
       return -1;
 #endif
    }

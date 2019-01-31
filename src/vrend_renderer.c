@@ -676,7 +676,7 @@ static void __report_context_error(const char *fname, struct vrend_context *ctx,
 {
    ctx->in_error = true;
    ctx->last_error = error;
-   fprintf(stderr,"%s: context error reported %d \"%s\" %s %d\n", fname, ctx->ctx_id, ctx->debug_name, vrend_ctx_error_strings[error], value);
+   vrend_printf("%s: context error reported %d \"%s\" %s %d\n", fname, ctx->ctx_id, ctx->debug_name, vrend_ctx_error_strings[error], value);
 }
 #define report_context_error(ctx, error, value) __report_context_error(__func__, ctx, error, value)
 
@@ -696,7 +696,7 @@ static const char *vrend_core_profile_warn_strings[] = { "None", "Stipple", "Pol
 
 static void __report_core_warn(const char *fname, struct vrend_context *ctx, enum virgl_ctx_errors error, uint32_t value)
 {
-   fprintf(stderr,"%s: core profile violation reported %d \"%s\" %s %d\n", fname, ctx->ctx_id, ctx->debug_name, vrend_core_profile_warn_strings[error], value);
+   vrend_printf("%s: core profile violation reported %d \"%s\" %s %d\n", fname, ctx->ctx_id, ctx->debug_name, vrend_core_profile_warn_strings[error], value);
 }
 #define report_core_warn(ctx, error, value) __report_core_warn(__func__, ctx, error, value)
 
@@ -730,7 +730,7 @@ static void __report_gles_warn(const char *fname, struct vrend_context *ctx, enu
 {
    int id = ctx ? ctx->ctx_id : -1;
    const char *name = ctx ? ctx->debug_name : "NO_CONTEXT";
-   fprintf(stderr,"%s: gles violation reported %d \"%s\" %s %d\n", fname, id, name, vrend_gles_warn_strings[error], value);
+   vrend_printf("%s: gles violation reported %d \"%s\" %s %d\n", fname, id, name, vrend_gles_warn_strings[error], value);
 }
 #define report_gles_warn(ctx, error, value) __report_gles_warn(__func__, ctx, error, value)
 
@@ -738,7 +738,7 @@ static void __report_gles_missing_func(const char *fname, struct vrend_context *
 {
    int id = ctx ? ctx->ctx_id : -1;
    const char *name = ctx ? ctx->debug_name : "NO_CONTEXT";
-   fprintf(stderr,"%s: gles violation reported %d \"%s\" %s is missing\n", fname, id, name, missf);
+   vrend_printf("%s: gles violation reported %d \"%s\" %s is missing\n", fname, id, name, missf);
 }
 #define report_gles_missing_func(ctx, missf) __report_gles_missing_func(__func__, ctx, missf)
 
@@ -865,8 +865,8 @@ static bool vrend_compile_shader(struct vrend_context *ctx,
       int len;
       glGetShaderInfoLog(shader->id, 65536, &len, infolog);
       report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SHADER, 0);
-      fprintf(stderr,"shader failed to compile\n%s\n", infolog);
-      fprintf(stderr,"GLSL:\n%s\n", shader->glsl_prog);
+      vrend_printf("shader failed to compile\n%s\n", infolog);
+      vrend_printf("GLSL:\n%s\n", shader->glsl_prog);
       return false;
    }
    return true;
@@ -1207,7 +1207,7 @@ static void bind_image_locs(struct vrend_linked_shader_program *sprog,
             snprintf(name, 32, "%simg%d[%d]", prefix, img_array->first, j);
             sprog->img_locs[id][img_array->first + j] = glGetUniformLocation(sprog->id, name);
             if (sprog->img_locs[id][img_array->first + j] == -1)
-               fprintf(stderr, "failed to get uniform loc for image %s\n", name);
+               vrend_printf( "failed to get uniform loc for image %s\n", name);
          }
       }
    } else if (mask) {
@@ -1216,7 +1216,7 @@ static void bind_image_locs(struct vrend_linked_shader_program *sprog,
             snprintf(name, 32, "%simg%d", prefix, i);
             sprog->img_locs[id][i] = glGetUniformLocation(sprog->id, name);
             if (sprog->img_locs[id][i] == -1)
-               fprintf(stderr, "failed to get uniform loc for image %s\n", name);
+               vrend_printf( "failed to get uniform loc for image %s\n", name);
          } else {
             sprog->img_locs[id][i] = -1;
          }
@@ -1240,10 +1240,10 @@ static struct vrend_linked_shader_program *add_cs_shader_program(struct vrend_co
       char infolog[65536];
       int len;
       glGetProgramInfoLog(prog_id, 65536, &len, infolog);
-      fprintf(stderr,"got error linking\n%s\n", infolog);
+      vrend_printf("got error linking\n%s\n", infolog);
       /* dump shaders */
       report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SHADER, 0);
-      fprintf(stderr,"compute shader: %d GLSL\n%s\n", cs->id, cs->glsl_prog);
+      vrend_printf("compute shader: %d GLSL\n%s\n", cs->id, cs->glsl_prog);
       glDeleteProgram(prog_id);
       free(sprog);
       return NULL;
@@ -1364,13 +1364,13 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
       char infolog[65536];
       int len;
       glGetProgramInfoLog(prog_id, 65536, &len, infolog);
-      fprintf(stderr,"got error linking\n%s\n", infolog);
+      vrend_printf("got error linking\n%s\n", infolog);
       /* dump shaders */
       report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SHADER, 0);
-      fprintf(stderr,"vert shader: %d GLSL\n%s\n", vs->id, vs->glsl_prog);
+      vrend_printf("vert shader: %d GLSL\n%s\n", vs->id, vs->glsl_prog);
       if (gs)
-         fprintf(stderr,"geom shader: %d GLSL\n%s\n", gs->id, gs->glsl_prog);
-      fprintf(stderr,"frag shader: %d GLSL\n%s\n", fs->id, fs->glsl_prog);
+         vrend_printf("geom shader: %d GLSL\n%s\n", gs->id, gs->glsl_prog);
+      vrend_printf("frag shader: %d GLSL\n%s\n", fs->id, fs->glsl_prog);
       glDeleteProgram(prog_id);
       free(sprog);
       return NULL;
@@ -1892,7 +1892,7 @@ static
 void debug_texture(const char *f, const struct vrend_resource *gt)
 {
    const struct pipe_resource *pr = &gt->base;
-#define PRINT_TARGET(X) case X: fprintf(stderr, #X); break
+#define PRINT_TARGET(X) case X: vrend_printf( #X); break
    VREND_DEBUG_EXT(dbg_tex, NULL,
                vrend_printf("%s: ", f);
                switch (tgsitargettogltarget(pr->target, pr->nr_samples)) {
@@ -2166,7 +2166,7 @@ void vrend_set_framebuffer_state(struct vrend_context *ctx,
    if (ctx->sub->nr_cbufs > 0 || ctx->sub->zsurf) {
       status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
       if (status != GL_FRAMEBUFFER_COMPLETE)
-         fprintf(stderr,"failed to complete framebuffer 0x%x %s\n", status, ctx->debug_name);
+         vrend_printf("failed to complete framebuffer 0x%x %s\n", status, ctx->debug_name);
    }
 
    ctx->sub->shader_dirty = true;
@@ -3084,14 +3084,14 @@ int vrend_create_shader(struct vrend_context *ctx,
    } else {
       sel = vrend_object_lookup(ctx->sub->object_hash, handle, VIRGL_OBJECT_SHADER);
       if (!sel) {
-         fprintf(stderr, "got continuation without original shader %d\n", handle);
+         vrend_printf( "got continuation without original shader %d\n", handle);
          ret = EINVAL;
          goto error;
       }
 
       offlen &= ~VIRGL_OBJ_SHADER_OFFSET_CONT;
       if (offlen != sel->buf_offset) {
-         fprintf(stderr, "Got mismatched shader continuation %d vs %d\n",
+         vrend_printf( "Got mismatched shader continuation %d vs %d\n",
                  offlen, sel->buf_offset);
          ret = EINVAL;
          goto error;
@@ -3106,7 +3106,7 @@ int vrend_create_shader(struct vrend_context *ctx,
           }
 
       if ((pkt_length * 4 + sel->buf_offset) > sel->buf_len) {
-         fprintf(stderr, "Got too large shader continuation %d vs %d\n",
+         vrend_printf( "Got too large shader continuation %d vs %d\n",
                  pkt_length * 4 + sel->buf_offset, sel->buf_len);
          ret = EINVAL;
          goto error;
@@ -3402,7 +3402,7 @@ static GLenum get_gs_xfb_mode(GLenum mode)
    case GL_TRIANGLE_STRIP:
       return GL_TRIANGLES;
    default:
-      fprintf(stderr, "illegal gs transform feedback mode %d\n", mode);
+      vrend_printf( "illegal gs transform feedback mode %d\n", mode);
       return GL_POINTS;
    }
 }
@@ -3418,7 +3418,7 @@ static GLenum get_tess_xfb_mode(int mode, bool is_point_mode)
    case GL_LINES:
       return GL_LINES;
    default:
-      fprintf(stderr, "illegal gs transform feedback mode %d\n", mode);
+      vrend_printf( "illegal gs transform feedback mode %d\n", mode);
       return GL_POINTS;
    }
 }
@@ -3440,7 +3440,7 @@ static GLenum get_xfb_mode(GLenum mode)
    case GL_LINE_STRIP:
       return GL_LINES;
    default:
-      fprintf(stderr, "failed to translate TFB %d\n", mode);
+      vrend_printf( "failed to translate TFB %d\n", mode);
       return GL_POINTS;
    }
 }
@@ -3467,7 +3467,7 @@ static void vrend_draw_bind_vertex_legacy(struct vrend_context *ctx,
       res = (struct vrend_resource *)ctx->sub->vbo[vbo_index].buffer;
 
       if (!res) {
-         fprintf(stderr,"cannot find vbo buf %d %d %d\n", i, va->count, ctx->sub->prog->ss[PIPE_SHADER_VERTEX]->sel->sinfo.num_inputs);
+         vrend_printf("cannot find vbo buf %d %d %d\n", i, va->count, ctx->sub->prog->ss[PIPE_SHADER_VERTEX]->sel->sinfo.num_inputs);
          continue;
       }
 
@@ -3479,9 +3479,9 @@ static void vrend_draw_bind_vertex_legacy(struct vrend_context *ctx,
          } else loc = -1;
 
          if (loc == -1) {
-            fprintf(stderr,"%s: cannot find loc %d %d %d\n", ctx->debug_name, i, va->count, ctx->sub->prog->ss[PIPE_SHADER_VERTEX]->sel->sinfo.num_inputs);
+            vrend_printf("%s: cannot find loc %d %d %d\n", ctx->debug_name, i, va->count, ctx->sub->prog->ss[PIPE_SHADER_VERTEX]->sel->sinfo.num_inputs);
             if (i == 0) {
-               fprintf(stderr,"%s: shader probably didn't compile - skipping rendering\n", ctx->debug_name);
+               vrend_printf("%s: shader probably didn't compile - skipping rendering\n", ctx->debug_name);
                return;
             }
             continue;
@@ -3489,7 +3489,7 @@ static void vrend_draw_bind_vertex_legacy(struct vrend_context *ctx,
       }
 
       if (ve->type == GL_FALSE) {
-         fprintf(stderr,"failed to translate vertex type - skipping render\n");
+         vrend_printf("failed to translate vertex type - skipping render\n");
          return;
       }
 
@@ -3816,7 +3816,7 @@ static void vrend_draw_bind_images_shader(struct vrend_context *ctx, int shader_
          access = GL_READ_WRITE;
          break;
       default:
-         fprintf(stderr, "Invalid access specified\n");
+         vrend_printf( "Invalid access specified\n");
          return;
       }
 
@@ -3900,7 +3900,7 @@ int vrend_draw_vbo(struct vrend_context *ctx,
       bool dual_src = util_blend_state_is_dual(&ctx->sub->blend_state, 0);
       bool same_prog;
       if (!ctx->sub->shaders[PIPE_SHADER_VERTEX] || !ctx->sub->shaders[PIPE_SHADER_FRAGMENT]) {
-         fprintf(stderr,"dropping rendering due to missing shaders: %s\n", ctx->debug_name);
+         vrend_printf("dropping rendering due to missing shaders: %s\n", ctx->debug_name);
          return 0;
       }
 
@@ -3918,7 +3918,7 @@ int vrend_draw_vbo(struct vrend_context *ctx,
           (ctx->sub->shaders[PIPE_SHADER_GEOMETRY] && !ctx->sub->shaders[PIPE_SHADER_GEOMETRY]->current) ||
           (ctx->sub->shaders[PIPE_SHADER_TESS_CTRL] && !ctx->sub->shaders[PIPE_SHADER_TESS_CTRL]->current) ||
           (ctx->sub->shaders[PIPE_SHADER_TESS_EVAL] && !ctx->sub->shaders[PIPE_SHADER_TESS_EVAL]->current)) {
-         fprintf(stderr, "failure to compile shader variants: %s\n", ctx->debug_name);
+         vrend_printf( "failure to compile shader variants: %s\n", ctx->debug_name);
          return 0;
       }
       same_prog = true;
@@ -3978,7 +3978,7 @@ int vrend_draw_vbo(struct vrend_context *ctx,
       }
    }
    if (!ctx->sub->prog) {
-      fprintf(stderr,"dropping rendering due to missing shaders: %s\n", ctx->debug_name);
+      vrend_printf("dropping rendering due to missing shaders: %s\n", ctx->debug_name);
       return 0;
    }
 
@@ -3987,7 +3987,7 @@ int vrend_draw_vbo(struct vrend_context *ctx,
    vrend_draw_bind_objects(ctx, new_program);
 
    if (!ctx->sub->ve) {
-      fprintf(stderr,"illegal VE setup - skipping renderering\n");
+      vrend_printf("illegal VE setup - skipping renderering\n");
       return 0;
    }
    float viewport_neg_val = ctx->sub->viewport_is_negative ? -1.0 : 1.0;
@@ -4012,7 +4012,7 @@ int vrend_draw_vbo(struct vrend_context *ctx,
       struct vrend_vertex_element *ve = &va->elements[i];
       int vbo_index = ve->base.vertex_buffer_index;
       if (!ctx->sub->vbo[vbo_index].buffer) {
-         fprintf(stderr, "VBO missing vertex buffer\n");
+         vrend_printf( "VBO missing vertex buffer\n");
          return 0;
       }
    }
@@ -4144,13 +4144,13 @@ void vrend_launch_grid(struct vrend_context *ctx,
       struct vrend_linked_shader_program *prog;
       bool cs_dirty;
       if (!ctx->sub->shaders[PIPE_SHADER_COMPUTE]) {
-         fprintf(stderr,"dropping rendering due to missing shaders: %s\n", ctx->debug_name);
+         vrend_printf("dropping rendering due to missing shaders: %s\n", ctx->debug_name);
          return;
       }
 
       vrend_shader_select(ctx, ctx->sub->shaders[PIPE_SHADER_COMPUTE], &cs_dirty);
       if (!ctx->sub->shaders[PIPE_SHADER_COMPUTE]->current) {
-         fprintf(stderr, "failure to compile shader variants: %s\n", ctx->debug_name);
+         vrend_printf( "failure to compile shader variants: %s\n", ctx->debug_name);
          return;
       }
       if (ctx->sub->shaders[PIPE_SHADER_COMPUTE]->current->id != (GLuint)ctx->sub->prog_ids[PIPE_SHADER_COMPUTE]) {
@@ -4360,7 +4360,7 @@ static void vrend_hw_emit_blend(struct vrend_context *ctx, struct pipe_blend_sta
          if (state->rt[i].blend_enable) {
             bool dual_src = util_blend_state_is_dual(&ctx->sub->blend_state, i);
             if (dual_src && !has_feature(feat_dual_src_blend)) {
-               fprintf(stderr, "dual src blend requested but not supported for rt %d\n", i);
+               vrend_printf( "dual src blend requested but not supported for rt %d\n", i);
                continue;
             }
 
@@ -4386,7 +4386,7 @@ static void vrend_hw_emit_blend(struct vrend_context *ctx, struct pipe_blend_sta
       if (state->rt[0].blend_enable) {
          bool dual_src = util_blend_state_is_dual(&ctx->sub->blend_state, 0);
          if (dual_src && !has_feature(feat_dual_src_blend)) {
-            fprintf(stderr, "dual src blend requested but not supported for rt 0\n");
+            vrend_printf( "dual src blend requested but not supported for rt 0\n");
          }
          glBlendFuncSeparate(translate_blend_factor(state->rt[0].rgb_src_factor),
                              translate_blend_factor(state->rt[0].rgb_dst_factor),
@@ -4789,7 +4789,7 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
          glCullFace(GL_FRONT_AND_BACK);
          break;
       default:
-         fprintf(stderr, "unhandled cull-face: %x\n", state->cull_face);
+         vrend_printf( "unhandled cull-face: %x\n", state->cull_face);
       }
       glEnable(GL_CULL_FACE);
    } else
@@ -4961,7 +4961,7 @@ static void vrend_apply_sampler_state(struct vrend_context *ctx,
    GLenum target = tex->base.target;
 
    if (!state) {
-      fprintf(stderr, "cannot find sampler state for %d %d\n", shader_type, id);
+      vrend_printf( "cannot find sampler state for %d %d\n", shader_type, id);
       return;
    }
    if (res->base.nr_samples > 1) {
@@ -5134,7 +5134,7 @@ static void wait_sync(struct vrend_fence *fence)
 
       switch (glret) {
       case GL_WAIT_FAILED:
-         fprintf(stderr, "wait sync failed: illegal fence object %p\n", fence->syncobj);
+         vrend_printf( "wait sync failed: illegal fence object %p\n", fence->syncobj);
          break;
       case GL_ALREADY_SIGNALED:
       case GL_CONDITION_SATISFIED:
@@ -5166,7 +5166,7 @@ static int thread_sync(UNUSED void *arg)
    while (!vrend_state.stop_sync_thread) {
       if (LIST_IS_EMPTY(&vrend_state.fence_wait_list) &&
           pipe_condvar_wait(vrend_state.fence_cond, vrend_state.fence_mutex) != 0) {
-         fprintf(stderr, "error while waiting on condition\n");
+         vrend_printf( "error while waiting on condition\n");
          break;
       }
 
@@ -5201,13 +5201,13 @@ static void vrend_renderer_use_threaded_sync(void)
 
    vrend_state.sync_context = vrend_clicbs->create_gl_context(0, &ctx_params);
    if (vrend_state.sync_context == NULL) {
-      fprintf(stderr, "failed to create sync opengl context\n");
+      vrend_printf( "failed to create sync opengl context\n");
       return;
    }
 
    vrend_state.eventfd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
    if (vrend_state.eventfd == -1) {
-      fprintf(stderr, "Failed to create eventfd\n");
+      vrend_printf( "Failed to create eventfd\n");
       vrend_clicbs->destroy_gl_context(vrend_state.sync_context);
       return;
    }
@@ -5238,7 +5238,7 @@ static void vrend_debug_cb(UNUSED GLenum source, GLenum type, UNUSED GLuint id,
       return;
    }
 
-   fprintf(stderr, "ERROR: %s\n", message);
+   vrend_printf( "ERROR: %s\n", message);
 }
 
 int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
@@ -5286,15 +5286,15 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
    vrend_state.gl_minor_ver = gl_ver % 10;
 
    if (gles) {
-      fprintf(stderr, "gl_version %d - es profile enabled\n", gl_ver);
+      vrend_printf( "gl_version %d - es profile enabled\n", gl_ver);
       vrend_state.use_gles = true;
       /* for now, makes the rest of the code use the most GLES 3.x like path */
       vrend_state.use_core_profile = 1;
    } else if (gl_ver > 30 && !epoxy_has_gl_extension("GL_ARB_compatibility")) {
-      fprintf(stderr, "gl_version %d - core profile enabled\n", gl_ver);
+      vrend_printf( "gl_version %d - core profile enabled\n", gl_ver);
       vrend_state.use_core_profile = 1;
    } else {
-      fprintf(stderr, "gl_version %d - compat profile\n", gl_ver);
+      vrend_printf( "gl_version %d - compat profile\n", gl_ver);
    }
 
    init_features(gles ? 0 : gl_ver,
@@ -5306,7 +5306,7 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
 
    if (!has_feature(feat_arb_robustness) &&
        !has_feature(feat_gles_khr_robustness)) {
-      fprintf(stderr,"WARNING: running without ARB/KHR robustness in place may crash\n");
+      vrend_printf("WARNING: running without ARB/KHR robustness in place may crash\n");
    }
 
    /* callbacks for when we are cleaning up the object table */
@@ -5725,7 +5725,7 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
    gltype = tex_conv_table[pr->format].gltype;
 
    if (internalformat == 0) {
-      fprintf(stderr,"unknown format is %d\n", pr->format);
+      vrend_printf("unknown format is %d\n", pr->format);
       FREE(gt);
       return EINVAL;
    }
@@ -5734,7 +5734,7 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
       if (epoxy_has_gl_extension("GL_OES_EGL_image_external")) {
          glEGLImageTargetTexture2DOES(gr->target, (GLeglImageOES) image_oes);
       } else {
-         fprintf(stderr, "missing GL_OES_EGL_image_external extension\n");
+         vrend_printf( "missing GL_OES_EGL_image_external extension\n");
 	 FREE(gr);
 	 return EINVAL;
       }
@@ -6186,7 +6186,7 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
       glBindBufferARB(res->target, res->id);
       data = glMapBufferRange(res->target, info->box->x, info->box->width, GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_UNSYNCHRONIZED_BIT | GL_MAP_WRITE_BIT);
       if (data == NULL) {
-	 fprintf(stderr,"map failed for element buffer\n");
+	 vrend_printf("map failed for element buffer\n");
 	 vrend_read_from_iovec_cb(iov, num_iovs, info->offset, info->box->width, &iov_buffer_upload, &d);
       } else {
 	 vrend_read_from_iovec(iov, num_iovs, info->offset, data, info->box->width);
@@ -6518,7 +6518,7 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
       send_size = util_format_get_nblocks(res->base.format, info->box->width, info->box->height) * info->box->depth * util_format_get_blocksize(res->base.format);
       data = malloc(send_size);
       if (!data) {
-         fprintf(stderr,"malloc failed %d\n", send_size);
+         vrend_printf("malloc failed %d\n", send_size);
          return ENOMEM;
       }
    } else {
@@ -6599,13 +6599,13 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
           type != GL_INT && type != GL_FLOAT) {
          glGetIntegerv(GL_IMPLEMENTATION_COLOR_READ_TYPE, &imp);
          if (imp != (GLint)type) {
-            fprintf(stderr, "GL_IMPLEMENTATION_COLOR_READ_TYPE is not expected native type 0x%x != imp 0x%x\n", type, imp);
+            vrend_printf( "GL_IMPLEMENTATION_COLOR_READ_TYPE is not expected native type 0x%x != imp 0x%x\n", type, imp);
          }
       }
       if (format != GL_RGBA && format != GL_RGBA_INTEGER) {
          glGetIntegerv(GL_IMPLEMENTATION_COLOR_READ_FORMAT, &imp);
          if (imp != (GLint)format) {
-            fprintf(stderr, "GL_IMPLEMENTATION_COLOR_READ_FORMAT is not expected native format 0x%x != imp 0x%x\n", format, imp);
+            vrend_printf( "GL_IMPLEMENTATION_COLOR_READ_FORMAT is not expected native format 0x%x != imp 0x%x\n", format, imp);
          }
       }
    }
@@ -6695,7 +6695,7 @@ static int vrend_renderer_transfer_send_iov(struct vrend_context *ctx,
       glBindBufferARB(res->target, res->id);
       data = glMapBufferRange(res->target, info->box->x, info->box->width, GL_MAP_READ_BIT);
       if (!data)
-         fprintf(stderr,"unable to open buffer for reading %d\n", res->target);
+         vrend_printf("unable to open buffer for reading %d\n", res->target);
       else
          vrend_write_to_iovec(iov, num_iovs, info->offset, data, send_size);
       glUnmapBuffer(res->target);
@@ -7023,7 +7023,7 @@ static void vrend_resource_copy_fallback(struct vrend_resource *src_res,
       cube_slice = 6;
 
    if (src_res->base.format != dst_res->base.format) {
-      fprintf(stderr, "copy fallback failed due to mismatched formats %d %d\n", src_res->base.format, dst_res->base.format);
+      vrend_printf( "copy fallback failed due to mismatched formats %d %d\n", src_res->base.format, dst_res->base.format);
       return;
    }
 
@@ -7600,7 +7600,7 @@ int vrend_renderer_create_fence(int client_fence_id, uint32_t ctx_id)
    return 0;
 
  fail:
-   fprintf(stderr, "failed to create fence sync object\n");
+   vrend_printf( "failed to create fence sync object\n");
    free(fence);
    return ENOMEM;
 }
@@ -7814,7 +7814,7 @@ int vrend_create_query(struct vrend_context *ctx, uint32_t handle,
       q->gltype = GL_TRANSFORM_FEEDBACK_OVERFLOW_ARB;
       break;
    default:
-      fprintf(stderr,"unknown query object received %d\n", q->type);
+      vrend_printf("unknown query object received %d\n", q->type);
       break;
    }
 
@@ -8015,7 +8015,7 @@ void vrend_render_condition(struct vrend_context *ctx,
       glmode = condition ? GL_QUERY_BY_REGION_NO_WAIT_INVERTED : GL_QUERY_BY_REGION_NO_WAIT;
       break;
    default:
-      fprintf(stderr, "unhandled condition %x\n", mode);
+      vrend_printf( "unhandled condition %x\n", mode);
    }
 
    ctx->sub->cond_render_q_id = q->id;

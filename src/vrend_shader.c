@@ -732,7 +732,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
       i = ctx->num_inputs++;
       indirect = ctx_indirect_inputs(ctx);
       if (ctx->num_inputs > ARRAY_SIZE(ctx->inputs)) {
-         fprintf(stderr, "Number of inputs exceeded, max is %lu\n", ARRAY_SIZE(ctx->inputs));
+         vrend_printf( "Number of inputs exceeded, max is %lu\n", ARRAY_SIZE(ctx->inputs));
          return false;
       }
       if (iter->processor.Processor == TGSI_PROCESSOR_VERTEX) {
@@ -763,13 +763,13 @@ iter_declaration(struct tgsi_iterate_context *iter,
                else if (decl->Semantic.Index == 1)
                   name_prefix = "gl_SecondaryColor";
                else
-                  fprintf(stderr, "got illegal color semantic index %d\n", decl->Semantic.Index);
+                  vrend_printf( "got illegal color semantic index %d\n", decl->Semantic.Index);
                ctx->inputs[i].glsl_no_index = true;
             } else {
                if (ctx->key->color_two_side) {
                   int j = ctx->num_inputs++;
                   if (ctx->num_inputs > ARRAY_SIZE(ctx->inputs)) {
-                     fprintf(stderr, "Number of inputs exceeded, max is %lu\n", ARRAY_SIZE(ctx->inputs));
+                     vrend_printf( "Number of inputs exceeded, max is %lu\n", ARRAY_SIZE(ctx->inputs));
                      return false;
                   }
 
@@ -787,7 +787,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
                   if (ctx->front_face_emitted == false) {
                      int k = ctx->num_inputs++;
                      if (ctx->num_inputs > ARRAY_SIZE(ctx->inputs)) {
-                        fprintf(stderr, "Number of inputs exceeded, max is %lu\n", ARRAY_SIZE(ctx->inputs));
+                        vrend_printf( "Number of inputs exceeded, max is %lu\n", ARRAY_SIZE(ctx->inputs));
                         return false;
                      }
 
@@ -980,7 +980,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
       i = ctx->num_outputs++;
       indirect = ctx_indirect_outputs(ctx);
       if (ctx->num_outputs > ARRAY_SIZE(ctx->outputs)) {
-         fprintf(stderr, "Number of outputs exceeded, max is %lu\n", ARRAY_SIZE(ctx->outputs));
+         vrend_printf( "Number of outputs exceeded, max is %lu\n", ARRAY_SIZE(ctx->outputs));
          return false;
       }
 
@@ -1003,7 +1003,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
              iter->processor.Processor == TGSI_PROCESSOR_TESS_CTRL ||
              iter->processor.Processor == TGSI_PROCESSOR_TESS_EVAL) {
             if (ctx->outputs[i].first > 0)
-               fprintf(stderr,"Illegal position input\n");
+               vrend_printf("Illegal position input\n");
             name_prefix = "gl_Position";
             ctx->outputs[i].glsl_predefined_no_emit = true;
             ctx->outputs[i].glsl_no_index = true;
@@ -1211,7 +1211,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
       break;
    case TGSI_FILE_SAMPLER_VIEW:
       if (decl->Range.Last >= ARRAY_SIZE(ctx->samplers)) {
-         fprintf(stderr, "Sampler view exceeded, max is %lu\n", ARRAY_SIZE(ctx->samplers));
+         vrend_printf( "Sampler view exceeded, max is %lu\n", ARRAY_SIZE(ctx->samplers));
          return false;
       }
       if (!add_samplers(ctx, decl->Range.First, decl->Range.Last, decl->SamplerView.Resource, decl->SamplerView.ReturnTypeX))
@@ -1220,7 +1220,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
    case TGSI_FILE_IMAGE:
       ctx->shader_req_bits |= SHADER_REQ_IMAGE_LOAD_STORE;
       if (decl->Range.Last >= ARRAY_SIZE(ctx->images)) {
-         fprintf(stderr, "Image view exceeded, max is %lu\n", ARRAY_SIZE(ctx->images));
+         vrend_printf( "Image view exceeded, max is %lu\n", ARRAY_SIZE(ctx->images));
          return false;
       }
       if (!add_images(ctx, decl->Range.First, decl->Range.Last, &decl->Image))
@@ -1228,7 +1228,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
       break;
    case TGSI_FILE_BUFFER:
       if (decl->Range.First >= 32) {
-         fprintf(stderr, "Buffer view exceeded, max is 32\n");
+         vrend_printf( "Buffer view exceeded, max is 32\n");
          return false;
       }
       ctx->ssbo_used_mask |= (1 << decl->Range.First);
@@ -1244,11 +1244,11 @@ iter_declaration(struct tgsi_iterate_context *iter,
    case TGSI_FILE_CONSTANT:
       if (decl->Declaration.Dimension && decl->Dim.Index2D != 0) {
          if (decl->Dim.Index2D > 31) {
-            fprintf(stderr, "Number of uniforms exceeded, max is 32\n");
+            vrend_printf( "Number of uniforms exceeded, max is 32\n");
             return false;
          }
          if (ctx->ubo_used_mask & (1 << decl->Dim.Index2D)) {
-            fprintf(stderr, "UBO #%d is already defined\n", decl->Dim.Index2D);
+            vrend_printf( "UBO #%d is already defined\n", decl->Dim.Index2D);
             return false;
          }
          ctx->ubo_used_mask |= (1 << decl->Dim.Index2D);
@@ -1269,7 +1269,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
    case TGSI_FILE_SYSTEM_VALUE:
       i = ctx->num_system_values++;
       if (ctx->num_system_values > ARRAY_SIZE(ctx->system_values)) {
-         fprintf(stderr, "Number of system values exceeded, max is %lu\n", ARRAY_SIZE(ctx->system_values));
+         vrend_printf( "Number of system values exceeded, max is %lu\n", ARRAY_SIZE(ctx->system_values));
          return false;
       }
 
@@ -1323,7 +1323,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
          name_prefix = "gl_NumWorkGroups";
          ctx->system_values[i].override_no_wm = false;
       } else {
-         fprintf(stderr, "unsupported system value %d\n", decl->Semantic.Name);
+         vrend_printf( "unsupported system value %d\n", decl->Semantic.Name);
          name_prefix = "unknown";
       }
       snprintf(ctx->system_values[i].glsl_name, 64, "%s", name_prefix);
@@ -1333,7 +1333,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
       break;
    case TGSI_FILE_HW_ATOMIC:
       if (ctx->num_abo >= ARRAY_SIZE(ctx->abo_idx)) {
-         fprintf(stderr, "Number of atomic counter buffers exceeded, max is %lu\n", ARRAY_SIZE(ctx->abo_idx));
+         vrend_printf( "Number of atomic counter buffers exceeded, max is %lu\n", ARRAY_SIZE(ctx->abo_idx));
          return false;
       }
       ctx->abo_idx[ctx->num_abo] = decl->Dim.Index2D;
@@ -1342,7 +1342,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
       ctx->num_abo++;
       break;
    default:
-      fprintf(stderr,"unsupported file %d declaration\n", decl->Declaration.File);
+      vrend_printf("unsupported file %d declaration\n", decl->Declaration.File);
       break;
    }
 
@@ -1440,7 +1440,7 @@ iter_immediate(
    uint32_t first = ctx->num_imm;
 
    if (first >= ARRAY_SIZE(ctx->imm)) {
-      fprintf(stderr, "Number of immediates exceeded, max is: %lu\n", ARRAY_SIZE(ctx->imm));
+      vrend_printf( "Number of immediates exceeded, max is: %lu\n", ARRAY_SIZE(ctx->imm));
       return false;
    }
 
@@ -1523,7 +1523,7 @@ static void emit_alpha_test(struct dump_ctx *ctx)
       snprintf(comp_buf, 128, "%s %s %f", "fsout_c0.w", atests[ctx->key->alpha_test], ctx->key->alpha_ref_val);
       break;
    default:
-      fprintf(stderr, "invalid alpha-test: %x\n", ctx->key->alpha_test);
+      vrend_printf( "invalid alpha-test: %x\n", ctx->key->alpha_test);
       set_buf_error(ctx);
       return;
    }
@@ -1583,7 +1583,7 @@ static void emit_so_movs(struct dump_ctx *ctx)
    char writemask[6];
 
    if (ctx->so->num_outputs >= PIPE_MAX_SO_OUTPUTS) {
-      fprintf(stderr, "Num outputs exceeded, max is %u\n", PIPE_MAX_SO_OUTPUTS);
+      vrend_printf( "Num outputs exceeded, max is %u\n", PIPE_MAX_SO_OUTPUTS);
       set_buf_error(ctx);
       return;
    }
@@ -1720,7 +1720,7 @@ static void set_texture_reqs(struct dump_ctx *ctx,
 			     bool *is_shad)
 {
    if (sreg_index >= ARRAY_SIZE(ctx->samplers)) {
-      fprintf(stderr, "Sampler view exceeded, max is %lu\n", ARRAY_SIZE(ctx->samplers));
+      vrend_printf( "Sampler view exceeded, max is %lu\n", ARRAY_SIZE(ctx->samplers));
       set_buf_error(ctx);
       return;
    }
@@ -1761,7 +1761,7 @@ static void set_texture_reqs(struct dump_ctx *ctx,
       *is_shad = true;
       break;
    default:
-      fprintf(stderr, "unhandled texture: %x\n", inst->Texture.Texture);
+      vrend_printf( "unhandled texture: %x\n", inst->Texture.Texture);
       set_buf_error(ctx);
       return;
    }
@@ -1938,7 +1938,7 @@ static bool fill_offset_buffer(struct dump_ctx *ctx,
                   imd->val[inst->TexOffsets[0].SwizzleZ].i);
          break;
       default:
-         fprintf(stderr, "unhandled texture: %x\n", inst->Texture.Texture);
+         vrend_printf( "unhandled texture: %x\n", inst->Texture.Texture);
          return false;
       }
    } else if (inst->TexOffsets[0].File == TGSI_FILE_TEMPORARY) {
@@ -1975,7 +1975,7 @@ static bool fill_offset_buffer(struct dump_ctx *ctx,
                   get_swiz_char(inst->TexOffsets[0].SwizzleZ));
          break;
       default:
-         fprintf(stderr, "unhandled texture: %x\n", inst->Texture.Texture);
+         vrend_printf( "unhandled texture: %x\n", inst->Texture.Texture);
          return false;
          break;
       }
@@ -2014,7 +2014,7 @@ static bool fill_offset_buffer(struct dump_ctx *ctx,
                      get_swiz_char(inst->TexOffsets[0].SwizzleZ));
             break;
          default:
-            fprintf(stderr, "unhandled texture: %x\n", inst->Texture.Texture);
+            vrend_printf( "unhandled texture: %x\n", inst->Texture.Texture);
             return false;
             break;
          }
@@ -2215,7 +2215,7 @@ static void translate_tex(struct dump_ctx *ctx,
 
    if (inst->Texture.NumOffsets == 1) {
       if (inst->TexOffsets[0].Index >= (int)ARRAY_SIZE(ctx->imm)) {
-         fprintf(stderr, "Immediate exceeded, max is %lu\n", ARRAY_SIZE(ctx->imm));
+         vrend_printf( "Immediate exceeded, max is %lu\n", ARRAY_SIZE(ctx->imm));
          set_buf_error(ctx);
          return;
       }
@@ -2341,7 +2341,7 @@ static bool is_integer_memory(struct dump_ctx *ctx, enum tgsi_file_type file_typ
    case TGSI_FILE_MEMORY:
       return ctx->integer_memory;
    default:
-      fprintf(stderr, "Invalid file type");
+      vrend_printf( "Invalid file type");
    }
 
    return false;
@@ -2504,7 +2504,7 @@ static const char *get_atomic_opname(int tgsi_opcode, bool *is_cas)
       opname = "Max";
       break;
    default:
-      fprintf(stderr, "illegal atomic opcode");
+      vrend_printf( "illegal atomic opcode");
       return NULL;
    }
    return opname;
@@ -3103,7 +3103,7 @@ get_source_info(struct dump_ctx *ctx,
          sinfo->sreg_index = src->Register.Index;
       } else if (src->Register.File == TGSI_FILE_IMMEDIATE) {
          if (src->Register.Index >= (int)ARRAY_SIZE(ctx->imm)) {
-            fprintf(stderr, "Immediate exceeded, max is %lu\n", ARRAY_SIZE(ctx->imm));
+            vrend_printf( "Immediate exceeded, max is %lu\n", ARRAY_SIZE(ctx->imm));
             return false;
          }
          struct immed *imd = &ctx->imm[src->Register.Index];
@@ -3180,7 +3180,7 @@ get_source_info(struct dump_ctx *ctx,
                snprintf(temp, 48, "%uU", imd->val[idx].ui);
                break;
             default:
-               fprintf(stderr, "unhandled imm type: %x\n", imd->type);
+               vrend_printf( "unhandled imm type: %x\n", imd->type);
                return false;
             }
             strncat(srcs[i], temp, 255);
@@ -3806,7 +3806,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
       emit_buff(ctx, "%s = uintBitsToFloat(clock2x32ARB());\n", dsts[0]);
       break;
    default:
-      fprintf(stderr,"failed to convert opcode %d\n", inst->Instruction.Opcode);
+      vrend_printf("failed to convert opcode %d\n", inst->Instruction.Opcode);
       break;
    }
 
@@ -4205,7 +4205,7 @@ const char *get_internalformat_string(int virgl_format, enum tgsi_return_type *s
       return "";
    default:
       *stype = TGSI_RETURN_TYPE_UNORM;
-      fprintf(stderr, "illegal format %d\n", virgl_format);
+      vrend_printf( "illegal format %d\n", virgl_format);
       return "";
    }
 }
@@ -4852,7 +4852,7 @@ static void emit_ios(struct dump_ctx *ctx)
    ctx->num_interps = 0;
 
    if (ctx->so && ctx->so->num_outputs >= PIPE_MAX_SO_OUTPUTS) {
-      fprintf(stderr, "Num outputs exceeded, max is %u\n", PIPE_MAX_SO_OUTPUTS);
+      vrend_printf( "Num outputs exceeded, max is %u\n", PIPE_MAX_SO_OUTPUTS);
       set_hdr_error(ctx);
       return;
    }
@@ -4904,7 +4904,7 @@ static boolean fill_fragment_interpolants(struct dump_ctx *ctx, struct vrend_sha
          continue;
 
       if (index >= ctx->num_interps) {
-         fprintf(stderr, "mismatch in number of interps %d %d\n", index, ctx->num_interps);
+         vrend_printf( "mismatch in number of interps %d %d\n", index, ctx->num_interps);
          return true;
       }
       sinfo->interpinfo[index].semantic_name = ctx->inputs[i].name;
@@ -5213,7 +5213,7 @@ bool vrend_patch_vertex_shader_interpolants(struct vrend_context *rctx,
          replace_interp(program, glsl_name, pstring, auxstring);
          break;
       default:
-         fprintf(stderr,"unhandled semantic: %x\n", fs_info->interpinfo[i].semantic_name);
+         vrend_printf("unhandled semantic: %x\n", fs_info->interpinfo[i].semantic_name);
          return false;
       }
    }
