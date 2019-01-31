@@ -391,3 +391,8 @@ int virgl_renderer_get_poll_fd(void)
 {
    return vrend_renderer_get_poll_fd();
 }
+
+virgl_debug_callback_type virgl_set_debug_callback(virgl_debug_callback_type cb)
+{
+   return vrend_set_debug_callback(cb);
+}

@@ -27,8 +27,11 @@
 #ifndef VIRGLRENDERER_H
 #define VIRGLRENDERER_H
 
+#include "vrend_debug.h"
+
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdarg.h>
 
 struct virgl_box;
 struct iovec;
@@ -158,6 +161,8 @@ VIRGL_EXPORT void virgl_renderer_force_ctx_0(void);
 
 VIRGL_EXPORT void virgl_renderer_ctx_attach_resource(int ctx_id, int res_handle);
 VIRGL_EXPORT void virgl_renderer_ctx_detach_resource(int ctx_id, int res_handle);
+
+VIRGL_EXPORT virgl_debug_callback_type virgl_set_debug_callback(virgl_debug_callback_type cb);
 
 /* return information about a resource */
 
