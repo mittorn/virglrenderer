@@ -2248,7 +2248,16 @@ static void translate_tex(struct dump_ctx *ctx,
       }
    }
    if (inst->Instruction.Opcode == TGSI_OPCODE_TXF) {
-      emit_buff(ctx, "%s = %s(%s(texelFetch%s(%s, %s(%s%s)%s%s)%s));\n", dsts[0], get_string(dinfo->dstconv), get_string(dtypeprefix), tex_ext, srcs[sampler_index], get_string(txfi), srcs[0], get_wm_string(twm), bias, offbuf, dinfo->dst_override_no_wm[0] ? "" : writemask);
+      if (ctx->cfg->use_gles && (inst->Texture.Texture == TGSI_TEXTURE_1D ||
+                                 inst->Texture.Texture == TGSI_TEXTURE_1D_ARRAY)) {
+         const char *vtype = inst->Texture.Texture == TGSI_TEXTURE_1D ? "vec2" : "vec3";
+         emit_buff(ctx, "%s = %s(%s(texelFetch%s(%s, %s(%s(%s%s), 0)%s%s)%s));\n",
+                   dsts[0], get_string(dinfo->dstconv), get_string(dtypeprefix), tex_ext, srcs[sampler_index],
+                   vtype, get_string(txfi), srcs[0], get_wm_string(twm), bias, offbuf, dinfo->dst_override_no_wm[0] ? "" : writemask);
+      } else {
+         emit_buff(ctx, "%s = %s(%s(texelFetch%s(%s, %s(%s%s)%s%s)%s));\n", dsts[0], get_string(dinfo->dstconv), get_string(dtypeprefix),
+               tex_ext, srcs[sampler_index], get_string(txfi), srcs[0], get_wm_string(twm), bias, offbuf, dinfo->dst_override_no_wm[0] ? "" : writemask);
+      }
    } else if (ctx->cfg->glsl_version < 140 && (ctx->shader_req_bits & SHADER_REQ_SAMPLER_RECT)) {
       /* rect is special in GLSL 1.30 */
       if (inst->Texture.Texture == TGSI_TEXTURE_RECT)
