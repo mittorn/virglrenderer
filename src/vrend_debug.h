@@ -26,6 +26,7 @@
 #define vrend_debug_h
 
 #include "virgl_protocol.h"
+#include <stdarg.h>
 
 struct vrend_context;
 void vrend_print_context_name(struct vrend_context *ctx);
@@ -63,12 +64,18 @@ unsigned vrend_debug(struct vrend_context *ctx, enum virgl_debug_flags flag);
 
 void vrend_debug_add_flag(enum virgl_debug_flags flag);
 
+void vrend_printf(const char *fmt, ...);
+
+typedef void (*virgl_debug_callback_type)(const char *fmt, va_list ap);
+
+virgl_debug_callback_type vrend_set_debug_callback(virgl_debug_callback_type cb);
+
 #ifndef NDEBUG
 #define VREND_DEBUG(flag, ctx,  ...) \
    if (vrend_debug(ctx, flag)) \
       do { \
             vrend_print_context_name(ctx); \
-            fprintf(stderr, __VA_ARGS__); \
+            vrend_printf(__VA_ARGS__); \
       } while (0)
 
 #define VREND_DEBUG_EXT(flag, ctx, X) \

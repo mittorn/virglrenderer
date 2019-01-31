@@ -796,7 +796,7 @@ static int vrend_decode_destroy_object(struct vrend_decode_ctx *ctx, int length)
 
    VREND_DEBUG_EXT(dbg_object, ctx->grctx,
                uint32_t obj = (get_buf_entry(ctx, 0) >> 8) & 0xFF;
-               fprintf(stderr, "  DESTROY %-17s handle:0x%x\n",
+               vrend_printf("  DESTROY %-17s handle:0x%x\n",
                        vrend_get_object_type_name(obj), handle));
 
    vrend_renderer_object_destroy(ctx->grctx, handle);

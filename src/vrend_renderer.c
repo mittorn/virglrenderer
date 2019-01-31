@@ -1894,7 +1894,7 @@ void debug_texture(const char *f, const struct vrend_resource *gt)
    const struct pipe_resource *pr = &gt->base;
 #define PRINT_TARGET(X) case X: fprintf(stderr, #X); break
    VREND_DEBUG_EXT(dbg_tex, NULL,
-               fprintf(stderr, "%s: ", f);
+               vrend_printf("%s: ", f);
                switch (tgsitargettogltarget(pr->target, pr->nr_samples)) {
                PRINT_TARGET(GL_TEXTURE_RECTANGLE_NV);
                PRINT_TARGET(GL_TEXTURE_1D);
@@ -1906,11 +1906,11 @@ void debug_texture(const char *f, const struct vrend_resource *gt)
                PRINT_TARGET(GL_TEXTURE_CUBE_MAP);
                PRINT_TARGET(GL_TEXTURE_CUBE_MAP_ARRAY);
                default:
-                  fprintf(stderr, "UNKNOWN");
+                  vrend_printf("UNKNOWN");
                }
-               fprintf(stderr, " id:%d pipe_type:%d ms:%d format:%s size: %dx%dx%d mip:%d\n",
-                       gt->id, pr->target, pr->nr_samples, util_format_name(pr->format),
-                       pr->width0, pr->height0, pr->depth0, pr->last_level);
+               vrend_printf(" id:%d pipe_type:%d ms:%d format:%s size: %dx%dx%d mip:%d\n",
+                            gt->id, pr->target, pr->nr_samples, util_format_name(pr->format),
+                            pr->width0, pr->height0, pr->depth0, pr->last_level);
                );
 #undef PRINT_TARGET
 }
@@ -8886,9 +8886,9 @@ unsigned vrend_context_has_debug_flag(struct vrend_context *ctx, enum virgl_debu
 void vrend_print_context_name(struct vrend_context *ctx)
 {
    if (ctx)
-      fprintf(stderr, "%s: ", ctx->debug_name);
+      vrend_printf("%s: ", ctx->debug_name);
    else
-      fprintf(stderr, "HOST: ");
+      vrend_printf("HOST: ");
 }
 
 void vrend_renderer_destroy_sub_ctx(struct vrend_context *ctx, int sub_ctx_id)
