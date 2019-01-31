@@ -1802,13 +1802,23 @@ static void emit_txq(struct dump_ctx *ctx,
 
    set_texture_reqs(ctx, inst, sreg_index, &is_shad);
 
-   /* no lod parameter for txq for these */
-   if (inst->Texture.Texture != TGSI_TEXTURE_RECT &&
-       inst->Texture.Texture != TGSI_TEXTURE_SHADOWRECT &&
-       inst->Texture.Texture != TGSI_TEXTURE_BUFFER &&
-       inst->Texture.Texture != TGSI_TEXTURE_2D_MSAA &&
-       inst->Texture.Texture != TGSI_TEXTURE_2D_ARRAY_MSAA)
+   /* No LOD for these texture types, but on GLES we emulate RECT by using
+    * a normal 2D texture, so we have to give LOD 0 */
+   switch (inst->Texture.Texture) {
+   case TGSI_TEXTURE_RECT:
+   case TGSI_TEXTURE_SHADOWRECT:
+      if (ctx->cfg->use_gles) {
+         snprintf(bias, 128, ", 0");
+         break;
+      }
+      /* fallthrough */
+   case TGSI_TEXTURE_BUFFER:
+   case TGSI_TEXTURE_2D_MSAA:
+   case TGSI_TEXTURE_2D_ARRAY_MSAA:
+      break;
+   default:
       snprintf(bias, 128, ", int(%s.w)", srcs[0]);
+   }
 
    /* need to emit a textureQueryLevels */
    if (inst->Dst[0].Register.WriteMask & 0x8) {
@@ -2247,6 +2257,34 @@ static void translate_tex(struct dump_ctx *ctx,
          strcpy(bias, tmp);
       }
    }
+
+   /* On GLES we have to normalized the coordinate for all but the texel fetch instruction */
+   if (ctx->cfg->use_gles &&
+       inst->Instruction.Opcode != TGSI_OPCODE_TXF &&
+       (inst->Texture.Texture == TGSI_TEXTURE_RECT ||
+        inst->Texture.Texture == TGSI_TEXTURE_SHADOWRECT)) {
+
+      char buf[255];
+      switch (inst->Instruction.Opcode) {
+      case TGSI_OPCODE_TXP:
+         snprintf(buf, 255, "vec4(%s)/vec4(textureSize(%s, 0), 1, 1)", srcs[0], srcs[sampler_index]);
+         break;
+
+      case TGSI_OPCODE_TG4:
+         snprintf(buf, 255, "%s.xy/vec2(textureSize(%s, 0))", srcs[0], srcs[sampler_index]);
+         break;
+
+      default:
+         /* Non TG4 ops have the compare value in the z components */
+         if (inst->Texture.Texture == TGSI_TEXTURE_SHADOWRECT) {
+            snprintf(buf, 255, "vec3(%s.xy/vec2(textureSize(%s, 0)), %s.z)", srcs[0], srcs[sampler_index], srcs[0]);
+         } else
+            snprintf(buf, 255, "%s.xy/vec2(textureSize(%s, 0))", srcs[0], srcs[sampler_index]);
+      }
+      strcpy(srcs[0], buf);
+
+   }
+
    if (inst->Instruction.Opcode == TGSI_OPCODE_TXF) {
       if (ctx->cfg->use_gles && (inst->Texture.Texture == TGSI_TEXTURE_1D ||
                                  inst->Texture.Texture == TGSI_TEXTURE_1D_ARRAY)) {
@@ -3990,7 +4028,7 @@ const char *vrend_shader_samplertypeconv(bool use_gles, int sampler_type, int *i
    case TGSI_TEXTURE_2D: return "2D";
    case TGSI_TEXTURE_3D: return "3D";
    case TGSI_TEXTURE_CUBE: return "Cube";
-   case TGSI_TEXTURE_RECT: return "2DRect";
+   case TGSI_TEXTURE_RECT: return use_gles ? "2D" : "2DRect";
    case TGSI_TEXTURE_SHADOW1D:
       if (!use_gles) {
          *is_shad = 1;
@@ -3998,7 +4036,9 @@ const char *vrend_shader_samplertypeconv(bool use_gles, int sampler_type, int *i
       }
       /* fallthrough */
    case TGSI_TEXTURE_SHADOW2D: *is_shad = 1; return "2DShadow";
-   case TGSI_TEXTURE_SHADOWRECT: *is_shad = 1; return "2DRectShadow";
+   case TGSI_TEXTURE_SHADOWRECT:
+      *is_shad = 1;
+      return (!use_gles) ? "2DRectShadow" : "2DShadow";
    case TGSI_TEXTURE_1D_ARRAY:
       if (!use_gles)
          return "1DArray";
