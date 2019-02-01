@@ -5098,8 +5098,12 @@ char *vrend_convert_shader(struct vrend_context *rctx,
 
    sinfo->so_names = ctx.so_names;
    sinfo->attrib_input_mask = ctx.attrib_input_mask;
+   if (sinfo->sampler_arrays)
+      free(sinfo->sampler_arrays);
    sinfo->sampler_arrays = ctx.sampler_arrays;
    sinfo->num_sampler_arrays = ctx.num_sampler_arrays;
+   if (sinfo->image_arrays)
+      free(sinfo->image_arrays);
    sinfo->image_arrays = ctx.image_arrays;
    sinfo->num_image_arrays = ctx.num_image_arrays;
    return glsl_final;
