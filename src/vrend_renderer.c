@@ -5504,6 +5504,8 @@ struct vrend_context *vrend_create_context(int id, uint32_t nlen, const char *de
       strncpy(grctx->debug_name, debug_name, 64);
    }
 
+   VREND_DEBUG(dbg_caller, grctx, "create context\n");
+
    grctx->ctx_id = id;
 
    list_inithead(&grctx->sub_ctxs);
