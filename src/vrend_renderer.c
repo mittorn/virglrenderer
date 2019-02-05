@@ -6698,8 +6698,7 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
    return 0;
 }
 
-static int vrend_transfer_send_readonly(UNUSED struct vrend_context *ctx,
-                                        struct vrend_resource *res,
+static int vrend_transfer_send_readonly(struct vrend_resource *res,
                                         struct iovec *iov, int num_iovs,
                                         UNUSED const struct vrend_transfer_info *info)
 {
@@ -6763,7 +6762,7 @@ static int vrend_renderer_transfer_send_iov(struct vrend_context *ctx,
       if (can_readpixels) {
          ret = vrend_transfer_send_readpixels(ctx, res, iov, num_iovs, info);
       } else {
-         ret = vrend_transfer_send_readonly(ctx, res, iov, num_iovs, info);
+         ret = vrend_transfer_send_readonly(res, iov, num_iovs, info);
       }
 
       /* Can hit this on a non-error path as well. */
