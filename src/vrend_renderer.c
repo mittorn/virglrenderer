@@ -6262,7 +6262,10 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
       GLuint send_size = 0;
       uint32_t stride = info->stride;
 
-      vrend_use_program(ctx, 0);
+      if (ctx)
+         vrend_use_program(ctx, 0);
+      else
+         glUseProgram(0);
 
       if (!stride)
          stride = util_format_get_nblocksx(res->base.format, u_minify(res->base.width0, info->level)) * elsize;
@@ -6338,9 +6341,15 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
          buffers = GL_COLOR_ATTACHMENT0;
          glDrawBuffers(1, &buffers);
          glDisable(GL_BLEND);
-         vrend_depth_test_enable(ctx, false);
-         vrend_alpha_test_enable(ctx, false);
-         vrend_stencil_test_enable(ctx, false);
+         if (ctx) {
+            vrend_depth_test_enable(ctx, false);
+            vrend_alpha_test_enable(ctx, false);
+            vrend_stencil_test_enable(ctx, false);
+         } else {
+            glDisable(GL_DEPTH_TEST);
+            glDisable(GL_ALPHA_TEST);
+            glDisable(GL_STENCIL_TEST);
+         }
          glPixelZoom(1.0f, res->y_0_top ? -1.0f : 1.0f);
          glWindowPos2i(info->box->x, res->y_0_top ? (int)res->base.height0 - info->box->y : info->box->y);
          glDrawPixels(info->box->width, info->box->height, glformat, gltype,
@@ -6461,8 +6470,7 @@ static uint32_t vrend_get_texture_depth(struct vrend_resource *res, uint32_t lev
    return depth;
 }
 
-static int vrend_transfer_send_getteximage(struct vrend_context *ctx,
-                                           struct vrend_resource *res,
+static int vrend_transfer_send_getteximage(struct vrend_resource *res,
                                            struct iovec *iov, int num_iovs,
                                            const struct vrend_transfer_info *info)
 {
@@ -6516,7 +6524,7 @@ static int vrend_transfer_send_getteximage(struct vrend_context *ctx,
       if (has_feature(feat_arb_robustness)) {
          glGetnCompressedTexImageARB(target, info->level, tex_size, data);
       } else if (vrend_state.use_gles) {
-         report_gles_missing_func(ctx, "glGetCompressedTexImage");
+         report_gles_missing_func(NULL, "glGetCompressedTexImage");
       } else {
          glGetCompressedTexImage(target, info->level, data);
       }
@@ -6524,7 +6532,7 @@ static int vrend_transfer_send_getteximage(struct vrend_context *ctx,
       if (has_feature(feat_arb_robustness)) {
          glGetnTexImageARB(target, info->level, format, type, tex_size, data);
       } else if (vrend_state.use_gles) {
-         report_gles_missing_func(ctx, "glGetTexImage");
+         report_gles_missing_func(NULL, "glGetTexImage");
       } else {
          glGetTexImage(target, info->level, format, type, data);
       }
@@ -6539,8 +6547,7 @@ static int vrend_transfer_send_getteximage(struct vrend_context *ctx,
    return 0;
 }
 
-static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
-                                          struct vrend_resource *res,
+static int vrend_transfer_send_readpixels(struct vrend_resource *res,
                                           struct iovec *iov, int num_iovs,
                                           const struct vrend_transfer_info *info)
 {
@@ -6558,7 +6565,7 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
    int row_stride = info->stride / elsize;
    GLint old_fbo;
 
-   vrend_use_program(ctx, 0);
+   glUseProgram(0);
 
    format = tex_conv_table[res->base.format].glformat;
    type = tex_conv_table[res->base.format].gltype;
@@ -6732,8 +6739,7 @@ static int vrend_transfer_send_readonly(struct vrend_resource *res,
    return -1;
 }
 
-static int vrend_renderer_transfer_send_iov(struct vrend_context *ctx,
-                                            struct vrend_resource *res,
+static int vrend_renderer_transfer_send_iov(struct vrend_resource *res,
                                             struct iovec *iov, int num_iovs,
                                             const struct vrend_transfer_info *info)
 {
@@ -6762,14 +6768,14 @@ static int vrend_renderer_transfer_send_iov(struct vrend_context *ctx,
       can_readpixels = vrend_format_can_render(res->base.format) || vrend_format_is_ds(res->base.format);
 
       if (can_readpixels) {
-         ret = vrend_transfer_send_readpixels(ctx, res, iov, num_iovs, info);
+         ret = vrend_transfer_send_readpixels(res, iov, num_iovs, info);
       } else {
          ret = vrend_transfer_send_readonly(res, iov, num_iovs, info);
       }
 
       /* Can hit this on a non-error path as well. */
       if (ret != 0) {
-         ret = vrend_transfer_send_getteximage(ctx, res, iov, num_iovs, info);
+         ret = vrend_transfer_send_getteximage(res, iov, num_iovs, info);
       }
       return ret;
    }
@@ -6822,15 +6828,15 @@ int vrend_renderer_transfer_iov(const struct vrend_transfer_info *info,
    if (!check_iov_bounds(res, info, iov, num_iovs))
       return EINVAL;
 
-   if (info->context0)
+   if (info->context0) {
       vrend_hw_switch_context(vrend_lookup_renderer_ctx(0), true);
+      ctx = NULL;
+   }
 
    if (transfer_mode == VREND_TRANSFER_WRITE)
-      return vrend_renderer_transfer_write_iov(ctx, res, iov, num_iovs,
-                                               info);
+      return vrend_renderer_transfer_write_iov(ctx, res, iov, num_iovs, info);
    else
-      return vrend_renderer_transfer_send_iov(ctx, res, iov, num_iovs,
-                                              info);
+      return vrend_renderer_transfer_send_iov(res, iov, num_iovs, info);
 }
 
 int vrend_transfer_inline_write(struct vrend_context *ctx,
