@@ -696,8 +696,7 @@ static void calc_dst_deltas_from_src(const struct pipe_blit_info *info,
 }
 
 /* implement blitting using OpenGL. */
-void vrend_renderer_blit_gl(UNUSED struct vrend_context *ctx,
-                            struct vrend_resource *src_res,
+void vrend_renderer_blit_gl(struct vrend_resource *src_res,
                             struct vrend_resource *dst_res,
                             const struct pipe_blit_info *info,
                             bool has_texture_srgb_decode,
