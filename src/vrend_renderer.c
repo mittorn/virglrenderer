@@ -6829,7 +6829,7 @@ int vrend_renderer_transfer_iov(const struct vrend_transfer_info *info,
       return EINVAL;
 
    if (info->context0) {
-      vrend_hw_switch_context(vrend_lookup_renderer_ctx(0), true);
+      vrend_renderer_force_ctx_0();
       ctx = NULL;
    }
 
