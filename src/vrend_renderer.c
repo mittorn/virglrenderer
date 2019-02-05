@@ -2610,13 +2610,14 @@ void vrend_set_single_sampler_view(struct vrend_context *ctx,
                }
             }
 
-            if (tex->cur_base != (view->val1 & 0xff)) {
-               int base_level = view->val1 & 0xff;
+            GLuint base_level = view->val1 & 0xff;
+            GLuint max_level = (view->val1 >> 8) & 0xff;
+
+            if (tex->cur_base != base_level) {
                glTexParameteri(view->texture->target, GL_TEXTURE_BASE_LEVEL, base_level);
                tex->cur_base = base_level;
             }
-            if (tex->cur_max != ((view->val1 >> 8) & 0xff)) {
-               int max_level = (view->val1 >> 8) & 0xff;
+            if (tex->cur_max != max_level) {
                glTexParameteri(view->texture->target, GL_TEXTURE_MAX_LEVEL, max_level);
                tex->cur_max = max_level;
             }
