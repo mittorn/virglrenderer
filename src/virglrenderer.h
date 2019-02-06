@@ -27,8 +27,6 @@
 #ifndef VIRGLRENDERER_H
 #define VIRGLRENDERER_H
 
-#include "vrend_debug.h"
-
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdarg.h>
@@ -113,6 +111,8 @@ struct virgl_renderer_resource_create_args {
 };
 
 /* new API */
+/* This typedef must be kept in sync with vrend_debug.h */
+typedef void (*virgl_debug_callback_type)(const char *fmt, va_list ap);
 
 VIRGL_EXPORT int virgl_renderer_resource_create(struct virgl_renderer_resource_create_args *args, struct iovec *iov, uint32_t num_iovs);
 VIRGL_EXPORT int virgl_renderer_resource_import_eglimage(struct virgl_renderer_resource_create_args *args, void *image);
