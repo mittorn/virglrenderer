@@ -207,6 +207,7 @@ struct dump_ctx {
    struct vrend_shader_key *key;
    int num_in_clip_dist;
    int num_clip_dist;
+   int fs_uses_clipdist_input;
    int glsl_ver_required;
    int color_in_mask;
    /* only used when cull is enabled */
@@ -736,6 +737,27 @@ static int lookup_image_array(struct dump_ctx *ctx, int index)
 }
 
 static boolean
+iter_inputs(struct tgsi_iterate_context *iter,
+            struct tgsi_full_declaration *decl )
+{
+   struct dump_ctx *ctx = (struct dump_ctx *)iter;
+   switch (decl->Declaration.File) {
+   case TGSI_FILE_INPUT:
+      for (uint32_t j = 0; j < ctx->num_inputs; j++) {
+         if (ctx->inputs[j].name == decl->Semantic.Name &&
+             ctx->inputs[j].sid == decl->Semantic.Index &&
+             ctx->inputs[j].first == decl->Range.First)
+            return true;
+      }
+      ctx->inputs[ctx->num_inputs].name = decl->Semantic.Name;
+      ctx->inputs[ctx->num_inputs].first = decl->Range.First;
+      ctx->inputs[ctx->num_inputs].last = decl->Range.Last;
+      ctx->num_inputs++;
+   }
+   return true;
+}
+
+static boolean
 iter_declaration(struct tgsi_iterate_context *iter,
                  struct tgsi_full_declaration *decl )
 {
@@ -892,15 +914,19 @@ iter_declaration(struct tgsi_iterate_context *iter,
             ctx->inputs[i].glsl_predefined_no_emit = true;
             ctx->inputs[i].glsl_no_index = true;
             ctx->inputs[i].glsl_gl_block = true;
-            ctx->num_in_clip_dist += 4;
+            ctx->num_in_clip_dist += 4 * (ctx->inputs[i].last - ctx->inputs[i].first + 1);
             ctx->shader_req_bits |= SHADER_REQ_CLIP_DISTANCE;
+            if (ctx->inputs[i].last != ctx->inputs[i].first)
+               ctx->guest_sent_io_arrays = true;
             break;
          } else if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
             name_prefix = "gl_ClipDistance";
             ctx->inputs[i].glsl_predefined_no_emit = true;
             ctx->inputs[i].glsl_no_index = true;
-            ctx->num_in_clip_dist += 4;
+            ctx->num_in_clip_dist += 4 * (ctx->inputs[i].last - ctx->inputs[i].first + 1);
             ctx->shader_req_bits |= SHADER_REQ_CLIP_DISTANCE;
+            if (ctx->inputs[i].last != ctx->inputs[i].first)
+               ctx->guest_sent_io_arrays = true;
             break;
          }
          /* fallthrough */
@@ -1042,12 +1068,14 @@ iter_declaration(struct tgsi_iterate_context *iter,
          name_prefix = "gl_ClipDistance";
          ctx->outputs[i].glsl_predefined_no_emit = true;
          ctx->outputs[i].glsl_no_index = true;
-         ctx->num_clip_dist += 4;
+         ctx->num_clip_dist += 4 * (ctx->outputs[i].last - ctx->outputs[i].first + 1);
          if (iter->processor.Processor == TGSI_PROCESSOR_VERTEX &&
              (ctx->key->gs_present || ctx->key->tcs_present))
             require_glsl_ver(ctx, 150);
          if (iter->processor.Processor == TGSI_PROCESSOR_TESS_CTRL)
             ctx->outputs[i].glsl_gl_block = true;
+         if (ctx->outputs[i].last != ctx->outputs[i].first)
+            ctx->guest_sent_io_arrays = true;
          break;
       case TGSI_SEMANTIC_CLIPVERTEX:
          name_prefix = "gl_ClipVertex";
@@ -1654,9 +1682,14 @@ static void emit_so_movs(struct dump_ctx *ctx)
       if (ctx->so->output[i].register_index >= 255)
          continue;
 
-      if (ctx->outputs[ctx->so->output[i].register_index].name == TGSI_SEMANTIC_CLIPDIST) {
-         emit_buff(ctx, "tfout%d = %s(clip_dist_temp[%d]%s);\n", i, outtype, ctx->outputs[ctx->so->output[i].register_index].sid,
-                  writemask);
+      if (output->name == TGSI_SEMANTIC_CLIPDIST) {
+         if (output->first == output->last)
+            emit_buff(ctx, "tfout%d = %s(clip_dist_temp[%d]%s);\n", i, outtype, output->sid,
+                      writemask);
+         else
+            emit_buff(ctx, "tfout%d = %s(clip_dist_temp[%d]%s);\n", i, outtype,
+                      output->sid + ctx->so->output[i].register_index - output->first,
+                      writemask);
       } else {
          if (ctx->write_so_outputs[i]) {
             char out_var[255];
@@ -2339,16 +2372,27 @@ create_swizzled_clipdist(struct dump_ctx *ctx,
                          bool gl_in,
                          const char *stypeprefix,
                          const char *prefix,
-                         const char *arrayname)
+                         const char *arrayname, int offset)
 {
    char clipdistvec[4][64] = {};
-   int idx;
+
+   char clip_indirect[32] = "";
+
    bool has_prev_vals = (ctx->key->prev_stage_num_cull_out + ctx->key->prev_stage_num_clip_out) > 0;
    int num_culls = has_prev_vals ? ctx->key->prev_stage_num_cull_out : 0;
    int num_clips = has_prev_vals ? ctx->key->prev_stage_num_clip_out : ctx->num_in_clip_dist;
+   int base_idx = ctx->inputs[input_idx].sid * 4;
+
+   /* With arrays enabled , but only when gl_ClipDistance or gl_CullDistance are emitted (>4)
+    * then we need to add indirect addressing */
+   if (src->Register.Indirect && ((num_clips > 4 && base_idx < num_clips) || num_culls > 4))
+      snprintf(clip_indirect, 32, "4*addr%d +", src->Indirect.Index);
+   else if (src->Register.Index != offset)
+      snprintf(clip_indirect, 32, "4*%d +", src->Register.Index - offset);
+
    for (unsigned cc = 0; cc < 4; cc++) {
       const char *cc_name = ctx->inputs[input_idx].glsl_name;
-      idx = ctx->inputs[input_idx].sid * 4;
+      int idx = base_idx;
       if (cc == 0)
          idx += src->Register.SwizzleX;
       else if (cc == 1)
@@ -2372,12 +2416,39 @@ create_swizzled_clipdist(struct dump_ctx *ctx,
                idx = 0;
       }
       if (gl_in)
-         snprintf(clipdistvec[cc], 64, "%sgl_in%s.%s[%d]", prefix, arrayname, cc_name, idx);
+         snprintf(clipdistvec[cc], 64, "%sgl_in%s.%s[%s %d]", prefix, arrayname, cc_name, clip_indirect,  idx);
       else
-         snprintf(clipdistvec[cc], 64, "%s%s%s[%d]", prefix, arrayname, cc_name, idx);
+         snprintf(clipdistvec[cc], 64, "%s%s%s[%s %d]", prefix, arrayname, cc_name, clip_indirect, idx);
    }
    snprintf(result, 255, "%s(vec4(%s,%s,%s,%s))", stypeprefix, clipdistvec[0], clipdistvec[1], clipdistvec[2], clipdistvec[3]);
 }
+
+static
+void load_clipdist_fs(struct dump_ctx *ctx,
+                      char *result,
+                      const struct tgsi_full_src_register *src,
+                      int input_idx,
+                      bool gl_in,
+                      const char *stypeprefix,
+                      int offset)
+{
+   char clip_indirect[32] = "";
+
+   int base_idx = ctx->inputs[input_idx].sid;
+
+   /* With arrays enabled , but only when gl_ClipDistance or gl_CullDistance are emitted (>4)
+    * then we need to add indirect addressing */
+   if (src->Register.Indirect)
+      snprintf(clip_indirect, 32, "addr%d + %d", src->Indirect.Index, base_idx);
+   else
+      snprintf(clip_indirect, 32, "%d + %d", src->Register.Index - offset, base_idx);
+
+   if (gl_in)
+      snprintf(result, 255, "%s(clip_dist_temp[%s])", stypeprefix, clip_indirect);
+   else
+      snprintf(result, 255, "%s(clip_dist_temp[%s])", stypeprefix, clip_indirect);
+}
+
 
 static enum vrend_type_qualifier get_coord_prefix(int resource, bool *is_ms)
 {
@@ -2816,7 +2887,14 @@ get_destination_info(struct dump_ctx *ctx,
                if (ctx->glsl_ver_required >= 140 && ctx->outputs[j].name == TGSI_SEMANTIC_CLIPVERTEX) {
                   snprintf(dsts[i], 255, "clipv_tmp");
                } else if (ctx->outputs[j].name == TGSI_SEMANTIC_CLIPDIST) {
-                  snprintf(dsts[i], 255, "clip_dist_temp[%d]", ctx->outputs[j].sid);
+                  char clip_indirect[32] = "";
+                  if (ctx->outputs[j].first != ctx->outputs[j].last) {
+                     if (dst_reg->Register.Indirect)
+                        snprintf(clip_indirect, sizeof(clip_indirect), "+ addr%d", dst_reg->Indirect.Index);
+                     else
+                        snprintf(clip_indirect, sizeof(clip_indirect), "+ %d", dst_reg->Register.Index - ctx->outputs[j].first);
+                  }
+                  snprintf(dsts[i], 255, "clip_dist_temp[%d %s]", ctx->outputs[j].sid, clip_indirect);
                } else if (ctx->outputs[j].name == TGSI_SEMANTIC_TESSOUTER ||
                           ctx->outputs[j].name == TGSI_SEMANTIC_TESSINNER ||
                           ctx->outputs[j].name == TGSI_SEMANTIC_SAMPLEMASK) {
@@ -3102,7 +3180,7 @@ get_source_info(struct dump_ctx *ctx,
                else if (ctx->inputs[j].glsl_gl_block) {
                   /* GS input clipdist requires a conversion */
                   if (ctx->inputs[j].name == TGSI_SEMANTIC_CLIPDIST) {
-                     create_swizzled_clipdist(ctx, srcs[i], src, j, true, get_string(stypeprefix), prefix, arrayname);
+                     create_swizzled_clipdist(ctx, srcs[i], src, j, true, get_string(stypeprefix), prefix, arrayname, ctx->inputs[j].first);
                   } else {
                      snprintf(srcs[i], 255, "%s(vec4(%sgl_in%s.%s)%s)", get_string(stypeprefix), prefix, arrayname, ctx->inputs[j].glsl_name, swizzle);
                   }
@@ -3112,7 +3190,10 @@ get_source_info(struct dump_ctx *ctx,
                else if (ctx->inputs[j].name == TGSI_SEMANTIC_FACE)
                   snprintf(srcs[i], 255, "%s(%s ? 1.0 : -1.0)", get_string(stypeprefix), ctx->inputs[j].glsl_name);
                else if (ctx->inputs[j].name == TGSI_SEMANTIC_CLIPDIST) {
-                  create_swizzled_clipdist(ctx, srcs[i], src, j, false, get_string(stypeprefix), prefix, arrayname);
+                  if (ctx->prog_type == TGSI_PROCESSOR_FRAGMENT)
+                     load_clipdist_fs(ctx, srcs[i], src, j, false, get_string(stypeprefix), ctx->inputs[j].first);
+                  else
+                     create_swizzled_clipdist(ctx, srcs[i], src, j, false, get_string(stypeprefix), prefix, arrayname, ctx->inputs[j].first);
                } else {
                   enum vrend_type_qualifier srcstypeprefix = stypeprefix;
                   if ((stype == TGSI_TYPE_UNSIGNED || stype == TGSI_TYPE_SIGNED) &&
@@ -3147,7 +3228,14 @@ get_source_info(struct dump_ctx *ctx,
                   srcstypeprefix = TYPE_CONVERSION_NONE;
                if (ctx->outputs[j].glsl_gl_block) {
                   if (ctx->outputs[j].name == TGSI_SEMANTIC_CLIPDIST) {
-		     snprintf(srcs[i], 255, "clip_dist_temp[%d]", ctx->outputs[j].sid);
+                     char clip_indirect[32] = "";
+                     if (ctx->outputs[j].first != ctx->outputs[j].last) {
+                        if (src->Register.Indirect)
+                           snprintf(clip_indirect, sizeof(clip_indirect), "+ addr%d", src->Indirect.Index);
+                        else
+                           snprintf(clip_indirect, sizeof(clip_indirect), "+ %d", src->Register.Index - ctx->outputs[j].first);
+                     }
+		     snprintf(srcs[i], 255, "clip_dist_temp[%d%s]", ctx->outputs[j].sid, clip_indirect);
                   }
                } else if (ctx->outputs[j].name == TGSI_SEMANTIC_GENERIC) {
                   struct vrend_shader_io *io = ctx->generic_output_range.used ? &ctx->generic_output_range.io : &ctx->outputs[j];
@@ -3541,6 +3629,47 @@ void rewrite_io_ranged(struct dump_ctx *ctx)
 }
 
 
+static
+void emit_fs_clipdistance_load(struct dump_ctx *ctx)
+{
+   int i;
+
+   if (!ctx->fs_uses_clipdist_input)
+      return;
+
+   int prev_num = ctx->key->prev_stage_num_clip_out + ctx->key->prev_stage_num_cull_out;
+   int ndists;
+   const char *prefix="";
+
+   if (ctx->prog_type == PIPE_SHADER_TESS_CTRL)
+      prefix = "gl_out[gl_InvocationID].";
+
+   ndists = ctx->num_in_clip_dist;
+   if (prev_num > 0)
+      ndists = prev_num;
+
+   for (i = 0; i < ndists; i++) {
+      int clipidx = i < 4 ? 0 : 1;
+      char swiz = i & 3;
+      char wm = 0;
+      switch (swiz) {
+      default:
+      case 0: wm = 'x'; break;
+      case 1: wm = 'y'; break;
+      case 2: wm = 'z'; break;
+      case 3: wm = 'w'; break;
+      }
+      bool is_cull = false;
+      if (prev_num > 0) {
+         if (i >= ctx->key->prev_stage_num_clip_out && i < prev_num)
+            is_cull = true;
+      }
+      const char *clip_cull = is_cull ? "Cull" : "Clip";
+      emit_buff(ctx, "clip_dist_temp[%d].%c = %sgl_%sDistance[%d];\n", clipidx, wm, prefix, clip_cull,
+                is_cull ? i - ctx->key->prev_stage_num_clip_out : i);
+   }
+}
+
 
 static boolean
 iter_instruction(struct tgsi_iterate_context *iter,
@@ -3571,6 +3700,8 @@ iter_instruction(struct tgsi_iterate_context *iter,
       emit_buf(ctx, "void main(void)\n{\n");
       if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
          emit_color_select(ctx);
+         if (ctx->fs_uses_clipdist_input)
+            emit_fs_clipdistance_load(ctx);
       }
       if (ctx->so)
          prepare_so_movs(ctx);
@@ -4917,10 +5048,15 @@ static void emit_ios_fs(struct dump_ctx *ctx)
    if (ctx->num_in_clip_dist) {
       if (ctx->key->prev_stage_num_clip_out) {
          emit_hdrf(ctx, "in float gl_ClipDistance[%d];\n", ctx->key->prev_stage_num_clip_out);
+      } else if (ctx->num_in_clip_dist > 4 && !ctx->key->prev_stage_num_cull_out) {
+         emit_hdrf(ctx, "in float gl_ClipDistance[%d];\n", ctx->num_in_clip_dist);
       }
+
       if (ctx->key->prev_stage_num_cull_out) {
          emit_hdrf(ctx, "in float gl_CullDistance[%d];\n", ctx->key->prev_stage_num_cull_out);
       }
+      if(ctx->fs_uses_clipdist_input)
+         emit_hdr(ctx, "vec4 clip_dist_temp[2];\n");
    }
 }
 
@@ -5271,6 +5407,22 @@ static boolean analyze_instruction(struct tgsi_iterate_context *iter,
          ctx->integer_memory = true;
    }
 
+   if (!ctx->fs_uses_clipdist_input && (ctx->prog_type == TGSI_PROCESSOR_FRAGMENT)) {
+      for (int i = 0; i < inst->Instruction.NumSrcRegs; ++i) {
+         if (inst->Src[i].Register.File == TGSI_FILE_INPUT) {
+            int idx = inst->Src[i].Register.Index;
+            for (unsigned j = 0; j < ctx->num_inputs; ++j) {
+               if (ctx->inputs[j].first <= idx && ctx->inputs[j].last >= idx &&
+                   ctx->inputs[j].name == TGSI_SEMANTIC_CLIPDIST) {
+                  ctx->fs_uses_clipdist_input = true;
+                  break;
+               }
+            }
+         }
+      }
+   }
+
+
    return true;
 }
 
@@ -5288,10 +5440,14 @@ bool vrend_convert_shader(struct vrend_context *rctx,
    memset(&ctx, 0, sizeof(struct dump_ctx));
 
    /* First pass to deal with edge cases. */
+   if (ctx.prog_type == TGSI_PROCESSOR_FRAGMENT)
+      ctx.iter.iterate_declaration = iter_inputs;
    ctx.iter.iterate_instruction = analyze_instruction;
    bret = tgsi_iterate_shader(tokens, &ctx.iter);
    if (bret == false)
       return false;
+
+   ctx.num_inputs = 0;
 
    ctx.iter.prolog = prolog;
    ctx.iter.iterate_instruction = iter_instruction;
