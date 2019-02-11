@@ -2907,7 +2907,13 @@ static inline void vrend_fill_shader_key(struct vrend_context *ctx,
 	 prev_type = PIPE_SHADER_VERTEX;
       break;
    case PIPE_SHADER_TESS_EVAL:
-      prev_type = PIPE_SHADER_TESS_CTRL;
+      if (key->tcs_present)
+         prev_type = PIPE_SHADER_TESS_CTRL;
+      else
+         if (!ctx->shader_cfg.use_gles)
+            prev_type = PIPE_SHADER_VERTEX;
+         else
+            vrend_printf("Error OpenGL ES doesn't allow a tesselation evaluation shader without a teselation control shader");
       break;
    case PIPE_SHADER_TESS_CTRL:
       prev_type = PIPE_SHADER_VERTEX;
