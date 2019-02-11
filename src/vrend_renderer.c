@@ -117,6 +117,7 @@ enum features_id
    feat_indep_blend,
    feat_indep_blend_func,
    feat_indirect_draw,
+   feat_indirect_params,
    feat_mesa_invert,
    feat_ms_scaled_blit,
    feat_multisample,
@@ -199,6 +200,7 @@ static const  struct {
    FEAT(indep_blend, 30, 32,  "GL_EXT_draw_buffers2", "GL_OES_draw_buffers_indexed" ),
    FEAT(indep_blend_func, 40, 32,  "GL_ARB_draw_buffers_blend", "GL_OES_draw_buffers_indexed"),
    FEAT(indirect_draw, 40, 31,  "GL_ARB_draw_indirect" ),
+   FEAT(indirect_params, 46, UNAVAIL,  "GL_ARB_indirect_parameters" ),
    FEAT(mesa_invert, UNAVAIL, UNAVAIL,  "GL_MESA_pack_invert" ),
    FEAT(ms_scaled_blit, UNAVAIL, UNAVAIL,  "GL_EXT_framebuffer_multisample_blit_scaled" ),
    FEAT(multisample, 32, 30,  "GL_ARB_texture_multisample" ),
@@ -561,6 +563,8 @@ struct vrend_sub_context {
    int last_shader_idx;
 
    GLint draw_indirect_buffer;
+
+   GLint draw_indirect_params_buffer;
 
    struct pipe_rasterizer_state hw_rs_state;
    struct pipe_blend_state hw_blend_state;
@@ -3971,6 +3975,7 @@ int vrend_draw_vbo(struct vrend_context *ctx,
    int i;
    bool new_program = false;
    struct vrend_resource *indirect_res = NULL;
+   struct vrend_resource *indirect_params_res = NULL;
 
    if (ctx->in_error)
       return 0;
@@ -3996,8 +4001,14 @@ int vrend_draw_vbo(struct vrend_context *ctx,
 
    /* this must be zero until we support the feature */
    if (indirect_draw_count_handle) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, indirect_handle);
-      return 0;
+      if (!has_feature(feat_indirect_params))
+         return EINVAL;
+
+      indirect_params_res = vrend_renderer_ctx_res_lookup(ctx, indirect_draw_count_handle);
+      if (!indirect_params_res){
+         report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, indirect_draw_count_handle);
+         return 0;
+      }
    }
 
    if (ctx->ctx_switch_pending)
@@ -4183,6 +4194,14 @@ int vrend_draw_vbo(struct vrend_context *ctx,
          glBindBuffer(GL_DRAW_INDIRECT_BUFFER, buf);
          ctx->sub->draw_indirect_buffer = buf;
       }
+
+      if (has_feature(feat_indirect_params)) {
+         GLint buf = indirect_params_res ? indirect_params_res->id : 0;
+         if (ctx->sub->draw_indirect_params_buffer != buf) {
+            glBindBuffer(GL_PARAMETER_BUFFER_ARB, buf);
+            ctx->sub->draw_indirect_params_buffer = buf;
+         }
+      }
    }
 
    if (info->vertices_per_patch && has_feature(feat_tessellation))
@@ -4195,7 +4214,10 @@ int vrend_draw_vbo(struct vrend_context *ctx,
       int start = cso ? 0 : info->start;
 
       if (indirect_handle) {
-         if (info->indirect.draw_count > 1)
+         if (indirect_params_res)
+            glMultiDrawArraysIndirectCountARB(mode, (GLvoid const *)(unsigned long)info->indirect.offset,
+                                              info->indirect.indirect_draw_count_offset, info->indirect.draw_count, info->indirect.stride);
+         else if (info->indirect.draw_count > 1)
             glMultiDrawArraysIndirect(mode, (GLvoid const *)(unsigned long)info->indirect.offset, info->indirect.draw_count, info->indirect.stride);
          else
             glDrawArraysIndirect(mode, (GLvoid const *)(unsigned long)info->indirect.offset);
@@ -4222,7 +4244,10 @@ int vrend_draw_vbo(struct vrend_context *ctx,
       }
 
       if (indirect_handle) {
-         if (info->indirect.draw_count > 1)
+         if (indirect_params_res)
+            glMultiDrawElementsIndirectCountARB(mode, elsz, (GLvoid const *)(unsigned long)info->indirect.offset,
+                                                info->indirect.indirect_draw_count_offset, info->indirect.draw_count, info->indirect.stride);
+         else if (info->indirect.draw_count > 1)
             glMultiDrawElementsIndirect(mode, elsz, (GLvoid const *)(unsigned long)info->indirect.offset, info->indirect.draw_count, info->indirect.stride);
          else
             glDrawElementsIndirect(mode, elsz, (GLvoid const *)(unsigned long)info->indirect.offset);
@@ -8736,6 +8761,9 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
 
    if (has_feature(feat_multi_draw_indirect))
       caps->v2.capability_bits |= VIRGL_CAP_MULTI_DRAW_INDIRECT;
+
+   if (has_feature(feat_indirect_params))
+      caps->v2.capability_bits |= VIRGL_CAP_INDIRECT_PARAMS;
 }
 
 void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
