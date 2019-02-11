@@ -5758,12 +5758,15 @@ static int check_resource_valid(struct vrend_renderer_resource_create_args *args
        args->bind == VIRGL_BIND_VERTEX_BUFFER ||
        args->bind == VIRGL_BIND_CONSTANT_BUFFER ||
        args->bind == VIRGL_BIND_QUERY_BUFFER ||
+       args->bind == VIRGL_BIND_COMMAND_ARGS ||
        args->bind == VIRGL_BIND_SHADER_BUFFER) {
       if (args->target != PIPE_BUFFER)
          return -1;
       if (args->height != 1 || args->depth != 1)
          return -1;
       if (args->bind == VIRGL_BIND_QUERY_BUFFER && !has_feature(feat_qbo))
+         return -1;
+      if (args->bind == VIRGL_BIND_COMMAND_ARGS && !has_feature(feat_indirect_draw))
          return -1;
    } else {
       if (!((args->bind & VIRGL_BIND_SAMPLER_VIEW) ||
@@ -6009,6 +6012,9 @@ int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *a
       vrend_create_buffer(gr, args->width);
    } else if (args->bind == VIRGL_BIND_QUERY_BUFFER) {
       gr->target = GL_QUERY_BUFFER;
+      vrend_create_buffer(gr, args->width);
+   } else if (args->bind == VIRGL_BIND_COMMAND_ARGS) {
+      gr->target = GL_DRAW_INDIRECT_BUFFER;
       vrend_create_buffer(gr, args->width);
    } else if (args->target == PIPE_BUFFER && (args->bind == 0 || args->bind == VIRGL_BIND_SHADER_BUFFER)) {
       gr->target = GL_ARRAY_BUFFER_ARB;
@@ -8713,6 +8719,9 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
    /* We want to expose ARB_gpu_shader_fp64 when running on top of ES */
    if (vrend_state.use_gles)
       caps->v2.capability_bits |= VIRGL_CAP_FAKE_FP64;
+
+   if (has_feature(feat_indirect_draw))
+      caps->v2.capability_bits |= VIRGL_CAP_BIND_COMMAND_ARGS;
 }
 
 void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
