@@ -679,7 +679,9 @@ static inline const char *pipe_shader_to_prefix(int shader_type)
    };
 }
 
-static const char *vrend_ctx_error_strings[] = { "None", "Unknown", "Illegal shader", "Illegal handle", "Illegal resource", "Illegal surface", "Illegal vertex format", "Illegal command buffer" };
+static const char *vrend_ctx_error_strings[] = { "None", "Unknown", "Illegal shader", "Illegal handle", "Illegal resource",
+                                                 "Illegal surface", "Illegal vertex format", "Illegal command buffer",
+                                                 "On GLES context and shader program has tesselation evaluation shader but no tesselation control shader"};
 
 static void __report_context_error(const char *fname, struct vrend_context *ctx, enum virgl_ctx_errors error, uint32_t value)
 {
@@ -2913,7 +2915,7 @@ static inline void vrend_fill_shader_key(struct vrend_context *ctx,
          if (!ctx->shader_cfg.use_gles)
             prev_type = PIPE_SHADER_VERTEX;
          else
-            vrend_printf("Error OpenGL ES doesn't allow a tesselation evaluation shader without a teselation control shader");
+            report_context_error(ctx, VIRGL_ERROR_CTX_GLES_HAVE_TES_BUT_MISS_TCS, 0);
       break;
    case PIPE_SHADER_TESS_CTRL:
       prev_type = PIPE_SHADER_VERTEX;
@@ -2927,6 +2929,12 @@ static inline void vrend_fill_shader_key(struct vrend_context *ctx,
       key->prev_stage_num_cull_out = ctx->sub->shaders[prev_type]->sinfo.num_cull_out;
       key->num_indirect_generic_inputs = ctx->sub->shaders[prev_type]->sinfo.num_indirect_generic_outputs;
       key->num_indirect_patch_inputs = ctx->sub->shaders[prev_type]->sinfo.num_indirect_patch_outputs;
+      key->num_prev_generic_and_patch_outputs = ctx->sub->shaders[prev_type]->sinfo.num_generic_and_patch_outputs;
+      key->guest_sent_io_arrays = ctx->sub->shaders[prev_type]->sinfo.guest_sent_io_arrays;
+
+      memcpy(key->prev_stage_generic_and_patch_outputs_layout,
+             ctx->sub->shaders[prev_type]->sinfo.generic_outputs_layout,
+             64 * sizeof (struct vrend_layout_info));
    }
 
    int next_type = -1;
@@ -2936,11 +2944,16 @@ static inline void vrend_fill_shader_key(struct vrend_context *ctx,
        next_type = PIPE_SHADER_TESS_CTRL;
      else if (key->gs_present)
        next_type = PIPE_SHADER_GEOMETRY;
-     else
-       next_type = PIPE_SHADER_FRAGMENT;
+     else if (key->tes_present) {
+        if (!ctx->shader_cfg.use_gles)
+           next_type = PIPE_SHADER_TESS_EVAL;
+        else
+           report_context_error(ctx, VIRGL_ERROR_CTX_GLES_HAVE_TES_BUT_MISS_TCS, 0);
+     } else
+        next_type = PIPE_SHADER_FRAGMENT;
      break;
    case PIPE_SHADER_TESS_CTRL:
-     next_type = PIPE_SHADER_TESS_EVAL;
+      next_type = PIPE_SHADER_TESS_EVAL;
      break;
    case PIPE_SHADER_GEOMETRY:
      next_type = PIPE_SHADER_FRAGMENT;

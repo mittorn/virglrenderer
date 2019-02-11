@@ -42,11 +42,22 @@ struct vrend_array {
    int array_size;
 };
 
+struct vrend_layout_info {
+   unsigned name;
+   int sid;
+   int location;
+   int array_id;
+   int usage_mask;
+};
+
 struct vrend_shader_info {
    uint32_t samplers_used_mask;
    uint32_t images_used_mask;
    uint32_t ubo_used_mask;
    uint32_t ssbo_used_mask;
+   uint32_t num_generic_and_patch_outputs;
+   bool guest_sent_io_arrays;
+   struct vrend_layout_info generic_outputs_layout[64];
    int num_consts;
    int num_inputs;
    int num_interps;
@@ -94,6 +105,10 @@ struct vrend_shader_key {
    bool tes_present;
    bool flatshade;
    bool prev_stage_pervertex_out;
+   bool guest_sent_io_arrays;
+   uint32_t num_prev_generic_and_patch_outputs;
+   struct vrend_layout_info prev_stage_generic_and_patch_outputs_layout[64];
+
    uint8_t prev_stage_num_clip_out;
    uint8_t prev_stage_num_cull_out;
    float alpha_ref_val;

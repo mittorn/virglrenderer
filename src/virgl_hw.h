@@ -389,8 +389,8 @@ enum virgl_ctx_errors {
         VIRGL_ERROR_CTX_ILLEGAL_SURFACE,
         VIRGL_ERROR_CTX_ILLEGAL_VERTEX_FORMAT,
         VIRGL_ERROR_CTX_ILLEGAL_CMD_BUFFER,
-};
-
+        VIRGL_ERROR_CTX_GLES_HAVE_TES_BUT_MISS_TCS,
+};            
 
 #define VIRGL_RESOURCE_Y_0_TOP (1 << 0)
 #endif

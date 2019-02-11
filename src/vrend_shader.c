@@ -779,6 +779,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
    int color_offset = 0;
    const char *name_prefix = "";
    bool add_two_side = false;
+   unsigned mask_temp;
 
    switch (decl->Declaration.File) {
    case TGSI_FILE_INPUT:
@@ -1015,7 +1016,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
             ctx->inputs[i].swizzle_offset = 0;
             ctx->inputs[i].override_no_wm = false;
             snprintf(ctx->inputs[i].glsl_name, 64, "%s_f%d", name_prefix, ctx->inputs[i].sid);
-         else if (ctx->inputs[i].name == TGSI_SEMANTIC_COLOR)
+         } else if (ctx->inputs[i].name == TGSI_SEMANTIC_COLOR)
             snprintf(ctx->inputs[i].glsl_name, 64, "%s_c%d", name_prefix, ctx->inputs[i].sid);
          else if (ctx->inputs[i].name == TGSI_SEMANTIC_GENERIC)
             snprintf(ctx->inputs[i].glsl_name, 64, "%s_g%d", name_prefix, ctx->inputs[i].sid);
@@ -1243,7 +1244,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
             ctx->outputs[i].swizzle_offset = 0;
             ctx->outputs[i].override_no_wm = false;
             snprintf(ctx->outputs[i].glsl_name, 64, "%s_f%d", name_prefix, ctx->outputs[i].sid);
-         else if (ctx->outputs[i].name == TGSI_SEMANTIC_COLOR)
+         } else if (ctx->outputs[i].name == TGSI_SEMANTIC_COLOR)
             snprintf(ctx->outputs[i].glsl_name, 64, "%s_c%d", name_prefix, ctx->outputs[i].sid);
          else if (ctx->outputs[i].name == TGSI_SEMANTIC_BCOLOR)
             snprintf(ctx->outputs[i].glsl_name, 64, "%s_bc%d", name_prefix, ctx->outputs[i].sid);
@@ -1714,7 +1715,7 @@ static void emit_so_movs(struct dump_ctx *ctx)
             ctx->has_clipvertex_so = true;
          } else {
             char out_var[255];
-            get_so_name(ctx->cfg->use_gles, output, ctx->so->output[i].register_index, out_var, "block_", stage_prefix);
+            get_so_name(ctx, true, output, ctx->so->output[i].register_index, out_var, writemask);
             ctx->so_names[i] = strdup(out_var);
          }
       } else {
@@ -1744,7 +1745,7 @@ static void emit_so_movs(struct dump_ctx *ctx)
       } else {
          if (ctx->write_so_outputs[i]) {
             char out_var[255];
-            get_so_name(ctx->cfg->use_gles, output, ctx->so->output[i].register_index, out_var, "", stage_prefix);
+            get_so_name(ctx, false, output, ctx->so->output[i].register_index, out_var, writemask);
             emit_buff(ctx, "tfout%d = %s(%s%s);\n", i, outtype, out_var, writemask);
          }
       }
@@ -5538,6 +5539,8 @@ bool vrend_convert_shader(struct vrend_context *rctx,
    ctx.ssbo_atomic_array_base = 0xffffffff;
    ctx.has_sample_input = false;
    ctx.req_local_mem = req_local_mem;
+   ctx.guest_sent_io_arrays = key->guest_sent_io_arrays;
+
    tgsi_scan_shader(tokens, &ctx.info);
    /* if we are in core profile mode we should use GLSL 1.40 */
    if (cfg->use_core_profile && cfg->glsl_version >= 140)
@@ -5628,6 +5631,23 @@ bool vrend_convert_shader(struct vrend_context *rctx,
          for (unsigned i = 0; i < sinfo->so_info.num_outputs; ++i)
             free(sinfo->so_names[i]);
          free(sinfo->so_names);
+      }
+   }
+
+   /* Record information about the layout of generics and patches for apssing it
+    * to the next shader stage. mesa/tgsi doesn't provide this information for
+    * TCS, TES, and GEOM shaders.
+    */
+   sinfo->guest_sent_io_arrays = ctx.guest_sent_io_arrays;
+   sinfo->num_generic_and_patch_outputs = 0;
+   for(unsigned i = 0; i < ctx.num_outputs; i++) {
+         sinfo->generic_outputs_layout[sinfo->num_generic_and_patch_outputs].name = ctx.outputs[i].name;
+         sinfo->generic_outputs_layout[sinfo->num_generic_and_patch_outputs].sid = ctx.outputs[i].sid;
+         sinfo->generic_outputs_layout[sinfo->num_generic_and_patch_outputs].location = ctx.outputs[i].layout_location;
+         sinfo->generic_outputs_layout[sinfo->num_generic_and_patch_outputs].array_id = ctx.outputs[i].array_id;
+         sinfo->generic_outputs_layout[sinfo->num_generic_and_patch_outputs].usage_mask = ctx.outputs[i].usage_mask;
+         if (ctx.outputs[i].name == TGSI_SEMANTIC_GENERIC || ctx.outputs[i].name == TGSI_SEMANTIC_PATCH) {
+            sinfo->num_generic_and_patch_outputs++;
       }
    }
 
