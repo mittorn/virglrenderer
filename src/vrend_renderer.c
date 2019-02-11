@@ -6196,14 +6196,7 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
       vrend_read_from_iovec(iov, num_iovs, info->offset, res->ptr + info->box->x, info->box->width);
       return 0;
    }
-   if (res->target == GL_TRANSFORM_FEEDBACK_BUFFER ||
-       res->target == GL_ELEMENT_ARRAY_BUFFER_ARB ||
-       res->target == GL_ARRAY_BUFFER_ARB ||
-       res->target == GL_TEXTURE_BUFFER ||
-       res->target == GL_QUERY_BUFFER ||
-       res->target == GL_UNIFORM_BUFFER ||
-       res->target == GL_PIXEL_PACK_BUFFER ||
-       res->target == GL_PIXEL_UNPACK_BUFFER) {
+   if (res->is_buffer) {
       struct virgl_sub_upload_data d;
       d.box = info->box;
       d.target = res->target;
@@ -6706,14 +6699,7 @@ static int vrend_renderer_transfer_send_iov(struct vrend_context *ctx,
       return 0;
    }
 
-   if (res->target == GL_ELEMENT_ARRAY_BUFFER_ARB ||
-       res->target == GL_ARRAY_BUFFER_ARB ||
-       res->target == GL_TRANSFORM_FEEDBACK_BUFFER ||
-       res->target == GL_TEXTURE_BUFFER ||
-       res->target == GL_UNIFORM_BUFFER ||
-       res->target == GL_QUERY_BUFFER ||
-       res->target == GL_PIXEL_PACK_BUFFER ||
-       res->target == GL_PIXEL_UNPACK_BUFFER) {
+   if (res->is_buffer) {
       uint32_t send_size = info->box->width * util_format_get_blocksize(res->base.format);
       void *data;
 
