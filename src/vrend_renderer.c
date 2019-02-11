@@ -120,6 +120,7 @@ enum features_id
    feat_mesa_invert,
    feat_ms_scaled_blit,
    feat_multisample,
+   feat_multi_draw_indirect,
    feat_nv_conditional_render,
    feat_nv_prim_restart,
    feat_polygon_offset_clamp,
@@ -201,6 +202,7 @@ static const  struct {
    FEAT(mesa_invert, UNAVAIL, UNAVAIL,  "GL_MESA_pack_invert" ),
    FEAT(ms_scaled_blit, UNAVAIL, UNAVAIL,  "GL_EXT_framebuffer_multisample_blit_scaled" ),
    FEAT(multisample, 32, 30,  "GL_ARB_texture_multisample" ),
+   FEAT(multi_draw_indirect, 43, UNAVAIL,  "GL_ARB_multi_draw_indirect", "GL_EXT_multi_draw_indirect" ),
    FEAT(nv_conditional_render, UNAVAIL, UNAVAIL,  "GL_NV_conditional_render" ),
    FEAT(nv_prim_restart, UNAVAIL, UNAVAIL,  "GL_NV_primitive_restart" ),
    FEAT(polygon_offset_clamp, 46, UNAVAIL,  "GL_ARB_polygon_offset_clamp" ),
@@ -3979,6 +3981,9 @@ int vrend_draw_vbo(struct vrend_context *ctx,
    if (info->start_instance && !has_feature(feat_base_instance))
       return EINVAL;
 
+   if (info->indirect.draw_count > 1 && !has_feature(feat_multi_draw_indirect))
+      return EINVAL;
+
    if (indirect_handle) {
       if (!has_feature(feat_indirect_draw))
          return EINVAL;
@@ -4189,9 +4194,12 @@ int vrend_draw_vbo(struct vrend_context *ctx,
       int count = cso ? cso : info->count;
       int start = cso ? 0 : info->start;
 
-      if (indirect_handle)
-         glDrawArraysIndirect(mode, (GLvoid const *)(unsigned long)info->indirect.offset);
-      else if (info->instance_count <= 1)
+      if (indirect_handle) {
+         if (info->indirect.draw_count > 1)
+            glMultiDrawArraysIndirect(mode, (GLvoid const *)(unsigned long)info->indirect.offset, info->indirect.draw_count, info->indirect.stride);
+         else
+            glDrawArraysIndirect(mode, (GLvoid const *)(unsigned long)info->indirect.offset);
+      } else if (info->instance_count <= 1)
          glDrawArrays(mode, start, count);
       else if (info->start_instance)
          glDrawArraysInstancedBaseInstance(mode, start, count, info->instance_count, info->start_instance);
@@ -4213,9 +4221,12 @@ int vrend_draw_vbo(struct vrend_context *ctx,
          break;
       }
 
-      if (indirect_handle)
-         glDrawElementsIndirect(mode, elsz, (GLvoid const *)(unsigned long)info->indirect.offset);
-      else if (info->index_bias) {
+      if (indirect_handle) {
+         if (info->indirect.draw_count > 1)
+            glMultiDrawElementsIndirect(mode, elsz, (GLvoid const *)(unsigned long)info->indirect.offset, info->indirect.draw_count, info->indirect.stride);
+         else
+            glDrawElementsIndirect(mode, elsz, (GLvoid const *)(unsigned long)info->indirect.offset);
+      } else if (info->index_bias) {
          if (info->instance_count > 1)
             glDrawElementsInstancedBaseVertex(mode, info->count, elsz, (void *)(unsigned long)ctx->sub->ib.offset, info->instance_count, info->index_bias);
          else if (info->min_index != 0 || info->max_index != (unsigned)-1)
@@ -8722,6 +8733,9 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
 
    if (has_feature(feat_indirect_draw))
       caps->v2.capability_bits |= VIRGL_CAP_BIND_COMMAND_ARGS;
+
+   if (has_feature(feat_multi_draw_indirect))
+      caps->v2.capability_bits |= VIRGL_CAP_MULTI_DRAW_INDIRECT;
 }
 
 void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
