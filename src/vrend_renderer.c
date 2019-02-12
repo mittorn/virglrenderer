@@ -8632,6 +8632,10 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
 
    if (vrend_check_fremabuffer_mixed_color_attachements())
       caps->v2.capability_bits |= VIRGL_CAP_FBO_MIXED_COLOR_FORMATS;
+
+   /* We want to expose ARB_gpu_shader_fp64 when running on top of ES */
+   if (vrend_state.use_gles)
+      caps->v2.capability_bits |= VIRGL_CAP_FAKE_FP64;
 }
 
 void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
