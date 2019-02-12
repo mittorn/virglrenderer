@@ -789,7 +789,10 @@ iter_declaration(struct tgsi_iterate_context *iter,
       for (uint32_t j = 0; j < ctx->num_inputs; j++) {
          if (ctx->inputs[j].name == decl->Semantic.Name &&
              ctx->inputs[j].sid == decl->Semantic.Index &&
-             ctx->inputs[j].first == decl->Range.First)
+             ctx->inputs[j].first == decl->Range.First &&
+             ctx->inputs[j].usage_mask  == decl->Declaration.UsageMask &&
+             ((!decl->Declaration.Array && ctx->inputs[j].array_id == 0) ||
+              (ctx->inputs[j].array_id  == decl->Array.ArrayID)))
             return true;
       }
       i = ctx->num_inputs++;
@@ -998,10 +1001,15 @@ iter_declaration(struct tgsi_iterate_context *iter,
             }
          }
 
-         if (ctx->inputs[i].first != ctx->inputs[i].last) {
+         if (ctx->inputs[i].first != ctx->inputs[i].last ||
+             ctx->inputs[i].array_id > 0) {
             ctx->guest_sent_io_arrays = true;
-            if (!ctx->cfg->use_gles)
-               require_glsl_ver(ctx, 150);
+            if (!ctx->cfg->use_gles &&
+                (ctx->prog_type == TGSI_PROCESSOR_GEOMETRY ||
+                 ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL ||
+                 ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL)) {
+               ctx->shader_req_bits |= SHADER_REQ_ARRAYS_OF_ARRAYS;
+            }
          }
 
          /* fallthrough */
@@ -1022,9 +1030,9 @@ iter_declaration(struct tgsi_iterate_context *iter,
          } else if (ctx->inputs[i].name == TGSI_SEMANTIC_COLOR)
             snprintf(ctx->inputs[i].glsl_name, 64, "%s_c%d", name_prefix, ctx->inputs[i].sid);
          else if (ctx->inputs[i].name == TGSI_SEMANTIC_GENERIC)
-            snprintf(ctx->inputs[i].glsl_name, 64, "%s_g%d", name_prefix, ctx->inputs[i].sid);
+            snprintf(ctx->inputs[i].glsl_name, 64, "%s_g%dA%d", name_prefix, ctx->inputs[i].sid, ctx->inputs[i].array_id);
          else if (ctx->inputs[i].name == TGSI_SEMANTIC_PATCH)
-            snprintf(ctx->inputs[i].glsl_name, 64, "%s_p%d", name_prefix, ctx->inputs[i].sid);
+            snprintf(ctx->inputs[i].glsl_name, 64, "%s_p%dA%d", name_prefix, ctx->inputs[i].sid, ctx->inputs[i].array_id);
          else
             snprintf(ctx->inputs[i].glsl_name, 64, "%s_%d", name_prefix, ctx->inputs[i].first);
       }
@@ -1040,7 +1048,10 @@ iter_declaration(struct tgsi_iterate_context *iter,
       for (uint32_t j = 0; j < ctx->num_outputs; j++) {
          if (ctx->outputs[j].name == decl->Semantic.Name &&
              ctx->outputs[j].sid == decl->Semantic.Index &&
-             ctx->outputs[j].first == decl->Range.First)
+             ctx->outputs[j].first == decl->Range.First &&
+             ctx->outputs[j].usage_mask == decl->Declaration.UsageMask &&
+             ((!decl->Declaration.Array && ctx->outputs[j].array_id == 0) ||
+              (ctx->outputs[j].array_id  == decl->Array.ArrayID)))
             return true;
       }
       i = ctx->num_outputs++;
@@ -1227,10 +1238,16 @@ iter_declaration(struct tgsi_iterate_context *iter,
             if (ctx->outputs[i].name == TGSI_SEMANTIC_GENERIC)
                color_offset = -1;
 
-         if (ctx->outputs[i].first != ctx->outputs[i].last) {
+         if (ctx->outputs[i].first != ctx->outputs[i].last ||
+             ctx->outputs[i].array_id > 0) {
             ctx->guest_sent_io_arrays = true;
-            if (!ctx->cfg->use_gles)
-               require_glsl_ver(ctx, 150);
+
+            if (!ctx->cfg->use_gles &&
+                (ctx->prog_type == TGSI_PROCESSOR_GEOMETRY ||
+                 ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL ||
+                 ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL)) {
+               ctx->shader_req_bits |= SHADER_REQ_ARRAYS_OF_ARRAYS;
+            }
          }
          /* fallthrough */
       default:
@@ -1252,9 +1269,9 @@ iter_declaration(struct tgsi_iterate_context *iter,
          else if (ctx->outputs[i].name == TGSI_SEMANTIC_BCOLOR)
             snprintf(ctx->outputs[i].glsl_name, 64, "%s_bc%d", name_prefix, ctx->outputs[i].sid);
          else if (ctx->outputs[i].name == TGSI_SEMANTIC_PATCH)
-            snprintf(ctx->outputs[i].glsl_name, 64, "%s_p%d", name_prefix, ctx->outputs[i].sid);
+            snprintf(ctx->outputs[i].glsl_name, 64, "%s_p%dA%d", name_prefix, ctx->outputs[i].sid, ctx->outputs[i].array_id);
          else if (ctx->outputs[i].name == TGSI_SEMANTIC_GENERIC)
-            snprintf(ctx->outputs[i].glsl_name, 64, "%s_g%d", name_prefix, ctx->outputs[i].sid);
+            snprintf(ctx->outputs[i].glsl_name, 64, "%s_g%dA%d", name_prefix, ctx->outputs[i].sid, ctx->outputs[i].array_id);
          else
             snprintf(ctx->outputs[i].glsl_name, 64, "%s_%d", name_prefix, ctx->outputs[i].first + color_offset);
 
