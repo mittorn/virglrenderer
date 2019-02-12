@@ -3875,6 +3875,34 @@ void rewrite_components(unsigned nio, struct vrend_shader_io *io,
 }
 
 static
+void rewrite_vs_pos_array(struct dump_ctx *ctx)
+{
+   int range_start = 0xffff;
+   int range_end = 0;
+   int io_idx = 0;
+
+   for (uint i = 0; i < ctx->num_inputs; ++i) {
+      if (ctx->inputs[i].name == TGSI_SEMANTIC_POSITION) {
+         ctx->inputs[i].glsl_predefined_no_emit = true;
+         if (ctx->inputs[i].first < range_start) {
+            io_idx = i;
+            range_start = ctx->inputs[i].first;
+         }
+         if (ctx->inputs[i].last > range_end)
+            range_end = ctx->inputs[i].last;
+      }
+   }
+
+   if (range_start != range_end) {
+      ctx->inputs[io_idx].first = range_start;
+      ctx->inputs[io_idx].last = range_end;
+      ctx->inputs[io_idx].glsl_predefined_no_emit = false;
+      require_glsl_ver(ctx, 150);
+   }
+}
+
+
+static
 void emit_fs_clipdistance_load(struct dump_ctx *ctx)
 {
    int i;
@@ -4114,6 +4142,13 @@ iter_instruction(struct tgsi_iterate_context *iter,
       if (require_enhanced_layouts) {
          ctx->shader_req_bits |= SHADER_REQ_ENHANCED_LAYOUTS;
          ctx->shader_req_bits |= SHADER_REQ_SEPERATE_SHADER_OBJECTS;
+      }
+
+      /* Vertex shader inputs are not send as arrays, but the access may still be
+       * indirect. so we have to deal with that */
+      if (ctx->prog_type == TGSI_PROCESSOR_VERTEX &&
+          ctx->info.indirect_files & (1 << TGSI_FILE_INPUT)) {
+         rewrite_vs_pos_array(ctx);
       }
 
       emit_buf(ctx, "void main(void)\n{\n");
@@ -5349,7 +5384,7 @@ emit_ios_patch(struct dump_ctx *ctx, const char *prefix, const struct vrend_shad
 static void emit_ios_vs(struct dump_ctx *ctx)
 {
    uint32_t i;
-   char postfix[8];
+   char postfix[32];
    const char *prefix = "", *auxprefix = "";
    bool fcolor_emitted[2], bcolor_emitted[2];
 
@@ -5368,6 +5403,8 @@ static void emit_ios_vs(struct dump_ctx *ctx)
          prefix = "";
          auxprefix = "";
          postfix[0] = 0;
+         if (ctx->inputs[i].first != ctx->inputs[i].last)
+            snprintf(postfix, sizeof(postfix), "[%d]", ctx->inputs[i].last - ctx->inputs[i].first + 1);
          emit_hdrf(ctx, "%s%sin vec4 %s%s;\n", prefix, auxprefix, ctx->inputs[i].glsl_name, postfix);
       }
    }
