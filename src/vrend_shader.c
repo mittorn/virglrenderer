@@ -3613,6 +3613,8 @@ void rewrite_io_ranged(struct dump_ctx *ctx)
                ctx->patch_input_range.io.name = TGSI_SEMANTIC_PATCH;
                ctx->patch_input_range.io.sid = ctx->inputs[i].sid;
                ctx->patch_input_range.used = true;
+               if (ctx->cfg->has_arrays_of_arrays)
+                  ctx->shader_req_bits |= SHADER_REQ_ARRAYS_OF_ARRAYS;
             }
             if (ctx->inputs[i].sid > ctx->patch_input_range.io.last)
                ctx->patch_input_range.io.last = ctx->inputs[i].sid;
@@ -3624,7 +3626,11 @@ void rewrite_io_ranged(struct dump_ctx *ctx)
                ctx->generic_input_range.io.sid = ctx->inputs[i].sid;
                ctx->generic_input_range.io.first = i;
                ctx->generic_input_range.io.name = TGSI_SEMANTIC_GENERIC;
+               ctx->generic_input_range.io.usage_mask = 0xf;
+               ctx->generic_input_range.io.num_components = 4;
                ctx->generic_input_range.used = true;
+               if (ctx->cfg->has_arrays_of_arrays)
+                  ctx->shader_req_bits |= SHADER_REQ_ARRAYS_OF_ARRAYS;
             }
             if (ctx->inputs[i].sid > ctx->generic_input_range.io.last)
                ctx->generic_input_range.io.last = ctx->inputs[i].sid;
@@ -3664,6 +3670,8 @@ void rewrite_io_ranged(struct dump_ctx *ctx)
                ctx->patch_output_range.io.name = TGSI_SEMANTIC_PATCH;
                ctx->patch_output_range.io.sid = ctx->outputs[i].sid;
                ctx->patch_output_range.used = true;
+               if (ctx->cfg->has_arrays_of_arrays)
+                  ctx->shader_req_bits |= SHADER_REQ_ARRAYS_OF_ARRAYS;
             }
             if (ctx->outputs[i].sid > ctx->patch_output_range.io.last) {
                ctx->patch_output_range.io.last = ctx->outputs[i].sid;
@@ -3677,6 +3685,10 @@ void rewrite_io_ranged(struct dump_ctx *ctx)
                ctx->generic_output_range.io.first = i;
                ctx->generic_output_range.io.name = TGSI_SEMANTIC_GENERIC;
                ctx->generic_output_range.used = true;
+               ctx->generic_output_range.io.usage_mask = 0xf;
+               ctx->generic_output_range.io.num_components = 4;
+               if (ctx->cfg->has_arrays_of_arrays)
+                  ctx->shader_req_bits |= SHADER_REQ_ARRAYS_OF_ARRAYS;
             }
             if (ctx->outputs[i].sid > ctx->generic_output_range.io.last) {
                ctx->generic_output_range.io.last = ctx->outputs[i].sid;
@@ -4374,6 +4386,9 @@ static void emit_header(struct dump_ctx *ctx)
          else
             emit_ver_ext(ctx, "#version 130\n");
       }
+
+      if (ctx->shader_req_bits & SHADER_REQ_ARRAYS_OF_ARRAYS)
+         emit_ext(ctx, "ARB_arrays_of_arrays", "require");
 
       if (ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL ||
           ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL)
