@@ -1616,17 +1616,35 @@ static const struct vrend_shader_io *get_io_slot(const struct vrend_shader_io *s
    assert(0 && "Output not found");
 }
 
-static void get_so_name(bool use_gles, const struct vrend_shader_io *output, int index, char out_var[255],
-                        const char *prefix, const char *stage_prefix)
+static inline void
+get_blockname(char outvar[64], const char *stage_prefix, const struct vrend_shader_io *io)
+{
+   snprintf(outvar, 64, "block_%sg%dA%d", stage_prefix, io->sid, io->array_id);
+}
+
+static inline void
+get_blockvarname(char outvar[64], const char *stage_prefix, const struct vrend_shader_io *io, const char *postfix)
+{
+   snprintf(outvar, 64, "%sg%dA%d_%x%s", stage_prefix, io->sid, io->array_id, io->usage_mask, postfix);
+}
+
+static void get_so_name(struct dump_ctx *ctx, bool from_block, const struct vrend_shader_io *output, int index, char out_var[255], char *wm)
 {
    if (output->first == output->last || output->name != TGSI_SEMANTIC_GENERIC)
-      snprintf(out_var, 255, "%s", output->glsl_name);
-   else
-      if (use_gles)
-         snprintf(out_var, 255, "%s[%d]",  output->glsl_name, index - output->first);
-      else
-         snprintf(out_var, 255, "%s%sg%d.%s[%d]",  prefix, stage_prefix, output->sid,
-                  output->glsl_name, index - output->first);
+      snprintf(out_var, 255, "%s%s", output->glsl_name, wm);
+   else {
+      if ((output->name == TGSI_SEMANTIC_GENERIC) && prefer_generic_io_block(ctx, io_out)) {
+         char blockname[64];
+         const char *stage_prefix = get_stage_output_name_prefix(ctx->prog_type);
+         if (from_block)
+            get_blockname(blockname, stage_prefix, output);
+         else
+            get_blockvarname(blockname, stage_prefix, output, "");
+         snprintf(out_var, 255, "%s.%s[%d]%s",  blockname, output->glsl_name, index - output->first, wm);
+      } else {
+         snprintf(out_var, 255, "%s[%d]%s",  output->glsl_name, index - output->first, wm);
+      }
+   }
 }
 
 static void emit_so_movs(struct dump_ctx *ctx)
@@ -2785,12 +2803,15 @@ static void get_destination_info_generic(struct dump_ctx *ctx,
       snprintf(dsts, 255, "%s%s%s", io->glsl_name, blkarray, wm);
    else {
       if (prefer_generic_io_block(ctx, io_out)) {
+         char outvarname[64];
+         get_blockvarname(outvarname, stage_prefix,  io, blkarray);
+
          if (dst_reg->Register.Indirect)
-            snprintf(dsts, 255, "%sg%d%s.%s[addr%d + %d]%s",  stage_prefix, io->sid, blkarray,
-                     io->glsl_name, dst_reg->Indirect.Index, dst_reg->Register.Index - io->first, wm);
+            snprintf(dsts, 255, "%s.%s[addr%d + %d]%s",  outvarname, io->glsl_name,
+                     dst_reg->Indirect.Index, dst_reg->Register.Index - io->first, wm);
          else
-            snprintf(dsts, 255, "%sg%d%s.%s[%d]%s",  stage_prefix, io->sid, blkarray,
-                     io->glsl_name, dst_reg->Register.Index - io->first, wm);
+            snprintf(dsts, 255, "%s.%s[%d]%s",  outvarname, io->glsl_name,
+                     dst_reg->Register.Index - io->first, wm);
       } else {
          if (dst_reg->Register.Indirect)
             snprintf(dsts, 255, "%s%s[addr%d + %d]%s",  io->glsl_name, blkarray,
@@ -3035,20 +3056,18 @@ static void get_source_info_generic(struct dump_ctx *ctx,
                prefix, io->glsl_name, arrayname, io->is_int ? "" : swizzle);
    } else {
       if (prefer_generic_io_block(ctx, iot)) {
+         char outvarname[64];
          const char *stage_prefix = iot == io_in ? get_stage_input_name_prefix(ctx, ctx->prog_type) :
                                                    get_stage_output_name_prefix(ctx->prog_type);
+
+         get_blockvarname(outvarname, stage_prefix, io, arrayname);
          if (src->Register.Indirect)
-            snprintf(srcs, 255, "%s(%s %sg%d%s.%s[addr%d + %d] %s)", get_string(srcstypeprefix), prefix,
-                     stage_prefix, io->sid, arrayname,
-                     io->glsl_name,
-                     src->Indirect.Index,
-                     src->Register.Index - io->first,
+            snprintf(srcs, 255, "%s(%s %s.%s[addr%d + %d] %s)", get_string(srcstypeprefix), prefix,
+                     outvarname, io->glsl_name, src->Indirect.Index, src->Register.Index - io->first,
                      io->is_int ? "" : swizzle);
          else
-            snprintf(srcs, 255, "%s(%s %sg%d%s.%s[%d] %s)", get_string(srcstypeprefix), prefix,
-                     stage_prefix, io->sid, arrayname,
-                     io->glsl_name,
-                     src->Register.Index - io->first,
+            snprintf(srcs, 255, "%s(%s %s.%s[%d] %s)", get_string(srcstypeprefix), prefix,
+                     outvarname, io->glsl_name, src->Register.Index - io->first,
                      io->is_int ? "" : swizzle);
       } else {
          if (src->Register.Indirect)
@@ -4771,20 +4790,20 @@ static inline void emit_winsys_correction(struct dump_ctx *ctx)
 static void emit_ios_indirect_generics_output(struct dump_ctx *ctx, const char *postfix)
 {
    if (ctx->generic_output_range.used) {
-      const char *stage_prefix = get_stage_output_name_prefix(ctx->prog_type);
       int size = ctx->generic_output_range.io.last - ctx->generic_output_range.io.sid + 1;
-      if (prefer_generic_io_block(ctx, io_out))
-         emit_hdrf(ctx, "out block_%sg%d {\n  vec4 %s[%d]; \n} %sg%d%s;\n",
-                   stage_prefix,
-                   ctx->generic_output_range.io.sid,
-                   ctx->generic_output_range.io.glsl_name,
-                   size,
-                   stage_prefix,
-                   ctx->generic_output_range.io.sid,
-                   postfix);
-      else
+      if (prefer_generic_io_block(ctx, io_out)) {
+         char blockname[64];
+         const char *stage_prefix = get_stage_output_name_prefix(ctx->prog_type);
+         get_blockname(blockname, stage_prefix, &ctx->generic_output_range.io);
+
+         char blockvarame[64];
+         get_blockvarname(blockvarame, stage_prefix, &ctx->generic_output_range.io, postfix);
+
+         emit_hdrf(ctx, "out %s {\n  vec4 %s[%d]; \n} %s;\n", blockname,
+                   ctx->generic_output_range.io.glsl_name, size, blockvarame);
+      } else
          emit_hdrf(ctx, "out vec4 %s%s[%d];\n",
-                   ctx->generic_input_range.io.glsl_name,
+                   ctx->generic_output_range.io.glsl_name,
                    postfix,
                    size);
    }
@@ -4793,23 +4812,25 @@ static void emit_ios_indirect_generics_output(struct dump_ctx *ctx, const char *
 static void emit_ios_indirect_generics_input(struct dump_ctx *ctx, const char *postfix)
 {
    if (ctx->generic_input_range.used) {
-      const char *stage_prefix = get_stage_input_name_prefix(ctx, ctx->prog_type);
       int size = ctx->generic_input_range.io.last - ctx->generic_input_range.io.sid + 1;
       assert(size < 256 && size >= 0);
       if (size < ctx->key->num_indirect_generic_inputs)
          ctx->key->num_indirect_generic_inputs = (unsigned char)size;  // This is wrong but needed for debugging
 
-      if (prefer_generic_io_block(ctx, io_in))
-         emit_hdrf(ctx,
-                   "in block_%sg%d {\n        vec4 %s[%d]; \n} %sg%d%s;\n",
-                   stage_prefix,
-                   ctx->generic_input_range.io.sid,
-                   ctx->generic_input_range.io.glsl_name,
-                   size,
-                   stage_prefix,
-                   ctx->generic_input_range.io.sid,
-                   postfix);
-      else
+      if (prefer_generic_io_block(ctx, io_in)) {
+
+         char blockname[64];
+         char blockvarame[64];
+         const char *stage_prefix = get_stage_output_name_prefix(ctx->prog_type);
+
+         get_blockname(blockname, stage_prefix, &ctx->generic_output_range.io);
+         get_blockvarname(blockvarame, stage_prefix, &ctx->generic_output_range.io,
+                          postfix);
+
+         emit_hdrf(ctx, "in %s {\n        vec4 %s[%d]; \n} %s;\n",
+                   blockname, ctx->generic_input_range.io.glsl_name,
+                   size, blockvarame);
+      } else
          emit_hdrf(ctx, "in vec4 %s%s[%d];\n",
                    ctx->generic_input_range.io.glsl_name,
                    postfix,
