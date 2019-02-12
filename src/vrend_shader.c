@@ -6109,19 +6109,22 @@ static void replace_interp(struct vrend_strarray *program,
                            const char *var_name,
                            const char *pstring, const char *auxstring)
 {
-   char *ptr;
-   int mylen = strlen(INTERP_PREFIX) + strlen("out vec4 ");
+   int mylen = strlen(INTERP_PREFIX) + strlen("out float ");
 
-   ptr = strstr(program->strings[SHADER_STRING_HDR].buf, var_name);
+   char *ptr = program->strings[SHADER_STRING_HDR].buf;
+   do {
+      char *p = strstr(ptr, var_name);
+      if (!p)
+         break;
 
-   if (!ptr)
-      return;
+      ptr = p - mylen;
 
-   ptr -= mylen;
+      memset(ptr, ' ', strlen(INTERP_PREFIX));
+      memcpy(ptr, pstring, strlen(pstring));
+      memcpy(ptr + strlen(pstring), auxstring, strlen(auxstring));
 
-   memset(ptr, ' ', strlen(INTERP_PREFIX));
-   memcpy(ptr, pstring, strlen(pstring));
-   memcpy(ptr + strlen(pstring), auxstring, strlen(auxstring));
+      ptr = p + strlen(var_name);
+   } while (1);
 }
 
 static const char *gpu_shader5_string = "#extension GL_ARB_gpu_shader5 : require\n";
