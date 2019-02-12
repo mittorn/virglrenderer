@@ -1,5 +1,6 @@
 SUBDIRS := gallium/auxiliary
 AM_LDFLAGS = -lm \
+	$(LIBDRM_LIBS) \
 	$(GBM_LIBS) \
 	$(EPOXY_LIBS) \
 	$(X11_LIBS) \
