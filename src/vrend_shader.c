@@ -66,6 +66,9 @@
 #define SHADER_REQ_PSIZE              (1 << 21)
 #define SHADER_REQ_IMAGE_ATOMIC       (1 << 22)
 #define SHADER_REQ_CLIP_DISTANCE      (1 << 23)
+#define SHADER_REQ_ENHANCED_LAYOUTS   (1 << 24)
+#define SHADER_REQ_SEPERATE_SHADER_OBJECTS (1 << 25)
+#define SHADER_REQ_ARRAYS_OF_ARRAYS  (1 << 26)
 
 struct vrend_shader_io {
    unsigned                name;
