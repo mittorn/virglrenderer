@@ -323,26 +323,34 @@ enum io_type {
    io_out
 };
 
-/* On D-GL we prefer using IO blocks because they are supported since 3.1 and
- * arrays of arrays are only available since 4.3 (or with an extension).
- * On the other hand on GLES arrays of arrays are available since 3.1 but
- * interface blocks are only part odf the spec since 3.2.
- *
- * In any case the transfer from TCS to TES has to be an interface block
- * and the output of FS should not be an interface block because interpolateAt*
- * doesn't support this.
- */
+/* We prefer arrays of arrays, but if this is not available then TCS, GEOM, and TES
+ * inputs must be blocks, but FS input should not because interpolateAt* doesn't
+ * support dereferencing block members. */
 static inline bool prefer_generic_io_block(struct dump_ctx *ctx, enum io_type io)
 {
+   if (ctx->cfg->has_arrays_of_arrays)
+      return false;
+
    switch (ctx->prog_type) {
    case TGSI_PROCESSOR_FRAGMENT:
-      return io == io_in ?  (!ctx->cfg->use_gles) : false;
+      return false;
+
    case TGSI_PROCESSOR_TESS_CTRL:
-      return io == io_in ?  (!ctx->cfg->use_gles) : true;
+      return true;
+
    case TGSI_PROCESSOR_TESS_EVAL:
-      return io == io_in ?  true : (!ctx->cfg->use_gles);
+      return io == io_in ?  true : (ctx->key->gs_present ? true : false);
+
+   case TGSI_PROCESSOR_GEOMETRY:
+      return io == io_in;
+
+   case TGSI_PROCESSOR_VERTEX:
+      if (io == io_in)
+         return false;
+      return (ctx->key->gs_present || ctx->key->tes_present);
+
    default:
-      return !ctx->cfg->use_gles;
+      return false;
    }
 }
 

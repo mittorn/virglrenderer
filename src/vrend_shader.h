@@ -110,6 +110,7 @@ struct vrend_shader_cfg {
    bool use_gles;
    bool use_core_profile;
    bool use_explicit_locations;
+   bool has_arrays_of_arrays;
 };
 
 struct vrend_context;
