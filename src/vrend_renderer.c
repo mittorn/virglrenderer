@@ -8734,8 +8734,10 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
    if (has_feature(feat_texture_barrier))
       caps->v2.capability_bits |= VIRGL_CAP_TEXTURE_BARRIER;
 
-   /* always enable this since it doesn't require an ext to pass tests */
-   caps->v2.capability_bits |= VIRGL_CAP_TGSI_COMPONENTS;
+   /* If we enable input arrays and don't have enhanced layouts then we
+    * can't support components. */
+   if (has_feature(feat_enhanced_layouts))
+      caps->v2.capability_bits |= VIRGL_CAP_TGSI_COMPONENTS;
 
    if (has_feature(feat_srgb_write_control))
       caps->v2.capability_bits |= VIRGL_CAP_SRGB_WRITE_CONTROL;
@@ -8794,6 +8796,8 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
 
    if (epoxy_has_gl_extension("GL_KHR_texture_compression_astc_sliced_3d"))
       caps->v2.capability_bits |= VIRGL_CAP_3D_ASTC;
+
+   caps->v2.capability_bits |= VIRGL_CAP_INDIRECT_INPUT_ADDR;
 }
 
 void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,

@@ -246,6 +246,7 @@ enum virgl_formats {
 #define VIRGL_CAP_INDIRECT_PARAMS      (1 << 22)
 #define VIRGL_CAP_TRANSFORM_FEEDBACK3  (1 << 23)
 #define VIRGL_CAP_3D_ASTC              (1 << 24)
+#define VIRGL_CAP_INDIRECT_INPUT_ADDR  (1 << 25)
 
 /* virgl bind flags - these are compatible with mesa 10.5 gallium.
  * but are fixed, no other should be passed to virgl either.

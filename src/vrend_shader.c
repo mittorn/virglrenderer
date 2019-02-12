@@ -4262,7 +4262,6 @@ iter_instruction(struct tgsi_iterate_context *iter,
 
       if (require_enhanced_layouts) {
          ctx->shader_req_bits |= SHADER_REQ_ENHANCED_LAYOUTS;
-         ctx->shader_req_bits |= SHADER_REQ_SEPERATE_SHADER_OBJECTS;
       }
 
       /* Vertex shader inputs are not send as arrays, but the access may still be
