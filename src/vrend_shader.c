@@ -2836,6 +2836,25 @@ translate_atomic(struct dump_ctx *ctx,
 
 }
 
+static const char *reswizzle_dest(const struct vrend_shader_io *io, const struct tgsi_full_dst_register *dst_reg,
+                                  char *reswizzled, const char *writemask)
+{
+   if (io->usage_mask != 0xf) {
+      if (io->num_components > 1) {
+         int real_wm = dst_reg->Register.WriteMask >> io->swizzle_offset;
+         int k = 1;
+         reswizzled[0] = '.';
+         for (int i = 0; i < io->num_components; ++i) {
+            if (real_wm & (1 << i))
+               reswizzled[k++] = get_swiz_char(i);
+         }
+         reswizzled[k] = 0;
+      }
+      writemask = reswizzled;
+   }
+   return writemask;
+}
+
 static void get_destination_info_generic(struct dump_ctx *ctx,
                                          const struct tgsi_full_dst_register *dst_reg,
                                          const struct vrend_shader_io *io,
@@ -2844,6 +2863,9 @@ static void get_destination_info_generic(struct dump_ctx *ctx,
    const char *blkarray = (ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL) ? "[gl_InvocationID]" : "";
    const char *stage_prefix = get_stage_output_name_prefix(ctx->prog_type);
    const char *wm = io->override_no_wm ? "" : writemask;
+   char reswizzled[6] = "";
+
+   wm = reswizzle_dest(io, dst_reg, reswizzled, writemask);
 
    if (io->first == io->last)
       snprintf(dsts, 255, "%s%s%s", io->glsl_name, blkarray, wm);
@@ -2948,10 +2970,11 @@ get_destination_info(struct dump_ctx *ctx,
       }
 
       if (dst_reg->Register.File == TGSI_FILE_OUTPUT) {
-         for (uint32_t j = 0; j < ctx->num_outputs; j++) {
+         uint32_t j;
+         for (j = 0; j < ctx->num_outputs; j++) {
             if (ctx->outputs[j].first <= dst_reg->Register.Index &&
-                ctx->outputs[j].last >= dst_reg->Register.Index) {
-
+                ctx->outputs[j].last >= dst_reg->Register.Index &&
+                (ctx->outputs[j].usage_mask & dst_reg->Register.WriteMask)) {
                if (inst->Instruction.Precise) {
                   if (!ctx->outputs[j].invariant) {
                      ctx->outputs[j].precise = true;
@@ -3000,20 +3023,21 @@ get_destination_info(struct dump_ctx *ctx,
                      dinfo->dst_override_no_wm[i] = ctx->outputs[j].override_no_wm;
                   } else if (ctx->outputs[j].name == TGSI_SEMANTIC_PATCH) {
                      struct vrend_shader_io *io = ctx->patch_output_range.used ? &ctx->patch_output_range.io : &ctx->outputs[j];
+                     char reswizzled[6] = "";
+                     const char *wm = reswizzle_dest(io, dst_reg, reswizzled, writemask);
                      if (io->last != io->first) {
                         if (dst_reg->Register.Indirect)
                            snprintf(dsts[i], 255, "%s[addr%d + %d]%s",
-                                    io->glsl_name,
-                                    dst_reg->Indirect.Index,
+                                    io->glsl_name,                                     dst_reg->Indirect.Index,
                                     dst_reg->Register.Index - io->first,
-                                    io->override_no_wm ? "" : writemask);
+                                    io->override_no_wm ? "" : wm);
                         else
                            snprintf(dsts[i], 255, "%s[%d]%s",
                                     io->glsl_name,
                                     dst_reg->Register.Index - io->first,
-                                    io->override_no_wm ? "" : writemask);
+                                    io->override_no_wm ? "" : wm);
                      } else {
-                           snprintf(dsts[i], 255, "%s%s", io->glsl_name, ctx->outputs[j].override_no_wm ? "" : writemask);
+                           snprintf(dsts[i], 255, "%s%s", io->glsl_name, ctx->outputs[j].override_no_wm ? "" : wm);
                      }
                      dinfo->dst_override_no_wm[i] = ctx->outputs[j].override_no_wm;
                   } else {
