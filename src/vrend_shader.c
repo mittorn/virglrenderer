@@ -75,6 +75,11 @@ struct vrend_shader_io {
    unsigned                interpolate;
    int first;
    int last;
+   int array_id;
+   uint8_t usage_mask;
+   int swizzle_offset;
+   int num_components;
+   int layout_location;
    unsigned                location;
    bool                    invariant;
    bool                    precise;
@@ -796,10 +801,15 @@ iter_declaration(struct tgsi_iterate_context *iter,
       ctx->inputs[i].interpolate = decl->Interp.Interpolate;
       ctx->inputs[i].location = decl->Interp.Location;
       ctx->inputs[i].first = decl->Range.First;
+      ctx->inputs[i].layout_location = 0;
       ctx->inputs[i].last = decl->Range.Last;
+      ctx->inputs[i].array_id = decl->Declaration.Array ? decl->Array.ArrayID : 0;
+      ctx->inputs[i].usage_mask  = mask_temp = decl->Declaration.UsageMask;
+      u_bit_scan_consecutive_range(&mask_temp, &ctx->inputs[i].swizzle_offset, &ctx->inputs[i].num_components);
+
       ctx->inputs[i].glsl_predefined_no_emit = false;
       ctx->inputs[i].glsl_no_index = false;
-      ctx->inputs[i].override_no_wm = false;
+      ctx->inputs[i].override_no_wm = ctx->inputs[i].num_components == 1;
       ctx->inputs[i].glsl_gl_block = false;
 
       if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT &&
@@ -977,6 +987,9 @@ iter_declaration(struct tgsi_iterate_context *iter,
                   name_prefix = "vec4(gl_PointCoord, 0.0, 1.0)";
                ctx->inputs[i].glsl_predefined_no_emit = true;
                ctx->inputs[i].glsl_no_index = true;
+               ctx->inputs[i].num_components = 4;
+               ctx->inputs[i].swizzle_offset = 0;
+               ctx->inputs[i].usage_mask = 0xf;
                break;
             }
          }
@@ -996,7 +1009,11 @@ iter_declaration(struct tgsi_iterate_context *iter,
       if (ctx->inputs[i].glsl_no_index)
          snprintf(ctx->inputs[i].glsl_name, 128, "%s", name_prefix);
       else {
-         if (ctx->inputs[i].name == TGSI_SEMANTIC_FOG)
+         if (ctx->inputs[i].name == TGSI_SEMANTIC_FOG){
+            ctx->inputs[i].usage_mask = 0xf;
+            ctx->inputs[i].num_components = 4;
+            ctx->inputs[i].swizzle_offset = 0;
+            ctx->inputs[i].override_no_wm = false;
             snprintf(ctx->inputs[i].glsl_name, 64, "%s_f%d", name_prefix, ctx->inputs[i].sid);
          else if (ctx->inputs[i].name == TGSI_SEMANTIC_COLOR)
             snprintf(ctx->inputs[i].glsl_name, 64, "%s_c%d", name_prefix, ctx->inputs[i].sid);
@@ -1035,9 +1052,13 @@ iter_declaration(struct tgsi_iterate_context *iter,
       ctx->outputs[i].precise = false;
       ctx->outputs[i].first = decl->Range.First;
       ctx->outputs[i].last = decl->Range.Last;
+      ctx->outputs[i].layout_location = 0;
+      ctx->outputs[i].array_id = decl->Declaration.Array ? decl->Array.ArrayID : 0;
+      ctx->outputs[i].usage_mask  = mask_temp = decl->Declaration.UsageMask;
+      u_bit_scan_consecutive_range(&mask_temp, &ctx->outputs[i].swizzle_offset, &ctx->outputs[i].num_components);
       ctx->outputs[i].glsl_predefined_no_emit = false;
       ctx->outputs[i].glsl_no_index = false;
-      ctx->outputs[i].override_no_wm = false;
+      ctx->outputs[i].override_no_wm = ctx->outputs[i].num_components == 1;
       ctx->outputs[i].is_int = false;
       ctx->outputs[i].fbfetch_used = false;
 
@@ -1216,7 +1237,11 @@ iter_declaration(struct tgsi_iterate_context *iter,
       if (ctx->outputs[i].glsl_no_index)
          snprintf(ctx->outputs[i].glsl_name, 64, "%s", name_prefix);
       else {
-         if (ctx->outputs[i].name == TGSI_SEMANTIC_FOG)
+         if (ctx->outputs[i].name == TGSI_SEMANTIC_FOG) {
+            ctx->outputs[i].usage_mask = 0xf;
+            ctx->outputs[i].num_components = 4;
+            ctx->outputs[i].swizzle_offset = 0;
+            ctx->outputs[i].override_no_wm = false;
             snprintf(ctx->outputs[i].glsl_name, 64, "%s_f%d", name_prefix, ctx->outputs[i].sid);
          else if (ctx->outputs[i].name == TGSI_SEMANTIC_COLOR)
             snprintf(ctx->outputs[i].glsl_name, 64, "%s_c%d", name_prefix, ctx->outputs[i].sid);
@@ -3273,6 +3298,7 @@ get_source_info(struct dump_ctx *ctx,
                } else {
                   snprintf(srcs[i], 255, "%s(%s%s%s%s)", get_string(srcstypeprefix), prefix, ctx->outputs[j].glsl_name, arrayname, ctx->outputs[j].is_int ? "" : swizzle);
                }
+               sinfo->override_no_wm[i] = ctx->outputs[j].override_no_wm;
                break;
             }
          }
@@ -3610,6 +3636,14 @@ void rewrite_io_ranged(struct dump_ctx *ctx)
       snprintf(ctx->generic_input_range.io.glsl_name, 64, "%s_g%d",
                get_stage_input_name_prefix(ctx, ctx->prog_type), ctx->generic_input_range.io.sid);
 
+      ctx->generic_input_range.io.num_components = 4;
+      ctx->generic_input_range.io.usage_mask = 0xf;
+      ctx->generic_input_range.io.swizzle_offset = 0;
+
+      ctx->patch_input_range.io.num_components = 4;
+      ctx->patch_input_range.io.usage_mask = 0xf;
+      ctx->patch_input_range.io.swizzle_offset = 0;
+
       if (prefer_generic_io_block(ctx, io_in))
           require_glsl_ver(ctx, 150);
    }
@@ -3649,6 +3683,15 @@ void rewrite_io_ranged(struct dump_ctx *ctx)
                get_stage_output_name_prefix(ctx->prog_type), ctx->patch_output_range.io.sid);
       snprintf(ctx->generic_output_range.io.glsl_name, 64, "%s_g%d",
                get_stage_output_name_prefix(ctx->prog_type), ctx->generic_output_range.io.sid);
+
+      ctx->generic_output_range.io.num_components = 4;
+      ctx->generic_output_range.io.usage_mask = 0xf;
+      ctx->generic_output_range.io.swizzle_offset = 0;
+
+      ctx->patch_output_range.io.num_components = 4;
+      ctx->patch_output_range.io.usage_mask = 0xf;
+      ctx->patch_output_range.io.swizzle_offset = 0;
+
 
       if (prefer_generic_io_block(ctx, io_out))
           require_glsl_ver(ctx, 150);
