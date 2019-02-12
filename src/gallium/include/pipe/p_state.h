@@ -208,6 +208,7 @@ struct pipe_stream_output_info
       unsigned output_buffer:3;   /**< 0 to PIPE_MAX_SO_BUFFERS */
       unsigned dst_offset:16;     /**< offset into the buffer in dwords */
       unsigned stream:2;
+      unsigned need_temp:1;
    } output[PIPE_MAX_SO_OUTPUTS];
 };
 

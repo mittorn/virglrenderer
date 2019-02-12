@@ -1705,8 +1705,6 @@ static void emit_so_movs(struct dump_ctx *ctx)
       return;
    }
 
-   const char *stage_prefix = get_stage_output_name_prefix(ctx->prog_type);
-
    for (i = 0; i < ctx->so->num_outputs; i++) {
       const struct vrend_shader_io *output = get_io_slot(&ctx->outputs[0], ctx->num_outputs, ctx->so->output[i].register_index);
       if (ctx->so->output[i].start_component != 0) {
@@ -1735,7 +1733,7 @@ static void emit_so_movs(struct dump_ctx *ctx)
             ctx->has_clipvertex_so = true;
          } else {
             char out_var[255];
-            get_so_name(ctx, true, output, ctx->so->output[i].register_index, out_var, writemask);
+            get_so_name(ctx, true, output, ctx->so->output[i].register_index, out_var, "");
             ctx->so_names[i] = strdup(out_var);
          }
       } else {
@@ -1765,8 +1763,14 @@ static void emit_so_movs(struct dump_ctx *ctx)
       } else {
          if (ctx->write_so_outputs[i]) {
             char out_var[255];
-            get_so_name(ctx, false, output, ctx->so->output[i].register_index, out_var, writemask);
-            emit_buff(ctx, "tfout%d = %s(%s%s);\n", i, outtype, out_var, writemask);
+            if (ctx->so->output[i].need_temp || ctx->prog_type == TGSI_PROCESSOR_GEOMETRY
+                || output->glsl_predefined_no_emit) {
+               get_so_name(ctx, false, output, ctx->so->output[i].register_index, out_var, writemask);
+               emit_buff(ctx, "tfout%d = %s(%s);\n", i, outtype, out_var);
+            } else {
+               get_so_name(ctx, true, output, ctx->so->output[i].register_index, out_var, writemask);
+               ctx->so_names[i] = strdup(out_var);
+            }
          }
       }
    }
@@ -5171,12 +5175,21 @@ static void emit_ios_streamout(struct dump_ctx *ctx)
             snprintf(outtype, 6, "float");
          else
             snprintf(outtype, 6, "vec%d", ctx->so->output[i].num_components);
-	 if (ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL)
-            emit_hdrf(ctx, "out %s tfout%d[];\n", outtype, i);
-         else if (ctx->so->output[i].stream && ctx->prog_type == TGSI_PROCESSOR_GEOMETRY)
+
+         if (ctx->so->output[i].stream && ctx->prog_type == TGSI_PROCESSOR_GEOMETRY)
             emit_hdrf(ctx, "layout (stream=%d) out %s tfout%d;\n", ctx->so->output[i].stream, outtype, i);
-         else
-            emit_hdrf(ctx, "out %s tfout%d;\n", outtype, i);
+         else  {
+            const struct vrend_shader_io *output = get_io_slot(&ctx->outputs[0], ctx->num_outputs,
+                  ctx->so->output[i].register_index);
+            if (ctx->so->output[i].need_temp || output->name == TGSI_SEMANTIC_CLIPDIST ||
+                output->glsl_predefined_no_emit) {
+
+               if (ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL)
+                  emit_hdrf(ctx, "out %s tfout%d[];\n", outtype, i);
+               else
+                  emit_hdrf(ctx, "out %s tfout%d;\n", outtype, i);
+            }
+         }
       }
    }
 }

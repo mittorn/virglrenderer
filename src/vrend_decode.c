@@ -109,6 +109,14 @@ static int vrend_decode_create_shader(struct vrend_decode_ctx *ctx,
             so_info.output[i].dst_offset = (tmp >> 16) & 0xffff;
             tmp = get_buf_entry(ctx, VIRGL_OBJ_SHADER_SO_OUTPUT0_SO(i));
             so_info.output[i].stream = (tmp & 0x3);
+            so_info.output[i].need_temp = so_info.output[i].num_components < 4;
+         }
+
+         for (i = 0; i < so_info.num_outputs - 1; i++) {
+            for (unsigned j = i + 1; j < so_info.num_outputs; j++) {
+               so_info.output[j].need_temp |=
+                     (so_info.output[i].register_index == so_info.output[j].register_index);
+            }
          }
       }
       shader_offset += 4 + (2 * num_so_outputs);
