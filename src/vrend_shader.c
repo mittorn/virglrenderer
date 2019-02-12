@@ -4705,7 +4705,9 @@ static void emit_header(struct dump_ctx *ctx)
          emit_ver_ext(ctx, "#version 330\n");
          emit_ext(ctx, "ARB_compute_shader", "require");
       } else {
-         if (ctx->prog_type == TGSI_PROCESSOR_GEOMETRY ||
+         if (ctx->glsl_ver_required > 150)
+            emit_ver_extf(ctx, "#version %d\n", ctx->glsl_ver_required);
+         else if (ctx->prog_type == TGSI_PROCESSOR_GEOMETRY ||
              ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL ||
              ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL ||
              ctx->glsl_ver_required == 150)
