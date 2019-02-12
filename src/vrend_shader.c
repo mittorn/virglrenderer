@@ -3774,6 +3774,19 @@ void emit_fs_clipdistance_load(struct dump_ctx *ctx)
 }
 
 
+static
+void renumber_io_arrays(unsigned nio, struct vrend_shader_io *io)
+{
+   int next_array_id = 1;
+   for (unsigned i = 0; i < nio; ++i) {
+      if (io[i].name != TGSI_SEMANTIC_GENERIC &&
+          io[i].name != TGSI_SEMANTIC_PATCH)
+         continue;
+      if (io[i].array_id > 0)
+         io[i].array_id = next_array_id++;
+   }
+}
+
 static boolean
 iter_instruction(struct tgsi_iterate_context *iter,
                  struct tgsi_full_instruction *inst)
@@ -3795,10 +3808,20 @@ iter_instruction(struct tgsi_iterate_context *iter,
    if (instno == 0) {
 
       /* If the guest sent real IO arrays then we declare them individually,
-       * otherwise we might have to add a big array for all generic and patch
-       * inputs */
-      if (!ctx->guest_sent_io_arrays)
+       * and have to do some work to deal with overlapping values, regions and
+       * enhanced layouts */
+      if (ctx->guest_sent_io_arrays)  {
+
+         /* Array ID numbering is not ordered accross shaders, so do
+          * some renumbering for generics and patches. */
+         renumber_io_arrays(ctx->num_inputs, ctx->inputs);
+         renumber_io_arrays(ctx->num_outputs, ctx->outputs);
+      } else {
+         /* The guest didn't send real arrays, do we might have to add a big array
+          * for all generic and another ofr patch inputs */
          rewrite_io_ranged(ctx);
+      }
+
 
       emit_buf(ctx, "void main(void)\n{\n");
       if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
