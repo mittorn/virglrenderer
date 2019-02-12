@@ -3111,6 +3111,32 @@ get_destination_info(struct dump_ctx *ctx,
    return true;
 }
 
+static const char *shift_swizzles(const struct vrend_shader_io *io, const struct tgsi_full_src_register *src,
+                                  int swz_offset, char *swizzle_shifted, const char *swizzle)
+{
+   if (io->usage_mask != 0xf && swizzle[0]) {
+      if (io->num_components > 1) {
+         swizzle_shifted[swz_offset++] = '.';
+         for (int i = 0; i < 4; ++i) {
+            switch (i) {
+            case 0: swizzle_shifted[swz_offset++] = get_swiz_char(src->Register.SwizzleX - io->swizzle_offset);
+               break;
+            case 1: swizzle_shifted[swz_offset++] = get_swiz_char(src->Register.SwizzleY - io->swizzle_offset);
+               break;
+            case 2: swizzle_shifted[swz_offset++] = src->Register.SwizzleZ - io->swizzle_offset < io->num_components ?
+                                                       get_swiz_char(src->Register.SwizzleZ - io->swizzle_offset) : 'x';
+               break;
+            case 3: swizzle_shifted[swz_offset++] = src->Register.SwizzleW - io->swizzle_offset < io->num_components ?
+                                                       get_swiz_char(src->Register.SwizzleW - io->swizzle_offset) : 'x';
+            }
+         }
+         swizzle_shifted[swz_offset] = 0;
+      }
+      swizzle = swizzle_shifted;
+   }
+   return swizzle;
+}
+
 static void get_source_info_generic(struct dump_ctx *ctx,
                                     enum io_type iot,
                                     enum vrend_type_qualifier srcstypeprefix,
@@ -3121,10 +3147,21 @@ static void get_source_info_generic(struct dump_ctx *ctx,
                                     const char *swizzle,
                                     char srcs[255])
 {
+   int swz_offset = 0;
+   char swizzle_shifted[6] = "";
+   if (swizzle[0] == ')') {
+      swizzle_shifted[swz_offset++] = ')';
+      swizzle_shifted[swz_offset] = 0;
+   }
+
+   /* This IO element is not using all vector elements, so we have to shift the swizzle names */
+   swizzle = shift_swizzles(io, src, swz_offset, swizzle_shifted, swizzle);
+
    if (io->first == io->last) {
       snprintf(srcs, 255, "%s(%s%s%s%s)", get_string(srcstypeprefix),
                prefix, io->glsl_name, arrayname, io->is_int ? "" : swizzle);
    } else {
+
       if (prefer_generic_io_block(ctx, iot)) {
          char outvarname[64];
          const char *stage_prefix = iot == io_in ? get_stage_input_name_prefix(ctx, ctx->prog_type) :
@@ -3166,6 +3203,14 @@ static void get_source_info_patch(enum vrend_type_qualifier srcstypeprefix,
                                   const char *swizzle,
                                   char srcs[255])
 {
+   int swz_offset = 0;
+   char swizzle_shifted[7] = "";
+   if (swizzle[0] == ')') {
+      swizzle_shifted[swz_offset++] = ')';
+      swizzle_shifted[swz_offset] = 0;
+   }
+
+   swizzle = shift_swizzles(io, src, swz_offset, swizzle_shifted, swizzle);
    const char *wm = io->is_int ? "" : swizzle;
 
    if (io->last == io->first)
@@ -3222,6 +3267,7 @@ get_source_info(struct dump_ctx *ctx,
    for (uint32_t i = 0; i < inst->Instruction.NumSrcRegs; i++) {
       const struct tgsi_full_src_register *src = &inst->Src[i];
       char swizzle[8] = {0};
+      int usage_mask = 0;
       char *swizzle_writer = swizzle;
       char prefix[6] = {0};
       char arrayname[16] = {0};
@@ -3256,6 +3302,11 @@ get_source_info(struct dump_ctx *ctx,
          swizzle_writer = src_swizzle0;
       }
 
+      usage_mask |= 1 << src->Register.SwizzleX;
+      usage_mask |= 1 << src->Register.SwizzleY;
+      usage_mask |= 1 << src->Register.SwizzleZ;
+      usage_mask |= 1 << src->Register.SwizzleW;
+
       if (src->Register.SwizzleX != TGSI_SWIZZLE_X ||
           src->Register.SwizzleY != TGSI_SWIZZLE_Y ||
           src->Register.SwizzleZ != TGSI_SWIZZLE_Z ||
@@ -3271,7 +3322,8 @@ get_source_info(struct dump_ctx *ctx,
       if (src->Register.File == TGSI_FILE_INPUT) {
          for (uint32_t j = 0; j < ctx->num_inputs; j++)
             if (ctx->inputs[j].first <= src->Register.Index &&
-                ctx->inputs[j].last >= src->Register.Index) {
+                ctx->inputs[j].last >= src->Register.Index &&
+                (ctx->inputs[j].usage_mask & usage_mask)) {
                if (ctx->key->color_two_side && ctx->inputs[j].name == TGSI_SEMANTIC_COLOR)
                   snprintf(srcs[i], 255, "%s(%s%s%d%s%s)", get_string(stypeprefix), prefix, "realcolor", ctx->inputs[j].sid, arrayname, swizzle);
                else if (ctx->inputs[j].glsl_gl_block) {
@@ -3305,6 +3357,14 @@ get_source_info(struct dump_ctx *ctx,
                   } else if (ctx->inputs[j].name == TGSI_SEMANTIC_PATCH) {
                      struct vrend_shader_io *io = ctx->patch_input_range.used ? &ctx->patch_input_range.io : &ctx->inputs[j];
                      get_source_info_patch(srcstypeprefix, prefix, src, io, arrayname, swizzle, srcs[i]);
+                  } else if (ctx->inputs[j].name == TGSI_SEMANTIC_POSITION && ctx->prog_type == TGSI_PROCESSOR_VERTEX &&
+                             ctx->inputs[j].first != ctx->inputs[j].last) {
+                     if (src->Register.Indirect)
+                        snprintf(srcs[i], 255, "%s(%s%s%s[addr%d + %d]%s)", get_string(srcstypeprefix), prefix, ctx->inputs[j].glsl_name, arrayname,
+                                 src->Indirect.Index, src->Register.Index, ctx->inputs[j].is_int ? "" : swizzle);
+                     else
+                        snprintf(srcs[i], 255, "%s(%s%s%s[%d]%s)", get_string(srcstypeprefix), prefix, ctx->inputs[j].glsl_name, arrayname,
+                                 src->Register.Index, ctx->inputs[j].is_int ? "" : swizzle);
                   } else
                      snprintf(srcs[i], 255, "%s(%s%s%s%s)", get_string(srcstypeprefix), prefix, ctx->inputs[j].glsl_name, arrayname, ctx->inputs[j].is_int ? "" : swizzle);
                }
@@ -3314,7 +3374,8 @@ get_source_info(struct dump_ctx *ctx,
       } else if (src->Register.File == TGSI_FILE_OUTPUT) {
          for (uint32_t j = 0; j < ctx->num_outputs; j++) {
             if (ctx->outputs[j].first <= src->Register.Index &&
-                ctx->outputs[j].last >= src->Register.Index) {
+                ctx->outputs[j].last >= src->Register.Index &&
+                (ctx->outputs[j].usage_mask & usage_mask)) {
                if (inst->Instruction.Opcode == TGSI_OPCODE_FBFETCH) {
                   ctx->outputs[j].fbfetch_used = true;
                   ctx->shader_req_bits |= SHADER_REQ_FBFETCH;
@@ -3850,6 +3911,120 @@ void emit_fs_clipdistance_load(struct dump_ctx *ctx)
    }
 }
 
+/* TGSI possibly emits VS, TES, TCS, and GEOM outputs with layouts (i.e.
+ * it gives components), but it doesn't do so for the corresponding inputs from
+ * TXS, GEOM, abd TES, so that we have to apply the output layouts from the
+ * previous shader stage to the according inputs.
+ */
+
+static bool apply_prev_layout(struct dump_ctx *ctx)
+{
+   bool require_enhanced_layouts = false;
+
+   /* Walk through all inputs and see whether we have a corresonding output from
+    * the previous shader that uses a different layout. It may even be that one
+    * input be the combination of two inputs. */
+
+   for (unsigned i = 0; i < ctx->num_inputs; ++i ) {
+      unsigned i_input = i;
+      struct vrend_shader_io *io = &ctx->inputs[i];
+
+      if (io->name == TGSI_SEMANTIC_GENERIC || io->name == TGSI_SEMANTIC_PATCH) {
+
+         struct vrend_layout_info *layout = ctx->key->prev_stage_generic_and_patch_outputs_layout;
+         for (unsigned generic_index = 0; generic_index  < ctx->key->num_prev_generic_and_patch_outputs; ++generic_index, ++layout) {
+
+            bool already_found_one = false;
+
+            /* Identify by sid and arrays_id  */
+            if (io->sid == layout->sid && (io->array_id == layout->array_id)) {
+               unsigned new_mask = io->usage_mask;
+
+               /* We have already one IO with the same SID and arrays ID, so we need to duplicate it */
+               if (already_found_one) {
+                  memmove(io + 1, io, (ctx->num_inputs - i_input) * sizeof(struct vrend_shader_io));
+                  ctx->num_inputs++;
+                  ++io;
+                  ++i_input;
+
+               } else if ((io->usage_mask == 0xf) && (layout->usage_mask != 0xf)) {
+                  /* If we found the first input with all components, and a corresponding prev output that uses
+                   * less components  */
+                  already_found_one = true;
+               }
+
+               if (already_found_one) {
+                  new_mask = io->usage_mask = (uint8_t)layout->usage_mask;
+                  io->layout_location = layout->location;
+                  io->array_id = layout->array_id;
+
+                  u_bit_scan_consecutive_range(&new_mask, &io->swizzle_offset, &io->num_components);
+                  require_enhanced_layouts |= io->swizzle_offset > 0;
+                  if (io->num_components == 1)
+                     io->override_no_wm = true;
+                  if (i_input < ctx->num_inputs - 1) {
+                     already_found_one = (io[1].sid != layout->sid || io[1].array_id != layout->array_id);
+                  }
+               }
+            }
+         }
+      }
+      ++io;
+      ++i_input;
+   }
+   return require_enhanced_layouts;
+}
+
+static bool evaluate_layout_overlays(unsigned nio, struct vrend_shader_io *io,
+                                     const char *name_prefix, unsigned coord_replace)
+{
+   bool require_enhanced_layouts = 0;
+   int next_loc = 1;
+
+   /* IO elements may be emitted for the same location but with
+    * non-overlapping swizzles, therefore, we modify the name of
+    * the variable to include the swizzle mask.
+    *
+    * Since TGSI also emits inputs that have no masks but are still at the
+    * same location, we also need to add an array ID.
+    */
+
+   for (unsigned i = 0; i < nio - 1; ++i) {
+      if ((io[i].name != TGSI_SEMANTIC_GENERIC &&
+          io[i].name != TGSI_SEMANTIC_PATCH) ||
+          io[i].usage_mask == 0xf ||
+          io[i].layout_location > 0)
+         continue;
+
+      for (unsigned j = i + 1; j < nio ; ++j) {
+         if ((io[j].name != TGSI_SEMANTIC_GENERIC &&
+             io[j].name != TGSI_SEMANTIC_PATCH) ||
+             io[j].usage_mask == 0xf ||
+             io[j].layout_location > 0)
+            continue;
+
+         /* Do the definition ranges overlap? */
+         if (io[i].last < io[j].first || io[i].first > io[j].last)
+            continue;
+
+         /* Overlapping ranges require explicite layouts and if they start at the
+          * same index thet location must be equal */
+         if (io[i].first == io[j].first) {
+            io[j].layout_location = io[i].layout_location = next_loc++;
+         } else {
+            io[i].layout_location = next_loc++;
+            io[j].layout_location = next_loc++;
+         }
+         require_enhanced_layouts = true;
+      }
+   }
+
+   rename_variables(nio, io, name_prefix, coord_replace);
+
+   return require_enhanced_layouts;
+}
+
+
 
 static
 void renumber_io_arrays(unsigned nio, struct vrend_shader_io *io)
@@ -3884,6 +4059,8 @@ iter_instruction(struct tgsi_iterate_context *iter,
 
    if (instno == 0) {
 
+      bool require_enhanced_layouts = false;
+
       /* If the guest sent real IO arrays then we declare them individually,
        * and have to do some work to deal with overlapping values, regions and
        * enhanced layouts */
@@ -3893,6 +4070,31 @@ iter_instruction(struct tgsi_iterate_context *iter,
           * some renumbering for generics and patches. */
          renumber_io_arrays(ctx->num_inputs, ctx->inputs);
          renumber_io_arrays(ctx->num_outputs, ctx->outputs);
+
+      }
+
+
+      /* In these shaders the inputs don't have the layout component information
+          * therefore, copy the info from the prev shaders output */
+      if (ctx->prog_type == TGSI_PROCESSOR_GEOMETRY ||
+          ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL ||
+          ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL)
+         require_enhanced_layouts |= apply_prev_layout(ctx);
+
+      if (ctx->guest_sent_io_arrays)  {
+         if (ctx->num_inputs > 0)
+            if (evaluate_layout_overlays(ctx->num_inputs, ctx->inputs,
+                                         get_stage_input_name_prefix(ctx, ctx->prog_type),
+                                         ctx->key->coord_replace)) {
+               require_enhanced_layouts = true;
+            }
+
+         if (ctx->num_outputs > 0)
+            if (evaluate_layout_overlays(ctx->num_outputs, ctx->outputs,
+                                         get_stage_output_name_prefix(ctx->prog_type), 0)){
+               require_enhanced_layouts = true;
+            }
+
       } else {
          /* The guest didn't send real arrays, do we might have to add a big array
           * for all generic and another ofr patch inputs */
@@ -3903,6 +4105,11 @@ iter_instruction(struct tgsi_iterate_context *iter,
 
          rewrite_components(ctx->num_outputs, ctx->outputs,
                             get_stage_output_name_prefix(ctx->prog_type), 0, true);
+      }
+
+      if (require_enhanced_layouts) {
+         ctx->shader_req_bits |= SHADER_REQ_ENHANCED_LAYOUTS;
+         ctx->shader_req_bits |= SHADER_REQ_SEPERATE_SHADER_OBJECTS;
       }
 
       emit_buf(ctx, "void main(void)\n{\n");
@@ -4508,6 +4715,12 @@ static void emit_header(struct dump_ctx *ctx)
          else
             emit_ver_ext(ctx, "#version 130\n");
       }
+
+      if (ctx->shader_req_bits & SHADER_REQ_ENHANCED_LAYOUTS)
+         emit_ext(ctx, "ARB_enhanced_layouts", "require");
+
+      if (ctx->shader_req_bits & SHADER_REQ_SEPERATE_SHADER_OBJECTS)
+         emit_ext(ctx, "ARB_separate_shader_objects", "require");
 
       if (ctx->shader_req_bits & SHADER_REQ_ARRAYS_OF_ARRAYS)
          emit_ext(ctx, "ARB_arrays_of_arrays", "require");
