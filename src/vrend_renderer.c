@@ -1812,6 +1812,8 @@ int vrend_create_sampler_view(struct vrend_context *ctx,
    vrend_resource_reference(&view->texture, res);
 
    view->id = view->texture->id;
+   if (view->target == PIPE_BUFFER)
+      view->target = view->texture->target;
 
    view->srgb_decode = GL_DECODE_EXT;
    if (view->format != view->texture->base.format) {
