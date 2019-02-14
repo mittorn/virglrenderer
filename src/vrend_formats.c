@@ -501,6 +501,35 @@ void vrend_check_texture_storage(struct vrend_format_table *table)
    }
 }
 
+bool vrend_check_fremabuffer_mixed_color_attachements()
+{
+   GLuint tex_id[2];
+   GLuint fb_id;
+   bool retval = false;
+
+   glGenTextures(2, tex_id);
+   glGenFramebuffers(1, &fb_id);
+
+   glBindTexture(GL_TEXTURE_2D, tex_id[0]);
+   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 32, 32, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+
+   glBindFramebuffer(GL_FRAMEBUFFER, fb_id);
+   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, tex_id[0], 0);
+
+   glBindTexture(GL_TEXTURE_2D, tex_id[1]);
+   glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, 32, 32, 0, GL_RED, GL_UNSIGNED_BYTE, NULL);
+   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, tex_id[1], 0);
+
+
+   retval = glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
+
+   glDeleteFramebuffers(1, &fb_id);
+   glDeleteTextures(2, tex_id);
+
+   return retval;
+}
+
+
 unsigned vrend_renderer_query_multisample_caps(unsigned max_samples, struct virgl_caps_v2 *caps)
 {
    GLuint tex;

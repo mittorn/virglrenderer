@@ -112,6 +112,8 @@ struct vrend_if_cbs {
 int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags);
 
 void vrend_insert_format(struct vrend_format_table *entry, uint32_t bindings);
+bool vrend_check_fremabuffer_mixed_color_attachements(void);
+
 void vrend_insert_format_swizzle(int override_format, struct vrend_format_table *entry, uint32_t bindings, uint8_t swizzle[4]);
 const struct vrend_format_table *vrend_get_format_table_entry(enum virgl_formats format);
 int vrend_create_shader(struct vrend_context *ctx,

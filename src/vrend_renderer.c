@@ -8588,6 +8588,9 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
       caps->v2.capability_bits |= VIRGL_CAP_QBO;
 
    caps->v2.capability_bits |= VIRGL_CAP_TRANSFER;
+
+   if (vrend_check_fremabuffer_mixed_color_attachements())
+      caps->v2.capability_bits |= VIRGL_CAP_FBO_MIXED_COLOR_FORMATS;
 }
 
 void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
