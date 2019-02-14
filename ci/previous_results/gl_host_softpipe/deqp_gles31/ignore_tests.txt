@@ -2,18 +2,33 @@ dEQP-GLES31.functional.debug.negative_coverage.callbacks.compute.exceed_atomic_c
 dEQP-GLES31.functional.debug.negative_coverage.get_error.compute.exceed_atomic_counters_limit
 dEQP-GLES31.functional.debug.negative_coverage.log.compute.exceed_atomic_counters_limit
 dEQP-GLES31.functional.image_load_store.2d.format_reinterpret.rgba16ui_rgba16f
-
-# Float precision error https://gitlab.freedesktop.org/virgl/virglrenderer/issues/82
+#
+# these tests request an FBO that is unsupported on softpipe and we don't report this
+# error back to the guest and the test tries to read back the result retting random data
+dEQP-GLES31.functional.shaders.builtin_functions.precision.frexp.highp_fragment.scalar
+dEQP-GLES31.functional.shaders.builtin_functions.precision.frexp.highp_fragment.vec2
+dEQP-GLES31.functional.shaders.builtin_functions.precision.frexp.highp_fragment.vec3
 dEQP-GLES31.functional.shaders.builtin_functions.precision.frexp.highp_fragment.vec4
 dEQP-GLES31.functional.shaders.builtin_functions.precision.frexp.highp_vertex.scalar
 dEQP-GLES31.functional.shaders.builtin_functions.precision.frexp.highp_vertex.vec2
+dEQP-GLES31.functional.shaders.builtin_functions.precision.frexp.highp_vertex.vec3
+dEQP-GLES31.functional.shaders.builtin_functions.precision.frexp.highp_vertex.vec4
 dEQP-GLES31.functional.shaders.builtin_functions.precision.frexp.lowp_fragment.scalar
+dEQP-GLES31.functional.shaders.builtin_functions.precision.frexp.lowp_fragment.vec2
+dEQP-GLES31.functional.shaders.builtin_functions.precision.frexp.lowp_fragment.vec3
+dEQP-GLES31.functional.shaders.builtin_functions.precision.frexp.lowp_fragment.vec4
 dEQP-GLES31.functional.shaders.builtin_functions.precision.frexp.lowp_vertex.scalar
 dEQP-GLES31.functional.shaders.builtin_functions.precision.frexp.lowp_vertex.vec2
+dEQP-GLES31.functional.shaders.builtin_functions.precision.frexp.lowp_vertex.vec3
+dEQP-GLES31.functional.shaders.builtin_functions.precision.frexp.lowp_vertex.vec4
 dEQP-GLES31.functional.shaders.builtin_functions.precision.frexp.mediump_fragment.scalar
 dEQP-GLES31.functional.shaders.builtin_functions.precision.frexp.mediump_fragment.vec2
+dEQP-GLES31.functional.shaders.builtin_functions.precision.frexp.mediump_fragment.vec3
+dEQP-GLES31.functional.shaders.builtin_functions.precision.frexp.mediump_fragment.vec4
 dEQP-GLES31.functional.shaders.builtin_functions.precision.frexp.mediump_vertex.scalar
 dEQP-GLES31.functional.shaders.builtin_functions.precision.frexp.mediump_vertex.vec2
-
-# Memory leak & Timeouts https://gitlab.freedesktop.org/virgl/virglrenderer/issues/79
+dEQP-GLES31.functional.shaders.builtin_functions.precision.frexp.mediump_vertex.vec3
+dEQP-GLES31.functional.shaders.builtin_functions.precision.frexp.mediump_vertex.vec4
+#
+# This test tends to timeout
 dEQP-GLES31.functional.ubo.random.all_per_block_buffers.20
