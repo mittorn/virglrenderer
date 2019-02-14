@@ -5557,7 +5557,10 @@ struct vrend_context *vrend_create_context(int id, uint32_t nlen, const char *de
       return NULL;
 
    if (nlen && debug_name) {
-      strncpy(grctx->debug_name, debug_name, 64);
+      strncpy(grctx->debug_name, debug_name,
+	      nlen < sizeof(grctx->debug_name) - 1 ?
+	      nlen : sizeof(grctx->debug_name) - 1);
+      grctx->debug_name[sizeof(grctx->debug_name) - 1] = 0;
    }
 
    VREND_DEBUG(dbg_caller, grctx, "create context\n");
