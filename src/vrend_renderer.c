@@ -484,7 +484,6 @@ struct vrend_sub_context {
    bool vbo_dirty;
    bool shader_dirty;
    bool cs_shader_dirty;
-   bool sampler_state_dirty;
    bool stencil_state_dirty;
    bool image_state_dirty;
    bool blend_state_dirty;
@@ -505,6 +504,8 @@ struct vrend_sub_context {
    uint32_t const_bufs_dirty[PIPE_SHADER_TYPES];
 
    int num_sampler_states[PIPE_SHADER_TYPES];
+
+   uint32_t sampler_views_dirty[PIPE_SHADER_TYPES];
 
    uint32_t fb_id;
    int nr_cbufs, old_nr_cbufs;
@@ -2588,6 +2589,9 @@ void vrend_set_single_sampler_view(struct vrend_context *ctx,
       if (!tex) {
          return;
       }
+
+      ctx->sub->sampler_views_dirty[shader_type] |= 1 << index;
+
       if (!view->texture->is_buffer) {
          if (view->texture->id == view->id) {
             glBindTexture(view->target, view->id);
@@ -2639,7 +2643,7 @@ void vrend_set_single_sampler_view(struct vrend_context *ctx,
             }
             if (tex->cur_srgb_decode != view->srgb_decode && util_format_is_srgb(tex->base.base.format)) {
                if (has_feature(feat_samplers))
-                  ctx->sub->sampler_state_dirty = true;
+                  ctx->sub->sampler_views_dirty[shader_type] |= (1 << index);
                else if (has_feature(feat_texture_srgb_decode)) {
                   glTexParameteri(view->texture->target, GL_TEXTURE_SRGB_DECODE_EXT,
                                   view->srgb_decode);
@@ -3641,12 +3645,15 @@ static void vrend_draw_bind_samplers_shader(struct vrend_context *ctx,
                                             int *sampler_id)
 {
    int index = 0;
+
+   uint32_t dirty = ctx->sub->sampler_views_dirty[shader_type];
+
    uint32_t mask = ctx->sub->prog->samplers_used_mask[shader_type];
    while (mask) {
       int i = u_bit_scan(&mask);
-      struct vrend_sampler_view *tview = ctx->sub->views[shader_type].views[i];
 
-      if (tview) {
+      struct vrend_sampler_view *tview = ctx->sub->views[shader_type].views[i];
+      if (dirty & (1 << i) && tview) {
          if (ctx->sub->prog->shadow_samp_mask[shader_type] & (1 << i)) {
             glUniform4f(ctx->sub->prog->shadow_samp_mask_locs[shader_type][index],
                         (tview->gl_swizzle_r == GL_ZERO || tview->gl_swizzle_r == GL_ONE) ? 0.0 : 1.0,
@@ -3676,15 +3683,18 @@ static void vrend_draw_bind_samplers_shader(struct vrend_context *ctx,
             glActiveTexture(GL_TEXTURE0 + *sampler_id);
             glBindTexture(target, id);
 
-            if (ctx->sub->views[shader_type].old_ids[i] != id || ctx->sub->sampler_state_dirty) {
+            if (ctx->sub->views[shader_type].old_ids[i] != id ||
+                ctx->sub->sampler_views_dirty[shader_type] & (1 << i)) {
                vrend_apply_sampler_state(ctx, texture, shader_type, i, *sampler_id, tview);
                ctx->sub->views[shader_type].old_ids[i] = id;
             }
+            dirty &= ~(1 << i);
          }
       }
       (*sampler_id)++;
       index++;
    }
+   ctx->sub->sampler_views_dirty[shader_type] = dirty;
 }
 
 static void vrend_draw_bind_ubo_shader(struct vrend_context *ctx,
@@ -3881,7 +3891,6 @@ static void vrend_draw_bind_objects(struct vrend_context *ctx, bool new_program)
       glBindTexture(GL_TEXTURE_2D, ctx->pstipple_tex_id);
       glUniform1i(ctx->sub->prog->fs_stipple_loc, sampler_id);
    }
-   ctx->sub->sampler_state_dirty = false;
 }
 
 int vrend_draw_vbo(struct vrend_context *ctx,
@@ -4009,9 +4018,11 @@ int vrend_draw_vbo(struct vrend_context *ctx,
          ctx->sub->prog_ids[PIPE_SHADER_COMPUTE] = -1;
          ctx->sub->prog = prog;
 
-         /* mark all constbufs as dirty */
-         for (int stage = PIPE_SHADER_VERTEX; stage <= PIPE_SHADER_FRAGMENT; stage++)
+         /* mark all constbufs and sampler views as dirty */
+         for (int stage = PIPE_SHADER_VERTEX; stage <= PIPE_SHADER_FRAGMENT; stage++) {
             ctx->sub->const_bufs_dirty[stage] = ~0;
+            ctx->sub->sampler_views_dirty[stage] = ~0;
+         }
 
          prog->ref_context = ctx->sub;
       }
@@ -4975,6 +4986,7 @@ void vrend_bind_sampler_states(struct vrend_context *ctx,
 
    ctx->sub->num_sampler_states[shader_type] = num_states;
 
+   uint32_t dirty = 0;
    for (i = 0; i < num_states; i++) {
       if (handles[i] == 0)
          state = NULL;
@@ -4982,8 +4994,9 @@ void vrend_bind_sampler_states(struct vrend_context *ctx,
          state = vrend_object_lookup(ctx->sub->object_hash, handles[i], VIRGL_OBJECT_SAMPLER_STATE);
 
       ctx->sub->sampler_state[shader_type][i + start_slot] = state;
+      dirty |= 1 << (start_slot + i);
    }
-   ctx->sub->sampler_state_dirty = true;
+   ctx->sub->sampler_views_dirty[shader_type] |= dirty;
 }
 
 static void vrend_apply_sampler_state(struct vrend_context *ctx,
