@@ -3976,6 +3976,9 @@ int vrend_draw_vbo(struct vrend_context *ctx,
       bool fs_dirty, vs_dirty, gs_dirty, tcs_dirty, tes_dirty;
       bool dual_src = util_blend_state_is_dual(&ctx->sub->blend_state, 0);
       bool same_prog;
+
+      ctx->sub->shader_dirty = false;
+
       if (!ctx->sub->shaders[PIPE_SHADER_VERTEX] || !ctx->sub->shaders[PIPE_SHADER_FRAGMENT]) {
          vrend_printf("dropping rendering due to missing shaders: %s\n", ctx->debug_name);
          return 0;
@@ -4222,6 +4225,9 @@ void vrend_launch_grid(struct vrend_context *ctx,
    if (ctx->sub->cs_shader_dirty) {
       struct vrend_linked_shader_program *prog;
       bool cs_dirty;
+
+      ctx->sub->cs_shader_dirty = false;
+
       if (!ctx->sub->shaders[PIPE_SHADER_COMPUTE]) {
          vrend_printf("dropping rendering due to missing shaders: %s\n", ctx->debug_name);
          return;
