@@ -545,11 +545,6 @@ static void emit_ver_ext(struct dump_ctx *ctx, const char *buf)
    strbuf_append(&ctx->glsl_ver_ext, buf);
 }
 
-static void set_ver_ext_error(struct dump_ctx *ctx)
-{
-   strbuf_set_error(&ctx->glsl_ver_ext);
-}
-
 __attribute__((format(printf, 2, 3)))
 static void emit_ver_extf(struct dump_ctx *ctx, const char *fmt, ...)
 {
