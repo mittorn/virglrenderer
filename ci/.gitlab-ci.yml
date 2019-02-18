@@ -86,6 +86,8 @@ piglit - gl host:
              bash -c "/virglrenderer/ci/run_tests.sh --piglit-gl"
              2>&1 | tee results/docker_test_log.txt
     - echo "\n\n"
+  only:
+    - merge_requests
 
 piglit - gles host:
   stage: test
@@ -107,6 +109,8 @@ piglit - gles host:
              bash -c "/virglrenderer/ci/run_tests.sh --piglit-gles"
              2>&1 | tee results/docker_test_log.txt
     - echo "\n\n"
+  only:
+    - merge_requests
 
   artifacts:
     when: always
@@ -133,6 +137,8 @@ cts - gl host:
              bash -c "/virglrenderer/ci/run_tests.sh --deqp-gl"
              2>&1 | tee results/docker_test_log.txt
     - echo "\n\n"
+  only:
+    - merge_requests
 
   artifacts:
     when: always
@@ -159,6 +165,8 @@ cts - gles host:
              bash -c "/virglrenderer/ci/run_tests.sh --deqp-gles"
              2>&1 | tee results/docker_test_log.txt
     - echo "\n\n"
+  only:
+    - merge_requests
 
   artifacts:
     when: always
@@ -185,6 +193,8 @@ unreliable tests:
              bash -c "/virglrenderer/ci/run_tests.sh --deqp-gl-unreliable --deqp-gles-unreliable --piglit-gl-unreliable --piglit-gles-unreliable || true"
              2>&1 | tee results/docker_test_log.txt
     - echo "\n\n"
+  only:
+    - merge_requests
 
   artifacts:
     when: always

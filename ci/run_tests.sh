@@ -6,7 +6,7 @@ run_setup()
 
    # Let .gitlab-ci or local ci runner set
    # desired thread count
-   NUM_THREADS=${NUM_THREADS:-"$(nproc)"}
+   NUM_THREADS=${NUM_THREADS:-$(expr $(expr $(nproc) / 8) + 1)}
    export NUM_THREADS
    echo "Using $NUM_THREADS threads"
 
@@ -17,10 +17,10 @@ run_setup()
    ccache -s
 
    # To prevent hitting assertions such as the below:
-   # sb/sb_sched.cpp:1207:schedule_alu: Assertion `!"unscheduled pending instructions"' failed.
+   # sb/sb_sched.cpp:1207:schedule_alu: Assertion '!"unscheduled pending instructions"' failed.
    export R600_DEBUG=nosb
 
-   # If render node, like /dev/dri/renderD128, hasn't been set
+   # If render node, like /dev/dri/renderD128, has not been set
    # or exists use softpipe instead of HW GPU.
    if [[ ! -c $RENDER_DEVICE ]]; then
       export SOFTWARE_ONLY=1

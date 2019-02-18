@@ -7,7 +7,7 @@ trap "{ rm -f $TMP_TEST_FILE; }" EXIT
 
 TESTS=""
 BACKENDS=""
-NUM_THREADS=$(expr $(expr $(nproc) + 2) / 3)
+NUM_THREADS=${NUM_THREADS:-$(expr $(expr $(nproc) / 8) + 1)}
 
 COMPARE_BACKENDS=0
 COMPARE_PREVIOUS=0
