@@ -32,3 +32,4 @@ dEQP-GLES31.functional.shaders.builtin_functions.precision.frexp.mediump_vertex.
 #
 # This test tends to timeout
 dEQP-GLES31.functional.ubo.random.all_per_block_buffers.20
+dEQP-GLES31.functional.ubo.random.all_per_block_buffers.13
