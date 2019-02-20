@@ -1174,7 +1174,7 @@ static void bind_sampler_locs(struct vrend_linked_shader_program *sprog,
          uint32_t i = u_bit_scan(&mask);
          char name[64];
          if (sprog->ss[id]->sel->sinfo.num_sampler_arrays) {
-            int arr_idx = shader_lookup_sampler_array(&sprog->ss[id]->sel->sinfo, i);
+            int arr_idx = vrend_shader_lookup_sampler_array(&sprog->ss[id]->sel->sinfo, i);
             snprintf(name, 32, "%ssamp%d[%d]", prefix, arr_idx, i - arr_idx);
          } else
             snprintf(name, 32, "%ssamp%d", prefix, i);

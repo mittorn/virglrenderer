@@ -751,7 +751,7 @@ static int lookup_sampler_array(struct dump_ctx *ctx, int index)
    return -1;
 }
 
-int shader_lookup_sampler_array(struct vrend_shader_info *sinfo, int index)
+int vrend_shader_lookup_sampler_array(struct vrend_shader_info *sinfo, int index)
 {
    int i;
    for (i = 0; i < sinfo->num_sampler_arrays; i++) {

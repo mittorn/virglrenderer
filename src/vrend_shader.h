@@ -163,7 +163,7 @@ const char *vrend_shader_samplertypeconv(bool use_gles, int sampler_type, int *i
 
 char vrend_shader_samplerreturnconv(enum tgsi_return_type type);
 
-int shader_lookup_sampler_array(struct vrend_shader_info *sinfo, int index);
+int vrend_shader_lookup_sampler_array(struct vrend_shader_info *sinfo, int index);
 
 bool vrend_shader_create_passthrough_tcs(struct vrend_context *ctx,
                                          struct vrend_shader_cfg *cfg,
