@@ -692,11 +692,14 @@ static const char *vrend_ctx_error_strings[] = {
    [VIRGL_ERROR_CTX_GLES_HAVE_TES_BUT_MISS_TCS] = "On GLES context and shader program has tesselation evaluation shader but no tesselation control shader"
 };
 
-static void __report_context_error(const char *fname, struct vrend_context *ctx, enum virgl_ctx_errors error, uint32_t value)
+static void __report_context_error(const char *fname, struct vrend_context *ctx,
+                                   enum virgl_ctx_errors error, uint32_t value)
 {
    ctx->in_error = true;
    ctx->last_error = error;
-   vrend_printf("%s: context error reported %d \"%s\" %s %d\n", fname, ctx->ctx_id, ctx->debug_name, vrend_ctx_error_strings[error], value);
+   vrend_printf("%s: context error reported %d \"%s\" %s %d\n", fname,
+                ctx->ctx_id, ctx->debug_name, vrend_ctx_error_strings[error],
+                value);
 }
 #define report_context_error(ctx, error, value) __report_context_error(__func__, ctx, error, value)
 
@@ -721,9 +724,12 @@ static const char *vrend_core_profile_warn_strings[] = {
    [CORE_PROFILE_WARN_SHADE_MODEL]  = "Shade Model",
 };
 
-static void __report_core_warn(const char *fname, struct vrend_context *ctx, enum virgl_ctx_errors error)
+static void __report_core_warn(const char *fname, struct vrend_context *ctx,
+                               enum virgl_ctx_errors error)
 {
-   vrend_printf("%s: core profile violation reported %d \"%s\" %s\n", fname, ctx->ctx_id, ctx->debug_name, vrend_core_profile_warn_strings[error]);
+   vrend_printf("%s: core profile violation reported %d \"%s\" %s\n", fname,
+                ctx->ctx_id, ctx->debug_name,
+                vrend_core_profile_warn_strings[error]);
 }
 #define report_core_warn(ctx, error) __report_core_warn(__func__, ctx, error)
 
@@ -766,19 +772,23 @@ static const char *vrend_gles_warn_strings[] = {
    [GLES_WARN_TIMESTAMP]        = "GL_TIMESTAMP",
 };
 
-static void __report_gles_warn(const char *fname, struct vrend_context *ctx, enum virgl_ctx_errors error)
+static void __report_gles_warn(const char *fname, struct vrend_context *ctx,
+                               enum virgl_ctx_errors error)
 {
    int id = ctx ? ctx->ctx_id : -1;
    const char *name = ctx ? ctx->debug_name : "NO_CONTEXT";
-   vrend_printf("%s: gles violation reported %d \"%s\" %s\n", fname, id, name, vrend_gles_warn_strings[error]);
+   vrend_printf("%s: gles violation reported %d \"%s\" %s\n", fname, id,
+                name, vrend_gles_warn_strings[error]);
 }
 #define report_gles_warn(ctx, error) __report_gles_warn(__func__, ctx, error)
 
-static void __report_gles_missing_func(const char *fname, struct vrend_context *ctx, const char *missf)
+static void __report_gles_missing_func(const char *fname,
+                                       struct vrend_context *ctx, const char *missf)
 {
    int id = ctx ? ctx->ctx_id : -1;
    const char *name = ctx ? ctx->debug_name : "NO_CONTEXT";
-   vrend_printf("%s: gles violation reported %d \"%s\" %s is missing\n", fname, id, name, missf);
+   vrend_printf("%s: gles violation reported %d \"%s\" %s is missing\n", fname,
+                id, name, missf);
 }
 #define report_gles_missing_func(ctx, missf) __report_gles_missing_func(__func__, ctx, missf)
 
