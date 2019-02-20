@@ -762,7 +762,7 @@ static void __report_core_warn(const char *fname, struct vrend_context *ctx,
 #define GLES_WARN_TEXTURE_RECT 7
 #define GLES_WARN_OFFSET_LINE 8
 #define GLES_WARN_OFFSET_POINT 9
-#define GLES_WARN_DEPTH_CLIP 10
+//#define GLES_WARN_ free slot 10
 #define GLES_WARN_FLATSHADE_FIRST 11
 #define GLES_WARN_LINE_SMOOTH 12
 #define GLES_WARN_POLY_SMOOTH 13
@@ -781,7 +781,6 @@ static const char *vrend_gles_warn_strings[] = {
    [GLES_WARN_TEXTURE_RECT]     = "Texture Rect",
    [GLES_WARN_OFFSET_LINE]      = "Offset Line",
    [GLES_WARN_OFFSET_POINT]     = "Offset Point",
-   [GLES_WARN_DEPTH_CLIP]       = "Depth Clip",
    [GLES_WARN_FLATSHADE_FIRST]  = "Flatshade First",
    [GLES_WARN_LINE_SMOOTH]      = "Line Smooth",
    [GLES_WARN_POLY_SMOOTH]      = "Poly Smooth",
@@ -4918,14 +4917,11 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
    struct pipe_rasterizer_state *state = &ctx->sub->rs_state;
    int i;
 
-   if (!has_feature(feat_depth_clamp)) {
-      if (!state->depth_clip) {
-         report_gles_warn(ctx, GLES_WARN_DEPTH_CLIP);
-      }
-   } else if (state->depth_clip) {
-      glDisable(GL_DEPTH_CLAMP);
-   } else {
-      glEnable(GL_DEPTH_CLAMP);
+   if (has_feature(feat_depth_clamp)) {
+      if (state->depth_clip)
+         glDisable(GL_DEPTH_CLAMP);
+      else
+         glEnable(GL_DEPTH_CLAMP);
    }
 
    if (vrend_state.use_gles) {
