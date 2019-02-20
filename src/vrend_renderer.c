@@ -680,9 +680,17 @@ static inline const char *pipe_shader_to_prefix(int shader_type)
    };
 }
 
-static const char *vrend_ctx_error_strings[] = { "None", "Unknown", "Illegal shader", "Illegal handle", "Illegal resource",
-                                                 "Illegal surface", "Illegal vertex format", "Illegal command buffer",
-                                                 "On GLES context and shader program has tesselation evaluation shader but no tesselation control shader"};
+static const char *vrend_ctx_error_strings[] = {
+   [VIRGL_ERROR_CTX_NONE]                  = "None",
+   [VIRGL_ERROR_CTX_UNKNOWN]               = "Unknown",
+   [VIRGL_ERROR_CTX_ILLEGAL_SHADER]        = "Illegal shader",
+   [VIRGL_ERROR_CTX_ILLEGAL_HANDLE]        = "Illegal handle",
+   [VIRGL_ERROR_CTX_ILLEGAL_RESOURCE]      = "Illegal resource",
+   [VIRGL_ERROR_CTX_ILLEGAL_SURFACE]       = "Illegal surface",
+   [VIRGL_ERROR_CTX_ILLEGAL_VERTEX_FORMAT] = "Illegal vertex format",
+   [VIRGL_ERROR_CTX_ILLEGAL_CMD_BUFFER]    = "Illegal command buffer",
+   [VIRGL_ERROR_CTX_GLES_HAVE_TES_BUT_MISS_TCS] = "On GLES context and shader program has tesselation evaluation shader but no tesselation control shader"
+};
 
 static void __report_context_error(const char *fname, struct vrend_context *ctx, enum virgl_ctx_errors error, uint32_t value)
 {
@@ -704,7 +712,14 @@ void vrend_report_buffer_error(struct vrend_context *ctx, int cmd)
 #define CORE_PROFILE_WARN_CLAMP 4
 #define CORE_PROFILE_WARN_SHADE_MODEL 5
 
-static const char *vrend_core_profile_warn_strings[] = { "None", "Stipple", "Polygon Mode", "Two Side", "Clamping", "Shade Model" };
+static const char *vrend_core_profile_warn_strings[] = {
+   [CORE_PROFILE_WARN_NONE]         = "None",
+   [CORE_PROFILE_WARN_STIPPLE]      = "Stipple",
+   [CORE_PROFILE_WARN_POLYGON_MODE] = "Polygon Mode",
+   [CORE_PROFILE_WARN_TWO_SIDE]     = "Two Side",
+   [CORE_PROFILE_WARN_CLAMP]        = "Clamping",
+   [CORE_PROFILE_WARN_SHADE_MODEL]  = "Shade Model",
+};
 
 static void __report_core_warn(const char *fname, struct vrend_context *ctx, enum virgl_ctx_errors error)
 {
@@ -732,10 +747,23 @@ static void __report_core_warn(const char *fname, struct vrend_context *ctx, enu
 #define GLES_WARN_TIMESTAMP 16
 
 static const char *vrend_gles_warn_strings[] = {
-   "None", "Stipple", "Polygon Mode", "Depth Range", "Point Size", "Seamless Cube Map",
-   "Lod Bias", "Texture Rect", "Offset Line", "Offset Point",
-   "Depth Clip", "Flatshade First", "Line Smooth", "Poly Smooth",
-   "Depth Clear", "LogicOp", "GL_TIMESTAMP"
+   [GLES_WARN_NONE]             = "None",
+   [GLES_WARN_STIPPLE]          = "Stipple",
+   [GLES_WARN_POLYGON_MODE]     = "Polygon Mode",
+   [GLES_WARN_DEPTH_RANGE]      = "Depth Range",
+   [GLES_WARN_POINT_SIZE]       = "Point Size",
+   [GLES_WARN_SEAMLESS_CUBE_MAP] = "Seamless Cube Map",
+   [GLES_WARN_LOD_BIAS]         = "Lod Bias",
+   [GLES_WARN_TEXTURE_RECT]     = "Texture Rect",
+   [GLES_WARN_OFFSET_LINE]      = "Offset Line",
+   [GLES_WARN_OFFSET_POINT]     = "Offset Point",
+   [GLES_WARN_DEPTH_CLIP]       = "Depth Clip",
+   [GLES_WARN_FLATSHADE_FIRST]  = "Flatshade First",
+   [GLES_WARN_LINE_SMOOTH]      = "Line Smooth",
+   [GLES_WARN_POLY_SMOOTH]      = "Poly Smooth",
+   [GLES_WARN_DEPTH_CLEAR]      = "Depth Clear",
+   [GLES_WARN_LOGIC_OP]         = "LogicOp",
+   [GLES_WARN_TIMESTAMP]        = "GL_TIMESTAMP",
 };
 
 static void __report_gles_warn(const char *fname, struct vrend_context *ctx, enum virgl_ctx_errors error)
