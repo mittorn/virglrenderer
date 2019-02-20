@@ -942,7 +942,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
 
                      ctx->inputs[k].name = TGSI_SEMANTIC_FACE;
                      ctx->inputs[k].sid = 0;
-                     ctx->inputs[k].interpolate = 0;
+                     ctx->inputs[k].interpolate = TGSI_INTERPOLATE_CONSTANT;
                      ctx->inputs[k].location = TGSI_INTERPOLATE_LOC_CENTER;
                      ctx->inputs[k].first = 0;
                      ctx->inputs[k].override_no_wm = false;
