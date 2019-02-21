@@ -2283,7 +2283,7 @@ static bool fill_offset_buffer(struct dump_ctx *ctx,
       case TGSI_TEXTURE_2D:
       case TGSI_TEXTURE_2D_ARRAY:
       case TGSI_TEXTURE_SHADOW2D:
-         case TGSI_TEXTURE_SHADOW2D_ARRAY:
+      case TGSI_TEXTURE_SHADOW2D_ARRAY:
          snprintf(offbuf, 256, ", ivec2(floatBitsToInt(temp%d[%d].%c), floatBitsToInt(temp%d[%d].%c))",
                   range->first, idx,
                   get_swiz_char(inst->TexOffsets[0].SwizzleX),
@@ -5370,10 +5370,10 @@ static const char *get_interp_string(struct vrend_shader_cfg *cfg, int interpola
 {
    switch (interpolate) {
    case TGSI_INTERPOLATE_LINEAR:
-   if (!cfg->use_gles)
-      return "noperspective ";
-   else
-      return "";
+      if (!cfg->use_gles)
+         return "noperspective ";
+      else
+         return "";
    case TGSI_INTERPOLATE_PERSPECTIVE:
       return "smooth ";
    case TGSI_INTERPOLATE_CONSTANT:
