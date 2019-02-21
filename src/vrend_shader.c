@@ -1519,78 +1519,72 @@ iter_property(struct tgsi_iterate_context *iter,
 {
    struct dump_ctx *ctx = (struct dump_ctx *) iter;
 
-   if (prop->Property.PropertyName == TGSI_PROPERTY_FS_COLOR0_WRITES_ALL_CBUFS) {
+   switch (prop->Property.PropertyName) {
+   case TGSI_PROPERTY_FS_COLOR0_WRITES_ALL_CBUFS:
       if (prop->u[0].Data == 1)
          ctx->write_all_cbufs = true;
-   }
-
-   if (prop->Property.PropertyName == TGSI_PROPERTY_FS_COORD_ORIGIN) {
+      break;
+   case TGSI_PROPERTY_FS_COORD_ORIGIN:
       ctx->fs_coord_origin = prop->u[0].Data;
-   }
-
-   if (prop->Property.PropertyName == TGSI_PROPERTY_FS_COORD_PIXEL_CENTER) {
+      break;
+   case TGSI_PROPERTY_FS_COORD_PIXEL_CENTER:
       ctx->fs_pixel_center = prop->u[0].Data;
-   }
-
-   if (prop->Property.PropertyName == TGSI_PROPERTY_GS_INPUT_PRIM) {
+      break;
+   case TGSI_PROPERTY_GS_INPUT_PRIM:
       ctx->gs_in_prim = prop->u[0].Data;
-   }
-
-   if (prop->Property.PropertyName == TGSI_PROPERTY_GS_OUTPUT_PRIM) {
+      break;
+   case TGSI_PROPERTY_GS_OUTPUT_PRIM:
       ctx->gs_out_prim = prop->u[0].Data;
-   }
-
-   if (prop->Property.PropertyName == TGSI_PROPERTY_GS_MAX_OUTPUT_VERTICES) {
+      break;
+   case TGSI_PROPERTY_GS_MAX_OUTPUT_VERTICES:
       ctx->gs_max_out_verts = prop->u[0].Data;
-   }
-
-   if (prop->Property.PropertyName == TGSI_PROPERTY_GS_INVOCATIONS) {
+      break;
+   case TGSI_PROPERTY_GS_INVOCATIONS:
       ctx->gs_num_invocations = prop->u[0].Data;
-   }
-
-   if (prop->Property.PropertyName == TGSI_PROPERTY_NUM_CLIPDIST_ENABLED) {
+      break;
+   case TGSI_PROPERTY_NUM_CLIPDIST_ENABLED:
       ctx->shader_req_bits |= SHADER_REQ_CLIP_DISTANCE;
       ctx->num_clip_dist_prop = prop->u[0].Data;
-   }
-
-   if (prop->Property.PropertyName == TGSI_PROPERTY_NUM_CULLDIST_ENABLED) {
+      break;
+   case TGSI_PROPERTY_NUM_CULLDIST_ENABLED:
       ctx->num_cull_dist_prop = prop->u[0].Data;
-   }
-
-   if (prop->Property.PropertyName == TGSI_PROPERTY_TCS_VERTICES_OUT) {
+      break;
+   case TGSI_PROPERTY_TCS_VERTICES_OUT:
       ctx->tcs_vertices_out = prop->u[0].Data;
-   }
-
-   if (prop->Property.PropertyName == TGSI_PROPERTY_TES_PRIM_MODE) {
+      break;
+   case TGSI_PROPERTY_TES_PRIM_MODE:
       ctx->tes_prim_mode = prop->u[0].Data;
-   }
-
-   if (prop->Property.PropertyName == TGSI_PROPERTY_TES_SPACING) {
+      break;
+   case TGSI_PROPERTY_TES_SPACING:
       ctx->tes_spacing = prop->u[0].Data;
-   }
-
-   if (prop->Property.PropertyName == TGSI_PROPERTY_TES_VERTEX_ORDER_CW) {
+      break;
+   case TGSI_PROPERTY_TES_VERTEX_ORDER_CW:
       ctx->tes_vertex_order = prop->u[0].Data;
-   }
-
-   if (prop->Property.PropertyName == TGSI_PROPERTY_TES_POINT_MODE) {
+      break;
+   case TGSI_PROPERTY_TES_POINT_MODE:
       ctx->tes_point_mode = prop->u[0].Data;
-   }
-
-   if (prop->Property.PropertyName == TGSI_PROPERTY_FS_EARLY_DEPTH_STENCIL) {
+      break;
+   case TGSI_PROPERTY_FS_EARLY_DEPTH_STENCIL:
       ctx->early_depth_stencil = prop->u[0].Data > 0;
       if (ctx->early_depth_stencil) {
          require_glsl_ver(ctx, 150);
          ctx->shader_req_bits |= SHADER_REQ_IMAGE_LOAD_STORE;
       }
+      break;
+   case TGSI_PROPERTY_CS_FIXED_BLOCK_WIDTH:
+      ctx->local_cs_block_size[0] = prop->u[0].Data;
+      break;
+   case TGSI_PROPERTY_CS_FIXED_BLOCK_HEIGHT:
+      ctx->local_cs_block_size[1] = prop->u[0].Data;
+      break;
+   case TGSI_PROPERTY_CS_FIXED_BLOCK_DEPTH:
+      ctx->local_cs_block_size[2] = prop->u[0].Data;
+      break;
+   default:
+      vrend_printf("unhandled property: %x\n", prop->Property.PropertyName);
+      return false;
    }
 
-   if (prop->Property.PropertyName == TGSI_PROPERTY_CS_FIXED_BLOCK_WIDTH)
-      ctx->local_cs_block_size[0] = prop->u[0].Data;
-   if (prop->Property.PropertyName == TGSI_PROPERTY_CS_FIXED_BLOCK_HEIGHT)
-      ctx->local_cs_block_size[1] = prop->u[0].Data;
-   if (prop->Property.PropertyName == TGSI_PROPERTY_CS_FIXED_BLOCK_DEPTH)
-      ctx->local_cs_block_size[2] = prop->u[0].Data;
    return true;
 }
 
@@ -2195,43 +2189,42 @@ static void emit_txqs(struct dump_ctx *ctx,
 
 static const char *get_tex_inst_ext(struct tgsi_full_instruction *inst)
 {
-   const char *tex_ext = "";
-   if (inst->Instruction.Opcode == TGSI_OPCODE_LODQ) {
-      tex_ext = "QueryLOD";
-   } else if (inst->Instruction.Opcode == TGSI_OPCODE_TXP) {
+   switch (inst->Instruction.Opcode) {
+   case TGSI_OPCODE_LODQ:
+      return "QueryLOD";
+   case TGSI_OPCODE_TXP:
       if (inst->Texture.Texture == TGSI_TEXTURE_CUBE ||
           inst->Texture.Texture == TGSI_TEXTURE_2D_ARRAY ||
           inst->Texture.Texture == TGSI_TEXTURE_1D_ARRAY)
-         tex_ext = "";
+         return "";
       else if (inst->Texture.NumOffsets == 1)
-         tex_ext = "ProjOffset";
+         return "ProjOffset";
       else
-         tex_ext = "Proj";
-   } else if (inst->Instruction.Opcode == TGSI_OPCODE_TXL ||
-              inst->Instruction.Opcode == TGSI_OPCODE_TXL2) {
+         return "Proj";
+   case TGSI_OPCODE_TXL:
+   case TGSI_OPCODE_TXL2:
       if (inst->Texture.NumOffsets == 1)
-         tex_ext = "LodOffset";
+         return "LodOffset";
       else
-         tex_ext = "Lod";
-   } else if (inst->Instruction.Opcode == TGSI_OPCODE_TXD) {
+         return "Lod";
+   case TGSI_OPCODE_TXD:
       if (inst->Texture.NumOffsets == 1)
-         tex_ext = "GradOffset";
+         return "GradOffset";
       else
-         tex_ext = "Grad";
-   } else if (inst->Instruction.Opcode == TGSI_OPCODE_TG4) {
+         return "Grad";
+   case TGSI_OPCODE_TG4:
       if (inst->Texture.NumOffsets == 4)
-         tex_ext = "GatherOffsets";
+         return "GatherOffsets";
       else if (inst->Texture.NumOffsets == 1)
-         tex_ext = "GatherOffset";
+         return "GatherOffset";
       else
-         tex_ext = "Gather";
-   } else {
+         return "Gather";
+   default:
       if (inst->Texture.NumOffsets == 1)
-         tex_ext = "Offset";
+         return "Offset";
       else
-         tex_ext = "";
+         return  "";
    }
-   return tex_ext;
 }
 
 static bool fill_offset_buffer(struct dump_ctx *ctx,
@@ -2478,25 +2471,31 @@ static void translate_tex(struct dump_ctx *ctx,
       }
    }
 
-   if (inst->Instruction.Opcode == TGSI_OPCODE_TXB2 || inst->Instruction.Opcode == TGSI_OPCODE_TXL2 || inst->Instruction.Opcode == TGSI_OPCODE_TEX2) {
+   switch (inst->Instruction.Opcode) {
+   case TGSI_OPCODE_TXB2:
+   case TGSI_OPCODE_TXL2:
+   case TGSI_OPCODE_TEX2:
       sampler_index = 2;
       if (inst->Instruction.Opcode != TGSI_OPCODE_TEX2)
          snprintf(bias, 64, ", %s.x", srcs[1]);
       else if (inst->Texture.Texture == TGSI_TEXTURE_SHADOWCUBE_ARRAY)
          snprintf(bias, 64, ", float(%s)", srcs[1]);
-   } else if (inst->Instruction.Opcode == TGSI_OPCODE_TXB || inst->Instruction.Opcode == TGSI_OPCODE_TXL)
+      break;
+   case TGSI_OPCODE_TXB:
+   case TGSI_OPCODE_TXL:
       snprintf(bias, 64, ", %s.w", srcs[0]);
-   else if (inst->Instruction.Opcode == TGSI_OPCODE_TXF) {
+      break;
+   case TGSI_OPCODE_TXF:
       if (inst->Texture.Texture == TGSI_TEXTURE_1D ||
           inst->Texture.Texture == TGSI_TEXTURE_2D ||
           inst->Texture.Texture == TGSI_TEXTURE_2D_MSAA ||
           inst->Texture.Texture == TGSI_TEXTURE_2D_ARRAY_MSAA ||
           inst->Texture.Texture == TGSI_TEXTURE_3D ||
           inst->Texture.Texture == TGSI_TEXTURE_1D_ARRAY ||
-          inst->Texture.Texture == TGSI_TEXTURE_2D_ARRAY) {
+          inst->Texture.Texture == TGSI_TEXTURE_2D_ARRAY)
          snprintf(bias, 64, ", int(%s.w)", srcs[0]);
-      }
-   } else if (inst->Instruction.Opcode == TGSI_OPCODE_TXD) {
+      break;
+   case TGSI_OPCODE_TXD:
       if (ctx->cfg->use_gles && (inst->Texture.Texture == TGSI_TEXTURE_1D ||
                                  inst->Texture.Texture == TGSI_TEXTURE_SHADOW1D ||
                                  inst->Texture.Texture == TGSI_TEXTURE_1D_ARRAY ||
@@ -2505,7 +2504,8 @@ static void translate_tex(struct dump_ctx *ctx,
       else
          snprintf(bias, 128, ", %s%s, %s%s", srcs[1], get_wm_string(gwm), srcs[2], get_wm_string(gwm));
       sampler_index = 3;
-   } else if (inst->Instruction.Opcode == TGSI_OPCODE_TG4) {
+      break;
+   case TGSI_OPCODE_TG4:
       sampler_index = 2;
       ctx->shader_req_bits |= SHADER_REQ_TG4;
       if (!ctx->cfg->use_gles) {
@@ -2539,8 +2539,10 @@ static void translate_tex(struct dump_ctx *ctx,
                snprintf(bias, 64, ", int(%s)", srcs[1]);
          }
       }
-   } else
+      break;
+   default:
       bias[0] = 0;
+   }
 
    tex_ext = get_tex_inst_ext(inst);
 
