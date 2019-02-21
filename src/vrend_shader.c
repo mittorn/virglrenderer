@@ -5937,6 +5937,11 @@ emit_ios_patch(struct dump_ctx *ctx, const char *prefix, const struct vrend_shad
                 io->glsl_name, size);
 }
 
+static bool
+can_emit_generic_default(UNUSED const struct vrend_shader_io *io)
+{
+   return true;
+}
 
 static void emit_ios_vs(struct dump_ctx *ctx)
 {
@@ -5979,27 +5984,7 @@ static void emit_ios_vs(struct dump_ctx *ctx)
       }
    }
 
-   for (i = 0; i < ctx->num_outputs; i++) {
-
-      if (!ctx->outputs[i].glsl_predefined_no_emit) {
-         const char *prefix = "";
-         if (ctx->outputs[i].name == TGSI_SEMANTIC_GENERIC ||
-             ctx->outputs[i].name == TGSI_SEMANTIC_COLOR ||
-             ctx->outputs[i].name == TGSI_SEMANTIC_BCOLOR) {
-            ctx->num_interps++;
-            prefix = INTERP_PREFIX;
-         }
-
-         emit_ios_generics(ctx, io_out, prefix, &ctx->outputs[i],
-                           ctx->outputs[i].fbfetch_used ? "inout" : "out", "");
-
-      } else if (ctx->outputs[i].invariant || ctx->outputs[i].precise) {
-         emit_hdrf(ctx, "%s%s;\n",
-                   ctx->outputs[i].precise ? "precise " :
-                                             (ctx->outputs[i].invariant ? "invariant " : ""),
-                   ctx->outputs[i].glsl_name);
-      }
-   }
+   emit_ios_generic_outputs(ctx, can_emit_generic_default);
 
    emit_winsys_correction(ctx);
 
