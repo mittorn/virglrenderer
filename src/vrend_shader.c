@@ -6140,25 +6140,44 @@ static void emit_ios_geom(struct dump_ctx *ctx)
    }
 
    for (i = 0; i < ctx->num_outputs; i++) {
-
       if (!ctx->outputs[i].glsl_predefined_no_emit) {
+         if (!ctx->outputs[i].stream)
+            continue;
+
          const char *prefix = "";
          if (ctx->outputs[i].name == TGSI_SEMANTIC_GENERIC ||
              ctx->outputs[i].name == TGSI_SEMANTIC_COLOR ||
              ctx->outputs[i].name == TGSI_SEMANTIC_BCOLOR) {
             ctx->num_interps++;
+            /* ugly leave spaces to patch interp in later */
             prefix = INTERP_PREFIX;
          }
 
-         /* ugly leave spaces to patch interp in later */
+         emit_hdrf(ctx, "layout (stream = %d) %s%s%sout vec4 %s;\n", ctx->outputs[i].stream, prefix,
+                   ctx->outputs[i].precise ? "precise " : "",
+                   ctx->outputs[i].invariant ? "invariant " : "",
+                   ctx->outputs[i].glsl_name);
+      }
+   }
+
+   for (i = 0; i < ctx->num_outputs; i++) {
+
+      if (!ctx->outputs[i].glsl_predefined_no_emit) {
+         /* GS stream outputs are handled separately */
          if (ctx->outputs[i].stream)
-            emit_hdrf(ctx, "layout (stream = %d) %s%s%sout vec4 %s;\n", ctx->outputs[i].stream, prefix,
-                      ctx->outputs[i].precise ? "precise " : "",
-                      ctx->outputs[i].invariant ? "invariant " : "",
-                      ctx->outputs[i].glsl_name);
-         else
-            emit_ios_generics(ctx, io_out, prefix, &ctx->outputs[i],
-                              ctx->outputs[i].fbfetch_used ? "inout" : "out", "");
+            continue;
+
+         const char *prefix = "";
+         if (ctx->outputs[i].name == TGSI_SEMANTIC_GENERIC ||
+             ctx->outputs[i].name == TGSI_SEMANTIC_COLOR ||
+             ctx->outputs[i].name == TGSI_SEMANTIC_BCOLOR) {
+            ctx->num_interps++;
+            /* ugly leave spaces to patch interp in later */
+            prefix = INTERP_PREFIX;
+         }
+
+         emit_ios_generics(ctx, io_out, prefix, &ctx->outputs[i],
+                           ctx->outputs[i].fbfetch_used ? "inout" : "out", "");
       } else if (ctx->outputs[i].invariant || ctx->outputs[i].precise) {
          emit_hdrf(ctx, "%s%s;\n",
                    ctx->outputs[i].precise ? "precise " :
