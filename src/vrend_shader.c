@@ -5906,14 +5906,8 @@ emit_ios_patch(struct dump_ctx *ctx, const char *prefix, const struct vrend_shad
 static void emit_ios_vs(struct dump_ctx *ctx)
 {
    uint32_t i;
-   bool fcolor_emitted[2], bcolor_emitted[2];
 
    ctx->num_interps = 0;
-
-   if (ctx->key->color_two_side) {
-      fcolor_emitted[0] = fcolor_emitted[1] = false;
-      bcolor_emitted[0] = bcolor_emitted[1] = false;
-   }
 
    for (i = 0; i < ctx->num_inputs; i++) {
       char postfix[32] = "";
@@ -5929,13 +5923,28 @@ static void emit_ios_vs(struct dump_ctx *ctx)
 
    emit_ios_indirect_generics_output(ctx, "");
 
-   for (i = 0; i < ctx->num_outputs; i++) {
-      if (ctx->key->color_two_side && ctx->outputs[i].sid < 2) {
+   if (ctx->key->color_two_side) {
+      bool fcolor_emitted, bcolor_emitted;
+
+      for (i = 0; i < ctx->num_outputs; i++) {
+         if (ctx->outputs[i].sid >= 2)
+            continue;
+
+         fcolor_emitted = bcolor_emitted = false;
+
          if (ctx->outputs[i].name == TGSI_SEMANTIC_COLOR)
-            fcolor_emitted[ctx->outputs[i].sid] = true;
+            fcolor_emitted = true;
          if (ctx->outputs[i].name == TGSI_SEMANTIC_BCOLOR)
-            bcolor_emitted[ctx->outputs[i].sid] = true;
+            bcolor_emitted = true;
+
+         if (fcolor_emitted && !bcolor_emitted)
+            emit_hdrf(ctx, "%sout vec4 ex_bc%d;\n", INTERP_PREFIX, ctx->outputs[i].sid);
+         if (bcolor_emitted && !fcolor_emitted)
+            emit_hdrf(ctx, "%sout vec4 ex_c%d;\n", INTERP_PREFIX, ctx->outputs[i].sid);
       }
+   }
+
+   for (i = 0; i < ctx->num_outputs; i++) {
 
       if (!ctx->outputs[i].glsl_predefined_no_emit) {
          const char *prefix = "";
@@ -5954,17 +5963,6 @@ static void emit_ios_vs(struct dump_ctx *ctx)
                    ctx->outputs[i].precise ? "precise " :
                                              (ctx->outputs[i].invariant ? "invariant " : ""),
                    ctx->outputs[i].glsl_name);
-      }
-   }
-
-   if (ctx->key->color_two_side) {
-      for (i = 0; i < 2; i++) {
-         if (fcolor_emitted[i] && !bcolor_emitted[i]) {
-            emit_hdrf(ctx, "%sout vec4 ex_bc%d;\n", INTERP_PREFIX, i);
-         }
-         if (bcolor_emitted[i] && !fcolor_emitted[i]) {
-            emit_hdrf(ctx, "%sout vec4 ex_c%d;\n", INTERP_PREFIX, i);
-         }
       }
    }
 
