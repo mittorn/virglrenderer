@@ -5876,6 +5876,41 @@ emit_ios_generics(struct dump_ctx *ctx, enum io_type iot,  const char *prefix,
    }
 }
 
+typedef bool (*can_emit_generic_callback)(const struct vrend_shader_io *io);
+
+static void
+emit_ios_generic_outputs(struct dump_ctx *ctx,
+                         const can_emit_generic_callback can_emit_generic)
+{
+   uint32_t i;
+
+   for (i = 0; i < ctx->num_outputs; i++) {
+
+      if (!ctx->outputs[i].glsl_predefined_no_emit) {
+         /* GS stream outputs are handled separately */
+         if (!can_emit_generic(&ctx->outputs[i]))
+            continue;
+
+         const char *prefix = "";
+         if (ctx->outputs[i].name == TGSI_SEMANTIC_GENERIC ||
+             ctx->outputs[i].name == TGSI_SEMANTIC_COLOR ||
+             ctx->outputs[i].name == TGSI_SEMANTIC_BCOLOR) {
+            ctx->num_interps++;
+            /* ugly leave spaces to patch interp in later */
+            prefix = INTERP_PREFIX;
+         }
+
+         emit_ios_generics(ctx, io_out, prefix, &ctx->outputs[i],
+                           ctx->outputs[i].fbfetch_used ? "inout" : "out", "");
+      } else if (ctx->outputs[i].invariant || ctx->outputs[i].precise) {
+         emit_hdrf(ctx, "%s%s;\n",
+                   ctx->outputs[i].precise ? "precise " :
+                   (ctx->outputs[i].invariant ? "invariant " : ""),
+                   ctx->outputs[i].glsl_name);
+      }
+   }
+}
+
 static void
 emit_ios_patch(struct dump_ctx *ctx, const char *prefix, const struct vrend_shader_io *io,
                const char *inout, int size)
@@ -6118,6 +6153,12 @@ static void emit_ios_fs(struct dump_ctx *ctx)
    }
 }
 
+static bool
+can_emit_generic_geom(const struct vrend_shader_io *io)
+{
+   return io->stream == 0;
+}
+
 static void emit_ios_geom(struct dump_ctx *ctx)
 {
    uint32_t i;
@@ -6160,31 +6201,7 @@ static void emit_ios_geom(struct dump_ctx *ctx)
       }
    }
 
-   for (i = 0; i < ctx->num_outputs; i++) {
-
-      if (!ctx->outputs[i].glsl_predefined_no_emit) {
-         /* GS stream outputs are handled separately */
-         if (ctx->outputs[i].stream)
-            continue;
-
-         const char *prefix = "";
-         if (ctx->outputs[i].name == TGSI_SEMANTIC_GENERIC ||
-             ctx->outputs[i].name == TGSI_SEMANTIC_COLOR ||
-             ctx->outputs[i].name == TGSI_SEMANTIC_BCOLOR) {
-            ctx->num_interps++;
-            /* ugly leave spaces to patch interp in later */
-            prefix = INTERP_PREFIX;
-         }
-
-         emit_ios_generics(ctx, io_out, prefix, &ctx->outputs[i],
-                           ctx->outputs[i].fbfetch_used ? "inout" : "out", "");
-      } else if (ctx->outputs[i].invariant || ctx->outputs[i].precise) {
-         emit_hdrf(ctx, "%s%s;\n",
-                   ctx->outputs[i].precise ? "precise " :
-                   (ctx->outputs[i].invariant ? "invariant " : ""),
-                   ctx->outputs[i].glsl_name);
-      }
-   }
+   emit_ios_generic_outputs(ctx, can_emit_generic_geom);
 
    emit_winsys_correction(ctx);
 
