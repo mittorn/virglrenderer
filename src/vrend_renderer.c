@@ -6556,6 +6556,7 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
    int elsize = util_format_get_blocksize(res->base.format);
    float depth_scale;
    int row_stride = info->stride / elsize;
+   GLint old_fbo;
 
    vrend_use_program(ctx, 0);
 
@@ -6584,6 +6585,8 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
       if (!row_stride)
          row_stride = util_format_get_nblocksx(res->base.format, u_minify(res->base.width0, info->level));
    }
+
+   glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &old_fbo);
 
    if (res->readback_fb_id == 0 || (int)res->readback_fb_level != info->level ||
        (int)res->readback_fb_z != info->box->z) {
@@ -6692,8 +6695,7 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
       free(data);
    }
 
-   if (!info->context0 && ctx->sub)
-      glBindFramebuffer(GL_FRAMEBUFFER, ctx->sub->fb_id);
+   glBindFramebuffer(GL_FRAMEBUFFER, old_fbo);
 
    return 0;
 }
