@@ -1548,8 +1548,8 @@ static void emit_alpha_test(struct dump_ctx *ctx)
 
 static void emit_pstipple_pass(struct dump_ctx *ctx)
 {
-   emit_buf(ctx, "stip_temp = texture(pstipple_sampler, vec2(gl_FragCoord.x / 32, gl_FragCoord.y / 32)).x;\n");
-   emit_buf(ctx, "if (stip_temp > 0) {\n\tdiscard;\n}\n");
+   emit_buf(ctx, "stip_temp = texture(pstipple_sampler, vec2(gl_FragCoord.x / 32.0, gl_FragCoord.y / 32.0)).x;\n");
+   emit_buf(ctx, "if (stip_temp > 0.0) {\n\tdiscard;\n}\n");
 }
 
 static void emit_color_select(struct dump_ctx *ctx)
