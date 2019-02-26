@@ -5997,13 +5997,13 @@ int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *a
 
    ret = vrend_resource_insert(gr, args->handle);
    if (ret == 0) {
-      vrend_renderer_resource_destroy(gr, true);
+      vrend_renderer_resource_destroy(gr);
       return ENOMEM;
    }
    return 0;
 }
 
-void vrend_renderer_resource_destroy(struct vrend_resource *res, bool remove)
+void vrend_renderer_resource_destroy(struct vrend_resource *res)
 {
    if (res->readback_fb_id)
       glDeleteFramebuffers(1, &res->readback_fb_id);
@@ -6019,8 +6019,6 @@ void vrend_renderer_resource_destroy(struct vrend_resource *res, bool remove)
          glDeleteTextures(1, &res->id);
    }
 
-   if (res->handle && remove)
-      vrend_resource_remove(res->handle);
    free(res);
 }
 
@@ -6029,7 +6027,7 @@ static void vrend_destroy_resource_object(void *obj_ptr)
    struct vrend_resource *res = obj_ptr;
 
    if (pipe_reference(&res->base.reference, NULL))
-       vrend_renderer_resource_destroy(res, false);
+       vrend_renderer_resource_destroy(res);
 }
 
 void vrend_renderer_resource_unref(uint32_t res_handle)
@@ -7593,7 +7591,7 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
    glBindFramebuffer(GL_FRAMEBUFFER, ctx->sub->fb_id);
 
    if (make_intermediate_copy) {
-      vrend_renderer_resource_destroy(intermediate_copy, false);
+      vrend_renderer_resource_destroy(intermediate_copy);
       glDeleteFramebuffers(1, &intermediate_fbo);
    }
 
