@@ -832,6 +832,12 @@ void vrend_renderer_blit_gl(struct vrend_resource *src_res,
 
    set_dsa_write_depth_keep_stencil();
 
+   if (info->scissor_enable) {
+      glScissor(info->scissor.minx, info->scissor.miny, info->scissor.maxx - info->scissor.minx, info->scissor.maxy - info->scissor.miny);
+      glEnable(GL_SCISSOR_TEST);
+   } else
+      glDisable(GL_SCISSOR_TEST);
+
    for (dst_z = 0; dst_z < info->dst.box.depth; dst_z++) {
       float dst2src_scale = info->src.box.depth / (float)info->dst.box.depth;
       float dst_offset = ((info->src.box.depth - 1) -
