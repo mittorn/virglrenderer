@@ -707,7 +707,7 @@ static void __report_core_warn(const char *fname, struct vrend_context *ctx, enu
 #define GLES_WARN_POLYGON_MODE 2
 #define GLES_WARN_DEPTH_RANGE 3
 #define GLES_WARN_POINT_SIZE 4
-#define GLES_WARN_LOD_BIAS 5
+#define GLES_WARN_SEAMLESS_CUBE_MAP 5
 //#define GLES_WARN_ free slot 6
 #define GLES_WARN_TEXTURE_RECT 7
 #define GLES_WARN_OFFSET_LINE 8
@@ -721,7 +721,7 @@ static void __report_core_warn(const char *fname, struct vrend_context *ctx, enu
 #define GLES_WARN_TIMESTAMP 16
 
 static const char *vrend_gles_warn_strings[] = {
-   "None", "Stipple", "Polygon Mode", "Depth Range", "Point Size", "Lod Bias",
+   "None", "Stipple", "Polygon Mode", "Depth Range", "Point Size", "Seamless Cube Map",
    "<<WARNING #6>>", "Texture Rect", "Offset Line", "Offset Point",
    "Depth Clip", "Flatshade First", "Line Smooth", "Poly Smooth",
    "Depth Clear", "LogicOp", "GL_TIMESTAMP"
@@ -1741,13 +1741,15 @@ int vrend_create_sampler_state(struct vrend_context *ctx,
          glSamplerParameterf(state->ids[i], GL_TEXTURE_MAX_LOD, templ->max_lod);
          glSamplerParameteri(state->ids[i], GL_TEXTURE_COMPARE_MODE, templ->compare_mode ? GL_COMPARE_R_TO_TEXTURE : GL_NONE);
          glSamplerParameteri(state->ids[i], GL_TEXTURE_COMPARE_FUNC, GL_NEVER + templ->compare_func);
+         glSamplerParameterf(state->ids[i], GL_TEXTURE_LOD_BIAS, templ->lod_bias);
+
          if (vrend_state.use_gles) {
-            if (templ->lod_bias != 0.0f) {
-               report_gles_warn(ctx, GLES_WARN_LOD_BIAS, 0);
+            if (templ->seamless_cube_map != 0) {
+               report_gles_warn(ctx, GLES_WARN_SEAMLESS_CUBE_MAP, 0);
             }
          } else {
             glSamplerParameteri(state->ids[i], GL_TEXTURE_CUBE_MAP_SEAMLESS, templ->seamless_cube_map);
-            glSamplerParameterf(state->ids[i], GL_TEXTURE_LOD_BIAS, templ->lod_bias);
+
          }
 
          glSamplerParameterIuiv(state->ids[i], GL_TEXTURE_BORDER_COLOR, templ->border_color.ui);
@@ -5068,7 +5070,7 @@ static void vrend_apply_sampler_state(struct vrend_context *ctx,
       if (tex->state.lod_bias != state->lod_bias || set_all) {
          if (vrend_state.use_gles) {
             if (state->lod_bias) {
-               report_gles_warn(ctx, GLES_WARN_LOD_BIAS, 0);
+               report_gles_warn(ctx, GLES_WARN_SEAMLESS_CUBE_MAP, 0);
             }
          } else {
             glTexParameterf(target, GL_TEXTURE_LOD_BIAS, state->lod_bias);
