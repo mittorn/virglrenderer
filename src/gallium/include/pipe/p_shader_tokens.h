@@ -571,7 +571,43 @@ struct tgsi_property_data {
 #define TGSI_OPCODE_DSSG                222
 #define TGSI_OPCODE_DDIV                223
 #define TGSI_OPCODE_CLOCK               224
-#define TGSI_OPCODE_LAST                225
+
+/* opcodes for ARB_gpu_shader_int64 */
+#define TGSI_OPCODE_I64ABS              225
+#define TGSI_OPCODE_I64NEG              226
+#define TGSI_OPCODE_I64SSG              227
+#define TGSI_OPCODE_I64SLT              228
+#define TGSI_OPCODE_I64SGE              229
+#define TGSI_OPCODE_I64MIN              230
+#define TGSI_OPCODE_I64MAX              231
+#define TGSI_OPCODE_I64SHR              232
+#define TGSI_OPCODE_I64DIV              233
+#define TGSI_OPCODE_I64MOD              234
+#define TGSI_OPCODE_F2I64               235
+#define TGSI_OPCODE_U2I64               236
+#define TGSI_OPCODE_I2I64               237
+#define TGSI_OPCODE_D2I64               238
+#define TGSI_OPCODE_I642F               239
+#define TGSI_OPCODE_I642D               240
+
+#define TGSI_OPCODE_U64ADD              241
+#define TGSI_OPCODE_U64MUL              242
+#define TGSI_OPCODE_U64SEQ              243
+#define TGSI_OPCODE_U64SNE              244
+#define TGSI_OPCODE_U64SLT              245
+#define TGSI_OPCODE_U64SGE              246
+#define TGSI_OPCODE_U64MIN              247
+#define TGSI_OPCODE_U64MAX              248
+#define TGSI_OPCODE_U64SHL              249
+#define TGSI_OPCODE_U64SHR              250
+#define TGSI_OPCODE_U64DIV              251
+#define TGSI_OPCODE_U64MOD              252
+#define TGSI_OPCODE_F2U64               253
+#define TGSI_OPCODE_D2U64               254
+#define TGSI_OPCODE_U642F               255
+#define TGSI_OPCODE_U642D               256
+
+#define TGSI_OPCODE_LAST                257
 
 /**
  * Opcode is the operation code to execute. A given operation defines the
