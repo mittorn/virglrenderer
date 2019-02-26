@@ -137,6 +137,7 @@ enum features_id
    feat_texture_buffer_range,
    feat_texture_gather,
    feat_texture_multisample,
+   feat_texture_query_lod,
    feat_texture_srgb_decode,
    feat_texture_storage,
    feat_texture_view,
@@ -212,6 +213,7 @@ static const  struct {
    FEAT(texture_buffer_range, 43, 32,  "GL_ARB_texture_buffer_range" ),
    FEAT(texture_gather, 40, 31,  "GL_ARB_texture_gather" ),
    FEAT(texture_multisample, 32, 30,  "GL_ARB_texture_multisample" ),
+   FEAT(texture_query_lod, 40, UNAVAIL, "GL_ARB_texture_query_lod", "GL_EXT_texture_query_lod"),
    FEAT(texture_srgb_decode, UNAVAIL, UNAVAIL,  "GL_EXT_texture_sRGB_decode" ),
    FEAT(texture_storage, 42, 30,  "GL_ARB_texture_storage" ),
    FEAT(texture_view, 43, UNAVAIL,  "GL_ARB_texture_view" ),
@@ -8274,12 +8276,12 @@ static void vrend_renderer_fill_caps_v1(int gl_ver, int gles_ver, union virgl_ca
    if (has_feature(feat_cube_map_array))
       caps->v1.bset.cube_map_array = 1;
 
-   if (gl_ver >= 40) {
+   if (has_feature(feat_texture_query_lod))
       caps->v1.bset.texture_query_lod = 1;
+
+   if (gl_ver >= 40) {
       caps->v1.bset.has_fp64 = 1;
    } else {
-      if (epoxy_has_gl_extension("GL_ARB_texture_query_lod"))
-         caps->v1.bset.texture_query_lod = 1;
       /* need gpu shader 5 for bitfield insert */
       if (epoxy_has_gl_extension("GL_ARB_gpu_shader_fp64") &&
           epoxy_has_gl_extension("GL_ARB_gpu_shader5"))

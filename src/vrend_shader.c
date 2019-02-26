@@ -3954,6 +3954,9 @@ static void emit_header(struct dump_ctx *ctx)
             emit_ext(ctx, "OES_shader_image_atomic", "require");
       }
 
+      if (ctx->shader_req_bits & SHADER_REQ_LODQ)
+         emit_ext(ctx, "EXT_texture_query_lod", "require");
+
       emit_hdr(ctx, "precision highp float;\n");
       emit_hdr(ctx, "precision highp int;\n");
    } else {
