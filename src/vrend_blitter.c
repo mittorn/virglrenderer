@@ -843,10 +843,13 @@ void vrend_renderer_blit_gl(struct vrend_resource *src_res,
       vrend_fb_bind_texture(dst_res, 0, info->dst.level, layer);
 
       if (has_srgb_write_control) {
-         if (util_format_is_srgb(info->dst.format))
+         if (util_format_is_srgb(info->dst.format) || util_format_is_srgb(info->src.format)) {
+            VREND_DEBUG(dbg_blit, ctx, "%s: Enable GL_FRAMEBUFFER_SRGB\n", __func__);
             glEnable(GL_FRAMEBUFFER_SRGB);
-         else
+         } else {
+            VREND_DEBUG(dbg_blit, ctx, "%s: Disable GL_FRAMEBUFFER_SRGB\n", __func__);
             glDisable(GL_FRAMEBUFFER_SRGB);
+         }
       }
 
       buffers = GL_COLOR_ATTACHMENT0;
