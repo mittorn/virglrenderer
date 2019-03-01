@@ -4039,14 +4039,14 @@ int vrend_draw_vbo(struct vrend_context *ctx,
          return 0;
       }
 
-      vrend_shader_select(ctx, ctx->sub->shaders[PIPE_SHADER_FRAGMENT], &fs_dirty);
       vrend_shader_select(ctx, ctx->sub->shaders[PIPE_SHADER_VERTEX], &vs_dirty);
-      if (ctx->sub->shaders[PIPE_SHADER_GEOMETRY])
-         vrend_shader_select(ctx, ctx->sub->shaders[PIPE_SHADER_GEOMETRY], &gs_dirty);
       if (ctx->sub->shaders[PIPE_SHADER_TESS_CTRL])
          vrend_shader_select(ctx, ctx->sub->shaders[PIPE_SHADER_TESS_CTRL], &tcs_dirty);
       if (ctx->sub->shaders[PIPE_SHADER_TESS_EVAL])
          vrend_shader_select(ctx, ctx->sub->shaders[PIPE_SHADER_TESS_EVAL], &tes_dirty);
+      if (ctx->sub->shaders[PIPE_SHADER_GEOMETRY])
+         vrend_shader_select(ctx, ctx->sub->shaders[PIPE_SHADER_GEOMETRY], &gs_dirty);
+      vrend_shader_select(ctx, ctx->sub->shaders[PIPE_SHADER_FRAGMENT], &fs_dirty);
 
       if (!ctx->sub->shaders[PIPE_SHADER_VERTEX]->current ||
           !ctx->sub->shaders[PIPE_SHADER_FRAGMENT]->current ||
