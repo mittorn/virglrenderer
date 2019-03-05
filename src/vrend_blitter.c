@@ -514,13 +514,14 @@ static void blitter_set_rectangle(struct vrend_blitter_ctx *blit_ctx,
    glViewport(0, 0, blit_ctx->dst_width, blit_ctx->dst_height);
 }
 
-static void get_texcoords(struct vrend_resource *src_res,
+static void get_texcoords(struct vrend_blitter_ctx *blit_ctx,
+                          struct vrend_resource *src_res,
                           int src_level,
                           int x1, int y1, int x2, int y2,
                           float out[4])
 {
-   bool normalized = src_res->base.target != PIPE_TEXTURE_RECT &&
-      src_res->base.nr_samples <= 1;
+   bool normalized = (src_res->base.target != PIPE_TEXTURE_RECT || blit_ctx->use_gles) &&
+                     src_res->base.nr_samples <= 1;
 
    if (normalized) {
       out[0] = x1 / (float)u_minify(src_res->base.width0,  src_level);
@@ -559,7 +560,7 @@ static void blitter_set_texcoords(struct vrend_blitter_ctx *blit_ctx,
    float coord[4];
    float face_coord[4][2];
    int i;
-   get_texcoords(src_res, level, x1, y1, x2, y2, coord);
+   get_texcoords(blit_ctx, src_res, level, x1, y1, x2, y2, coord);
 
    if (src_res->base.target == PIPE_TEXTURE_CUBE ||
        src_res->base.target == PIPE_TEXTURE_CUBE_ARRAY) {
