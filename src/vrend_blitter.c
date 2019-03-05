@@ -269,6 +269,9 @@ static GLuint blit_build_frag_tex_col_msaa(struct vrend_blitter_ctx *blit_ctx,
             vrend_shader_samplertypeconv(blit_ctx->use_gles, tgsi_tex_target, &is_shad),
             nr_samples, ivec, twm, dest_swizzle_snippet);
 
+   VREND_DEBUG(dbg_blit, NULL, "-- Blit FS shader MSAA -----------------\n"
+               "%s\n---------------------------------------\n", shader_buf);
+
    fs_id = glCreateShader(GL_FRAGMENT_SHADER);
 
    if (!build_and_check(fs_id, shader_buf)) {
@@ -755,6 +758,10 @@ void vrend_renderer_blit_gl(struct vrend_context *ctx,
    dst0.y = info->dst.box.y + dst0_delta.dy;
    dst1.x = info->dst.box.x + info->dst.box.width + dst1_delta.dx;
    dst1.y = info->dst.box.y + info->dst.box.height + dst1_delta.dy;
+
+   VREND_DEBUG(dbg_blit, ctx, "Blitter src:[%3d, %3d] - [%3d, %3d] to dst:[%3d, %3d] - [%3d, %3d]\n",
+               src0.x, src0.y, src1.x, src1.y,
+               dst0.x, dst0.y, dst1.x, dst1.y);
 
    blitter_set_rectangle(blit_ctx, dst0.x, dst0.y, dst1.x, dst1.y, 0);
 

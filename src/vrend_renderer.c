@@ -7868,15 +7868,19 @@ void vrend_renderer_blit(struct vrend_context *ctx,
       vrend_pause_render_condition(ctx, true);
 
    VREND_DEBUG(dbg_blit, ctx, "BLIT: rc:%d scissor:%d filter:%d alpha:%d mask:0x%x\n"
-                                   "  From %s ms:%d [%d, %d, %d]+[%d, %d, %d] lvl:%d\n"
-                                   "  To   %s ms:%d [%d, %d, %d]+[%d, %d, %d] lvl:%d\n",
+                                   "  From %s(%s) ms:%d [%d, %d, %d]+[%d, %d, %d] lvl:%d\n"
+                                   "  To   %s(%s) ms:%d [%d, %d, %d]+[%d, %d, %d] lvl:%d\n",
                                    info->render_condition_enable, info->scissor_enable,
                                    info->filter, info->alpha_blend, info->mask,
-                                   util_format_name(src_res->base.format), src_res->base.nr_samples,
+                                   util_format_name(src_res->base.format),
+                                   util_format_name(info->src.format),
+                                   src_res->base.nr_samples,
                                    info->src.box.x, info->src.box.y, info->src.box.z,
                                    info->src.box.width, info->src.box.height, info->src.box.depth,
                                    info->src.level,
-                                   util_format_name(dst_res->base.format), dst_res->base.nr_samples,
+                                   util_format_name(dst_res->base.format),
+                                   util_format_name(info->dst.format),
+                                   dst_res->base.nr_samples,
                                    info->dst.box.x, info->dst.box.y, info->dst.box.z,
                                    info->dst.box.width, info->dst.box.height, info->dst.box.depth,
                                    info->dst.level);
