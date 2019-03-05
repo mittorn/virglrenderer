@@ -65,13 +65,12 @@ libgallium_la_SOURCES = \
 	os/os_misc.h \
 	os/os_thread.h
 
-util/u_format_table.c: $(srcdir)/util/u_format_table.py $(srcdir)/util/u_format_pack.py $(srcdir)/util/u_format_parse.py $(srcdir)/util/u_format.csv
+util/u_format_table.c: $(srcdir)/util/u_format_table.py $(srcdir)/util/u_format_parse.py $(srcdir)/util/u_format.csv
 	$(AM_V_at)$(MKDIR_P) util
 	$(AM_V_GEN) $(PYTHON) $(srcdir)/util/u_format_table.py $(srcdir)/util/u_format.csv > $@
 
 -include $(top_srcdir)/git.mk
 
 EXTRA_DIST = util/u_format_table.py \
-             util/u_format_pack.py \
              util/u_format_parse.py \
              util/u_format.csv
