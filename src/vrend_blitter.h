@@ -111,8 +111,16 @@
    "   gl_FragDepth = float(texelFetch(samp, %s(tc%s), int(tc.z)).x);\n" \
    "}\n"
 
+#define FS_TEXFETCH_DS_MSAA_BODY_GLES                                     \
+   "uniform mediump sampler%s samp;\n"                                           \
+   "in vec4 tc;\n"                                                       \
+   "void main() {\n"                                                     \
+   "   gl_FragDepth = float(texelFetch(samp, %s(tc%s), int(tc.z)).x);\n" \
+   "}\n"
+
+
 #define FS_TEXFETCH_DS_MSAA_GL HEADER_GL FS_TEXFETCH_DS_MSAA_BODY
-#define FS_TEXFETCH_DS_MSAA_GLES HEADER_GLES FS_TEXFETCH_DS_MSAA_BODY
+#define FS_TEXFETCH_DS_MSAA_GLES HEADER_GLES FS_TEXFETCH_DS_MSAA_BODY_GLES
 
 
 #endif
