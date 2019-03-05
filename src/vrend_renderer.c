@@ -7888,12 +7888,12 @@ void vrend_renderer_blit(struct vrend_context *ctx,
     * to resource_copy_region, in this case and if no render states etx need
     * to be applied, forward the call to glCopyImageSubData, otherwise do a
     * normal blit. */
-   if (has_feature(feat_copy_image) && !info->render_condition_enable &&
-       (src_res->base.format != dst_res->base.format) &&
+   if (has_feature(feat_copy_image) &&
+       (!info->render_condition_enable || !ctx->sub->cond_render_gl_mode) &&
        format_is_copy_compatible(info->src.format,info->dst.format, false) &&
        !info->scissor_enable && (info->filter == PIPE_TEX_FILTER_NEAREST) &&
        !info->alpha_blend && (info->mask == PIPE_MASK_RGBA) &&
-       (src_res->base.nr_samples == dst_res->base.nr_samples) &&
+       src_res->base.nr_samples == dst_res->base.nr_samples &&
        info->src.box.width == info->dst.box.width &&
        info->src.box.height == info->dst.box.height &&
        info->src.box.depth == info->dst.box.depth) {
