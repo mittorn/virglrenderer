@@ -1645,13 +1645,26 @@ int vrend_create_surface(struct vrend_context *ctx,
       int first_layer = surf->val1 & 0xffff;
       int last_layer = (surf->val1 >> 16) & 0xffff;
 
+      VREND_DEBUG(dbg_tex, ctx, "Create texture view from %s for %s\n",
+                  util_format_name(res->base.format),
+                  util_format_name(surf->format));
+
       if ((first_layer != last_layer &&
            (first_layer != 0 || (last_layer != (int)util_max_layer(&res->base, surf->val0)))) ||
           surf->format != res->base.format) {
          GLenum internalformat = tex_conv_table[surf->format].internalformat;
+         GLenum target = res->target;
          glGenTextures(1, &surf->id);
-         assert(!vrend_state.use_gles || res->target != GL_TEXTURE_RECTANGLE_NV);
-         glTextureView(surf->id, res->target, res->id, internalformat,
+
+         if (vrend_state.use_gles) {
+            if (target == GL_TEXTURE_RECTANGLE_NV ||
+                target == GL_TEXTURE_1D)
+               target = GL_TEXTURE_2D;
+            else if (target == GL_TEXTURE_1D_ARRAY)
+               target = GL_TEXTURE_2D_ARRAY;
+         }
+
+         glTextureView(surf->id, target, res->id, internalformat,
                        0, res->base.last_level + 1,
                        first_layer, last_layer - first_layer + 1);
       }
@@ -1869,9 +1882,14 @@ int vrend_create_sampler_view(struct vrend_context *ctx,
    pipe_reference_init(&view->reference, 1);
    view->format = format & 0xffffff;
    view->target = tgsitargettogltarget((format >> 24) & 0xff, res->base.nr_samples);
-   /* Work around TEXTURE_RECTANGLE missing on GLES */
-   if (vrend_state.use_gles && view->target == GL_TEXTURE_RECTANGLE_NV)
-      view->target = GL_TEXTURE_2D;
+   /* Work around TEXTURE_RECTANGLE and TEXTURE_1D missing on GLES */
+   if (vrend_state.use_gles) {
+      if (view->target == GL_TEXTURE_RECTANGLE_NV ||
+          view->target == GL_TEXTURE_1D)
+         view->target = GL_TEXTURE_2D;
+      else if (view->target == GL_TEXTURE_1D_ARRAY)
+         view->target = GL_TEXTURE_2D_ARRAY;
+   }
 
    view->val0 = val0;
    view->val1 = val1;
@@ -1955,7 +1973,7 @@ int vrend_create_sampler_view(struct vrend_context *ctx,
         unsigned max_layer = (view->val0 >> 16) & 0xffff;
         int base_level = view->val1 & 0xff;
         int max_level = (view->val1 >> 8) & 0xff;
-        assert(!vrend_state.use_gles || view->target != GL_TEXTURE_RECTANGLE_NV);
+
         glTextureView(view->id, view->target, view->texture->id, internalformat,
                       base_level, (max_level - base_level) + 1,
                       base_layer, max_layer - base_layer + 1);
@@ -7546,6 +7564,35 @@ void vrend_renderer_resource_copy_region(struct vrend_context *ctx,
       glEnable(GL_SCISSOR_TEST);
 }
 
+static GLuint vrend_make_view(struct vrend_resource *res, enum pipe_format format)
+{
+   GLuint view_id;
+   glGenTextures(1, &view_id);
+   GLenum fmt = tex_conv_table[format].internalformat;
+
+   /* If the format doesn't support TextureStorage it is not immutable, so no TextureView*/
+   if (!(tex_conv_table[format].bindings & VIRGL_BIND_CAN_TEXTURE_STORAGE))
+      return res->id;
+
+   VREND_DEBUG(dbg_blit, NULL, "Create texture view from %s for %s\n",
+               util_format_name(res->base.format),
+               util_format_name(format));
+
+   unsigned layers_factor = 1;
+   if (res->target == GL_TEXTURE_CUBE_MAP || res->target == GL_TEXTURE_CUBE_MAP_ARRAY)
+      layers_factor = 6;
+
+   if (vrend_state.use_gles) {
+      assert(res->target != GL_TEXTURE_RECTANGLE_NV);
+      assert(res->target != GL_TEXTURE_1D);
+      assert(res->target != GL_TEXTURE_1D_ARRAY);
+   }
+
+   glTextureView(view_id, res->target, res->id, fmt, 0, res->base.last_level + 1,
+                 0, layers_factor * res->base.depth0);
+   return view_id;
+}
+
 static void vrend_renderer_blit_int(struct vrend_context *ctx,
                                     struct vrend_resource *src_res,
                                     struct vrend_resource *dst_res,
@@ -7559,6 +7606,8 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
    bool make_intermediate_copy = false;
    GLuint intermediate_fbo = 0;
    struct vrend_resource *intermediate_copy = 0;
+
+   GLuint blitter_views[2] = {src_res->id, dst_res->id};
 
    filter = convert_mag_filter(info->filter);
 
@@ -7604,13 +7653,20 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
    if (vrend_blit_needs_swizzle(info->dst.format, info->src.format))
       use_gl = true;
 
+   if ((src_res->base.format != info->src.format) && has_feature(feat_texture_view))
+      blitter_views[0] = vrend_make_view(src_res, info->src.format);
+
+   if ((dst_res->base.format != info->dst.format) && has_feature(feat_texture_view))
+      blitter_views[1] = vrend_make_view(dst_res, info->dst.format);
+
+
    if (use_gl) {
       VREND_DEBUG(dbg_blit, ctx, "BLIT_INT: use GL fallback\n");
-      vrend_renderer_blit_gl(src_res, dst_res, info,
+      vrend_renderer_blit_gl(ctx, src_res, dst_res, blitter_views, info,
                              has_feature(feat_texture_srgb_decode),
                              has_feature(feat_srgb_write_control));
       vrend_clicbs->make_current(ctx->sub->gl_context);
-      return;
+      goto cleanup;
    }
 
    if (info->mask & PIPE_MASK_Z)
@@ -7671,7 +7727,7 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
       args.width = src_res->base.width0;
       args.height = src_res->base.height0;
       args.depth = src_res->base.depth0;
-      args.format = src_res->base.format;
+      args.format = info->src.format;
       args.target = src_res->base.target;
       args.last_level = src_res->base.last_level;
       args.array_size = src_res->base.array_size;
@@ -7706,7 +7762,7 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
       n_layers = info->dst.box.depth;
    for (i = 0; i < n_layers; i++) {
       glBindFramebuffer(GL_FRAMEBUFFER, ctx->sub->blit_fb_ids[0]);
-      vrend_fb_bind_texture(src_res, 0, info->src.level, info->src.box.z + i);
+      vrend_fb_bind_texture_id(src_res, blitter_views[0], 0, info->src.level, info->src.box.z + i);
 
       if (make_intermediate_copy) {
          int level_width = u_minify(src_res->base.width0, info->src.level);
@@ -7724,7 +7780,7 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
       }
 
       glBindFramebuffer(GL_FRAMEBUFFER, ctx->sub->blit_fb_ids[1]);
-      vrend_fb_bind_texture(dst_res, 0, info->dst.level, info->dst.box.z + i);
+      vrend_fb_bind_texture_id(dst_res, blitter_views[1], 0, info->dst.level, info->dst.box.z + i);
       glBindFramebuffer(GL_DRAW_FRAMEBUFFER, ctx->sub->blit_fb_ids[1]);
 
       if (has_feature(feat_srgb_write_control)) {
@@ -7758,6 +7814,13 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
       glEnable(GL_SCISSOR_TEST);
    else
       glDisable(GL_SCISSOR_TEST);
+
+cleanup:
+   if (blitter_views[0] != src_res->id)
+      glDeleteTextures(1, &blitter_views[0]);
+
+   if (blitter_views[1] != dst_res->id)
+      glDeleteTextures(1, &blitter_views[1]);
 }
 
 void vrend_renderer_blit(struct vrend_context *ctx,

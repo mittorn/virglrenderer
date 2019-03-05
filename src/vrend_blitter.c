@@ -696,8 +696,10 @@ static void calc_dst_deltas_from_src(const struct pipe_blit_info *info,
 }
 
 /* implement blitting using OpenGL. */
-void vrend_renderer_blit_gl(struct vrend_resource *src_res,
+void vrend_renderer_blit_gl(struct vrend_context *ctx,
+                            struct vrend_resource *src_res,
                             struct vrend_resource *dst_res,
+                            GLenum blit_views[2],
                             const struct pipe_blit_info *info,
                             bool has_texture_srgb_decode,
                             bool has_srgb_write_control)
@@ -783,12 +785,12 @@ void vrend_renderer_blit_gl(struct vrend_resource *src_res,
    glUseProgram(prog_id);
 
    glBindFramebuffer(GL_FRAMEBUFFER, blit_ctx->fb_id);
-   vrend_fb_bind_texture(dst_res, 0, info->dst.level, info->dst.box.z);
+   vrend_fb_bind_texture_id(dst_res, blit_views[1], 0, info->dst.level, info->dst.box.z);
 
    buffers = GL_COLOR_ATTACHMENT0;
    glDrawBuffers(1, &buffers);
 
-   glBindTexture(src_res->target, src_res->id);
+   glBindTexture(src_res->target, blit_views[0]);
 
    if (src_entry->flags & VIRGL_BIND_NEED_SWIZZLE) {
       glTexParameteri(src_res->target, GL_TEXTURE_SWIZZLE_R,
@@ -846,7 +848,7 @@ void vrend_renderer_blit_gl(struct vrend_resource *src_res,
       uint32_t layer = (dst_res->target == GL_TEXTURE_CUBE_MAP) ? info->dst.box.z : dst_z;
 
       glBindFramebuffer(GL_FRAMEBUFFER, blit_ctx->fb_id);
-      vrend_fb_bind_texture(dst_res, 0, info->dst.level, layer);
+      vrend_fb_bind_texture_id(dst_res, blit_views[1], 0, info->dst.level, layer);
 
       if (has_srgb_write_control) {
          if (util_format_is_srgb(info->dst.format) || util_format_is_srgb(info->src.format)) {
