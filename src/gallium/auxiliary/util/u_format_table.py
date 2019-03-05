@@ -89,8 +89,13 @@ def write_format_table(formats):
     print('#include "u_format.h"')
     print()
     
-    u_format_pack.generate(formats)
-    
+    print()
+    print('#include "pipe/p_compiler.h"')
+    print('#include "u_math.h"')
+    print('#include "u_half.h"')
+    print('#include "u_format.h"')
+    print()
+
     def do_channel_array(channels, swizzles):
         print("   {")
         for i in range(4):

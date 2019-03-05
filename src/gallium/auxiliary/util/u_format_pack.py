@@ -50,12 +50,3 @@ def print_channels(format, func):
         print('#else')
         func(format.le_channels, format.le_swizzles)
         print('#endif')
-
-def generate(formats):
-    print()
-    print('#include "pipe/p_compiler.h"')
-    print('#include "u_math.h"')
-    print('#include "u_half.h"')
-    print('#include "u_format.h"')
-    print()
-
