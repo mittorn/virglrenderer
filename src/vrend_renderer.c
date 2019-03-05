@@ -2954,10 +2954,7 @@ static inline void vrend_fill_shader_key(struct vrend_context *ctx,
       if (key->tcs_present)
          prev_type = PIPE_SHADER_TESS_CTRL;
       else
-         if (!ctx->shader_cfg.use_gles)
-            prev_type = PIPE_SHADER_VERTEX;
-         else
-            report_context_error(ctx, VIRGL_ERROR_CTX_GLES_HAVE_TES_BUT_MISS_TCS, 0);
+         prev_type = PIPE_SHADER_VERTEX;
       break;
    case PIPE_SHADER_TESS_CTRL:
       prev_type = PIPE_SHADER_VERTEX;
