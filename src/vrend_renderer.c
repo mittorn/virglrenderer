@@ -229,7 +229,7 @@ static const  struct {
    FEAT(texture_query_lod, 40, UNAVAIL, "GL_ARB_texture_query_lod", "GL_EXT_texture_query_lod"),
    FEAT(texture_srgb_decode, UNAVAIL, UNAVAIL,  "GL_EXT_texture_sRGB_decode" ),
    FEAT(texture_storage, 42, 30,  "GL_ARB_texture_storage" ),
-   FEAT(texture_view, 43, UNAVAIL,  "GL_ARB_texture_view" ),
+   FEAT(texture_view, 43, UNAVAIL,  "GL_ARB_texture_view", "GL_OES_texture_view" ),
    FEAT(timer_query, 33, UNAVAIL, "GL_ARB_timer_query", "GL_EXT_disjoint_timer_query"),
    FEAT(transform_feedback, 30, 30,  "GL_EXT_transform_feedback" ),
    FEAT(transform_feedback2, 40, 30,  "GL_ARB_transform_feedback2" ),
@@ -1632,7 +1632,8 @@ int vrend_create_surface(struct vrend_context *ctx,
    surf->val1 = val1;
    surf->id = res->id;
 
-   if (has_feature(feat_texture_view) && !res->is_buffer) {
+   if (has_feature(feat_texture_view) && !res->is_buffer &&
+       (tex_conv_table[res->base.format].bindings & VIRGL_BIND_CAN_TEXTURE_STORAGE)) {
       /* We don't need texture views for buffer objects.
        * Otherwise we only need a texture view if the
        * a) formats differ between the surface and base texture
@@ -1649,6 +1650,7 @@ int vrend_create_surface(struct vrend_context *ctx,
           surf->format != res->base.format) {
          GLenum internalformat = tex_conv_table[surf->format].internalformat;
          glGenTextures(1, &surf->id);
+         assert(!vrend_state.use_gles || res->target != GL_TEXTURE_RECTANGLE_NV);
          glTextureView(surf->id, res->target, res->id, internalformat,
                        0, res->base.last_level + 1,
                        first_layer, last_layer - first_layer + 1);
@@ -1867,6 +1869,10 @@ int vrend_create_sampler_view(struct vrend_context *ctx,
    pipe_reference_init(&view->reference, 1);
    view->format = format & 0xffffff;
    view->target = tgsitargettogltarget((format >> 24) & 0xff, res->base.nr_samples);
+   /* Work around TEXTURE_RECTANGLE missing on GLES */
+   if (vrend_state.use_gles && view->target == GL_TEXTURE_RECTANGLE_NV)
+      view->target = GL_TEXTURE_2D;
+
    view->val0 = val0;
    view->val1 = val1;
 
@@ -1942,13 +1948,14 @@ int vrend_create_sampler_view(struct vrend_context *ctx,
          format = view->texture->base.format;
       else if (view->format != view->texture->base.format)
          needs_view = true;
-      if (needs_view) {
+      if (needs_view && (tex_conv_table[view->texture->base.format].bindings & VIRGL_BIND_CAN_TEXTURE_STORAGE)) {
         glGenTextures(1, &view->id);
         GLenum internalformat = tex_conv_table[format].internalformat;
         unsigned base_layer = view->val0 & 0xffff;
         unsigned max_layer = (view->val0 >> 16) & 0xffff;
         int base_level = view->val1 & 0xff;
         int max_level = (view->val1 >> 8) & 0xff;
+        assert(!vrend_state.use_gles || view->target != GL_TEXTURE_RECTANGLE_NV);
         glTextureView(view->id, view->target, view->texture->id, internalformat,
                       base_level, (max_level - base_level) + 1,
                       base_layer, max_layer - base_layer + 1);
