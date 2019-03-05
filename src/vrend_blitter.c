@@ -805,8 +805,9 @@ void vrend_renderer_blit_gl(struct vrend_context *ctx,
    }
 
    /* Just make sure that no stale state disabled decoding */
-   if (has_texture_srgb_decode && util_format_is_srgb(src_res->base.format))
-         glTexParameteri(src_res->target, GL_TEXTURE_SRGB_DECODE_EXT, GL_DECODE_EXT);
+   if (has_texture_srgb_decode && util_format_is_srgb(info->src.format) &&
+       src_res->base.nr_samples < 2)
+      glTexParameteri(src_res->target, GL_TEXTURE_SRGB_DECODE_EXT, GL_DECODE_EXT);
 
    if (src_res->base.nr_samples <= 1) {
       glTexParameteri(src_res->target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
