@@ -86,14 +86,10 @@ def write_format_table(formats):
     # This will print the copyright message on the top of this file
     print(CopyRight.strip())
     print()
-    print('#include "u_format.h"')
-    print()
-    
-    print()
     print('#include "pipe/p_compiler.h"')
-    print('#include "u_math.h"')
-    print('#include "u_half.h"')
     print('#include "u_format.h"')
+    print('#include "u_half.h"')
+    print('#include "u_math.h"')
     print()
 
     def do_channel_array(channels, swizzles):
