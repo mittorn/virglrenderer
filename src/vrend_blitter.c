@@ -246,6 +246,7 @@ static GLuint blit_build_frag_tex_col_msaa(struct vrend_blitter_ctx *blit_ctx,
    const char *ext_str = blit_ctx->use_gles ? "" :
                          "#extension GL_ARB_texture_multisample : enable\n";
 
+   bool is_array = false;
    switch (tgsi_tex_target) {
    case TGSI_TEXTURE_2D_MSAA:
       twm = ".xy";
@@ -254,6 +255,7 @@ static GLuint blit_build_frag_tex_col_msaa(struct vrend_blitter_ctx *blit_ctx,
    case TGSI_TEXTURE_2D_ARRAY_MSAA:
       twm = ".xyz";
       ivec = "ivec3";
+      is_array = true;
       break;
    default:
       return 0;
@@ -263,7 +265,9 @@ static GLuint blit_build_frag_tex_col_msaa(struct vrend_blitter_ctx *blit_ctx,
       create_dest_swizzle_snippet(swizzle, dest_swizzle_snippet);
 
    snprintf(shader_buf, 4096,
-            blit_ctx->use_gles ? FS_TEXFETCH_COL_MSAA_GLES : FS_TEXFETCH_COL_MSAA_GL,
+            blit_ctx->use_gles ?
+              (is_array ?  FS_TEXFETCH_COL_MSAA_ARRAY_GLES :  FS_TEXFETCH_COL_MSAA_GLES)
+             : FS_TEXFETCH_COL_MSAA_GL,
             ext_str, vec4_type_for_tgsi_ret(tgsi_ret),
             vrend_shader_samplerreturnconv(tgsi_ret),
             vrend_shader_samplertypeconv(blit_ctx->use_gles, tgsi_tex_target, &is_shad),
@@ -324,7 +328,8 @@ static GLuint blit_build_frag_tex_writedepth(struct vrend_blitter_ctx *blit_ctx,
       break;
    }
 
-   snprintf(shader_buf, 4096, blit_ctx->use_gles ? FS_TEXFETCH_DS_GLES : FS_TEXFETCH_DS_GL,
+   snprintf(shader_buf, 4096, blit_ctx->use_gles ? FS_TEXFETCH_DS_GLES
+                                                 : FS_TEXFETCH_DS_GL,
       vrend_shader_samplertypeconv(blit_ctx->use_gles, tgsi_tex_target, &is_shad), twm);
 
    fs_id = glCreateShader(GL_FRAGMENT_SHADER);
@@ -345,6 +350,7 @@ static GLuint blit_build_frag_blit_msaa_depth(struct vrend_blitter_ctx *blit_ctx
    const char *twm;
    const char *ivec;
 
+   bool is_array = false;
    switch (tgsi_tex_target) {
    case TGSI_TEXTURE_2D_MSAA:
       twm = ".xy";
@@ -353,12 +359,15 @@ static GLuint blit_build_frag_blit_msaa_depth(struct vrend_blitter_ctx *blit_ctx
    case TGSI_TEXTURE_2D_ARRAY_MSAA:
       twm = ".xyz";
       ivec = "ivec3";
+      is_array = true;
       break;
    default:
       return 0;
    }
 
-   snprintf(shader_buf, 4096, blit_ctx->use_gles ? FS_TEXFETCH_DS_MSAA_GLES : FS_TEXFETCH_DS_MSAA_GL,
+   snprintf(shader_buf, 4096, blit_ctx->use_gles ?
+               (is_array ?  FS_TEXFETCH_DS_MSAA_ARRAY_GLES :  FS_TEXFETCH_DS_MSAA_GLES)
+             : FS_TEXFETCH_DS_MSAA_GL,
       vrend_shader_samplertypeconv(blit_ctx->use_gles, tgsi_tex_target, &is_shad), ivec, twm);
 
    fs_id = glCreateShader(GL_FRAGMENT_SHADER);

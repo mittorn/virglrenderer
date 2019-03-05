@@ -35,6 +35,13 @@
    "#version 310 es\n"                          \
    "precision mediump float;\n"                 \
 
+#define HEADER_GLES_MS_ARRAY                             \
+   "// Blitter\n"                               \
+   "#version 310 es\n"                          \
+   "#extension GL_OES_texture_storage_multisample_2d_array: require\n" \
+   "precision mediump float;\n"                 \
+
+
 #define VS_PASSTHROUGH_BODY                     \
    "in vec4 arg0;\n"                            \
    "in vec4 arg1;\n"                            \
@@ -91,6 +98,7 @@
 
 #define FS_TEXFETCH_COL_MSAA_GL HEADER_GL FS_TEXFETCH_COL_MSAA_BODY
 #define FS_TEXFETCH_COL_MSAA_GLES HEADER_GLES FS_TEXFETCH_COL_MSAA_BODY
+#define FS_TEXFETCH_COL_MSAA_ARRAY_GLES HEADER_GLES_MS_ARRAY FS_TEXFETCH_COL_MSAA_BODY
 
 #define FS_TEXFETCH_DS_BODY                             \
    "uniform sampler%s samp;\n"                          \
@@ -121,6 +129,7 @@
 
 #define FS_TEXFETCH_DS_MSAA_GL HEADER_GL FS_TEXFETCH_DS_MSAA_BODY
 #define FS_TEXFETCH_DS_MSAA_GLES HEADER_GLES FS_TEXFETCH_DS_MSAA_BODY_GLES
+#define FS_TEXFETCH_DS_MSAA_ARRAY_GLES HEADER_GLES_MS_ARRAY FS_TEXFETCH_DS_MSAA_BODY_GLES
 
 
 #endif
