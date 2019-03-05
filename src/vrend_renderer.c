@@ -2029,10 +2029,10 @@ void debug_texture(const char *f, const struct vrend_resource *gt)
 #undef PRINT_TARGET
 }
 
-static void vrend_fb_bind_texture_id(struct vrend_resource *res,
-                                     int id,
-                                     int idx,
-                                     uint32_t level, uint32_t layer)
+void vrend_fb_bind_texture_id(struct vrend_resource *res,
+                              int id,
+                              int idx,
+                              uint32_t level, uint32_t layer)
 {
    const struct util_format_description *desc = util_format_description(res->base.format);
    GLenum attachment = GL_COLOR_ATTACHMENT0 + idx;

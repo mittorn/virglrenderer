@@ -301,6 +301,11 @@ void vrend_set_uniform_buffer(struct vrend_context *ctx, uint32_t shader,
                               uint32_t index, uint32_t offset, uint32_t length,
                               uint32_t res_handle);
 
+void vrend_fb_bind_texture_id(struct vrend_resource *res,
+                              int id,
+                              int idx,
+                              uint32_t level, uint32_t layer);
+
 void vrend_set_tess_state(struct vrend_context *ctx, const float tess_factors[6]);
 
 void vrend_renderer_fini(void);
