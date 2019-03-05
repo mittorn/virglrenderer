@@ -968,72 +968,11 @@ util_format_get_first_non_void_channel(enum pipe_format format)
 }
 
 /*
- * Format access functions.
- */
-
-void
-util_format_read_4f(enum pipe_format format,
-                    float *dst, unsigned dst_stride, 
-                    const void *src, unsigned src_stride, 
-                    unsigned x, unsigned y, unsigned w, unsigned h);
-
-void
-util_format_write_4f(enum pipe_format format,
-                     const float *src, unsigned src_stride, 
-                     void *dst, unsigned dst_stride, 
-                     unsigned x, unsigned y, unsigned w, unsigned h);
-
-void
-util_format_read_4ub(enum pipe_format format,
-                     uint8_t *dst, unsigned dst_stride, 
-                     const void *src, unsigned src_stride, 
-                     unsigned x, unsigned y, unsigned w, unsigned h);
-
-void
-util_format_write_4ub(enum pipe_format format,
-                      const uint8_t *src, unsigned src_stride, 
-                      void *dst, unsigned dst_stride, 
-                      unsigned x, unsigned y, unsigned w, unsigned h);
-
-void
-util_format_read_4ui(enum pipe_format format,
-                     unsigned *dst, unsigned dst_stride,
-                     const void *src, unsigned src_stride,
-                     unsigned x, unsigned y, unsigned w, unsigned h);
-
-void
-util_format_write_4ui(enum pipe_format format,
-                      const unsigned int *src, unsigned src_stride,
-                      void *dst, unsigned dst_stride,
-                      unsigned x, unsigned y, unsigned w, unsigned h);
-
-void
-util_format_read_4i(enum pipe_format format,
-                    int *dst, unsigned dst_stride,
-                    const void *src, unsigned src_stride,
-                    unsigned x, unsigned y, unsigned w, unsigned h);
-
-void
-util_format_write_4i(enum pipe_format format,
-                     const int *src, unsigned src_stride,
-                     void *dst, unsigned dst_stride,
-                     unsigned x, unsigned y, unsigned w, unsigned h);
-
-/*
  * Generic format conversion;
  */
 
 boolean
 util_format_fits_8unorm(const struct util_format_description *format_desc);
-
-boolean
-util_format_translate(enum pipe_format dst_format,
-                      void *dst, unsigned dst_stride,
-                      unsigned dst_x, unsigned dst_y,
-                      enum pipe_format src_format,
-                      const void *src, unsigned src_stride,
-                      unsigned src_x, unsigned src_y,
-                      unsigned width, unsigned height);
 
 /*
  * Swizzle operations.
