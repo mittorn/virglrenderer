@@ -7307,7 +7307,8 @@ static inline
 GLenum translate_gles_emulation_texture_target(GLenum target)
 {
    switch (target) {
-   case GL_TEXTURE_1D: return GL_TEXTURE_2D;
+   case GL_TEXTURE_1D:
+   case GL_TEXTURE_RECTANGLE: return GL_TEXTURE_2D;
    case GL_TEXTURE_1D_ARRAY: return GL_TEXTURE_2D_ARRAY;
    default: return target;
    }
