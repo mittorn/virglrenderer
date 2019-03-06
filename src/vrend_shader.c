@@ -2081,7 +2081,10 @@ static bool fill_offset_buffer(struct dump_ctx *ctx,
       case TGSI_TEXTURE_1D_ARRAY:
       case TGSI_TEXTURE_SHADOW1D:
       case TGSI_TEXTURE_SHADOW1D_ARRAY:
-         snprintf(offbuf, 256, ", int(%d)", imd->val[inst->TexOffsets[0].SwizzleX].i);
+         if (!ctx->cfg->use_gles)
+            snprintf(offbuf, 256, ", int(%d)", imd->val[inst->TexOffsets[0].SwizzleX].i);
+         else
+            snprintf(offbuf, 256, ", ivec2(%d, 0)", imd->val[inst->TexOffsets[0].SwizzleX].i);
          break;
       case TGSI_TEXTURE_RECT:
       case TGSI_TEXTURE_SHADOWRECT:
@@ -2421,7 +2424,7 @@ static void translate_tex(struct dump_ctx *ctx,
    if (inst->Instruction.Opcode == TGSI_OPCODE_TXF) {
       if (ctx->cfg->use_gles && (inst->Texture.Texture == TGSI_TEXTURE_1D ||
                                  inst->Texture.Texture == TGSI_TEXTURE_1D_ARRAY)) {
-         const char *vtype = inst->Texture.Texture == TGSI_TEXTURE_1D ? "vec2" : "vec3";
+         const char *vtype = inst->Texture.Texture == TGSI_TEXTURE_1D ? "ivec2" : "ivec3";
          emit_buff(ctx, "%s = %s(%s(texelFetch%s(%s, %s(%s(%s%s), 0)%s%s)%s));\n",
                    dsts[0], get_string(dinfo->dstconv), get_string(dtypeprefix), tex_ext, srcs[sampler_index],
                    vtype, get_string(txfi), srcs[0], get_wm_string(twm), bias, offbuf, dinfo->dst_override_no_wm[0] ? "" : writemask);
