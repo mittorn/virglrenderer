@@ -1993,6 +1993,13 @@ static void emit_txq(struct dump_ctx *ctx,
                              (ctx->cfg->use_gles ||
                               (inst->Texture.Texture != TGSI_TEXTURE_1D &&
                                inst->Texture.Texture != TGSI_TEXTURE_SHADOW1D));
+
+      if (ctx->cfg->use_gles &&
+          (inst->Texture.Texture == TGSI_TEXTURE_1D_ARRAY ||
+           inst->Texture.Texture == TGSI_TEXTURE_SHADOW1D_ARRAY)) {
+         writemask = ".xz";
+      }
+
       emit_buff(ctx, "%s%s = %s(textureSize(%s%s))%s;\n", dsts[0], get_wm_string(twm), get_string(dtypeprefix), srcs[sampler_index], bias,
             txq_returns_vec ? writemask : "");
    }
