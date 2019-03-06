@@ -2422,12 +2422,19 @@ static void translate_tex(struct dump_ctx *ctx,
    }
 
    if (inst->Instruction.Opcode == TGSI_OPCODE_TXF) {
-      if (ctx->cfg->use_gles && (inst->Texture.Texture == TGSI_TEXTURE_1D ||
-                                 inst->Texture.Texture == TGSI_TEXTURE_1D_ARRAY)) {
-         const char *vtype = inst->Texture.Texture == TGSI_TEXTURE_1D ? "ivec2" : "ivec3";
-         emit_buff(ctx, "%s = %s(%s(texelFetch%s(%s, %s(%s(%s%s), 0)%s%s)%s));\n",
-                   dsts[0], get_string(dinfo->dstconv), get_string(dtypeprefix), tex_ext, srcs[sampler_index],
-                   vtype, get_string(txfi), srcs[0], get_wm_string(twm), bias, offbuf, dinfo->dst_override_no_wm[0] ? "" : writemask);
+      if (ctx->cfg->use_gles &&
+          (inst->Texture.Texture == TGSI_TEXTURE_1D ||
+           inst->Texture.Texture == TGSI_TEXTURE_1D_ARRAY)) {
+         if (inst->Texture.Texture == TGSI_TEXTURE_1D)
+            emit_buff(ctx, "%s = %s(%s(texelFetch%s(%s, ivec2(%s(%s%s), 0)%s%s)%s));\n",
+                      dsts[0], get_string(dinfo->dstconv), get_string(dtypeprefix), tex_ext, srcs[sampler_index],
+                  get_string(txfi), srcs[0], get_wm_string(twm), bias, offbuf, dinfo->dst_override_no_wm[0] ? "" : writemask);
+         else {
+            /* the y coordinate must go into the z element and the y must be zero */
+            emit_buff(ctx, "%s = %s(%s(texelFetch%s(%s, ivec3(%s(%s%s), 0).xzy%s%s)%s));\n",
+                      dsts[0], get_string(dinfo->dstconv), get_string(dtypeprefix), tex_ext, srcs[sampler_index],
+                  get_string(txfi), srcs[0], get_wm_string(twm), bias, offbuf, dinfo->dst_override_no_wm[0] ? "" : writemask);
+         }
       } else {
          emit_buff(ctx, "%s = %s(%s(texelFetch%s(%s, %s(%s%s)%s%s)%s));\n", dsts[0], get_string(dinfo->dstconv), get_string(dtypeprefix),
                tex_ext, srcs[sampler_index], get_string(txfi), srcs[0], get_wm_string(twm), bias, offbuf, dinfo->dst_override_no_wm[0] ? "" : writemask);
