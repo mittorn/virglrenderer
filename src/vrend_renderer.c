@@ -7303,18 +7303,35 @@ static void vrend_resource_copy_fallback(struct vrend_resource *src_res,
    free(tptr);
 }
 
+static inline
+GLenum translate_gles_emulation_texture_target(GLenum target)
+{
+   switch (target) {
+   case GL_TEXTURE_1D: return GL_TEXTURE_2D;
+   case GL_TEXTURE_1D_ARRAY: return GL_TEXTURE_2D_ARRAY;
+   default: return target;
+   }
+}
+
 
 static inline void
 vrend_copy_sub_image(struct vrend_resource* src_res, struct vrend_resource * dst_res,
                      uint32_t src_level, const struct pipe_box *src_box,
                      uint32_t dst_level, uint32_t dstx, uint32_t dsty, uint32_t dstz)
 {
-   glCopyImageSubData(src_res->id,
-                      tgsitargettogltarget(src_res->base.target, src_res->base.nr_samples),
-                      src_level, src_box->x, src_box->y, src_box->z,
-                      dst_res->id,
-                      tgsitargettogltarget(dst_res->base.target, dst_res->base.nr_samples),
-                      dst_level, dstx, dsty, dstz,
+
+   GLenum src_target = tgsitargettogltarget(src_res->base.target, src_res->base.nr_samples);
+   GLenum dst_target = tgsitargettogltarget(dst_res->base.target, dst_res->base.nr_samples);
+
+   if (vrend_state.use_gles) {
+      src_target = translate_gles_emulation_texture_target(src_target);
+      dst_target = translate_gles_emulation_texture_target(dst_target);
+   }
+
+   glCopyImageSubData(src_res->id, src_target, src_level,
+                      src_box->x, src_box->y, src_box->z,
+                      dst_res->id, dst_target, dst_level,
+                      dstx, dsty, dstz,
                       src_box->width, src_box->height,src_box->depth);
 }
 
