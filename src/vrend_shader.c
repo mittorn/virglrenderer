@@ -341,7 +341,7 @@ enum io_type {
  * support dereferencing block members. */
 static inline bool prefer_generic_io_block(struct dump_ctx *ctx, enum io_type io)
 {
-   if (ctx->cfg->has_arrays_of_arrays)
+   if (ctx->cfg->has_arrays_of_arrays && !ctx->cfg->use_gles)
       return false;
 
    switch (ctx->prog_type) {
@@ -1705,7 +1705,7 @@ get_blockname(char outvar[64], const char *stage_prefix, const struct vrend_shad
 static inline void
 get_blockvarname(char outvar[64], const char *stage_prefix, const struct vrend_shader_io *io, const char *postfix)
 {
-   snprintf(outvar, 64, "%sg%dA%d_%x%s", stage_prefix, io->sid, io->array_id, io->usage_mask, postfix);
+   snprintf(outvar, 64, "%sg%dA%d_%x%s", stage_prefix, io->first, io->array_id, io->usage_mask, postfix);
 }
 
 static void get_so_name(struct dump_ctx *ctx, bool from_block, const struct vrend_shader_io *output, int index, char out_var[255], char *wm)
@@ -3837,10 +3837,11 @@ void rewrite_io_ranged(struct dump_ctx *ctx)
             ctx->inputs[i].glsl_predefined_no_emit = true;
             if (ctx->inputs[i].sid < ctx->patch_input_range.io.sid || ctx->patch_input_range.used == false) {
                ctx->patch_input_range.io.first = i;
+               ctx->patch_input_range.io.usage_mask = 0xf;
                ctx->patch_input_range.io.name = TGSI_SEMANTIC_PATCH;
                ctx->patch_input_range.io.sid = ctx->inputs[i].sid;
                ctx->patch_input_range.used = true;
-               if (ctx->cfg->has_arrays_of_arrays)
+               if (ctx->cfg->has_arrays_of_arrays && !ctx->cfg->use_gles)
                   ctx->shader_req_bits |= SHADER_REQ_ARRAYS_OF_ARRAYS;
             }
             if (ctx->inputs[i].sid > ctx->patch_input_range.io.last)
@@ -3853,10 +3854,9 @@ void rewrite_io_ranged(struct dump_ctx *ctx)
                ctx->generic_input_range.io.sid = ctx->inputs[i].sid;
                ctx->generic_input_range.io.first = i;
                ctx->generic_input_range.io.name = TGSI_SEMANTIC_GENERIC;
-               ctx->generic_input_range.io.usage_mask = 0xf;
                ctx->generic_input_range.io.num_components = 4;
                ctx->generic_input_range.used = true;
-               if (ctx->cfg->has_arrays_of_arrays)
+               if (ctx->cfg->has_arrays_of_arrays && !ctx->cfg->use_gles)
                   ctx->shader_req_bits |= SHADER_REQ_ARRAYS_OF_ARRAYS;
             }
             if (ctx->inputs[i].sid > ctx->generic_input_range.io.last)
@@ -3897,7 +3897,7 @@ void rewrite_io_ranged(struct dump_ctx *ctx)
                ctx->patch_output_range.io.name = TGSI_SEMANTIC_PATCH;
                ctx->patch_output_range.io.sid = ctx->outputs[i].sid;
                ctx->patch_output_range.used = true;
-               if (ctx->cfg->has_arrays_of_arrays)
+               if (ctx->cfg->has_arrays_of_arrays && !ctx->cfg->use_gles)
                   ctx->shader_req_bits |= SHADER_REQ_ARRAYS_OF_ARRAYS;
             }
             if (ctx->outputs[i].sid > ctx->patch_output_range.io.last) {
@@ -3914,7 +3914,7 @@ void rewrite_io_ranged(struct dump_ctx *ctx)
                ctx->generic_output_range.used = true;
                ctx->generic_output_range.io.usage_mask = 0xf;
                ctx->generic_output_range.io.num_components = 4;
-               if (ctx->cfg->has_arrays_of_arrays)
+               if (ctx->cfg->has_arrays_of_arrays && !ctx->cfg->use_gles)
                   ctx->shader_req_bits |= SHADER_REQ_ARRAYS_OF_ARRAYS;
             }
             if (ctx->outputs[i].sid > ctx->generic_output_range.io.last) {
@@ -5411,10 +5411,10 @@ static void emit_ios_indirect_generics_input(struct dump_ctx *ctx, const char *p
 
          char blockname[64];
          char blockvarame[64];
-         const char *stage_prefix = get_stage_output_name_prefix(ctx->prog_type);
+         const char *stage_prefix = get_stage_input_name_prefix(ctx, ctx->prog_type);
 
-         get_blockname(blockname, stage_prefix, &ctx->generic_output_range.io);
-         get_blockvarname(blockvarame, stage_prefix, &ctx->generic_output_range.io,
+         get_blockname(blockname, stage_prefix, &ctx->generic_input_range.io);
+         get_blockvarname(blockvarame, stage_prefix, &ctx->generic_input_range.io,
                           postfix);
 
          emit_hdrf(ctx, "in %s {\n        vec4 %s[%d]; \n} %s;\n",
@@ -5474,10 +5474,11 @@ emit_ios_generics(struct dump_ctx *ctx, enum io_type iot,  const char *prefix,
 
          emit_hdrf(ctx, "%s %s {\n", inout, blockname);
          emit_hdr(ctx, layout);
-         emit_hdrf(ctx, "%s%s%s     vec4 %s[%d]; \n} %s;\n",
+         emit_hdrf(ctx, "%s%s%s     %s %s[%d]; \n} %s;\n",
                    prefix,
                    io->precise ? "precise " : "",
                    io->invariant ? "invariant " : "",
+                   t,
                    io->glsl_name,
                    io->last - io->first +1,
                    blockvarame);
