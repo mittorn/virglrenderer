@@ -271,6 +271,9 @@ struct global_renderer_state {
 
    pipe_thread sync_thread;
    virgl_gl_context sync_context;
+
+   /* Needed on GLES to inject a TCS */
+   float tess_factors[6];
 };
 
 static struct global_renderer_state vrend_state;
@@ -2993,7 +2996,7 @@ static inline void vrend_fill_shader_key(struct vrend_context *ctx,
         if (!ctx->shader_cfg.use_gles)
            next_type = PIPE_SHADER_TESS_EVAL;
         else
-           report_context_error(ctx, VIRGL_ERROR_CTX_GLES_HAVE_TES_BUT_MISS_TCS, 0);
+           next_type = PIPE_SHADER_TESS_CTRL;
      } else
         next_type = PIPE_SHADER_FRAGMENT;
      break;
@@ -3037,20 +3040,23 @@ static int vrend_shader_create(struct vrend_context *ctx,
                                struct vrend_shader_key key)
 {
 
-   if (!shader->sel->tokens) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SHADER, 0);
-      return -1;
-   }
-
    shader->id = glCreateShader(conv_shader_type(shader->sel->type));
    shader->compiled_fs_id = 0;
-   bool ret = vrend_convert_shader(ctx, &ctx->shader_cfg, shader->sel->tokens,
-                                   shader->sel->req_local_mem, &key, &shader->sel->sinfo, &shader->glsl_strings);
-   if (!ret) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SHADER, 0);
+
+   if (shader->sel->tokens) {
+      bool ret = vrend_convert_shader(ctx, &ctx->shader_cfg, shader->sel->tokens,
+                                      shader->sel->req_local_mem, &key, &shader->sel->sinfo, &shader->glsl_strings);
+      if (!ret) {
+         report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SHADER, shader->sel->type);
+         glDeleteShader(shader->id);
+         return -1;
+      }
+   } else if (!ctx->shader_cfg.use_gles && shader->sel->type != TGSI_PROCESSOR_TESS_CTRL) {
+      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SHADER, shader->sel->type);
       glDeleteShader(shader->id);
       return -1;
    }
+
    shader->key = key;
    if (1) {//shader->sel->type == PIPE_SHADER_FRAGMENT || shader->sel->type == PIPE_SHADER_GEOMETRY) {
       bool ret;
@@ -3967,6 +3973,38 @@ static void vrend_draw_bind_objects(struct vrend_context *ctx, bool new_program)
    }
 }
 
+static
+void vrend_inject_tcs(struct vrend_context *ctx, int vertices_per_patch)
+{
+   struct pipe_stream_output_info so_info;
+
+   memset(&so_info, 0, sizeof(so_info));
+   struct vrend_shader_selector *sel = vrend_create_shader_state(ctx,
+                                                                 &so_info,
+                                                                 false, PIPE_SHADER_TESS_CTRL);
+   struct vrend_shader *shader;
+   shader = CALLOC_STRUCT(vrend_shader);
+   vrend_fill_shader_key(ctx, sel->type, &shader->key);
+
+   shader->sel = sel;
+   list_inithead(&shader->programs);
+   strarray_alloc(&shader->glsl_strings, SHADER_MAX_STRINGS);
+
+   vrend_shader_create_passthrough_tcs(ctx, &ctx->shader_cfg,
+                                       ctx->sub->shaders[PIPE_SHADER_VERTEX]->tokens,
+                                       &shader->key, vrend_state.tess_factors, &sel->sinfo,
+                                       &shader->glsl_strings, vertices_per_patch);
+   // Need to add inject the selected shader to the shader selector and then the code below
+   // can continue
+   sel->tokens = NULL;
+   sel->current = shader;
+   ctx->sub->shaders[PIPE_SHADER_TESS_CTRL] = sel;
+   ctx->sub->shaders[PIPE_SHADER_TESS_CTRL]->num_shaders = 1;
+
+   shader->id = glCreateShader(conv_shader_type(shader->sel->type));
+   vrend_compile_shader(ctx, shader);
+}
+
 int vrend_draw_vbo(struct vrend_context *ctx,
                    const struct pipe_draw_info *info,
                    uint32_t cso, uint32_t indirect_handle,
@@ -4040,8 +4078,16 @@ int vrend_draw_vbo(struct vrend_context *ctx,
       }
 
       vrend_shader_select(ctx, ctx->sub->shaders[PIPE_SHADER_VERTEX], &vs_dirty);
-      if (ctx->sub->shaders[PIPE_SHADER_TESS_CTRL])
+
+      if (ctx->sub->shaders[PIPE_SHADER_TESS_CTRL] && ctx->sub->shaders[PIPE_SHADER_TESS_CTRL]->tokens)
          vrend_shader_select(ctx, ctx->sub->shaders[PIPE_SHADER_TESS_CTRL], &tcs_dirty);
+      else if (vrend_state.use_gles && ctx->sub->shaders[PIPE_SHADER_TESS_EVAL]) {
+         VREND_DEBUG(dbg_shader, ctx, "Need to inject a TCS\n");
+         vrend_inject_tcs(ctx, info->vertices_per_patch);
+
+         vrend_shader_select(ctx, ctx->sub->shaders[PIPE_SHADER_VERTEX], &vs_dirty);
+      }
+
       if (ctx->sub->shaders[PIPE_SHADER_TESS_EVAL])
          vrend_shader_select(ctx, ctx->sub->shaders[PIPE_SHADER_TESS_EVAL], &tes_dirty);
       if (ctx->sub->shaders[PIPE_SHADER_GEOMETRY])
@@ -7092,9 +7138,13 @@ void vrend_set_min_samples(struct vrend_context *ctx, unsigned min_samples)
 
 void vrend_set_tess_state(UNUSED struct vrend_context *ctx, const float tess_factors[6])
 {
-   if (has_feature(feat_tessellation) && !vrend_state.use_gles) {
-      glPatchParameterfv(GL_PATCH_DEFAULT_OUTER_LEVEL, tess_factors);
-      glPatchParameterfv(GL_PATCH_DEFAULT_INNER_LEVEL, &tess_factors[4]);
+   if (has_feature(feat_tessellation)) {
+      if (!vrend_state.use_gles) {
+         glPatchParameterfv(GL_PATCH_DEFAULT_OUTER_LEVEL, tess_factors);
+         glPatchParameterfv(GL_PATCH_DEFAULT_INNER_LEVEL, &tess_factors[4]);
+      } else {
+         memcpy(vrend_state.tess_factors, tess_factors, 6 * sizeof (float));
+      }
    }
 }
 

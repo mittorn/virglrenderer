@@ -6298,7 +6298,7 @@ static bool allocate_strbuffers(struct dump_ctx* ctx)
    return true;
 }
 
-static bool set_strbuffers(struct vrend_context *rctx, struct dump_ctx* ctx,
+static void set_strbuffers(struct vrend_context *rctx, struct dump_ctx* ctx,
                            struct vrend_strarray *shader)
 {
    strarray_addstrbuf(shader, &ctx->glsl_ver_ext);
@@ -6511,4 +6511,210 @@ bool vrend_patch_vertex_shader_interpolants(struct vrend_context *rctx,
    VREND_DEBUG(dbg_shader_glsl, rctx, "\n");
 
    return true;
+}
+
+static boolean
+iter_vs_declaration(struct tgsi_iterate_context *iter,
+                    struct tgsi_full_declaration *decl)
+{
+   struct dump_ctx *ctx = (struct dump_ctx *)iter;
+
+   const char *shader_in_prefix = "vso";
+   const char *shader_out_prefix = "tco";
+   const char *name_prefix = "";
+   unsigned i;
+   unsigned mask_temp;
+
+   // Generate a shader that passes through all VS outputs
+   if (decl->Declaration.File == TGSI_FILE_OUTPUT) {
+      for (uint32_t j = 0; j < ctx->num_inputs; j++) {
+         if (ctx->inputs[j].name == decl->Semantic.Name &&
+             ctx->inputs[j].sid == decl->Semantic.Index &&
+             ctx->inputs[j].first == decl->Range.First &&
+             ctx->inputs[j].usage_mask  == decl->Declaration.UsageMask &&
+             ((!decl->Declaration.Array && ctx->inputs[j].array_id == 0) ||
+              (ctx->inputs[j].array_id  == decl->Array.ArrayID)))
+            return true;
+      }
+      i = ctx->num_inputs++;
+
+      ctx->inputs[i].name = decl->Semantic.Name;
+      ctx->inputs[i].sid = decl->Semantic.Index;
+      ctx->inputs[i].interpolate = decl->Interp.Interpolate;
+      ctx->inputs[i].location = decl->Interp.Location;
+      ctx->inputs[i].first = decl->Range.First;
+      ctx->inputs[i].layout_location = 0;
+      ctx->inputs[i].last = decl->Range.Last;
+      ctx->inputs[i].array_id = decl->Declaration.Array ? decl->Array.ArrayID : 0;
+      ctx->inputs[i].usage_mask  = mask_temp = decl->Declaration.UsageMask;
+      u_bit_scan_consecutive_range(&mask_temp, &ctx->inputs[i].swizzle_offset, &ctx->inputs[i].num_components);
+
+      ctx->inputs[i].glsl_predefined_no_emit = false;
+      ctx->inputs[i].glsl_no_index = false;
+      ctx->inputs[i].override_no_wm = ctx->inputs[i].num_components == 1;
+      ctx->inputs[i].glsl_gl_block = false;
+
+      switch (ctx->inputs[i].name) {
+      case TGSI_SEMANTIC_PSIZE:
+         name_prefix = "gl_PointSize";
+         ctx->inputs[i].glsl_predefined_no_emit = true;
+         ctx->inputs[i].glsl_no_index = true;
+         ctx->inputs[i].override_no_wm = true;
+         ctx->inputs[i].glsl_gl_block = true;
+         ctx->shader_req_bits |= SHADER_REQ_PSIZE;
+         break;
+
+      case TGSI_SEMANTIC_CLIPDIST:
+         name_prefix = "gl_ClipDistance";
+         ctx->inputs[i].glsl_predefined_no_emit = true;
+         ctx->inputs[i].glsl_no_index = true;
+         ctx->inputs[i].glsl_gl_block = true;
+         ctx->num_in_clip_dist += 4 * (ctx->inputs[i].last - ctx->inputs[i].first + 1);
+         ctx->shader_req_bits |= SHADER_REQ_CLIP_DISTANCE;
+         if (ctx->inputs[i].last != ctx->inputs[i].first)
+            ctx->guest_sent_io_arrays = true;
+         break;
+
+      case TGSI_SEMANTIC_POSITION:
+         name_prefix = "gl_Position";
+         ctx->inputs[i].glsl_predefined_no_emit = true;
+         ctx->inputs[i].glsl_no_index = true;
+         ctx->inputs[i].glsl_gl_block = true;
+         break;
+
+      case TGSI_SEMANTIC_PATCH:
+      case TGSI_SEMANTIC_GENERIC:
+         if (ctx->inputs[i].first != ctx->inputs[i].last ||
+             ctx->inputs[i].array_id > 0) {
+            ctx->guest_sent_io_arrays = true;
+            if (!ctx->cfg->use_gles)
+               ctx->shader_req_bits |= SHADER_REQ_ARRAYS_OF_ARRAYS;
+         }
+         break;
+      default:
+         break;
+      }
+
+      memcpy(&ctx->outputs[i], &ctx->inputs[i], sizeof(struct vrend_shader_io));
+
+      if (ctx->inputs[i].glsl_no_index) {
+         snprintf(ctx->inputs[i].glsl_name, 128, "%s", name_prefix);
+         snprintf(ctx->outputs[i].glsl_name, 128, "%s", name_prefix);
+      } else {
+         if (ctx->inputs[i].name == TGSI_SEMANTIC_FOG){
+            ctx->inputs[i].usage_mask = 0xf;
+            ctx->inputs[i].num_components = 4;
+            ctx->inputs[i].swizzle_offset = 0;
+            ctx->inputs[i].override_no_wm = false;
+            snprintf(ctx->inputs[i].glsl_name, 64, "%s_f%d", shader_in_prefix, ctx->inputs[i].sid);
+            snprintf(ctx->outputs[i].glsl_name, 64, "%s_f%d", shader_out_prefix, ctx->inputs[i].sid);
+         } else if (ctx->inputs[i].name == TGSI_SEMANTIC_COLOR) {
+            snprintf(ctx->inputs[i].glsl_name, 64, "%s_c%d", shader_in_prefix, ctx->inputs[i].sid);
+            snprintf(ctx->outputs[i].glsl_name, 64, "%s_c%d", shader_out_prefix, ctx->inputs[i].sid);
+         } else if (ctx->inputs[i].name == TGSI_SEMANTIC_GENERIC) {
+            snprintf(ctx->inputs[i].glsl_name, 64, "%s_g%dA%d_%x",
+                     shader_in_prefix, ctx->inputs[i].sid,
+                     ctx->inputs[i].array_id, ctx->inputs[i].usage_mask);
+            snprintf(ctx->outputs[i].glsl_name, 64, "%s_g%dA%d_%x",
+                     shader_out_prefix, ctx->inputs[i].sid,
+                     ctx->inputs[i].array_id, ctx->inputs[i].usage_mask);
+         } else if (ctx->inputs[i].name == TGSI_SEMANTIC_PATCH) {
+            snprintf(ctx->inputs[i].glsl_name, 64, "%s_p%dA%d_%x",
+                     shader_in_prefix, ctx->inputs[i].sid,
+                     ctx->inputs[i].array_id, ctx->inputs[i].usage_mask);
+            snprintf(ctx->outputs[i].glsl_name, 64, "%s_p%dA%d_%x",
+                     shader_out_prefix, ctx->inputs[i].sid,
+                     ctx->inputs[i].array_id, ctx->inputs[i].usage_mask);
+         } else {
+            snprintf(ctx->outputs[i].glsl_name, 64, "%s_%d", shader_in_prefix, ctx->inputs[i].first);
+            snprintf(ctx->inputs[i].glsl_name, 64, "%s_%d", shader_out_prefix, ctx->inputs[i].first);
+         }
+      }
+   }
+   return true;
+}
+
+bool vrend_shader_create_passthrough_tcs(struct vrend_context *rctx,
+                                         struct vrend_shader_cfg *cfg,
+                                         struct tgsi_token *vs_tokens,
+                                         struct vrend_shader_key *key,
+                                         const float tess_factors[6],
+                                         struct vrend_shader_info *sinfo,
+                                         struct vrend_strarray *shader,
+                                         int vertices_per_patch)
+{
+   struct dump_ctx ctx;
+
+   memset(&ctx, 0, sizeof(struct dump_ctx));
+
+   ctx.prog_type = TGSI_PROCESSOR_TESS_CTRL;
+   ctx.cfg = cfg;
+   ctx.key = key;
+   ctx.iter.iterate_declaration = iter_vs_declaration;
+   ctx.ssbo_array_base = 0xffffffff;
+   ctx.ssbo_atomic_array_base = 0xffffffff;
+   ctx.has_sample_input = false;
+
+   if (!allocate_strbuffers(&ctx))
+      goto fail;
+
+   tgsi_iterate_shader(vs_tokens, &ctx.iter);
+
+   /*  What is the default on GL? */
+   ctx.tcs_vertices_out = vertices_per_patch;
+
+   ctx.num_outputs = ctx.num_inputs;
+
+   handle_io_arrays(&ctx);
+
+   emit_header(&ctx);
+   emit_ios(&ctx);
+
+   emit_buf(&ctx, "void main() {\n");
+
+   for (unsigned int i = 0; i < ctx.num_inputs; ++i) {
+      const char *out_prefix = "";
+      const char *in_prefix = "";
+
+      const char *postfix = "";
+
+      if (ctx.inputs[i].glsl_gl_block) {
+         out_prefix = "gl_out[gl_InvocationID].";
+         in_prefix = "gl_in[gl_InvocationID].";
+      } else {
+         postfix = "[gl_InvocationID]";
+      }
+
+      if (ctx.inputs[i].first == ctx.inputs[i].last) {
+         emit_buff(&ctx, "%s%s%s = %s%s%s;\n",
+                   out_prefix, ctx.outputs[i].glsl_name, postfix,
+                   in_prefix, ctx.inputs[i].glsl_name, postfix);
+      } else {
+         unsigned size = ctx.inputs[i].last == ctx.inputs[i].first + 1;
+         for (unsigned int k = 0; k < size; ++k) {
+            emit_buff(&ctx, "%s%s%s[%d] = %s%s%s[%d];\n",
+                      out_prefix, ctx.outputs[i].glsl_name, postfix, k,
+                      in_prefix, ctx.inputs[i].glsl_name, postfix, k);
+         }
+      }
+   }
+
+   for (int i = 0; i < 4; ++i)
+      emit_buff(&ctx, "gl_TessLevelOuter[%d] = %f;\n", i, tess_factors[i]);
+
+   for (int i = 0; i < 2; ++i)
+      emit_buff(&ctx, "gl_TessLevelInner[%d] = %f;\n", i, tess_factors[i + 4]);
+
+   emit_buf(&ctx, "}\n");
+
+   fill_sinfo(&ctx, sinfo);
+   set_strbuffers(rctx, &ctx, shader);
+   return true;
+fail:
+   strbuf_free(&ctx.glsl_main);
+   strbuf_free(&ctx.glsl_hdr);
+   strbuf_free(&ctx.glsl_ver_ext);
+   free(ctx.so_names);
+   free(ctx.temp_ranges);
+   return false;
 }
