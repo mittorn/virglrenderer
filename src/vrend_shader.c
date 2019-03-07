@@ -4549,13 +4549,13 @@ iter_instruction(struct tgsi_iterate_context *iter,
       break;
    case TGSI_OPCODE_UMUL_HI:
       emit_buff(ctx, "umulExtended(%s, %s, umul_temp, mul_utemp);\n", srcs[0], srcs[1]);
-      emit_buff(ctx, "%s = %s(%s(umul_temp));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix));
+      emit_buff(ctx, "%s = %s(%s(umul_temp%s));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), writemask);
       ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
       ctx->write_mul_utemp = true;
       break;
    case TGSI_OPCODE_IMUL_HI:
       emit_buff(ctx, "imulExtended(%s, %s, imul_temp, mul_itemp);\n", srcs[0], srcs[1]);
-      emit_buff(ctx, "%s = %s(%s(imul_temp));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix));
+      emit_buff(ctx, "%s = %s(%s(imul_temp%s));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), writemask);
       ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
       ctx->write_mul_itemp = true;
       break;
