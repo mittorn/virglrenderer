@@ -4322,6 +4322,63 @@ void renumber_io_arrays(unsigned nio, struct vrend_shader_io *io)
    }
 }
 
+static void handle_io_arrays(struct dump_ctx *ctx)
+{
+   bool require_enhanced_layouts = false;
+
+   /* If the guest sent real IO arrays then we declare them individually,
+    * and have to do some work to deal with overlapping values, regions and
+    * enhanced layouts */
+   if (ctx->guest_sent_io_arrays)  {
+
+      /* Array ID numbering is not ordered accross shaders, so do
+       * some renumbering for generics and patches. */
+      renumber_io_arrays(ctx->num_inputs, ctx->inputs);
+      renumber_io_arrays(ctx->num_outputs, ctx->outputs);
+
+   }
+
+
+   /* In these shaders the inputs don't have the layout component information
+       * therefore, copy the info from the prev shaders output */
+   if (ctx->prog_type == TGSI_PROCESSOR_GEOMETRY ||
+       ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL ||
+       ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL)
+      require_enhanced_layouts |= apply_prev_layout(ctx);
+
+   if (ctx->guest_sent_io_arrays)  {
+      if (ctx->num_inputs > 0)
+         if (evaluate_layout_overlays(ctx->num_inputs, ctx->inputs,
+                                      get_stage_input_name_prefix(ctx, ctx->prog_type),
+                                      ctx->key->coord_replace)) {
+            require_enhanced_layouts = true;
+         }
+
+      if (ctx->num_outputs > 0)
+         if (evaluate_layout_overlays(ctx->num_outputs, ctx->outputs,
+                                      get_stage_output_name_prefix(ctx->prog_type), 0)){
+            require_enhanced_layouts = true;
+         }
+
+   } else {
+      /* The guest didn't send real arrays, do we might have to add a big array
+       * for all generic and another ofr patch inputs */
+      rewrite_io_ranged(ctx);
+      rewrite_components(ctx->num_inputs, ctx->inputs,
+                         get_stage_input_name_prefix(ctx, ctx->prog_type),
+                         ctx->key->coord_replace, true);
+
+      rewrite_components(ctx->num_outputs, ctx->outputs,
+                         get_stage_output_name_prefix(ctx->prog_type), 0, true);
+   }
+
+   if (require_enhanced_layouts) {
+      ctx->shader_req_bits |= SHADER_REQ_ENHANCED_LAYOUTS;
+      ctx->shader_req_bits |= SHADER_REQ_SEPERATE_SHADER_OBJECTS;
+   }
+}
+
+
 static boolean
 iter_instruction(struct tgsi_iterate_context *iter,
                  struct tgsi_full_instruction *inst)
@@ -4341,61 +4398,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
       ctx->prog_type = iter->processor.Processor;
 
    if (instno == 0) {
-
-      bool require_enhanced_layouts = false;
-
-      /* If the guest sent real IO arrays then we declare them individually,
-       * and have to do some work to deal with overlapping values, regions and
-       * enhanced layouts */
-      if (ctx->guest_sent_io_arrays)  {
-
-         /* Array ID numbering is not ordered accross shaders, so do
-          * some renumbering for generics and patches. */
-         renumber_io_arrays(ctx->num_inputs, ctx->inputs);
-         renumber_io_arrays(ctx->num_outputs, ctx->outputs);
-
-      }
-
-
-      /* In these shaders the inputs don't have the layout component information
-          * therefore, copy the info from the prev shaders output */
-      if (ctx->prog_type == TGSI_PROCESSOR_GEOMETRY ||
-          ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL ||
-          ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL)
-         require_enhanced_layouts |= apply_prev_layout(ctx);
-
-      if (ctx->guest_sent_io_arrays)  {
-         if (ctx->num_inputs > 0)
-            if (evaluate_layout_overlays(ctx->num_inputs, ctx->inputs,
-                                         get_stage_input_name_prefix(ctx, ctx->prog_type),
-                                         ctx->key->coord_replace)) {
-               require_enhanced_layouts = true;
-            }
-
-         if (ctx->num_outputs > 0)
-            if (evaluate_layout_overlays(ctx->num_outputs, ctx->outputs,
-                                         get_stage_output_name_prefix(ctx->prog_type), 0)){
-               require_enhanced_layouts = true;
-            }
-
-      } else {
-         /* The guest didn't send real arrays, do we might have to add a big array
-          * for all generic and another ofr patch inputs */
-         rewrite_io_ranged(ctx);
-         rewrite_components(ctx->num_inputs, ctx->inputs,
-                            get_stage_input_name_prefix(ctx, ctx->prog_type),
-                            ctx->key->coord_replace, true);
-
-         rewrite_components(ctx->num_outputs, ctx->outputs,
-                            get_stage_output_name_prefix(ctx->prog_type), 0, true);
-      }
-
-      if (require_enhanced_layouts) {
-         ctx->shader_req_bits |= SHADER_REQ_ENHANCED_LAYOUTS;
-         /* We could skip this for VS inputs and FS outputs, but if enhanced layouts
-          * are supported then separate shader objects are probably available too */
-         ctx->shader_req_bits |= SHADER_REQ_SEPERATE_SHADER_OBJECTS;
-      }
+      handle_io_arrays(ctx);
 
       /* Vertex shader inputs are not send as arrays, but the access may still be
        * indirect. so we have to deal with that */
@@ -6204,6 +6207,108 @@ static boolean analyze_instruction(struct tgsi_iterate_context *iter,
    return true;
 }
 
+static void fill_sinfo(struct dump_ctx *ctx, struct vrend_shader_info *sinfo)
+{
+   sinfo->num_ucp = ctx->key->clip_plane_enable ? 8 : 0;
+   sinfo->has_pervertex_out = ctx->vs_has_pervertex;
+   sinfo->has_sample_input = ctx->has_sample_input;
+   bool has_prop = (ctx->num_clip_dist_prop + ctx->num_cull_dist_prop) > 0;
+   sinfo->num_clip_out = has_prop ? ctx->num_clip_dist_prop : (ctx->num_clip_dist ? ctx->num_clip_dist : 8);
+   sinfo->num_cull_out = has_prop ? ctx->num_cull_dist_prop : 0;
+   sinfo->samplers_used_mask = ctx->samplers_used;
+   sinfo->images_used_mask = ctx->images_used_mask;
+   sinfo->num_consts = ctx->num_consts;
+   sinfo->ubo_used_mask = ctx->ubo_used_mask;
+
+   sinfo->ssbo_used_mask = ctx->ssbo_used_mask;
+
+   sinfo->ubo_indirect = ctx->info.dimension_indirect_files & (1 << TGSI_FILE_CONSTANT);
+
+   if (ctx->generic_input_range.used)
+      sinfo->num_indirect_generic_inputs = ctx->generic_input_range.io.last - ctx->generic_input_range.io.sid + 1;
+   if (ctx->patch_input_range.used)
+      sinfo->num_indirect_patch_inputs = ctx->patch_input_range.io.last - ctx->patch_input_range.io.sid + 1;
+
+   if (ctx->generic_output_range.used)
+      sinfo->num_indirect_generic_outputs = ctx->generic_output_range.io.last - ctx->generic_output_range.io.sid + 1;
+   if (ctx->patch_output_range.used)
+      sinfo->num_indirect_patch_outputs = ctx->patch_output_range.io.last - ctx->patch_output_range.io.sid + 1;
+
+   sinfo->num_inputs = ctx->num_inputs;
+   sinfo->num_interps = ctx->num_interps;
+   sinfo->num_outputs = ctx->num_outputs;
+   sinfo->shadow_samp_mask = ctx->shadow_samp_mask;
+   sinfo->glsl_ver = ctx->glsl_ver_required;
+   sinfo->gs_out_prim = ctx->gs_out_prim;
+   sinfo->tes_prim = ctx->tes_prim_mode;
+   sinfo->tes_point_mode = ctx->tes_point_mode;
+
+   if (sinfo->so_names || ctx->so_names) {
+      if (sinfo->so_names) {
+         for (unsigned i = 0; i < sinfo->so_info.num_outputs; ++i)
+            free(sinfo->so_names[i]);
+         free(sinfo->so_names);
+      }
+   }
+
+   /* Record information about the layout of generics and patches for apssing it
+    * to the next shader stage. mesa/tgsi doesn't provide this information for
+    * TCS, TES, and GEOM shaders.
+    */
+   sinfo->guest_sent_io_arrays = ctx->guest_sent_io_arrays;
+   sinfo->num_generic_and_patch_outputs = 0;
+   for(unsigned i = 0; i < ctx->num_outputs; i++) {
+         sinfo->generic_outputs_layout[sinfo->num_generic_and_patch_outputs].name = ctx->outputs[i].name;
+         sinfo->generic_outputs_layout[sinfo->num_generic_and_patch_outputs].sid = ctx->outputs[i].sid;
+         sinfo->generic_outputs_layout[sinfo->num_generic_and_patch_outputs].location = ctx->outputs[i].layout_location;
+         sinfo->generic_outputs_layout[sinfo->num_generic_and_patch_outputs].array_id = ctx->outputs[i].array_id;
+         sinfo->generic_outputs_layout[sinfo->num_generic_and_patch_outputs].usage_mask = ctx->outputs[i].usage_mask;
+         if (ctx->outputs[i].name == TGSI_SEMANTIC_GENERIC || ctx->outputs[i].name == TGSI_SEMANTIC_PATCH) {
+            sinfo->num_generic_and_patch_outputs++;
+      }
+   }
+
+   sinfo->so_names = ctx->so_names;
+   sinfo->attrib_input_mask = ctx->attrib_input_mask;
+   if (sinfo->sampler_arrays)
+      free(sinfo->sampler_arrays);
+   sinfo->sampler_arrays = ctx->sampler_arrays;
+   sinfo->num_sampler_arrays = ctx->num_sampler_arrays;
+   if (sinfo->image_arrays)
+      free(sinfo->image_arrays);
+   sinfo->image_arrays = ctx->image_arrays;
+   sinfo->num_image_arrays = ctx->num_image_arrays;
+
+}
+
+static bool allocate_strbuffers(struct dump_ctx* ctx)
+{
+   if (!strbuf_alloc(&ctx->glsl_main, 4096))
+      return false;
+
+   if (strbuf_get_error(&ctx->glsl_main))
+      return false;
+
+   if (!strbuf_alloc(&ctx->glsl_hdr, 1024))
+      return false;
+
+   if (!strbuf_alloc(&ctx->glsl_ver_ext, 1024))
+      return false;
+
+   return true;
+}
+
+static bool set_strbuffers(struct vrend_context *rctx, struct dump_ctx* ctx,
+                           struct vrend_strarray *shader)
+{
+   strarray_addstrbuf(shader, &ctx->glsl_ver_ext);
+   strarray_addstrbuf(shader, &ctx->glsl_hdr);
+   strarray_addstrbuf(shader, &ctx->glsl_main);
+   VREND_DEBUG(dbg_shader_glsl, rctx, "GLSL:");
+   VREND_DEBUG_EXT(dbg_shader_glsl, rctx, strarray_dump(shader));
+   VREND_DEBUG(dbg_shader_glsl, rctx, "\n");
+}
+
 bool vrend_convert_shader(struct vrend_context *rctx,
 			  struct vrend_shader_cfg *cfg,
 			  const struct tgsi_token *tokens,
@@ -6270,21 +6375,13 @@ bool vrend_convert_shader(struct vrend_context *rctx,
    if (ctx.info.indirect_files & (1 << TGSI_FILE_SAMPLER))
       ctx.shader_req_bits |= SHADER_REQ_GPU_SHADER5;
 
-   if (!strbuf_alloc(&ctx.glsl_main, 4096))
+   if (!allocate_strbuffers(&ctx))
       goto fail;
 
    bret = tgsi_iterate_shader(tokens, &ctx.iter);
    if (bret == false)
       goto fail;
 
-   if (strbuf_get_error(&ctx.glsl_main))
-      goto fail;
-
-   if (!strbuf_alloc(&ctx.glsl_hdr, 1024))
-      goto fail;
-
-   if (!strbuf_alloc(&ctx.glsl_ver_ext, 1024))
-      goto fail;
 
    emit_header(&ctx);
    emit_ios(&ctx);
@@ -6297,82 +6394,10 @@ bool vrend_convert_shader(struct vrend_context *rctx,
       goto fail;
 
    free(ctx.temp_ranges);
-   sinfo->num_ucp = ctx.key->clip_plane_enable ? 8 : 0;
-   sinfo->has_pervertex_out = ctx.vs_has_pervertex;
-   sinfo->has_sample_input = ctx.has_sample_input;
-   bool has_prop = (ctx.num_clip_dist_prop + ctx.num_cull_dist_prop) > 0;
-   sinfo->num_clip_out = has_prop ? ctx.num_clip_dist_prop : (ctx.num_clip_dist ? ctx.num_clip_dist : 8);
-   sinfo->num_cull_out = has_prop ? ctx.num_cull_dist_prop : 0;
-   sinfo->samplers_used_mask = ctx.samplers_used;
-   sinfo->images_used_mask = ctx.images_used_mask;
-   sinfo->num_consts = ctx.num_consts;
-   sinfo->ubo_used_mask = ctx.ubo_used_mask;
 
-   sinfo->ssbo_used_mask = ctx.ssbo_used_mask;
+   fill_sinfo(&ctx, sinfo);
+   set_strbuffers(rctx, &ctx, shader);
 
-   sinfo->ubo_indirect = ctx.info.dimension_indirect_files & (1 << TGSI_FILE_CONSTANT);
-
-   if (ctx.generic_input_range.used)
-      sinfo->num_indirect_generic_inputs = ctx.generic_input_range.io.last - ctx.generic_input_range.io.sid + 1;
-   if (ctx.patch_input_range.used)
-      sinfo->num_indirect_patch_inputs = ctx.patch_input_range.io.last - ctx.patch_input_range.io.sid + 1;
-
-   if (ctx.generic_output_range.used)
-      sinfo->num_indirect_generic_outputs = ctx.generic_output_range.io.last - ctx.generic_output_range.io.sid + 1;
-   if (ctx.patch_output_range.used)
-      sinfo->num_indirect_patch_outputs = ctx.patch_output_range.io.last - ctx.patch_output_range.io.sid + 1;
-
-   sinfo->num_inputs = ctx.num_inputs;
-   sinfo->num_interps = ctx.num_interps;
-   sinfo->num_outputs = ctx.num_outputs;
-   sinfo->shadow_samp_mask = ctx.shadow_samp_mask;
-   sinfo->glsl_ver = ctx.glsl_ver_required;
-   sinfo->gs_out_prim = ctx.gs_out_prim;
-   sinfo->tes_prim = ctx.tes_prim_mode;
-   sinfo->tes_point_mode = ctx.tes_point_mode;
-
-   if (sinfo->so_names || ctx.so_names) {
-      if (sinfo->so_names) {
-         for (unsigned i = 0; i < sinfo->so_info.num_outputs; ++i)
-            free(sinfo->so_names[i]);
-         free(sinfo->so_names);
-      }
-   }
-
-   /* Record information about the layout of generics and patches for apssing it
-    * to the next shader stage. mesa/tgsi doesn't provide this information for
-    * TCS, TES, and GEOM shaders.
-    */
-   sinfo->guest_sent_io_arrays = ctx.guest_sent_io_arrays;
-   sinfo->num_generic_and_patch_outputs = 0;
-   for(unsigned i = 0; i < ctx.num_outputs; i++) {
-         sinfo->generic_outputs_layout[sinfo->num_generic_and_patch_outputs].name = ctx.outputs[i].name;
-         sinfo->generic_outputs_layout[sinfo->num_generic_and_patch_outputs].sid = ctx.outputs[i].sid;
-         sinfo->generic_outputs_layout[sinfo->num_generic_and_patch_outputs].location = ctx.outputs[i].layout_location;
-         sinfo->generic_outputs_layout[sinfo->num_generic_and_patch_outputs].array_id = ctx.outputs[i].array_id;
-         sinfo->generic_outputs_layout[sinfo->num_generic_and_patch_outputs].usage_mask = ctx.outputs[i].usage_mask;
-         if (ctx.outputs[i].name == TGSI_SEMANTIC_GENERIC || ctx.outputs[i].name == TGSI_SEMANTIC_PATCH) {
-            sinfo->num_generic_and_patch_outputs++;
-      }
-   }
-
-   sinfo->so_names = ctx.so_names;
-   sinfo->attrib_input_mask = ctx.attrib_input_mask;
-   if (sinfo->sampler_arrays)
-      free(sinfo->sampler_arrays);
-   sinfo->sampler_arrays = ctx.sampler_arrays;
-   sinfo->num_sampler_arrays = ctx.num_sampler_arrays;
-   if (sinfo->image_arrays)
-      free(sinfo->image_arrays);
-   sinfo->image_arrays = ctx.image_arrays;
-   sinfo->num_image_arrays = ctx.num_image_arrays;
-
-   strarray_addstrbuf(shader, &ctx.glsl_ver_ext);
-   strarray_addstrbuf(shader, &ctx.glsl_hdr);
-   strarray_addstrbuf(shader, &ctx.glsl_main);
-   VREND_DEBUG(dbg_shader_glsl, rctx, "GLSL:");
-   VREND_DEBUG_EXT(dbg_shader_glsl, rctx, strarray_dump(shader));
-   VREND_DEBUG(dbg_shader_glsl, rctx, "\n");
    return true;
  fail:
    strbuf_free(&ctx.glsl_main);
