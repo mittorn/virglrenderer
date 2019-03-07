@@ -111,7 +111,7 @@ RUN git clone --shallow-since="$GIT_DATE" https://github.com/KhronosGroup/VK-GL-
     git checkout ${KNOWN_GOOD_CTS} && \
     git log --oneline -n 1 && \
     python3 external/fetch_sources.py && \
-    mkdir build && \
+    mkdir -p build && \
     cd build && \
     cmake -DDEQP_TARGET=x11_egl_glx -DCMAKE_BUILD_TYPE=Release .. && \
     make -j$(nproc) && \
