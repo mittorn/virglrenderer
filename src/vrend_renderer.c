@@ -6887,7 +6887,7 @@ static int vrend_renderer_transfer_send_iov(struct vrend_resource *res,
       }
 
       /* Can hit this on a non-error path as well. */
-      if (ret != 0) {
+      if (ret != 0 && !vrend_state.use_gles) {
          ret = vrend_transfer_send_getteximage(res, iov, num_iovs, info);
       }
       return ret;
