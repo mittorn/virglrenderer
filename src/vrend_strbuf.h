@@ -203,4 +203,18 @@ static inline void strarray_dump(struct vrend_strarray *sa)
       vrend_printf("%s", sa->strings[i].buf);
 }
 
+static inline void strarray_dump_with_line_numbers(struct vrend_strarray *sa)
+{
+   int lineno = 1;
+   for (int i = 0; i < sa->num_strings; i++) {
+      char *saveptr;
+      char *line = strtok_r(sa->strings[i].buf, "\n", &saveptr);
+      while (line) {
+         vrend_printf("%4d: %s\n", lineno++, line);
+         line = strtok_r(NULL, "\n", &saveptr);
+      }
+   }
+}
+
+
 #endif

@@ -834,7 +834,7 @@ static void vrend_shader_dump(struct vrend_shader *shader)
 {
    const char *prefix = pipe_shader_to_prefix(shader->sel->type);
    vrend_printf("%s: %d GLSL:\n", prefix, shader->id);
-   strarray_dump(&shader->glsl_strings);
+   strarray_dump_with_line_numbers(&shader->glsl_strings);
    vrend_printf("\n");
 }
 
