@@ -266,8 +266,6 @@ void vrend_set_framebuffer_state_no_attach(struct vrend_context *ctx,
                                            uint32_t layers, uint32_t samples);
 void vrend_texture_barrier(struct vrend_context *ctx,
                            unsigned flags);
-#define VREND_TRANSFER_WRITE 1
-#define VREND_TRANSFER_READ 2
 int vrend_renderer_transfer_iov(const struct vrend_transfer_info *info, int transfer_mode);
 
 void vrend_renderer_resource_copy_region(struct vrend_context *ctx,

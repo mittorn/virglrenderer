@@ -6864,10 +6864,15 @@ int vrend_renderer_transfer_iov(const struct vrend_transfer_info *info,
       ctx = NULL;
    }
 
-   if (transfer_mode == VREND_TRANSFER_WRITE)
+   switch (transfer_mode) {
+   case VIRGL_TRANSFER_TO_HOST:
       return vrend_renderer_transfer_write_iov(ctx, res, iov, num_iovs, info);
-   else
+   case VIRGL_TRANSFER_FROM_HOST:
       return vrend_renderer_transfer_send_iov(res, iov, num_iovs, info);
+
+   default:
+      assert(0);
+   }
 }
 
 int vrend_transfer_inline_write(struct vrend_context *ctx,
@@ -8810,7 +8815,7 @@ void vrend_renderer_get_rect(int res_handle, struct iovec *iov, unsigned int num
    transfer_info.iovec = iov;
    transfer_info.iovec_cnt = num_iovs;
    transfer_info.context0 = true;
-   vrend_renderer_transfer_iov(&transfer_info, VREND_TRANSFER_READ);
+   vrend_renderer_transfer_iov(&transfer_info, VIRGL_TRANSFER_FROM_HOST);
 }
 
 void vrend_renderer_resource_set_priv(uint32_t res_handle, void *priv)
