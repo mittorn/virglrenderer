@@ -1326,6 +1326,10 @@ static int vrend_decode_transfer3d(struct vrend_decode_ctx *ctx, int length, uin
    int transfer_mode = get_buf_entry(ctx, VIRGL_TRANSFER3D_DIRECTION);
    info.context0 = false;
 
+   if (transfer_mode != VIRGL_TRANSFER_TO_HOST &&
+       transfer_mode != VIRGL_TRANSFER_FROM_HOST)
+      return EINVAL;
+
    return vrend_renderer_transfer_iov(&info, transfer_mode);
 }
 
