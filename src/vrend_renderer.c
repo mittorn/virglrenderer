@@ -8330,6 +8330,16 @@ static void vrend_fill_caps_glsl_version(int gl_ver, int gles_ver,
    }
 }
 
+static void set_format_bit(struct virgl_supported_format_mask *mask, enum virgl_formats fmt)
+{
+   assert(fmt < VIRGL_FORMAT_MAX);
+   unsigned val = (unsigned)fmt;
+   unsigned idx = val / 32;
+   unsigned bit = val % 32;
+   assert(idx < ARRAY_SIZE(mask->bitmask));
+   mask->bitmask[idx] |= 1u << bit;
+}
+
 /*
  * Does all of the common caps setting,
  * if it dedects a early out returns true.
@@ -8368,12 +8378,8 @@ static void vrend_renderer_fill_caps_v1(int gl_ver, int gles_ver, union virgl_ca
    if (caps->v1.glsl_level >= 400 || has_feature(feat_tessellation))
       caps->v1.prim_mask |= (1 << PIPE_PRIM_PATCHES);
 
-   if (epoxy_has_gl_extension("GL_ARB_vertex_type_10f_11f_11f_rev")) {
-      int val = VIRGL_FORMAT_R11G11B10_FLOAT;
-      uint32_t offset = val / 32;
-      uint32_t index = val % 32;
-      caps->v1.vertexbuffer.bitmask[offset] |= (1u << index);
-   }
+   if (epoxy_has_gl_extension("GL_ARB_vertex_type_10f_11f_11f_rev"))
+      set_format_bit(&caps->v1.vertexbuffer, VIRGL_FORMAT_R11G11B10_FLOAT);
 
    if (has_feature(feat_nv_conditional_render) ||
        has_feature(feat_gl_conditional_render))
@@ -8526,14 +8532,12 @@ static void vrend_renderer_fill_caps_v1(int gl_ver, int gles_ver, union virgl_ca
 
    /* All of the formats are common. */
    for (i = 0; i < VIRGL_FORMAT_MAX; i++) {
-      uint32_t offset = i / 32;
-      uint32_t index = i % 32;
-
       if (tex_conv_table[i].internalformat != 0) {
-         if (vrend_format_can_sample(i)) {
-            caps->v1.sampler.bitmask[offset] |= (1u << index);
-            if (vrend_format_can_render(i))
-               caps->v1.render.bitmask[offset] |= (1u << index);
+         enum virgl_formats fmt = (enum virgl_formats)i;
+         if (vrend_format_can_sample(fmt)) {
+            set_format_bit(&caps->v1.sampler, fmt);
+            if (vrend_format_can_render(fmt))
+               set_format_bit(&caps->v1.render, fmt);
          }
       }
    }
