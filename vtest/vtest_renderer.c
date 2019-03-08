@@ -187,11 +187,11 @@ int vtest_block_read(int fd, void *buf, int size)
    return size;
 }
 
-int vtest_create_renderer(int in_fd, int out_fd, uint32_t length)
+int vtest_create_renderer(int in_fd, int out_fd, uint32_t length,
+                          int ctx_flags)
 {
    char *vtestname;
    int ret;
-   int ctx = VIRGL_RENDERER_USE_EGL;
 
    renderer.iovec_hash = util_hash_table_create(hash_func, compare_iovecs, free_iovec);
    renderer.in_fd = in_fd;
@@ -200,28 +200,8 @@ int vtest_create_renderer(int in_fd, int out_fd, uint32_t length)
    /* By default we support version 0 unless VCMD_PROTOCOL_VERSION is sent */
    renderer.protocol_version = 0;
 
-   if (getenv("VTEST_USE_GLX")) {
-      ctx = VIRGL_RENDERER_USE_GLX;
-   }
-
-   if (getenv("VTEST_USE_EGL_SURFACELESS")) {
-      if (ctx & VIRGL_RENDERER_USE_GLX) {
-         fprintf(stderr, "Cannot use surfaceless with GLX.\n");
-         return -1;
-      }
-      ctx |= VIRGL_RENDERER_USE_SURFACELESS;
-   }
-
-   if (getenv("VTEST_USE_GLES")) {
-      if (ctx & VIRGL_RENDERER_USE_GLX) {
-         fprintf(stderr, "Cannot use GLES with GLX.\n");
-         return -1;
-      }
-      ctx |= VIRGL_RENDERER_USE_GLES;
-   }
-
    ret = virgl_renderer_init(&renderer,
-         ctx | VIRGL_RENDERER_THREAD_SYNC, &vtest_cbs);
+         ctx_flags | VIRGL_RENDERER_THREAD_SYNC, &vtest_cbs);
    if (ret) {
       fprintf(stderr, "failed to initialise renderer.\n");
       return -1;
