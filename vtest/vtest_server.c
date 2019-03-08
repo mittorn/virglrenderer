@@ -146,14 +146,20 @@ start:
 
 #define OPT_NO_FORK 'f'
 #define OPT_NO_LOOP_OR_FORK 'l'
+#define OPT_USE_GLX 'x'
+#define OPT_USE_EGL_SURFACELESS 's'
+#define OPT_USE_GLES 'e'
 
 static void vtest_main_parse_args(int argc, char **argv)
 {
    int ret;
 
    static struct option long_options[] = {
-      {"no-fork",         no_argument, NULL, OPT_NO_FORK},
-      {"no-loop-or-fork", no_argument, NULL, OPT_NO_LOOP_OR_FORK},
+      {"no-fork",             no_argument, NULL, OPT_NO_FORK},
+      {"no-loop-or-fork",     no_argument, NULL, OPT_NO_LOOP_OR_FORK},
+      {"use-glx",             no_argument, NULL, OPT_USE_GLX},
+      {"use-egl-surfaceless", no_argument, NULL, OPT_USE_EGL_SURFACELESS},
+      {"use-gles",            no_argument, NULL, OPT_USE_GLES},
       {0, 0, 0, 0}
    };
 
@@ -173,8 +179,18 @@ static void vtest_main_parse_args(int argc, char **argv)
          prog.do_fork = false;
          prog.loop = false;
          break;
+      case OPT_USE_GLX:
+         prog.use_glx = true;
+         break;
+      case OPT_USE_EGL_SURFACELESS:
+         prog.use_egl_surfaceless = true;
+         break;
+      case OPT_USE_GLES:
+         prog.use_gles = true;
+         break;
       default:
-         printf("Usage: %s [--no-fork] [--no-loop-or-fork] [file]\n", argv[0]);
+         printf("Usage: %s [--no-fork] [--no-loop-or-fork] [--use-glx] "
+                "[--use-egl-surfaceless] [--use-egl] [file]\n", argv[0]);
          exit(EXIT_FAILURE);
          break;
       }
