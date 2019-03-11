@@ -905,6 +905,8 @@ iter_declaration(struct tgsi_iterate_context *iter,
             name_prefix = "gl_ViewportIndex";
             if (ctx->glsl_ver_required >= 140)
                ctx->shader_req_bits |= SHADER_REQ_LAYER;
+            if (ctx->cfg->use_gles)
+               ctx->shader_req_bits |= SHADER_REQ_VIEWPORT_IDX;
             break;
          }
          /* fallthrough */
@@ -1213,7 +1215,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
             ctx->outputs[i].override_no_wm = true;
             ctx->outputs[i].is_int = true;
             name_prefix = "gl_ViewportIndex";
-            if (ctx->glsl_ver_required >= 140)
+            if (ctx->glsl_ver_required >= 140 || ctx->cfg->use_gles)
                ctx->shader_req_bits |= SHADER_REQ_VIEWPORT_IDX;
             break;
          }
@@ -4708,6 +4710,9 @@ static void emit_header(struct dump_ctx *ctx)
          if (ctx->shader_req_bits & SHADER_REQ_FBFETCH)
             emit_ext(ctx, "EXT_shader_framebuffer_fetch", "require");
       }
+
+      if (ctx->shader_req_bits & SHADER_REQ_VIEWPORT_IDX)
+         emit_ext(ctx, "OES_viewport_array", "require");
 
       if (ctx->prog_type == TGSI_PROCESSOR_GEOMETRY) {
          emit_ext(ctx, "EXT_geometry_shader", "require");

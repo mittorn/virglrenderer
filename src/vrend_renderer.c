@@ -229,7 +229,7 @@ static const  struct {
    FEAT(transform_feedback_overflow_query, 46, UNAVAIL,  "GL_ARB_transform_feedback_overflow_query" ),
    FEAT(txqs, 45, UNAVAIL,  "GL_ARB_shader_texture_image_samples" ),
    FEAT(ubo, 31, 30,  "GL_ARB_uniform_buffer_object" ),
-   FEAT(viewport_array, 41, UNAVAIL,  "GL_ARB_viewport_array" ),
+   FEAT(viewport_array, 41, UNAVAIL,  "GL_ARB_viewport_array", "GL_OES_viewport_array"),
 };
 
 struct global_renderer_state {
