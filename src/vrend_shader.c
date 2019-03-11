@@ -71,6 +71,7 @@
 #define SHADER_REQ_ARRAYS_OF_ARRAYS  (1 << 26)
 #define SHADER_REQ_SHADER_INTEGER_FUNC (1 << 27)
 #define SHADER_REQ_SHADER_ATOMIC_FLOAT (1 << 28)
+#define SHADER_REQ_NV_IMAGE_FORMATS    (1 << 29)
 
 struct vrend_shader_io {
    unsigned                name;
@@ -634,6 +635,27 @@ static bool add_images(struct dump_ctx *ctx, int first, int last,
                        struct tgsi_declaration_image *img_decl)
 {
    int i;
+
+   const struct util_format_description *descr = util_format_description(img_decl->Format);
+   if (descr->nr_channels == 2 &&
+       descr->swizzle[0] == UTIL_FORMAT_SWIZZLE_X &&
+       descr->swizzle[1] == UTIL_FORMAT_SWIZZLE_Y &&
+       descr->swizzle[2] == UTIL_FORMAT_SWIZZLE_0 &&
+       descr->swizzle[3] == UTIL_FORMAT_SWIZZLE_1) {
+      ctx->shader_req_bits |= SHADER_REQ_NV_IMAGE_FORMATS;
+   } else if (img_decl->Format == PIPE_FORMAT_R11G11B10_FLOAT ||
+              img_decl->Format == PIPE_FORMAT_R10G10B10A2_UINT ||
+              img_decl->Format == PIPE_FORMAT_R10G10B10A2_UNORM ||
+              img_decl->Format == PIPE_FORMAT_R16G16B16A16_UNORM||
+              img_decl->Format == PIPE_FORMAT_R16G16B16A16_SNORM)
+      ctx->shader_req_bits |= SHADER_REQ_NV_IMAGE_FORMATS;
+   else if (descr->nr_channels == 1 &&
+            descr->swizzle[0] == UTIL_FORMAT_SWIZZLE_X &&
+            descr->swizzle[1] == UTIL_FORMAT_SWIZZLE_0 &&
+            descr->swizzle[2] == UTIL_FORMAT_SWIZZLE_0 &&
+            descr->swizzle[3] == UTIL_FORMAT_SWIZZLE_1 &&
+            (descr->channel[0].size == 8 || descr->channel[0].size ==16))
+      ctx->shader_req_bits |= SHADER_REQ_NV_IMAGE_FORMATS;
 
    for (i = first; i <= last; i++) {
       ctx->images[i].decl = *img_decl;
@@ -2721,7 +2743,10 @@ translate_load(struct dump_ctx *ctx,
        * For the images that allow RW this is of no consequence, and for the others a write
        * access will fail instead of the read access, but this doesn't constitue a regression
        * because we couldn't do both, read and write, anyway. */
-      if (ctx->cfg->use_gles && ctx->images[sinfo->sreg_index].decl.Writable)
+      if (ctx->cfg->use_gles && ctx->images[sinfo->sreg_index].decl.Writable &&
+          (ctx->images[sinfo->sreg_index].decl.Format != PIPE_FORMAT_R32_FLOAT) &&
+          (ctx->images[sinfo->sreg_index].decl.Format != PIPE_FORMAT_R32_SINT) &&
+          (ctx->images[sinfo->sreg_index].decl.Format != PIPE_FORMAT_R32_UINT))
          ctx->images[sinfo->sreg_index].decl.Writable = 0;
 
       emit_buff(ctx, "%s = %s(imageLoad(%s, %s(%s(%s))%s)%s);\n", dsts[0], get_string(dtypeprefix), srcs[0],
@@ -4823,6 +4848,9 @@ static void emit_header(struct dump_ctx *ctx)
          if (ctx->shader_req_bits & SHADER_REQ_PSIZE)
             emit_ext(ctx, "OES_geometry_point_size", "enable");
       }
+
+      if (ctx->shader_req_bits & SHADER_REQ_NV_IMAGE_FORMATS)
+         emit_ext(ctx, "NV_image_formats", "require");
 
       if ((ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL ||
            ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL)) {
