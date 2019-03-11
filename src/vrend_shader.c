@@ -780,6 +780,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
    struct dump_ctx *ctx = (struct dump_ctx *)iter;
    int i;
    int color_offset = 0;
+   char name_prefix_buf[64];
    const char *name_prefix = "";
    bool add_two_side = false;
    unsigned mask_temp;
@@ -965,7 +966,10 @@ iter_declaration(struct tgsi_iterate_context *iter,
             ctx->inputs[i].glsl_gl_block = true;
             break;
          } else if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
-            name_prefix = "gl_FragCoord";
+            if (ctx->cfg->use_gles && ctx->fs_pixel_center) {
+               name_prefix = "(gl_FragCoord - vec4(0.5, 0.5, 0.0, 0.0))";
+            } else
+               name_prefix = "gl_FragCoord";
             ctx->inputs[i].glsl_predefined_no_emit = true;
             ctx->inputs[i].glsl_no_index = true;
             break;
@@ -5493,10 +5497,11 @@ static void emit_ios_fs(struct dump_ctx *ctx)
       bool upper_left = !(ctx->fs_coord_origin ^ ctx->key->invert_fs_origin);
       char comma = (upper_left && ctx->fs_pixel_center) ? ',' : ' ';
 
-      emit_hdrf(ctx, "layout(%s%c%s) in vec4 gl_FragCoord;\n",
-                upper_left ? "origin_upper_left" : "",
-                comma,
-                ctx->fs_pixel_center ? "pixel_center_integer" : "");
+      if (!ctx->cfg->use_gles)
+         emit_hdrf(ctx, "layout(%s%c%s) in vec4 gl_FragCoord;\n",
+                   upper_left ? "origin_upper_left" : "",
+                   comma,
+                   ctx->fs_pixel_center ? "pixel_center_integer" : "");
    }
    if (ctx->early_depth_stencil) {
       emit_hdr(ctx, "layout(early_fragment_tests) in;\n");
