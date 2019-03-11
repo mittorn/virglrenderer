@@ -767,16 +767,22 @@ static bool add_samplers(struct dump_ctx *ctx, int first, int last, int sview_ty
    return true;
 }
 
-static int lookup_image_array(struct dump_ctx *ctx, int index)
+static struct vrend_array *lookup_image_array_ptr(struct dump_ctx *ctx, int index)
 {
    uint32_t i;
    for (i = 0; i < ctx->num_image_arrays; i++) {
       if (index >= ctx->image_arrays[i].first &&
           index <= ctx->image_arrays[i].first + ctx->image_arrays[i].array_size - 1) {
-         return ctx->image_arrays[i].first;
+         return &ctx->image_arrays[i];
       }
    }
-   return -1;
+   return NULL;
+}
+
+static int lookup_image_array(struct dump_ctx *ctx, int index)
+{
+   struct vrend_array *image = lookup_image_array_ptr(ctx, index);
+   return image ? image->first : -1;
 }
 
 static boolean
@@ -2700,8 +2706,26 @@ translate_store(struct dump_ctx *ctx,
       default:
          break;
       }
-      emit_buff(ctx, "imageStore(%s,%s(%s(%s)),%s%s(%s));\n", dsts[0], get_string(coord_prefix),
+      if (!ctx->cfg->use_gles || !inst->Dst[0].Register.Indirect) {
+         emit_buff(ctx, "imageStore(%s,%s(%s(%s)),%s%s(%s));\n", dsts[0], get_string(coord_prefix),
                conversion, srcs[0], ms_str, get_string(stypeprefix), srcs[1]);
+      } else {
+         char dst[32] = "";
+         struct vrend_array *image = lookup_image_array_ptr(ctx, inst->Dst[0].Register.Index);
+         if (image) {
+            int basearrayidx = image->first;
+            int array_size = image->array_size;
+            emit_buff(ctx, "switch (addr%d + %d) {\n", inst->Dst->Indirect.Index, inst->Dst[0].Register.Index - basearrayidx);
+            const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
+
+            for (int i = 0; i < array_size; ++i) {
+               snprintf(dst, 32, "%simg%d[%d]", cname, basearrayidx, i);
+               emit_buff(ctx, "case %d: imageStore(%s,%s(%s(%s)),%s%s(%s)); break;\n", i, dst, get_string(coord_prefix),
+                         conversion, srcs[0], ms_str, get_string(stypeprefix), srcs[1]);
+            }
+            emit_buff(ctx, "}\n");
+         }
+      }
    } else if (dst->Register.File == TGSI_FILE_BUFFER || dst->Register.File == TGSI_FILE_MEMORY) {
       enum vrend_type_qualifier dtypeprefix;
       set_memory_qualifier(ctx, inst, inst->Dst[0].Register.Index, inst->Dst[0].Register.Indirect);
@@ -2767,8 +2791,26 @@ translate_load(struct dump_ctx *ctx,
           (ctx->images[sinfo->sreg_index].decl.Format != PIPE_FORMAT_R32_UINT))
          ctx->images[sinfo->sreg_index].decl.Writable = 0;
 
-      emit_buff(ctx, "%s = %s(imageLoad(%s, %s(%s(%s))%s)%s);\n", dsts[0], get_string(dtypeprefix), srcs[0],
+      if (!ctx->cfg->use_gles || !inst->Src[0].Register.Indirect) {
+         emit_buff(ctx, "%s = %s(imageLoad(%s, %s(%s(%s))%s)%s);\n", dsts[0], get_string(dtypeprefix), srcs[0],
                get_string(coord_prefix), conversion, srcs[1], ms_str, wm);
+      } else {
+         char src[32] = "";
+         struct vrend_array *image = lookup_image_array_ptr(ctx, inst->Src[0].Register.Index);
+         if (image) {
+            int basearrayidx = image->first;
+            int array_size = image->array_size;
+            emit_buff(ctx, "switch (addr%d + %d) {\n", inst->Src[0].Indirect.Index, inst->Src[0].Register.Index - basearrayidx);
+            const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
+
+            for (int i = 0; i < array_size; ++i) {
+               snprintf(src, 32, "%simg%d[%d]", cname, basearrayidx, i);
+               emit_buff(ctx, "case %d: %s = %s(imageLoad(%s, %s(%s(%s))%s)%s);break;\n", i, dsts[0], get_string(dtypeprefix), src,
+                     get_string(coord_prefix), conversion, srcs[1], ms_str, wm);
+            }
+            emit_buff(ctx, "}\n");
+         }
+      }
    } else if (src->Register.File == TGSI_FILE_BUFFER ||
               src->Register.File == TGSI_FILE_MEMORY) {
       char mydst[255], atomic_op[9], atomic_src[10];
@@ -2938,9 +2980,29 @@ translate_atomic(struct dump_ctx *ctx,
       if (is_ms) {
          snprintf(ms_str, 32, ", int(%s.w)", srcs[1]);
       }
+
+      if (!ctx->cfg->use_gles || !inst->Src[0].Register.Indirect) {
       emit_buff(ctx, "%s = %s(imageAtomic%s(%s, %s(%s(%s))%s, %s(%s(%s))%s));\n", dsts[0],
                get_string(dtypeprefix), opname, srcs[0], get_string(coord_prefix), conversion,
                srcs[1], ms_str, get_string(stypecast), get_string(stypeprefix), srcs[2], cas_str);
+      } else {
+         char src[32] = "";
+         struct vrend_array *image = lookup_image_array_ptr(ctx, inst->Src[0].Register.Index);
+         if (image) {
+            int basearrayidx = image->first;
+            int array_size = image->array_size;
+            emit_buff(ctx, "switch (addr%d + %d) {\n", inst->Src[0].Indirect.Index, inst->Src[0].Register.Index - basearrayidx);
+            const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
+
+            for (int i = 0; i < array_size; ++i) {
+               snprintf(src, 32, "%simg%d[%d]", cname, basearrayidx, i);
+               emit_buff(ctx, "case %d: %s = %s(imageAtomic%s(%s, %s(%s(%s))%s, %s(%s(%s))%s));\n", i, dsts[0],
+                        get_string(dtypeprefix), opname, src, get_string(coord_prefix), conversion,
+                        srcs[1], ms_str, get_string(stypecast), get_string(stypeprefix), srcs[2], cas_str);
+            }
+            emit_buff(ctx, "}\n");
+         }
+      }
       ctx->shader_req_bits |= SHADER_REQ_IMAGE_ATOMIC;
    }
    if (src->Register.File == TGSI_FILE_BUFFER || src->Register.File == TGSI_FILE_MEMORY) {
