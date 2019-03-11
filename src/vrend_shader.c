@@ -2715,6 +2715,15 @@ translate_load(struct dump_ctx *ctx,
          break;
       }
 
+      /* On GL WR translates to writable, but on GLES we translate this to writeonly
+       * because for most formats one has to specify one or the other, so if we have an
+       * image with the TGSI WR specification, and read from it, we drop the Writable flag.
+       * For the images that allow RW this is of no consequence, and for the others a write
+       * access will fail instead of the read access, but this doesn't constitue a regression
+       * because we couldn't do both, read and write, anyway. */
+      if (ctx->cfg->use_gles && ctx->images[sinfo->sreg_index].decl.Writable)
+         ctx->images[sinfo->sreg_index].decl.Writable = 0;
+
       emit_buff(ctx, "%s = %s(imageLoad(%s, %s(%s(%s))%s)%s);\n", dsts[0], get_string(dtypeprefix), srcs[0],
                get_string(coord_prefix), conversion, srcs[1], ms_str, wm);
    } else if (src->Register.File == TGSI_FILE_BUFFER ||
