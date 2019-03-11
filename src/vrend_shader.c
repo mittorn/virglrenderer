@@ -2585,15 +2585,17 @@ void load_clipdist_fs(struct dump_ctx *ctx,
 }
 
 
-static enum vrend_type_qualifier get_coord_prefix(int resource, bool *is_ms)
+static enum vrend_type_qualifier get_coord_prefix(int resource, bool *is_ms, bool use_gles)
 {
    switch(resource) {
    case TGSI_TEXTURE_1D:
+      return use_gles ? IVEC2: INT;
    case TGSI_TEXTURE_BUFFER:
       return INT;
+   case TGSI_TEXTURE_1D_ARRAY:
+      return use_gles ? IVEC3: IVEC2;
    case TGSI_TEXTURE_2D:
    case TGSI_TEXTURE_RECT:
-   case TGSI_TEXTURE_1D_ARRAY:
       return IVEC2;
    case TGSI_TEXTURE_3D:
    case TGSI_TEXTURE_CUBE:
@@ -2636,7 +2638,7 @@ translate_store(struct dump_ctx *ctx,
 
    if (dst->Register.File == TGSI_FILE_IMAGE) {
       bool is_ms = false;
-      enum vrend_type_qualifier coord_prefix = get_coord_prefix(ctx->images[dst->Register.Index].decl.Resource, &is_ms);
+      enum vrend_type_qualifier coord_prefix = get_coord_prefix(ctx->images[dst->Register.Index].decl.Resource, &is_ms, ctx->cfg->use_gles);
       enum tgsi_return_type itype;
       char ms_str[32] = {};
       enum vrend_type_qualifier stypeprefix = TYPE_CONVERSION_NONE;
@@ -2688,7 +2690,7 @@ translate_load(struct dump_ctx *ctx,
    const struct tgsi_full_src_register *src = &inst->Src[0];
    if (src->Register.File == TGSI_FILE_IMAGE) {
       bool is_ms = false;
-      enum vrend_type_qualifier coord_prefix = get_coord_prefix(ctx->images[sinfo->sreg_index].decl.Resource, &is_ms);
+      enum vrend_type_qualifier coord_prefix = get_coord_prefix(ctx->images[sinfo->sreg_index].decl.Resource, &is_ms, ctx->cfg->use_gles);
       enum vrend_type_qualifier dtypeprefix = TYPE_CONVERSION_NONE;
       const char *conversion = sinfo->override_no_cast[1] ? "" : get_string(FLOAT_BITS_TO_INT);
       enum tgsi_return_type itype;
@@ -2708,6 +2710,7 @@ translate_load(struct dump_ctx *ctx,
       default:
          break;
       }
+
       emit_buff(ctx, "%s = %s(imageLoad(%s, %s(%s(%s))%s)%s);\n", dsts[0], get_string(dtypeprefix), srcs[0],
                get_string(coord_prefix), conversion, srcs[1], ms_str, wm);
    } else if (src->Register.File == TGSI_FILE_BUFFER ||
@@ -2800,11 +2803,14 @@ translate_resq(struct dump_ctx *ctx, struct tgsi_full_instruction *inst,
          emit_buff(ctx, "%s = %s(imageSamples(%s));\n", dsts[0], get_string(INT_BITS_TO_FLOAT), srcs[0]);
       }
       if (inst->Dst[0].Register.WriteMask & 0x7) {
+         const char *swizzle_mask = (ctx->cfg->use_gles && inst->Memory.Texture == TGSI_TEXTURE_1D_ARRAY) ?
+                                   ".xz" : "";
          ctx->shader_req_bits |= SHADER_REQ_IMAGE_SIZE | SHADER_REQ_INTS;
          bool skip_emit_writemask = inst->Memory.Texture == TGSI_TEXTURE_BUFFER ||
-                                    inst->Memory.Texture == TGSI_TEXTURE_1D;
-         emit_buff(ctx, "%s = %s(imageSize(%s)%s);\n", dsts[0], get_string(INT_BITS_TO_FLOAT), srcs[0],
-                  skip_emit_writemask ? "" : writemask);
+                                    (!ctx->cfg->use_gles && inst->Memory.Texture == TGSI_TEXTURE_1D);
+
+         emit_buff(ctx, "%s = %s(imageSize(%s)%s%s);\n", dsts[0], get_string(INT_BITS_TO_FLOAT), srcs[0],
+                   swizzle_mask,skip_emit_writemask ? "" : writemask);
       }
    } else if (src->Register.File == TGSI_FILE_BUFFER) {
       emit_buff(ctx, "%s = %s(int(%s.length()) << 2);\n", dsts[0], get_string(INT_BITS_TO_FLOAT), srcs[0]);
@@ -2863,7 +2869,7 @@ translate_atomic(struct dump_ctx *ctx,
 
    if (src->Register.File == TGSI_FILE_IMAGE) {
       bool is_ms = false;
-      enum vrend_type_qualifier coord_prefix = get_coord_prefix(ctx->images[sinfo->sreg_index].decl.Resource, &is_ms);
+      enum vrend_type_qualifier coord_prefix = get_coord_prefix(ctx->images[sinfo->sreg_index].decl.Resource, &is_ms, ctx->cfg->use_gles);
       const char *conversion = sinfo->override_no_cast[1] ? "" : get_string(FLOAT_BITS_TO_INT);
       char ms_str[32] = {};
       if (is_ms) {
@@ -3760,6 +3766,19 @@ get_source_info(struct dump_ctx *ctx,
    return true;
 }
 
+static void rewrite_1d_image_coordinate(char src[255], const struct tgsi_full_instruction *inst)
+{
+   if (inst->Src[0].Register.File == TGSI_FILE_IMAGE &&
+       (inst->Memory.Texture == TGSI_TEXTURE_1D ||
+        inst->Memory.Texture == TGSI_TEXTURE_1D_ARRAY))  {
+      char buf[255] = "";
+      strncpy(buf, src, 255);
+      if (inst->Memory.Texture == TGSI_TEXTURE_1D)
+         snprintf(src, 255, "vec2(vec4(%s).x, 0)", buf);
+      else if (inst->Memory.Texture == TGSI_TEXTURE_1D_ARRAY)
+         snprintf(src, 255, "vec3(%s.xy, 0).xzy", buf);
+   }
+}
 /* We have indirect IO access, but the guest actually send separate values, so
  * now we have to emulate an array.
  */
@@ -4682,9 +4701,13 @@ iter_instruction(struct tgsi_iterate_context *iter,
       break;
    }
    case TGSI_OPCODE_STORE:
+      if (ctx->cfg->use_gles)
+         rewrite_1d_image_coordinate(srcs[1], inst);
       translate_store(ctx, inst, &sinfo, srcs, dsts);
       break;
    case TGSI_OPCODE_LOAD:
+      if (ctx->cfg->use_gles)
+         rewrite_1d_image_coordinate(srcs[1], inst);
       translate_load(ctx, inst, &sinfo, &dinfo, srcs, dsts, writemask);
       break;
    case TGSI_OPCODE_ATOMUADD:
@@ -4697,6 +4720,8 @@ iter_instruction(struct tgsi_iterate_context *iter,
    case TGSI_OPCODE_ATOMUMAX:
    case TGSI_OPCODE_ATOMIMIN:
    case TGSI_OPCODE_ATOMIMAX:
+      if (ctx->cfg->use_gles)
+         rewrite_1d_image_coordinate(srcs[1], inst);
       translate_atomic(ctx, inst, &sinfo, srcs, dsts);
       break;
    case TGSI_OPCODE_RESQ:
