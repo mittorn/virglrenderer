@@ -5188,7 +5188,7 @@ static void emit_image_decl(struct dump_ctx *ctx,
 
    if (ctx->cfg->use_gles) { /* TODO: enable on OpenGL 4.2 and up also */
       emit_hdrf(ctx, "layout(binding=%d%s%s) ",
-               i, formatstr[0] != '\0' ? ", " : "", formatstr);
+               i, formatstr[0] != '\0' ? ", " : ", rgba32f", formatstr);
    } else if (formatstr[0] != '\0') {
       emit_hdrf(ctx, "layout(%s) ", formatstr);
    }
