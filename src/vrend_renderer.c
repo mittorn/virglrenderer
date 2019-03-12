@@ -8768,6 +8768,27 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
 
    if (has_feature(feat_indirect_params))
       caps->v2.capability_bits |= VIRGL_CAP_INDIRECT_PARAMS;
+
+   if (gl_ver > 0) {
+      for (int i = 0; i < VIRGL_FORMAT_MAX; i++) {
+         if (tex_conv_table[i].internalformat != 0) {
+            enum virgl_formats fmt = (enum virgl_formats)i;
+            if (vrend_format_can_sample(fmt))
+               set_format_bit(&caps->v2.supported_readback_formats, fmt);
+        }
+      }
+   } else {
+      assert(gles_ver > 0);
+      set_format_bit(&caps->v2.supported_readback_formats, VIRGL_FORMAT_R8G8B8A8_UNORM);
+
+      if (gles_ver >= 30) {
+         set_format_bit(&caps->v2.supported_readback_formats, VIRGL_FORMAT_R32G32B32A32_SINT);
+         set_format_bit(&caps->v2.supported_readback_formats, VIRGL_FORMAT_R32G32B32A32_UINT);
+
+         if (gles_ver >= 32)
+            set_format_bit(&caps->v2.supported_readback_formats, VIRGL_FORMAT_R32G32B32A32_FLOAT);
+      }
+   }
 }
 
 void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
