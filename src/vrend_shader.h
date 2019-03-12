@@ -67,6 +67,7 @@ struct vrend_shader_info {
    uint8_t num_indirect_patch_outputs;
    uint8_t num_indirect_generic_inputs;
    uint8_t num_indirect_patch_inputs;
+   uint32_t generic_inputs_emitted_mask;
    int num_ucp;
    int glsl_ver;
    bool has_pervertex_out;
@@ -117,6 +118,7 @@ struct vrend_shader_key {
    uint8_t num_indirect_patch_outputs;
    uint8_t num_indirect_generic_inputs;
    uint8_t num_indirect_patch_inputs;
+   uint32_t generic_outputs_expected_mask;
 };
 
 struct vrend_shader_cfg {

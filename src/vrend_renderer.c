@@ -3043,6 +3043,7 @@ static inline void vrend_fill_shader_key(struct vrend_context *ctx,
    if (next_type != -1 && ctx->sub->shaders[next_type]) {
       key->num_indirect_generic_outputs = ctx->sub->shaders[next_type]->sinfo.num_indirect_generic_inputs;
       key->num_indirect_patch_outputs = ctx->sub->shaders[next_type]->sinfo.num_indirect_patch_inputs;
+      key->generic_outputs_expected_mask = ctx->sub->shaders[next_type]->sinfo.generic_inputs_emitted_mask;
    }
 }
 

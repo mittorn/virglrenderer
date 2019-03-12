@@ -162,6 +162,10 @@ struct dump_ctx {
    struct vrend_io_range generic_output_range;
    struct vrend_io_range patch_output_range;
 
+   uint32_t generic_outputs_expected_mask;
+   uint32_t generic_inputs_emitted_mask;
+   uint32_t generic_outputs_emitted_mask;
+
    uint32_t num_temp_ranges;
    struct vrend_temp_range *temp_ranges;
 
@@ -5596,6 +5600,14 @@ emit_ios_generics(struct dump_ctx *ctx, enum io_type iot,  const char *prefix,
                 t,
                 io->glsl_name,
                 postfix);
+
+      if (io->name == TGSI_SEMANTIC_GENERIC) {
+         if (iot == io_in)
+            ctx->generic_inputs_emitted_mask |= 1 << io->sid;
+         else
+            ctx->generic_outputs_emitted_mask |= 1 << io->sid;
+      }
+
    } else {
       if (prefer_generic_io_block(ctx, iot)) {
          const char *stage_prefix = iot == io_in ? get_stage_input_name_prefix(ctx, ctx->prog_type):
@@ -6116,6 +6128,18 @@ static void emit_ios(struct dump_ctx *ctx)
       return;
    }
 
+   if (ctx->generic_outputs_expected_mask &&
+       (ctx->generic_outputs_expected_mask != ctx->generic_outputs_emitted_mask)) {
+      for (int i = 0; i < 31; ++i) {
+         uint32_t mask = 1 << i;
+         bool expecting = ctx->generic_outputs_expected_mask & mask;
+         if (expecting & !(ctx->generic_outputs_emitted_mask & mask))
+            emit_hdrf(ctx, "                              out vec4 %s_g%dA0_f%s;\n",
+                      get_stage_output_name_prefix(ctx->prog_type), i,
+                      ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL ? "[]" : "");
+      }
+   }
+
    emit_ios_streamout(ctx);
    emit_ios_common(ctx);
 
@@ -6277,7 +6301,7 @@ static void fill_sinfo(struct dump_ctx *ctx, struct vrend_shader_info *sinfo)
       free(sinfo->image_arrays);
    sinfo->image_arrays = ctx->image_arrays;
    sinfo->num_image_arrays = ctx->num_image_arrays;
-
+   sinfo->generic_inputs_emitted_mask = ctx->generic_inputs_emitted_mask;
 }
 
 static bool allocate_strbuffers(struct dump_ctx* ctx)
@@ -6349,6 +6373,7 @@ bool vrend_convert_shader(struct vrend_context *rctx,
    ctx.has_sample_input = false;
    ctx.req_local_mem = req_local_mem;
    ctx.guest_sent_io_arrays = key->guest_sent_io_arrays;
+   ctx.generic_outputs_expected_mask = key->generic_outputs_expected_mask;
 
    tgsi_scan_shader(tokens, &ctx.info);
    /* if we are in core profile mode we should use GLSL 1.40 */
