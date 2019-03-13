@@ -525,6 +525,7 @@ struct vrend_sub_context {
    /* viewport is negative */
    uint32_t scissor_state_dirty;
    uint32_t viewport_state_dirty;
+   uint32_t viewport_state_initialized;
 
    uint32_t fb_height;
 
@@ -2281,12 +2282,13 @@ void vrend_set_viewport_states(struct vrend_context *ctx,
       if (ctx->sub->vps[idx].cur_x != x ||
           ctx->sub->vps[idx].cur_y != y ||
           ctx->sub->vps[idx].width != width ||
-          ctx->sub->vps[idx].height != height) {
-         ctx->sub->viewport_state_dirty |= (1 << idx);
+          ctx->sub->vps[idx].height != height ||
+          (!(ctx->sub->viewport_state_initialized &= (1 << idx)))) {
          ctx->sub->vps[idx].cur_x = x;
          ctx->sub->vps[idx].cur_y = y;
          ctx->sub->vps[idx].width = width;
          ctx->sub->vps[idx].height = height;
+         ctx->sub->viewport_state_dirty |= (1 << idx);
       }
 
       if (idx == 0) {
