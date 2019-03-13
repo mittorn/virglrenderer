@@ -8558,7 +8558,7 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
     * the guest that was set unconditionally before. Then check that flag and
     * this value to avoid regressions when a guest with a new mesa version is
     * run on an old virgl host */
-   caps->v2.host_feature_check_version = 1;
+   caps->v2.host_feature_check_version = 2;
 
    glGetFloatv(GL_ALIASED_POINT_SIZE_RANGE, range);
    caps->v2.min_aliased_point_size = range[0];
@@ -8740,6 +8740,8 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
    if (has_feature(feat_srgb_write_control))
       caps->v2.capability_bits |= VIRGL_CAP_SRGB_WRITE_CONTROL;
 
+   if (has_feature(feat_transform_feedback3))
+         caps->v2.capability_bits |= VIRGL_CAP_TRANSFORM_FEEDBACK3;
    /* Enable feature use just now otherwise we just get a lot noise because
     * of the caps setting */
    if (vrend_debug(NULL, dbg_features))
