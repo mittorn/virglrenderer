@@ -8221,7 +8221,7 @@ static void vrend_fill_caps_glsl_version(int gl_ver, int gles_ver,
           * OES_geometry_shader and ARB_gpu_shader5
           * based on this value, apart from that it doesn't
           * seem to be a crucial value */
-         caps->v1.glsl_level = 400;
+         caps->v1.glsl_level = has_feature(feat_separate_shader_objects) ? 410 : 400;
    }
 }
 
