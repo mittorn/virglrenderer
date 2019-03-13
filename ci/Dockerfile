@@ -162,7 +162,7 @@ RUN git clone --shallow-since="$GIT_DATE" https://gitlab.freedesktop.org/mesa/dr
     rm -rf /drm
 WORKDIR /
 
-ARG KNOWN_GOOD_MESA=e166003cb7a480fb2672b06201688d4717cbc316
+ARG KNOWN_GOOD_MESA=70904eb99ae0c31c7cca8edeec9ba1c6353e4218
 WORKDIR /mesa
 RUN git clone --shallow-since="$GIT_DATE" https://gitlab.freedesktop.org/mesa/mesa.git . && \
     git checkout ${KNOWN_GOOD_MESA} && \
