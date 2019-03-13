@@ -2302,16 +2302,11 @@ void vrend_set_viewport_states(struct vrend_context *ctx,
          ctx->sub->vps[idx].near_val = near_val;
          ctx->sub->vps[idx].far_val = far_val;
 
-         if (vrend_state.use_gles) {
-            if (near_val < 0.0f || far_val < 0.0f ||
-                near_val > 1.0f || far_val > 1.0f || idx) {
-               report_gles_warn(ctx, GLES_WARN_DEPTH_RANGE);
-            }
-
-            /* Best effort despite the warning, gles will clamp. */
-            glDepthRangef(ctx->sub->vps[idx].near_val, ctx->sub->vps[idx].far_val);
-         } else if (idx && has_feature(feat_viewport_array))
-            glDepthRangeIndexed(idx, ctx->sub->vps[idx].near_val, ctx->sub->vps[idx].far_val);
+         if (idx && has_feature(feat_viewport_array))
+            if (vrend_state.use_gles) {
+               glDepthRangeIndexedfOES(idx, ctx->sub->vps[idx].near_val, ctx->sub->vps[idx].far_val);
+            } else
+               glDepthRangeIndexed(idx, ctx->sub->vps[idx].near_val, ctx->sub->vps[idx].far_val);
          else
             glDepthRange(ctx->sub->vps[idx].near_val, ctx->sub->vps[idx].far_val);
       }
