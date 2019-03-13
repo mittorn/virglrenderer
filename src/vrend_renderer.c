@@ -718,7 +718,7 @@ static void __report_core_warn(const char *fname, struct vrend_context *ctx, enu
 #define GLES_WARN_DEPTH_RANGE 3
 #define GLES_WARN_POINT_SIZE 4
 #define GLES_WARN_SEAMLESS_CUBE_MAP 5
-//#define GLES_WARN_ free slot 6
+#define GLES_WARN_LOD_BIAS 6
 #define GLES_WARN_TEXTURE_RECT 7
 #define GLES_WARN_OFFSET_LINE 8
 #define GLES_WARN_OFFSET_POINT 9
@@ -732,7 +732,7 @@ static void __report_core_warn(const char *fname, struct vrend_context *ctx, enu
 
 static const char *vrend_gles_warn_strings[] = {
    "None", "Stipple", "Polygon Mode", "Depth Range", "Point Size", "Seamless Cube Map",
-   "<<WARNING #6>>", "Texture Rect", "Offset Line", "Offset Point",
+   "Lod Bias", "Texture Rect", "Offset Line", "Offset Point",
    "Depth Clip", "Flatshade First", "Line Smooth", "Poly Smooth",
    "Depth Clear", "LogicOp", "GL_TIMESTAMP"
 };
@@ -5102,9 +5102,8 @@ static void vrend_apply_sampler_state(struct vrend_context *ctx,
          glTexParameterf(target, GL_TEXTURE_MAX_LOD, state->max_lod);
       if (tex->state.lod_bias != state->lod_bias || set_all) {
          if (vrend_state.use_gles) {
-            if (state->lod_bias) {
-               report_gles_warn(ctx, GLES_WARN_SEAMLESS_CUBE_MAP);
-            }
+            if (state->lod_bias)
+               report_gles_warn(ctx, GLES_WARN_LOD_BIAS);
          } else {
             glTexParameterf(target, GL_TEXTURE_LOD_BIAS, state->lod_bias);
          }
