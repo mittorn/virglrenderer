@@ -5432,20 +5432,20 @@ static void emit_sampler_decl(struct dump_ctx *ctx,
 
    sname = tgsi_proc_to_prefix(ctx->prog_type);
 
-   precision = (ctx->cfg->use_gles) ? "highp " : " ";
+   precision = (ctx->cfg->use_gles) ? "highp" : "";
 
    ptc = vrend_shader_samplerreturnconv(sampler->tgsi_sampler_return);
    stc = vrend_shader_samplertypeconv(ctx->cfg->use_gles, sampler->tgsi_sampler_type);
    is_shad = samplertype_is_shadow(sampler->tgsi_sampler_type);
 
    if (range)
-      emit_hdrf(ctx, "uniform %s%csampler%s %ssamp%d[%d];\n", precision, ptc, stc, sname, i, range);
+      emit_hdrf(ctx, "uniform %s %csampler%s %ssamp%d[%d];\n", precision, ptc, stc, sname, i, range);
    else
-      emit_hdrf(ctx, "uniform %s%csampler%s %ssamp%d;\n", precision,  ptc, stc, sname, i);
+      emit_hdrf(ctx, "uniform %s %csampler%s %ssamp%d;\n", precision, ptc, stc, sname, i);
 
    if (is_shad) {
-      emit_hdrf(ctx, "uniform %svec4 %sshadmask%d;\n", precision,  sname, i);
-      emit_hdrf(ctx, "uniform %svec4 %sshadadd%d;\n", precision,  sname, i);
+      emit_hdrf(ctx, "uniform %s vec4 %sshadmask%d;\n", precision, sname, i);
+      emit_hdrf(ctx, "uniform %s vec4 %sshadadd%d;\n", precision, sname, i);
       ctx->shadow_samp_mask |= (1 << i);
    }
 }
