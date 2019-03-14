@@ -2310,7 +2310,10 @@ void vrend_set_viewport_states(struct vrend_context *ctx,
             } else
                glDepthRangeIndexed(idx, ctx->sub->vps[idx].near_val, ctx->sub->vps[idx].far_val);
          else
-            glDepthRange(ctx->sub->vps[idx].near_val, ctx->sub->vps[idx].far_val);
+            if (vrend_state.use_gles)
+               glDepthRangefOES(ctx->sub->vps[idx].near_val, ctx->sub->vps[idx].far_val);
+            else
+               glDepthRange(ctx->sub->vps[idx].near_val, ctx->sub->vps[idx].far_val);
       }
    }
 }
