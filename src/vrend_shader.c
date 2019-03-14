@@ -5906,8 +5906,6 @@ emit_ios_patch(struct dump_ctx *ctx, const char *prefix, const struct vrend_shad
 static void emit_ios_vs(struct dump_ctx *ctx)
 {
    uint32_t i;
-   char postfix[32];
-   const char *prefix = "", *auxprefix = "";
    bool fcolor_emitted[2], bcolor_emitted[2];
 
    ctx->num_interps = 0;
@@ -5918,16 +5916,14 @@ static void emit_ios_vs(struct dump_ctx *ctx)
    }
 
    for (i = 0; i < ctx->num_inputs; i++) {
+      char postfix[32] = "";
       if (!ctx->inputs[i].glsl_predefined_no_emit) {
          if (ctx->cfg->use_explicit_locations) {
             emit_hdrf(ctx, "layout(location=%d) ", ctx->inputs[i].first);
          }
-         prefix = "";
-         auxprefix = "";
-         postfix[0] = 0;
          if (ctx->inputs[i].first != ctx->inputs[i].last)
             snprintf(postfix, sizeof(postfix), "[%d]", ctx->inputs[i].last - ctx->inputs[i].first + 1);
-         emit_hdrf(ctx, "%s%sin vec4 %s%s;\n", prefix, auxprefix, ctx->inputs[i].glsl_name, postfix);
+         emit_hdrf(ctx, "in vec4 %s%s;\n", ctx->inputs[i].glsl_name, postfix);
       }
    }
 
@@ -5942,13 +5938,13 @@ static void emit_ios_vs(struct dump_ctx *ctx)
       }
 
       if (!ctx->outputs[i].glsl_predefined_no_emit) {
+         const char *prefix = "";
          if (ctx->outputs[i].name == TGSI_SEMANTIC_GENERIC ||
              ctx->outputs[i].name == TGSI_SEMANTIC_COLOR ||
              ctx->outputs[i].name == TGSI_SEMANTIC_BCOLOR) {
             ctx->num_interps++;
             prefix = INTERP_PREFIX;
-         } else
-            prefix = "";
+         }
 
          emit_ios_generics(ctx, io_out, prefix, &ctx->outputs[i],
                            ctx->outputs[i].fbfetch_used ? "inout" : "out", "");
