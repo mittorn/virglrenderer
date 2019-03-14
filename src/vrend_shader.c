@@ -6018,7 +6018,6 @@ static const char *get_depth_layout(int depth_layout)
 static void emit_ios_fs(struct dump_ctx *ctx)
 {
    uint32_t i;
-   const char *prefix = "", *auxprefix = "";
 
    if (fs_emit_layout(ctx)) {
       bool upper_left = !(ctx->fs_coord_origin ^ ctx->key->invert_fs_origin);
@@ -6038,8 +6037,8 @@ static void emit_ios_fs(struct dump_ctx *ctx)
 
    for (i = 0; i < ctx->num_inputs; i++) {
       if (!ctx->inputs[i].glsl_predefined_no_emit) {
-         prefix = "";
-         auxprefix = "";
+         const char *prefix = "";
+         const char *auxprefix = "";
 
          if (ctx->inputs[i].name == TGSI_SEMANTIC_GENERIC ||
               ctx->inputs[i].name == TGSI_SEMANTIC_COLOR ||
