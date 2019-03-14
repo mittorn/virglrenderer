@@ -2038,8 +2038,7 @@ static void handle_fragment_proc_exit(struct dump_ctx *ctx)
 
 static void set_texture_reqs(struct dump_ctx *ctx,
 			     struct tgsi_full_instruction *inst,
-			     uint32_t sreg_index,
-			     bool *is_shad)
+			     uint32_t sreg_index)
 {
    if (sreg_index >= ARRAY_SIZE(ctx->samplers)) {
       vrend_printf( "Sampler view exceeded, max is %lu\n", ARRAY_SIZE(ctx->samplers));
@@ -2083,8 +2082,6 @@ static void set_texture_reqs(struct dump_ctx *ctx,
       return;
    }
 
-   *is_shad = samplertype_is_shadow(inst->Texture.Texture);
-
    if (ctx->cfg->glsl_version >= 140)
       if ((ctx->shader_req_bits & SHADER_REQ_SAMPLER_RECT) || ctx->uses_sampler_buf)
          require_glsl_ver(ctx, 140);
@@ -2101,10 +2098,9 @@ static void emit_txq(struct dump_ctx *ctx,
    unsigned twm = TGSI_WRITEMASK_NONE;
    char bias[128] = {0};
    const int sampler_index = 1;
-   bool is_shad;
    enum vrend_type_qualifier dtypeprefix = INT_BITS_TO_FLOAT;
 
-   set_texture_reqs(ctx, inst, sreg_index, &is_shad);
+   set_texture_reqs(ctx, inst, sreg_index);
 
    /* No LOD for these texture types, but on GLES we emulate RECT by using
     * a normal 2D texture, so we have to give LOD 0 */
@@ -2195,11 +2191,10 @@ static void emit_txqs(struct dump_ctx *ctx,
                       const char *dst)
 {
    const int sampler_index = 0;
-   bool is_shad;
    enum vrend_type_qualifier dtypeprefix = INT_BITS_TO_FLOAT;
 
    ctx->shader_req_bits |= SHADER_REQ_TXQS;
-   set_texture_reqs(ctx, inst, sreg_index, &is_shad);
+   set_texture_reqs(ctx, inst, sreg_index);
 
    if (inst->Texture.Texture != TGSI_TEXTURE_2D_MSAA &&
        inst->Texture.Texture != TGSI_TEXTURE_2D_ARRAY_MSAA) {
@@ -2376,13 +2371,14 @@ static void translate_tex(struct dump_ctx *ctx,
    enum vrend_type_qualifier txfi = TYPE_CONVERSION_NONE;
    unsigned twm = TGSI_WRITEMASK_NONE, gwm = TGSI_WRITEMASK_NONE;
    enum vrend_type_qualifier dtypeprefix = TYPE_CONVERSION_NONE;
-   bool is_shad = false;
+   bool is_shad;
    char offbuf[256] = {0};
    char bias[256] = {0};
    int sampler_index;
    const char *tex_ext;
 
-   set_texture_reqs(ctx, inst, sinfo->sreg_index, &is_shad);
+   set_texture_reqs(ctx, inst, sinfo->sreg_index);
+   is_shad = samplertype_is_shadow(inst->Texture.Texture);
 
    switch (ctx->samplers[sinfo->sreg_index].tgsi_sampler_return) {
    case TGSI_RETURN_TYPE_SINT:
