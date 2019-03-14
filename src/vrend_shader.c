@@ -676,6 +676,26 @@ static bool samplertype_is_shadow(int sampler_type)
    }
 }
 
+static uint32_t samplertype_to_req_bits(int sampler_type)
+{
+
+   switch (sampler_type) {
+   case TGSI_TEXTURE_SHADOWCUBE_ARRAY:
+   case TGSI_TEXTURE_CUBE_ARRAY:
+      return SHADER_REQ_CUBE_ARRAY;
+   case TGSI_TEXTURE_2D_MSAA:
+   case TGSI_TEXTURE_2D_ARRAY_MSAA:
+      return SHADER_REQ_SAMPLER_MS;
+   case TGSI_TEXTURE_BUFFER:
+      return SHADER_REQ_SAMPLER_BUF;
+   case TGSI_TEXTURE_SHADOWRECT:
+   case TGSI_TEXTURE_RECT:
+      return SHADER_REQ_SAMPLER_RECT;
+   default:
+      return 0;
+   }
+}
+
 static bool add_images(struct dump_ctx *ctx, int first, int last,
                        struct tgsi_declaration_image *img_decl)
 {
@@ -707,15 +727,8 @@ static bool add_images(struct dump_ctx *ctx, int first, int last,
       ctx->images[i].vflag = false;
       ctx->images_used_mask |= (1 << i);
 
-      if (ctx->images[i].decl.Resource == TGSI_TEXTURE_CUBE_ARRAY)
-         ctx->shader_req_bits |= SHADER_REQ_CUBE_ARRAY;
-      else if (ctx->images[i].decl.Resource == TGSI_TEXTURE_2D_MSAA ||
-          ctx->images[i].decl.Resource == TGSI_TEXTURE_2D_ARRAY_MSAA)
-         ctx->shader_req_bits |= SHADER_REQ_SAMPLER_MS;
-      else if (ctx->images[i].decl.Resource == TGSI_TEXTURE_BUFFER)
-         ctx->shader_req_bits |= SHADER_REQ_SAMPLER_BUF;
-      else if (ctx->images[i].decl.Resource == TGSI_TEXTURE_RECT)
-         ctx->shader_req_bits |= SHADER_REQ_SAMPLER_RECT;
+      if (!samplertype_is_shadow(ctx->images[i].decl.Resource))
+         ctx->shader_req_bits |= samplertype_to_req_bits(ctx->images[i].decl.Resource);
    }
 
    if (ctx->info.indirect_files & (1 << TGSI_FILE_IMAGE)) {
@@ -2047,40 +2060,7 @@ static void set_texture_reqs(struct dump_ctx *ctx,
    }
    ctx->samplers[sreg_index].tgsi_sampler_type = inst->Texture.Texture;
 
-   switch (inst->Texture.Texture) {
-   case TGSI_TEXTURE_1D:
-   case TGSI_TEXTURE_2D:
-   case TGSI_TEXTURE_3D:
-   case TGSI_TEXTURE_CUBE:
-   case TGSI_TEXTURE_1D_ARRAY:
-   case TGSI_TEXTURE_2D_ARRAY:
-      break;
-   case TGSI_TEXTURE_SHADOWCUBE_ARRAY:
-   case TGSI_TEXTURE_CUBE_ARRAY:
-      ctx->shader_req_bits |= SHADER_REQ_CUBE_ARRAY;
-      break;
-   case TGSI_TEXTURE_2D_MSAA:
-   case TGSI_TEXTURE_2D_ARRAY_MSAA:
-      ctx->shader_req_bits |= SHADER_REQ_SAMPLER_MS;
-      break;
-   case TGSI_TEXTURE_BUFFER:
-      ctx->shader_req_bits |= SHADER_REQ_SAMPLER_BUF;
-      break;
-   case TGSI_TEXTURE_SHADOWRECT:
-   case TGSI_TEXTURE_RECT:
-      ctx->shader_req_bits |= SHADER_REQ_SAMPLER_RECT;
-      break;
-   case TGSI_TEXTURE_SHADOW1D:
-   case TGSI_TEXTURE_SHADOW2D:
-   case TGSI_TEXTURE_SHADOWCUBE:
-   case TGSI_TEXTURE_SHADOW1D_ARRAY:
-   case TGSI_TEXTURE_SHADOW2D_ARRAY:
-      break;
-   default:
-      vrend_printf( "unhandled texture: %x\n", inst->Texture.Texture);
-      set_buf_error(ctx);
-      return;
-   }
+   ctx->shader_req_bits |= samplertype_to_req_bits(inst->Texture.Texture);
 
    if (ctx->cfg->glsl_version >= 140)
       if (ctx->shader_req_bits & (SHADER_REQ_SAMPLER_RECT |
