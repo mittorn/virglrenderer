@@ -5947,8 +5947,6 @@ static void emit_ios_vs(struct dump_ctx *ctx)
 {
    uint32_t i;
 
-   ctx->num_interps = 0;
-
    for (i = 0; i < ctx->num_inputs; i++) {
       char postfix[32] = "";
       if (!ctx->inputs[i].glsl_predefined_no_emit) {
