@@ -5799,9 +5799,9 @@ static void emit_ios_indirect_generics_input(struct dump_ctx *ctx, const char *p
 }
 
 static void
-emit_ios_generics(struct dump_ctx *ctx, enum io_type iot,  const char *prefix,
-                  const struct vrend_shader_io *io, const char *inout,
-                  const char *postfix)
+emit_ios_generic(struct dump_ctx *ctx, enum io_type iot,  const char *prefix,
+                 const struct vrend_shader_io *io, const char *inout,
+                 const char *postfix)
 {
    const char type[4][6] = {"float", " vec2", " vec3", " vec4"};
    const char *t = " vec4";
@@ -5900,8 +5900,8 @@ emit_ios_generic_outputs(struct dump_ctx *ctx,
             prefix = INTERP_PREFIX;
          }
 
-         emit_ios_generics(ctx, io_out, prefix, &ctx->outputs[i],
-                           ctx->outputs[i].fbfetch_used ? "inout" : "out", "");
+         emit_ios_generic(ctx, io_out, prefix, &ctx->outputs[i],
+                          ctx->outputs[i].fbfetch_used ? "inout" : "out", "");
       } else if (ctx->outputs[i].invariant || ctx->outputs[i].precise) {
          emit_hdrf(ctx, "%s%s;\n",
                    ctx->outputs[i].precise ? "precise " :
@@ -6068,7 +6068,7 @@ static void emit_ios_fs(struct dump_ctx *ctx)
 
          char prefixes[64];
          snprintf(prefixes, sizeof(prefixes), "%s %s", prefix, auxprefix);
-         emit_ios_generics(ctx, io_in, prefixes, &ctx->inputs[i], "in", "");
+         emit_ios_generic(ctx, io_in, prefixes, &ctx->inputs[i], "in", "");
       }
 
       if (ctx->cfg->use_gles && !ctx->key->winsys_adjust_y_emitted &&
@@ -6103,7 +6103,7 @@ static void emit_ios_fs(struct dump_ctx *ctx)
       for (i = 0; i < ctx->num_outputs; i++) {
 
          if (!ctx->outputs[i].glsl_predefined_no_emit) {
-            emit_ios_generics(ctx, io_out, "", &ctx->outputs[i],
+            emit_ios_generic(ctx, io_out, "", &ctx->outputs[i],
                               ctx->outputs[i].fbfetch_used ? "inout" : "out", "");
 
          } else if (ctx->outputs[i].invariant || ctx->outputs[i].precise) {
@@ -6159,7 +6159,7 @@ static void emit_ios_geom(struct dump_ctx *ctx)
       if (!ctx->inputs[i].glsl_predefined_no_emit) {
          char postfix[64];
          snprintf(postfix, sizeof(postfix), "[%d]", gs_input_prim_to_size(ctx->gs_in_prim));
-         emit_ios_generics(ctx, io_in, "", &ctx->inputs[i], "in", postfix);
+         emit_ios_generic(ctx, io_in, "", &ctx->inputs[i], "in", postfix);
       }
    }
 
@@ -6234,7 +6234,7 @@ static void emit_ios_tcs(struct dump_ctx *ctx)
          if (ctx->inputs[i].name == TGSI_SEMANTIC_PATCH)
             emit_ios_patch(ctx, "",  &ctx->inputs[i], "in", ctx->inputs[i].last - ctx->inputs[i].first + 1);
          else
-            emit_ios_generics(ctx, io_in, "", &ctx->inputs[i], "in", "[]");
+            emit_ios_generic(ctx, io_in, "", &ctx->inputs[i], "in", "[]");
       }
    }
 
@@ -6252,7 +6252,7 @@ static void emit_ios_tcs(struct dump_ctx *ctx)
             emit_ios_patch(ctx, "patch", &ctx->outputs[i], "out",
                            ctx->outputs[i].last - ctx->outputs[i].first + 1);
          } else
-            emit_ios_generics(ctx, io_out, "", &ctx->outputs[i], "out", "[]");
+            emit_ios_generic(ctx, io_out, "", &ctx->outputs[i], "out", "[]");
       } else if (ctx->outputs[i].invariant || ctx->outputs[i].precise) {
          emit_hdrf(ctx, "%s%s;\n",
                    ctx->outputs[i].precise ? "precise " :
@@ -6298,7 +6298,7 @@ static void emit_ios_tes(struct dump_ctx *ctx)
             emit_ios_patch(ctx, "patch", &ctx->inputs[i], "in",
                            ctx->inputs[i].last - ctx->inputs[i].first + 1);
          else
-            emit_ios_generics(ctx, io_in, "", &ctx->inputs[i], "in", "[]");
+            emit_ios_generic(ctx, io_in, "", &ctx->inputs[i], "in", "[]");
       }
    }
 
