@@ -660,6 +660,22 @@ static struct vrend_temp_range *find_temp_range(struct dump_ctx *ctx, int index)
    return NULL;
 }
 
+static bool samplertype_is_shadow(int sampler_type)
+{
+   switch (sampler_type) {
+   case TGSI_TEXTURE_SHADOW1D:
+   case TGSI_TEXTURE_SHADOW1D_ARRAY:
+   case TGSI_TEXTURE_SHADOW2D:
+   case TGSI_TEXTURE_SHADOWRECT:
+   case TGSI_TEXTURE_SHADOW2D_ARRAY:
+   case TGSI_TEXTURE_SHADOWCUBE:
+   case TGSI_TEXTURE_SHADOWCUBE_ARRAY:
+      return true;
+   default:
+      return false;
+   }
+}
+
 static bool add_images(struct dump_ctx *ctx, int first, int last,
                        struct tgsi_declaration_image *img_decl)
 {
@@ -2041,8 +2057,6 @@ static void set_texture_reqs(struct dump_ctx *ctx,
    case TGSI_TEXTURE_2D_ARRAY:
       break;
    case TGSI_TEXTURE_SHADOWCUBE_ARRAY:
-      *is_shad = true;
-      /* fallthrough */
    case TGSI_TEXTURE_CUBE_ARRAY:
       ctx->shader_req_bits |= SHADER_REQ_CUBE_ARRAY;
       break;
@@ -2054,8 +2068,6 @@ static void set_texture_reqs(struct dump_ctx *ctx,
       ctx->uses_sampler_buf = true;
       break;
    case TGSI_TEXTURE_SHADOWRECT:
-      *is_shad = true;
-      /* fallthrough */
    case TGSI_TEXTURE_RECT:
       ctx->shader_req_bits |= SHADER_REQ_SAMPLER_RECT;
       break;
@@ -2064,13 +2076,14 @@ static void set_texture_reqs(struct dump_ctx *ctx,
    case TGSI_TEXTURE_SHADOWCUBE:
    case TGSI_TEXTURE_SHADOW1D_ARRAY:
    case TGSI_TEXTURE_SHADOW2D_ARRAY:
-      *is_shad = true;
       break;
    default:
       vrend_printf( "unhandled texture: %x\n", inst->Texture.Texture);
       set_buf_error(ctx);
       return;
    }
+
+   *is_shad = samplertype_is_shadow(inst->Texture.Texture);
 
    if (ctx->cfg->glsl_version >= 140)
       if ((ctx->shader_req_bits & SHADER_REQ_SAMPLER_RECT) || ctx->uses_sampler_buf)
