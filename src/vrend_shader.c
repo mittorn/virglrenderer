@@ -5348,7 +5348,7 @@ char vrend_shader_samplerreturnconv(enum tgsi_return_type type)
    }
 }
 
-const char *vrend_shader_samplertypeconv(bool use_gles, int sampler_type, int *is_shad)
+const char *vrend_shader_samplertypeconv(bool use_gles, int sampler_type)
 {
    switch (sampler_type) {
    case TGSI_TEXTURE_BUFFER: return "Buffer";
@@ -5362,13 +5362,11 @@ const char *vrend_shader_samplertypeconv(bool use_gles, int sampler_type, int *i
    case TGSI_TEXTURE_RECT: return use_gles ? "2D" : "2DRect";
    case TGSI_TEXTURE_SHADOW1D:
       if (!use_gles) {
-         *is_shad = 1;
          return "1DShadow";
       }
       /* fallthrough */
-   case TGSI_TEXTURE_SHADOW2D: *is_shad = 1; return "2DShadow";
+   case TGSI_TEXTURE_SHADOW2D: return "2DShadow";
    case TGSI_TEXTURE_SHADOWRECT:
-      *is_shad = 1;
       return (!use_gles) ? "2DRectShadow" : "2DShadow";
    case TGSI_TEXTURE_1D_ARRAY:
       if (!use_gles)
@@ -5377,14 +5375,13 @@ const char *vrend_shader_samplertypeconv(bool use_gles, int sampler_type, int *i
    case TGSI_TEXTURE_2D_ARRAY: return "2DArray";
    case TGSI_TEXTURE_SHADOW1D_ARRAY:
       if (!use_gles) {
-         *is_shad = 1;
          return "1DArrayShadow";
       }
       /* fallthrough */
-   case TGSI_TEXTURE_SHADOW2D_ARRAY: *is_shad = 1; return "2DArrayShadow";
-   case TGSI_TEXTURE_SHADOWCUBE: *is_shad = 1; return "CubeShadow";
+   case TGSI_TEXTURE_SHADOW2D_ARRAY: return "2DArrayShadow";
+   case TGSI_TEXTURE_SHADOWCUBE: return "CubeShadow";
    case TGSI_TEXTURE_CUBE_ARRAY: return "CubeArray";
-   case TGSI_TEXTURE_SHADOWCUBE_ARRAY: *is_shad = 1; return "CubeArrayShadow";
+   case TGSI_TEXTURE_SHADOWCUBE_ARRAY: return "CubeArrayShadow";
    case TGSI_TEXTURE_2D_MSAA: return "2DMS";
    case TGSI_TEXTURE_2D_ARRAY_MSAA: return "2DMSArray";
    default: return NULL;
@@ -5430,7 +5427,7 @@ static void emit_sampler_decl(struct dump_ctx *ctx,
                               const struct vrend_shader_sampler *sampler)
 {
    char ptc;
-   int is_shad = 0;
+   bool is_shad;
    const char *sname, *precision, *stc;
 
    sname = tgsi_proc_to_prefix(ctx->prog_type);
@@ -5438,7 +5435,8 @@ static void emit_sampler_decl(struct dump_ctx *ctx,
    precision = (ctx->cfg->use_gles) ? "highp " : " ";
 
    ptc = vrend_shader_samplerreturnconv(sampler->tgsi_sampler_return);
-   stc = vrend_shader_samplertypeconv(ctx->cfg->use_gles, sampler->tgsi_sampler_type, &is_shad);
+   stc = vrend_shader_samplertypeconv(ctx->cfg->use_gles, sampler->tgsi_sampler_type);
+   is_shad = samplertype_is_shadow(sampler->tgsi_sampler_type);
 
    /* GLES does not support 1D textures -- we use a 2D texture and set the parameter set to 0.5 */
    if (ctx->cfg->use_gles && sampler->tgsi_sampler_type == TGSI_TEXTURE_1D)
@@ -5590,7 +5588,6 @@ static void emit_image_decl(struct dump_ctx *ctx,
                             const struct vrend_shader_image *image)
 {
    char ptc;
-   int is_shad = 0;
    const char *sname, *stc, *formatstr;
    enum tgsi_return_type itype;
    const char *volatile_str = image->vflag ? "volatile " : "";
@@ -5599,7 +5596,7 @@ static void emit_image_decl(struct dump_ctx *ctx,
    formatstr = get_internalformat_string(image->decl.Format, &itype);
    ptc = vrend_shader_samplerreturnconv(itype);
    sname = tgsi_proc_to_prefix(ctx->prog_type);
-   stc = vrend_shader_samplertypeconv(ctx->cfg->use_gles, image->decl.Resource, &is_shad);
+   stc = vrend_shader_samplertypeconv(ctx->cfg->use_gles, image->decl.Resource);
 
    if (!image->decl.Writable)
       access = "readonly ";

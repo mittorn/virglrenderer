@@ -160,7 +160,7 @@ bool vrend_convert_shader(struct  vrend_context *rctx,
                           struct vrend_shader_info *sinfo,
                           struct vrend_strarray *shader);
 
-const char *vrend_shader_samplertypeconv(bool use_gles, int sampler_type, int *is_shad);
+const char *vrend_shader_samplertypeconv(bool use_gles, int sampler_type);
 
 char vrend_shader_samplerreturnconv(enum tgsi_return_type type);
 
