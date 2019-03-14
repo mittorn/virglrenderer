@@ -737,13 +737,13 @@ static const char *vrend_gles_warn_strings[] = {
    "Depth Clear", "LogicOp", "GL_TIMESTAMP"
 };
 
-static void __report_gles_warn(const char *fname, struct vrend_context *ctx, enum virgl_ctx_errors error, uint32_t value)
+static void __report_gles_warn(const char *fname, struct vrend_context *ctx, enum virgl_ctx_errors error)
 {
    int id = ctx ? ctx->ctx_id : -1;
    const char *name = ctx ? ctx->debug_name : "NO_CONTEXT";
-   vrend_printf("%s: gles violation reported %d \"%s\" %s %d\n", fname, id, name, vrend_gles_warn_strings[error], value);
+   vrend_printf("%s: gles violation reported %d \"%s\" %s\n", fname, id, name, vrend_gles_warn_strings[error]);
 }
-#define report_gles_warn(ctx, error, value) __report_gles_warn(__func__, ctx, error, value)
+#define report_gles_warn(ctx, error) __report_gles_warn(__func__, ctx, error)
 
 static void __report_gles_missing_func(const char *fname, struct vrend_context *ctx, const char *missf)
 {
@@ -1755,7 +1755,7 @@ int vrend_create_sampler_state(struct vrend_context *ctx,
 
          if (vrend_state.use_gles) {
             if (templ->seamless_cube_map != 0) {
-               report_gles_warn(ctx, GLES_WARN_SEAMLESS_CUBE_MAP, 0);
+               report_gles_warn(ctx, GLES_WARN_SEAMLESS_CUBE_MAP);
             }
          } else {
             glSamplerParameteri(state->ids[i], GL_TEXTURE_CUBE_MAP_SEAMLESS, templ->seamless_cube_map);
@@ -2305,7 +2305,7 @@ void vrend_set_viewport_states(struct vrend_context *ctx,
          if (vrend_state.use_gles) {
             if (near_val < 0.0f || far_val < 0.0f ||
                 near_val > 1.0f || far_val > 1.0f || idx) {
-               report_gles_warn(ctx, GLES_WARN_DEPTH_RANGE, 0);
+               report_gles_warn(ctx, GLES_WARN_DEPTH_RANGE);
             }
 
             /* Best effort despite the warning, gles will clamp. */
@@ -3340,7 +3340,7 @@ void vrend_clear(struct vrend_context *ctx,
       if (vrend_state.use_gles) {
          if (0.0f < depth && depth > 1.0f) {
             // Only warn, it is clamped by the function.
-            report_gles_warn(ctx, GLES_WARN_DEPTH_CLEAR, 0);
+            report_gles_warn(ctx, GLES_WARN_DEPTH_CLEAR);
          }
          glClearDepthf(depth);
       } else {
@@ -4424,7 +4424,7 @@ static void vrend_hw_emit_blend(struct vrend_context *ctx, struct pipe_blend_sta
       ctx->sub->hw_blend_state.logicop_enable = state->logicop_enable;
       if (vrend_state.use_gles) {
          if (state->logicop_enable) {
-            report_gles_warn(ctx, GLES_WARN_LOGIC_OP, 0);
+            report_gles_warn(ctx, GLES_WARN_LOGIC_OP);
          }
       } else if (state->logicop_enable) {
          glEnable(GL_COLOR_LOGIC_OP);
@@ -4730,7 +4730,7 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
 
    if (!has_feature(feat_depth_clamp)) {
       if (!state->depth_clip) {
-         report_gles_warn(ctx, GLES_WARN_DEPTH_CLIP, 0);
+         report_gles_warn(ctx, GLES_WARN_DEPTH_CLIP);
       }
    } else if (state->depth_clip) {
       glDisable(GL_DEPTH_CLAMP);
@@ -4743,7 +4743,7 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
       if (!state->point_size_per_vertex &&
           state->point_size != 1.0f &&
           state->point_size != 0.0f) {
-         report_gles_warn(ctx, GLES_WARN_POINT_SIZE, 0);
+         report_gles_warn(ctx, GLES_WARN_POINT_SIZE);
       }
    } else if (state->point_size_per_vertex) {
       glEnable(GL_PROGRAM_POINT_SIZE);
@@ -4767,10 +4767,10 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
 
    if (vrend_state.use_gles == true) {
       if (translate_fill(state->fill_front) != GL_FILL) {
-         report_gles_warn(ctx, GLES_WARN_POLYGON_MODE, 0);
+         report_gles_warn(ctx, GLES_WARN_POLYGON_MODE);
       }
       if (translate_fill(state->fill_back) != GL_FILL) {
-         report_gles_warn(ctx, GLES_WARN_POLYGON_MODE, 0);
+         report_gles_warn(ctx, GLES_WARN_POLYGON_MODE);
       }
    } else if (vrend_state.use_core_profile == false) {
       glPolygonMode(GL_FRONT, translate_fill(state->fill_front));
@@ -4788,7 +4788,7 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
 
    if (vrend_state.use_gles) {
       if (state->offset_line) {
-         report_gles_warn(ctx, GLES_WARN_OFFSET_LINE, 0);
+         report_gles_warn(ctx, GLES_WARN_OFFSET_LINE);
       }
    } else if (state->offset_line) {
       glEnable(GL_POLYGON_OFFSET_LINE);
@@ -4798,7 +4798,7 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
 
    if (vrend_state.use_gles) {
       if (state->offset_point) {
-         report_gles_warn(ctx, GLES_WARN_OFFSET_POINT, 0);
+         report_gles_warn(ctx, GLES_WARN_OFFSET_POINT);
       }
    } else if (state->offset_point) {
       glEnable(GL_POLYGON_OFFSET_POINT);
@@ -4822,7 +4822,7 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
       ctx->sub->hw_rs_state.flatshade_first = state->flatshade_first;
       if (vrend_state.use_gles) {
          if (state->flatshade_first) {
-            report_gles_warn(ctx, GLES_WARN_FLATSHADE_FIRST, 0);
+            report_gles_warn(ctx, GLES_WARN_FLATSHADE_FIRST);
          }
       } else if (state->flatshade_first) {
          glProvokingVertexEXT(GL_FIRST_VERTEX_CONVENTION_EXT);
@@ -4913,7 +4913,7 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
 
    if (vrend_state.use_gles) {
       if (state->line_smooth) {
-         report_gles_warn(ctx, GLES_WARN_LINE_SMOOTH, 0);
+         report_gles_warn(ctx, GLES_WARN_LINE_SMOOTH);
       }
    } else if (state->line_smooth) {
       glEnable(GL_LINE_SMOOTH);
@@ -4923,7 +4923,7 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
 
    if (vrend_state.use_gles) {
       if (state->poly_smooth) {
-         report_gles_warn(ctx, GLES_WARN_POLY_SMOOTH, 0);
+         report_gles_warn(ctx, GLES_WARN_POLY_SMOOTH);
       }
    } else if (state->poly_smooth) {
       glEnable(GL_POLYGON_SMOOTH);
@@ -5103,7 +5103,7 @@ static void vrend_apply_sampler_state(struct vrend_context *ctx,
       if (tex->state.lod_bias != state->lod_bias || set_all) {
          if (vrend_state.use_gles) {
             if (state->lod_bias) {
-               report_gles_warn(ctx, GLES_WARN_SEAMLESS_CUBE_MAP, 0);
+               report_gles_warn(ctx, GLES_WARN_SEAMLESS_CUBE_MAP);
             }
          } else {
             glTexParameterf(target, GL_TEXTURE_LOD_BIAS, state->lod_bias);
@@ -5794,7 +5794,7 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
    if (vrend_state.use_gles && gr->target == GL_TEXTURE_RECTANGLE_NV) {
       /* for some guests this is the only usage of rect */
       if (pr->width0 != 1 || pr->height0 != 1) {
-         report_gles_warn(NULL, GLES_WARN_TEXTURE_RECT, 0);
+         report_gles_warn(NULL, GLES_WARN_TEXTURE_RECT);
       }
       gr->target = GL_TEXTURE_2D;
    }
@@ -7974,7 +7974,7 @@ int vrend_end_query(struct vrend_context *ctx, uint32_t handle)
 
    if (vrend_is_timer_query(q->gltype)) {
       if (vrend_state.use_gles && q->gltype == GL_TIMESTAMP) {
-         report_gles_warn(ctx, GLES_WARN_TIMESTAMP, 0);
+         report_gles_warn(ctx, GLES_WARN_TIMESTAMP);
       } else if (q->gltype == GL_TIMESTAMP) {
          glQueryCounter(q->id, q->gltype);
       } else {
