@@ -705,11 +705,11 @@ void vrend_report_buffer_error(struct vrend_context *ctx, int cmd)
 
 static const char *vrend_core_profile_warn_strings[] = { "None", "Stipple", "Polygon Mode", "Two Side", "Clamping", "Shade Model" };
 
-static void __report_core_warn(const char *fname, struct vrend_context *ctx, enum virgl_ctx_errors error, uint32_t value)
+static void __report_core_warn(const char *fname, struct vrend_context *ctx, enum virgl_ctx_errors error)
 {
-   vrend_printf("%s: core profile violation reported %d \"%s\" %s %d\n", fname, ctx->ctx_id, ctx->debug_name, vrend_core_profile_warn_strings[error], value);
+   vrend_printf("%s: core profile violation reported %d \"%s\" %s\n", fname, ctx->ctx_id, ctx->debug_name, vrend_core_profile_warn_strings[error]);
 }
-#define report_core_warn(ctx, error, value) __report_core_warn(__func__, ctx, error, value)
+#define report_core_warn(ctx, error) __report_core_warn(__func__, ctx, error)
 
 
 #define GLES_WARN_NONE 0
@@ -4778,7 +4778,7 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
    } else if (state->fill_front == state->fill_back) {
       glPolygonMode(GL_FRONT_AND_BACK, translate_fill(state->fill_front));
    } else
-      report_core_warn(ctx, CORE_PROFILE_WARN_POLYGON_MODE, 0);
+      report_core_warn(ctx, CORE_PROFILE_WARN_POLYGON_MODE);
 
    if (state->offset_tri) {
       glEnable(GL_POLYGON_OFFSET_FILL);
@@ -4905,9 +4905,9 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
          glDisable(GL_LINE_STIPPLE);
    } else if (state->line_stipple_enable) {
       if (vrend_state.use_gles)
-         report_core_warn(ctx, GLES_WARN_STIPPLE, 0);
+         report_core_warn(ctx, GLES_WARN_STIPPLE);
       else
-         report_core_warn(ctx, CORE_PROFILE_WARN_STIPPLE, 0);
+         report_core_warn(ctx, CORE_PROFILE_WARN_STIPPLE);
    }
 
 
@@ -4943,7 +4943,7 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
          glClampColor(GL_CLAMP_FRAGMENT_COLOR_ARB, GL_FALSE);
    } else {
       if (state->clamp_vertex_color || state->clamp_fragment_color)
-         report_core_warn(ctx, CORE_PROFILE_WARN_CLAMP, 0);
+         report_core_warn(ctx, CORE_PROFILE_WARN_CLAMP);
    }
 
    if (has_feature(feat_multisample)) {
