@@ -1845,8 +1845,8 @@ static void emit_so_movs(struct dump_ctx *ctx)
       } else {
          if (ctx->write_so_outputs[i]) {
             char out_var[255];
-            if (ctx->so->output[i].need_temp || ctx->prog_type == TGSI_PROCESSOR_GEOMETRY
-                || output->glsl_predefined_no_emit) {
+            if (ctx->so->output[i].need_temp || ctx->prog_type == TGSI_PROCESSOR_GEOMETRY ||
+                output->glsl_predefined_no_emit) {
                get_so_name(ctx, false, output, ctx->so->output[i].register_index, out_var, writemask);
                emit_buff(ctx, "tfout%d = %s(%s);\n", i, outtype, out_var);
             } else {
@@ -2434,8 +2434,8 @@ static void translate_tex(struct dump_ctx *ctx,
    case TGSI_TEXTURE_CUBE_ARRAY:
    default:
       if (inst->Instruction.Opcode == TGSI_OPCODE_TG4 &&
-          inst->Texture.Texture != TGSI_TEXTURE_CUBE_ARRAY
-          && inst->Texture.Texture != TGSI_TEXTURE_SHADOWCUBE_ARRAY)
+          inst->Texture.Texture != TGSI_TEXTURE_CUBE_ARRAY &&
+          inst->Texture.Texture != TGSI_TEXTURE_SHADOWCUBE_ARRAY)
          twm = TGSI_WRITEMASK_XYZ;
       else
          twm = TGSI_WRITEMASK_NONE;
