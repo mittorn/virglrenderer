@@ -5438,10 +5438,7 @@ static void emit_sampler_decl(struct dump_ctx *ctx,
    stc = vrend_shader_samplertypeconv(ctx->cfg->use_gles, sampler->tgsi_sampler_type);
    is_shad = samplertype_is_shadow(sampler->tgsi_sampler_type);
 
-   /* GLES does not support 1D textures -- we use a 2D texture and set the parameter set to 0.5 */
-   if (ctx->cfg->use_gles && sampler->tgsi_sampler_type == TGSI_TEXTURE_1D)
-      emit_hdrf(ctx, "uniform highp %csampler2D %ssamp%d;\n", ptc, sname, i);
-   else if (range)
+   if (range)
       emit_hdrf(ctx, "uniform %s%csampler%s %ssamp%d[%d];\n", precision, ptc, stc, sname, i, range);
    else
       emit_hdrf(ctx, "uniform %s%csampler%s %ssamp%d;\n", precision,  ptc, stc, sname, i);
