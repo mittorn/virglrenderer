@@ -2746,6 +2746,20 @@ translate_store(struct dump_ctx *ctx,
    }
 }
 
+static void emit_load_mem(struct dump_ctx *ctx, const char *dst, int writemask,
+                          const char *conversion, const char *atomic_op, const char *src0,
+                          const char *atomic_src)
+{
+   static const char swizzle_char[] = "xyzw";
+   for (int i = 0; i < 4; ++i) {
+      if (writemask & (1 << i)) {
+         emit_buff(ctx, "%s.%c = (%s(%s(%s[ssbo_addr_temp + %du]%s)));\n", dst,
+                   swizzle_char[i], conversion, atomic_op, src0, i, atomic_src);
+      }
+   }
+}
+
+
 static void
 translate_load(struct dump_ctx *ctx,
                struct tgsi_full_instruction *inst,
@@ -2833,17 +2847,27 @@ translate_load(struct dump_ctx *ctx,
       }
 
       dtypeprefix = (is_integer_memory(ctx, src->Register.File, src->Register.Index)) ? INT_BITS_TO_FLOAT : UINT_BITS_TO_FLOAT;
-      if (inst->Dst[0].Register.WriteMask & 0x1) {
-         emit_buff(ctx, "%s.x = (%s(%s(%s[ssbo_addr_temp]%s)));\n", mydst, get_string(dtypeprefix), atomic_op, srcs[0], atomic_src);
-      }
-      if (inst->Dst[0].Register.WriteMask & 0x2) {
-         emit_buff(ctx, "%s.y = (%s(%s(%s[ssbo_addr_temp + 1u]%s)));\n", mydst, get_string(dtypeprefix), atomic_op, srcs[0], atomic_src);
-      }
-      if (inst->Dst[0].Register.WriteMask & 0x4) {
-         emit_buff(ctx, "%s.z = (%s(%s(%s[ssbo_addr_temp + 2u]%s)));\n", mydst, get_string(dtypeprefix), atomic_op, srcs[0], atomic_src);
-      }
-      if (inst->Dst[0].Register.WriteMask & 0x8) {
-         emit_buff(ctx, "%s.w = (%s(%s(%s[ssbo_addr_temp + 3u]%s)));\n", mydst, get_string(dtypeprefix), atomic_op, srcs[0], atomic_src);
+
+      if (!ctx->cfg->use_gles || !inst->Src[0].Register.Indirect) {
+         emit_load_mem(ctx, mydst, inst->Dst[0].Register.WriteMask, get_string(dtypeprefix), atomic_op, srcs[0], atomic_src);
+      } else {
+         char src[128] = "";
+         const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
+         bool atomic_ssbo = ctx->ssbo_atomic_mask & (1 << inst->Src[0].Register.Index);
+         const char *atomic_str = atomic_ssbo ? "atomic" : "";
+         uint base = atomic_ssbo ? ctx->ssbo_atomic_array_base : ctx->ssbo_array_base;
+         int start, array_count;
+         uint32_t mask = ctx->ssbo_used_mask;
+         u_bit_scan_consecutive_range(&mask, &start, &array_count);
+
+         emit_buff(ctx, "switch (addr%d + %d) {\n", inst->Src[0].Indirect.Index, inst->Src[0].Register.Index - base);
+         for (int i = 0; i < array_count; ++i) {
+            emit_buff(ctx, "case %d:\n", i);
+            snprintf(src, 128,"%sssboarr%s[%d].%sssbocontents%d", cname, atomic_str, i, cname, base);
+            emit_load_mem(ctx, mydst, inst->Dst[0].Register.WriteMask, get_string(dtypeprefix), atomic_op, src, atomic_src);
+            emit_buff(ctx, "  break;\n");
+         }
+         emit_buf(ctx, "}\n");
       }
    } else if (src->Register.File == TGSI_FILE_HW_ATOMIC) {
       emit_buff(ctx, "%s = uintBitsToFloat(atomicCounter(%s));\n", dsts[0], srcs[0]);
