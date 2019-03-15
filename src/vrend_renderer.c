@@ -144,6 +144,7 @@ enum features_id
    feat_texture_srgb_decode,
    feat_texture_storage,
    feat_texture_view,
+   feat_timer_query,
    feat_transform_feedback,
    feat_transform_feedback2,
    feat_transform_feedback3,
@@ -223,6 +224,7 @@ static const  struct {
    FEAT(texture_srgb_decode, UNAVAIL, UNAVAIL,  "GL_EXT_texture_sRGB_decode" ),
    FEAT(texture_storage, 42, 30,  "GL_ARB_texture_storage" ),
    FEAT(texture_view, 43, UNAVAIL,  "GL_ARB_texture_view" ),
+   FEAT(timer_query, 33, UNAVAIL, "GL_ARB_timer_query", "GL_EXT_disjoint_timer_query"),
    FEAT(transform_feedback, 30, 30,  "GL_EXT_transform_feedback" ),
    FEAT(transform_feedback2, 40, 30,  "GL_ARB_transform_feedback2" ),
    FEAT(transform_feedback3, 40, UNAVAIL,  "GL_ARB_transform_feedback3" ),
@@ -7924,9 +7926,13 @@ int vrend_create_query(struct vrend_context *ctx, uint32_t handle,
       q->gltype = GL_ANY_SAMPLES_PASSED;
       break;
    case PIPE_QUERY_TIMESTAMP:
+      if (!has_feature(feat_timer_query))
+         return EINVAL;
       q->gltype = GL_TIMESTAMP;
       break;
    case PIPE_QUERY_TIME_ELAPSED:
+      if (!has_feature(feat_timer_query))
+         return EINVAL;
       q->gltype = GL_TIME_ELAPSED;
       break;
    case PIPE_QUERY_PRIMITIVES_GENERATED:
@@ -8010,7 +8016,7 @@ int vrend_end_query(struct vrend_context *ctx, uint32_t handle)
       return EINVAL;
 
    if (vrend_is_timer_query(q->gltype)) {
-      if (vrend_state.use_gles && q->gltype == GL_TIMESTAMP) {
+      if (q->gltype == GL_TIMESTAMP && !has_feature(feat_timer_query)) {
          report_gles_warn(ctx, GLES_WARN_TIMESTAMP);
       } else if (q->gltype == GL_TIMESTAMP) {
          glQueryCounter(q->id, q->gltype);
