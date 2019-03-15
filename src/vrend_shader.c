@@ -2673,6 +2673,19 @@ static void set_memory_qualifier(struct dump_ctx *ctx,
             ctx->ssbo_memory_qualifier[u_bit_scan(&mask)] = TGSI_MEMORY_COHERENT;
       } else
          ctx->ssbo_memory_qualifier[reg_index] = TGSI_MEMORY_COHERENT;
+
+   }
+}
+
+static void emit_store_mem(struct dump_ctx *ctx, const char *dst, int writemask,
+                           char srcs[4][255], const char *conversion)
+{
+   static const char swizzle_char[] = "xyzw";
+   for (int i = 0; i < 4; ++i) {
+      if (writemask & (1 << i)) {
+         emit_buff(ctx, "%s[(uint(floatBitsToUint(%s)) >> 2) + %du] = %s(%s).%c;\n",
+                   dst, srcs[0], i, conversion, srcs[1], swizzle_char[i]);
+      }
    }
 }
 
@@ -2731,17 +2744,28 @@ translate_store(struct dump_ctx *ctx,
       set_memory_qualifier(ctx, inst, inst->Dst[0].Register.Index, inst->Dst[0].Register.Indirect);
       dtypeprefix = (is_integer_memory(ctx, dst->Register.File, dst->Register.Index)) ? FLOAT_BITS_TO_INT : FLOAT_BITS_TO_UINT;
       const char *conversion = sinfo->override_no_cast[1] ? "" : get_string(dtypeprefix);
-      if (inst->Dst[0].Register.WriteMask & 0x1) {
-         emit_buff(ctx, "%s[uint(floatBitsToUint(%s))>>2] = %s(%s).x;\n", dsts[0], srcs[0], conversion, srcs[1]);
-      }
-      if (inst->Dst[0].Register.WriteMask & 0x2) {
-         emit_buff(ctx, "%s[(uint(floatBitsToUint(%s))>>2)+1u] = %s(%s).y;\n", dsts[0], srcs[0], conversion, srcs[1]);
-      }
-      if (inst->Dst[0].Register.WriteMask & 0x4) {
-         emit_buff(ctx, "%s[(uint(floatBitsToUint(%s))>>2)+2u] = %s(%s).z;\n", dsts[0], srcs[0], conversion, srcs[1]);
-      }
-      if (inst->Dst[0].Register.WriteMask & 0x8) {
-         emit_buff(ctx, "%s[(uint(floatBitsToUint(%s))>>2)+3u] = %s(%s).w;\n", dsts[0], srcs[0], conversion, srcs[1]);
+
+      if (!ctx->cfg->use_gles || !inst->Dst[0].Register.Indirect) {
+         emit_store_mem(ctx, dsts[0], inst->Dst[0].Register.WriteMask, srcs, conversion);
+      } else {
+         char dst[128];
+
+         const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
+         bool atomic_ssbo = ctx->ssbo_atomic_mask & (1 << inst->Dst[0].Register.Index);
+         int base = atomic_ssbo ? ctx->ssbo_atomic_array_base : ctx->ssbo_array_base;
+         uint32_t mask = ctx->ssbo_used_mask;
+         int start, array_count;
+         u_bit_scan_consecutive_range(&mask, &start, &array_count);
+         int basearrayidx = lookup_image_array(ctx, inst->Dst[0].Register.Index);
+         emit_buff(ctx, "switch (addr%d + %d) {\n", inst->Dst[0].Indirect.Index, inst->Dst[0].Register.Index - base);
+
+         for (int i = 0; i < array_count; ++i)  {
+            snprintf(dst, 128, "%simg%d[addr%d + %d]", cname, basearrayidx, inst->Dst[0].Indirect.Index, inst->Dst[0].Register.Index - basearrayidx);
+            emit_buff(ctx, "case %d:\n", i);
+            emit_store_mem(ctx, dsts[0], inst->Dst[0].Register.WriteMask, srcs, conversion);
+            emit_buff(ctx, "break;\n");
+         }
+         emit_buf(ctx, "}\n");
       }
    }
 }
