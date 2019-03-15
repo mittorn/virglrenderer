@@ -126,7 +126,7 @@ struct vrend_if_cbs {
 int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags);
 
 void vrend_insert_format(struct vrend_format_table *entry, uint32_t bindings, uint32_t flags);
-bool vrend_check_fremabuffer_mixed_color_attachements(void);
+bool vrend_check_framebuffer_mixed_color_attachements(void);
 
 void vrend_insert_format_swizzle(int override_format, struct vrend_format_table *entry,
                                  uint32_t bindings, uint8_t swizzle[4], uint32_t flags);

@@ -573,7 +573,7 @@ void vrend_check_texture_storage(struct vrend_format_table *table)
    }
 }
 
-bool vrend_check_fremabuffer_mixed_color_attachements()
+bool vrend_check_framebuffer_mixed_color_attachements()
 {
    GLuint tex_id[2];
    GLuint fb_id;
