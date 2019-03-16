@@ -2491,14 +2491,14 @@ void vrend_set_uniform_buffer(struct vrend_context *ctx,
       ctx->sub->cbs[shader][index].buffer_offset = offset;
       ctx->sub->cbs[shader][index].buffer_size = length;
 
-      ctx->sub->const_bufs_used_mask[shader] |= (1 << index);
+      ctx->sub->const_bufs_used_mask[shader] |= (1u << index);
    } else {
       ctx->sub->cbs[shader][index].buffer = NULL;
       ctx->sub->cbs[shader][index].buffer_offset = 0;
       ctx->sub->cbs[shader][index].buffer_size = 0;
-      ctx->sub->const_bufs_used_mask[shader] &= ~(1 << index);
+      ctx->sub->const_bufs_used_mask[shader] &= ~(1u << index);
    }
-   ctx->sub->const_bufs_dirty[shader] |= (1 << index);
+   ctx->sub->const_bufs_dirty[shader] |= (1u << index);
 }
 
 void vrend_set_index_buffer(struct vrend_context *ctx,
@@ -2602,7 +2602,7 @@ void vrend_set_single_sampler_view(struct vrend_context *ctx,
          return;
       }
 
-      ctx->sub->sampler_views_dirty[shader_type] |= 1 << index;
+      ctx->sub->sampler_views_dirty[shader_type] |= 1u << index;
 
       if (!view->texture->is_buffer) {
          if (view->texture->id == view->id) {
@@ -2655,7 +2655,7 @@ void vrend_set_single_sampler_view(struct vrend_context *ctx,
             }
             if (tex->cur_srgb_decode != view->srgb_decode && util_format_is_srgb(tex->base.base.format)) {
                if (has_feature(feat_samplers))
-                  ctx->sub->sampler_views_dirty[shader_type] |= (1 << index);
+                  ctx->sub->sampler_views_dirty[shader_type] |= (1u << index);
                else if (has_feature(feat_texture_srgb_decode)) {
                   glTexParameteri(view->texture->target, GL_TEXTURE_SRGB_DECODE_EXT,
                                   view->srgb_decode);
@@ -2725,11 +2725,11 @@ void vrend_set_single_image_view(struct vrend_context *ctx,
       iview->access = access;
       iview->u.buf.offset = layer_offset;
       iview->u.buf.size = level_size;
-      ctx->sub->images_used_mask[shader_type] |= (1 << index);
+      ctx->sub->images_used_mask[shader_type] |= (1u << index);
    } else {
       iview->texture = NULL;
       iview->format = 0;
-      ctx->sub->images_used_mask[shader_type] &= ~(1 << index);
+      ctx->sub->images_used_mask[shader_type] &= ~(1u << index);
    }
 }
 
@@ -2754,12 +2754,12 @@ void vrend_set_single_ssbo(struct vrend_context *ctx,
       ssbo->res = res;
       ssbo->buffer_offset = offset;
       ssbo->buffer_size = length;
-      ctx->sub->ssbo_used_mask[shader_type] |= (1 << index);
+      ctx->sub->ssbo_used_mask[shader_type] |= (1u << index);
    } else {
       ssbo->res = 0;
       ssbo->buffer_offset = 0;
       ssbo->buffer_size = 0;
-      ctx->sub->ssbo_used_mask[shader_type] &= ~(1 << index);
+      ctx->sub->ssbo_used_mask[shader_type] &= ~(1u << index);
    }
 }
 
@@ -2783,12 +2783,12 @@ void vrend_set_single_abo(struct vrend_context *ctx,
       abo->res = res;
       abo->buffer_offset = offset;
       abo->buffer_size = length;
-      ctx->sub->abo_used_mask |= (1 << index);
+      ctx->sub->abo_used_mask |= (1u << index);
    } else {
       abo->res = 0;
       abo->buffer_offset = 0;
       abo->buffer_size = 0;
-      ctx->sub->abo_used_mask &= ~(1 << index);
+      ctx->sub->abo_used_mask &= ~(1u << index);
    }
 }
 
@@ -8267,7 +8267,7 @@ static void vrend_renderer_fill_caps_v1(int gl_ver, int gles_ver, union virgl_ca
       int val = VIRGL_FORMAT_R11G11B10_FLOAT;
       uint32_t offset = val / 32;
       uint32_t index = val % 32;
-      caps->v1.vertexbuffer.bitmask[offset] |= (1 << index);
+      caps->v1.vertexbuffer.bitmask[offset] |= (1u << index);
    }
 
    if (has_feature(feat_nv_conditional_render) ||
@@ -8426,9 +8426,9 @@ static void vrend_renderer_fill_caps_v1(int gl_ver, int gles_ver, union virgl_ca
 
       if (tex_conv_table[i].internalformat != 0) {
          if (vrend_format_can_sample(i)) {
-            caps->v1.sampler.bitmask[offset] |= (1 << index);
+            caps->v1.sampler.bitmask[offset] |= (1u << index);
             if (vrend_format_can_render(i))
-               caps->v1.render.bitmask[offset] |= (1 << index);
+               caps->v1.render.bitmask[offset] |= (1u << index);
          }
       }
    }
