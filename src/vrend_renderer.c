@@ -2927,6 +2927,25 @@ static void vrend_destroy_shader_object(void *obj_ptr)
    vrend_shader_state_reference(&state, NULL);
 }
 
+static inline bool can_emulate_logicop(enum pipe_logicop op)
+{
+   if (has_feature(feat_framebuffer_fetch_non_coherent) ||
+       has_feature(feat_framebuffer_fetch))
+      return true;
+
+   /* These ops don't need to read back from the framebuffer */
+   switch (op) {
+   case PIPE_LOGICOP_CLEAR:
+   case PIPE_LOGICOP_COPY:
+   case PIPE_LOGICOP_SET:
+   case PIPE_LOGICOP_COPY_INVERTED:
+      return true;
+   default:
+      return false;
+   }
+}
+
+
 static inline void vrend_fill_shader_key(struct vrend_context *ctx,
                                          unsigned type,
                                          struct vrend_shader_key *key)
@@ -2942,6 +2961,7 @@ static inline void vrend_fill_shader_key(struct vrend_context *ctx,
             key->cbufs_are_a8_bitmask |= (1 << i);
          if (util_format_is_pure_integer(ctx->sub->surf[i]->format))
             add_alpha_test = false;
+         key->surface_component_bits[i] = util_format_get_component_bits(ctx->sub->surf[i]->format, UTIL_FORMAT_COLORSPACE_RGB, 0);
       }
       if (add_alpha_test) {
          key->add_alpha_test = ctx->sub->dsa_state.alpha.enabled;
@@ -2958,6 +2978,13 @@ static inline void vrend_fill_shader_key(struct vrend_context *ctx,
       key->add_alpha_test = 0;
       key->pstipple_tex = 0;
    }
+
+   if (type == PIPE_SHADER_FRAGMENT && vrend_state.use_gles && can_emulate_logicop(ctx->sub->blend_state.logicop_func)) {
+      key->fs_logicop_enabled = ctx->sub->blend_state.logicop_enable;
+      key->fs_logicop_func = ctx->sub->blend_state.logicop_func;
+      key->fs_logicop_emulate_coherent = !has_feature(feat_framebuffer_fetch_non_coherent);
+   }
+
    key->invert_fs_origin = !ctx->sub->inverted_fbo_content;
    key->coord_replace = ctx->sub->rs_state.point_quad_rasterization ? ctx->sub->rs_state.sprite_coord_enable : 0;
    key->winsys_adjust_y_emitted = false;
@@ -4572,9 +4599,10 @@ static void vrend_hw_emit_blend(struct vrend_context *ctx, struct pipe_blend_sta
    if (state->logicop_enable != ctx->sub->hw_blend_state.logicop_enable) {
       ctx->sub->hw_blend_state.logicop_enable = state->logicop_enable;
       if (vrend_state.use_gles) {
-         if (state->logicop_enable) {
+         if (can_emulate_logicop(state->logicop_func))
+            ctx->sub->shader_dirty = true;
+         else
             report_gles_warn(ctx, GLES_WARN_LOGIC_OP);
-         }
       } else if (state->logicop_enable) {
          glEnable(GL_COLOR_LOGIC_OP);
          glLogicOp(translate_logicop(state->logicop_func));

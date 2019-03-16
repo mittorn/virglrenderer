@@ -107,6 +107,11 @@ struct vrend_shader_key {
    bool flatshade;
    bool prev_stage_pervertex_out;
    bool guest_sent_io_arrays;
+   bool fs_logicop_enabled;
+   bool fs_logicop_emulate_coherent;
+   enum pipe_logicop fs_logicop_func;
+   uint8_t surface_component_bits[PIPE_MAX_COLOR_BUFS];
+
    uint32_t num_prev_generic_and_patch_outputs;
    struct vrend_layout_info prev_stage_generic_and_patch_outputs_layout[64];
 

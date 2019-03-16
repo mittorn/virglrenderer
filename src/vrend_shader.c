@@ -810,6 +810,22 @@ iter_inputs(struct tgsi_iterate_context *iter,
    return true;
 }
 
+static bool logiop_require_inout(struct vrend_shader_key *key)
+{
+   if (!key->fs_logicop_enabled)
+      return false;
+
+   switch (key->fs_logicop_func) {
+   case PIPE_LOGICOP_CLEAR:
+   case PIPE_LOGICOP_SET:
+   case PIPE_LOGICOP_COPY:
+   case PIPE_LOGICOP_COPY_INVERTED:
+      return false;
+   default:
+      return true;
+   }
+}
+
 static boolean
 iter_declaration(struct tgsi_iterate_context *iter,
                  struct tgsi_full_declaration *decl )
@@ -1194,6 +1210,10 @@ iter_declaration(struct tgsi_iterate_context *iter,
                   name_prefix = "gl_FrontSecondaryColor";
             } else
                name_prefix = "ex";
+            break;
+         } else if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT &&
+                    ctx->key->fs_logicop_enabled) {
+            name_prefix = "fsout_tmp";
             break;
          }
          /* fallthrough */
@@ -1877,6 +1897,81 @@ static void handle_vertex_proc_exit(struct dump_ctx *ctx)
        emit_prescale(ctx);
 }
 
+static void emit_fragment_logicop(struct dump_ctx *ctx)
+{
+   char src[PIPE_MAX_COLOR_BUFS][64];
+   char src_fb[PIPE_MAX_COLOR_BUFS][64];
+   double scale[PIPE_MAX_COLOR_BUFS];
+   int mask[PIPE_MAX_COLOR_BUFS];
+   char full_op[PIPE_MAX_COLOR_BUFS][128];
+
+   for (unsigned i = 0; i < ctx->num_outputs; i++) {
+      mask[i] = (1 << ctx->key->surface_component_bits[i]) - 1;
+      scale[i] = mask[i];
+      switch (ctx->key->fs_logicop_func) {
+      case PIPE_LOGICOP_INVERT:
+         snprintf(src_fb[i], 64, "ivec4(%f * fsout_c%d + 0.5)", scale[i], i);
+         break;
+      case PIPE_LOGICOP_NOR:
+      case PIPE_LOGICOP_AND_INVERTED:
+      case PIPE_LOGICOP_AND_REVERSE:
+      case PIPE_LOGICOP_XOR:
+      case PIPE_LOGICOP_NAND:
+      case PIPE_LOGICOP_AND:
+      case PIPE_LOGICOP_EQUIV:
+      case PIPE_LOGICOP_OR_INVERTED:
+      case PIPE_LOGICOP_OR_REVERSE:
+      case PIPE_LOGICOP_OR:
+         snprintf(src_fb[i], 64, "ivec4(%f * fsout_c%d + 0.5)", scale[i], i);
+         /* fallthrough */
+      case PIPE_LOGICOP_COPY_INVERTED:
+         snprintf(src[i], 64, "ivec4(%f * fsout_tmp_c%d + 0.5)", scale[i], i);
+         break;
+      case PIPE_LOGICOP_COPY:
+      case PIPE_LOGICOP_NOOP:
+      case PIPE_LOGICOP_CLEAR:
+      case PIPE_LOGICOP_SET:
+         break;
+      }
+   }
+
+   for (unsigned i = 0; i < ctx->num_outputs; i++) {
+      switch (ctx->key->fs_logicop_func) {
+      case PIPE_LOGICOP_CLEAR: snprintf(full_op[i], 128, "%s", "vec4(0)"); break;
+      case PIPE_LOGICOP_NOOP: full_op[i][0]= 0; break;
+      case PIPE_LOGICOP_SET: snprintf(full_op[i], 128, "%s", "vec4(1)"); break;
+      case PIPE_LOGICOP_COPY: snprintf(full_op[i], 128, "fsout_tmp_c%d", i); break;
+      case PIPE_LOGICOP_COPY_INVERTED: snprintf(full_op[i], 128, "~%s", src[i]); break;
+      case PIPE_LOGICOP_INVERT: snprintf(full_op[i], 128, "~%s", src_fb[i]); break;
+      case PIPE_LOGICOP_AND: snprintf(full_op[i], 128, "%s & %s", src[i], src_fb[i]); break;
+      case PIPE_LOGICOP_NAND: snprintf(full_op[i], 128, "~( %s & %s )", src[i], src_fb[i]); break;
+      case PIPE_LOGICOP_NOR: snprintf(full_op[i], 128, "~( %s | %s )", src[i], src_fb[i]); break;
+      case PIPE_LOGICOP_AND_INVERTED: snprintf(full_op[i], 128, "~%s & %s", src[i], src_fb[i]); break;
+      case PIPE_LOGICOP_AND_REVERSE: snprintf(full_op[i], 128, "%s & ~%s", src[i], src_fb[i]); break;
+      case PIPE_LOGICOP_XOR:  snprintf(full_op[i], 128, "%s ^%s", src[i], src_fb[i]); break;
+      case PIPE_LOGICOP_EQUIV: snprintf(full_op[i], 128, "~( %s ^ %s )", src[i], src_fb[i]); break;
+      case PIPE_LOGICOP_OR_INVERTED: snprintf(full_op[i], 128, "~%s | %s", src[i], src_fb[i]); break;
+      case PIPE_LOGICOP_OR_REVERSE: snprintf(full_op[i], 128, "%s | ~%s", src[i], src_fb[i]); break;
+      case PIPE_LOGICOP_OR: snprintf(full_op[i], 128, "%s | %s", src[i], src_fb[i]); break;
+
+      }
+   }
+
+   for (unsigned i = 0; i < ctx->num_outputs; i++) {
+      switch (ctx->key->fs_logicop_func) {
+      case PIPE_LOGICOP_NOOP:
+         break;
+      case PIPE_LOGICOP_COPY:
+      case PIPE_LOGICOP_CLEAR:
+      case PIPE_LOGICOP_SET:
+         emit_buff(ctx, "fsout_c%d = %s;\n", i, full_op[i]);
+         break;
+      default:
+         emit_buff(ctx, "fsout_c%d = vec4((%s) & %d) / %f;\n", i, full_op[i], mask[i], scale[i]);
+      }
+   }
+}
+
 static void handle_fragment_proc_exit(struct dump_ctx *ctx)
 {
     if (ctx->key->pstipple_tex)
@@ -1888,8 +1983,12 @@ static void handle_fragment_proc_exit(struct dump_ctx *ctx)
     if (ctx->key->add_alpha_test)
        emit_alpha_test(ctx);
 
+    if (ctx->key->fs_logicop_enabled)
+       emit_fragment_logicop(ctx);
+
     if (ctx->write_all_cbufs)
        emit_cbuf_writes(ctx);
+
 }
 
 static void set_texture_reqs(struct dump_ctx *ctx,
@@ -5015,6 +5114,14 @@ static void emit_header(struct dump_ctx *ctx)
             emit_ext(ctx, "OES_shader_image_atomic", "require");
       }
 
+      if (logiop_require_inout(ctx->key)) {
+         if (ctx->key->fs_logicop_emulate_coherent)
+            emit_ext(ctx, "EXT_shader_framebuffer_fetch", "require");
+         else
+            emit_ext(ctx, "EXT_shader_framebuffer_fetch_non_coherent", "require");
+
+      }
+
       if (ctx->shader_req_bits & SHADER_REQ_LODQ)
          emit_ext(ctx, "EXT_texture_query_lod", "require");
 
@@ -5832,9 +5939,16 @@ static void emit_ios_fs(struct dump_ctx *ctx)
 
    if (ctx->write_all_cbufs) {
       for (i = 0; i < (uint32_t)ctx->cfg->max_draw_buffers; i++) {
-         if (ctx->cfg->use_gles)
-            emit_hdrf(ctx, "layout (location=%d) out vec4 fsout_c%d;\n", i, i);
-         else
+         if (ctx->cfg->use_gles) {
+            if (ctx->key->fs_logicop_enabled)
+               emit_hdrf(ctx, "vec4 fsout_tmp_c%d;\n", i);
+
+            if (logiop_require_inout(ctx->key)) {
+               const char *noncoherent = ctx->key->fs_logicop_emulate_coherent ? "" : ", noncoherent";
+               emit_hdrf(ctx, "layout (location=%d%s) inout highp vec4 fsout_c%d;\n", i, noncoherent, i);
+            } else
+               emit_hdrf(ctx, "layout (location=%d) out vec4 fsout_c%d;\n", i, i);
+         } else
             emit_hdrf(ctx, "out vec4 fsout_c%d;\n", i);
       }
    } else {
