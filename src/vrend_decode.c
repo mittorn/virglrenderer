@@ -1157,7 +1157,8 @@ static int vrend_decode_set_shader_buffers(struct vrend_decode_ctx *ctx, uint16_
    if (num_ssbo < 1)
       return 0;
 
-   if (start_slot + num_ssbo > PIPE_MAX_SHADER_BUFFERS)
+   if (start_slot > PIPE_MAX_SHADER_BUFFERS ||
+       start_slot > PIPE_MAX_SHADER_BUFFERS - num_ssbo)
       return EINVAL;
 
    for (int i = 0; i < num_ssbo; i++) {
@@ -1183,7 +1184,8 @@ static int vrend_decode_set_atomic_buffers(struct vrend_decode_ctx *ctx, uint16_
    if (num_abo < 1)
       return 0;
 
-   if (start_slot + num_abo > PIPE_MAX_HW_ATOMIC_BUFFERS)
+   if (start_slot > PIPE_MAX_HW_ATOMIC_BUFFERS ||
+       start_slot > PIPE_MAX_HW_ATOMIC_BUFFERS - num_abo)
       return EINVAL;
 
    for (int i = 0; i < num_abo; i++) {
@@ -1212,7 +1214,8 @@ static int vrend_decode_set_shader_images(struct vrend_decode_ctx *ctx, uint16_t
    if (num_images < 1) {
       return 0;
    }
-   if (start_slot + num_images > PIPE_MAX_SHADER_IMAGES)
+   if (start_slot > PIPE_SHADER_TYPES ||
+       start_slot > PIPE_MAX_SHADER_IMAGES - num_images)
       return EINVAL;
 
    for (int i = 0; i < num_images; i++) {

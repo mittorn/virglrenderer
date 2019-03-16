@@ -200,7 +200,7 @@ void vrend_bind_vertex_elements_state(struct vrend_context *ctx,
                                       uint32_t handle);
 
 void vrend_set_single_vbo(struct vrend_context *ctx,
-                          int index,
+                          uint32_t index,
                           uint32_t stride,
                           uint32_t buffer_offset,
                           uint32_t res_handle);
@@ -217,7 +217,7 @@ void vrend_set_viewport_states(struct vrend_context *ctx,
 void vrend_set_num_sampler_views(struct vrend_context *ctx,
                                  uint32_t shader_type,
                                  uint32_t start_slot,
-                                 int num_sampler_views);
+                                 uint32_t num_sampler_views);
 void vrend_set_single_sampler_view(struct vrend_context *ctx,
                                    uint32_t shader_type,
                                    uint32_t index,
@@ -241,17 +241,17 @@ void vrend_set_index_buffer(struct vrend_context *ctx,
                             uint32_t offset);
 void vrend_set_single_image_view(struct vrend_context *ctx,
                                  uint32_t shader_type,
-                                 int index,
+                                 uint32_t index,
                                  uint32_t format, uint32_t access,
                                  uint32_t layer_offset, uint32_t level_size,
                                  uint32_t handle);
 void vrend_set_single_ssbo(struct vrend_context *ctx,
                            uint32_t shader_type,
-                           int index,
+                           uint32_t index,
                            uint32_t offset, uint32_t length,
                            uint32_t handle);
 void vrend_set_single_abo(struct vrend_context *ctx,
-                          int index,
+                          uint32_t index,
                           uint32_t offset, uint32_t length,
                           uint32_t handle);
 void vrend_memory_barrier(struct vrend_context *ctx,
