@@ -77,22 +77,25 @@ enum pipe_error {
 #define PIPE_BLEND_MIN               3
 #define PIPE_BLEND_MAX               4
 
-#define PIPE_LOGICOP_CLEAR            0
-#define PIPE_LOGICOP_NOR              1
-#define PIPE_LOGICOP_AND_INVERTED     2
-#define PIPE_LOGICOP_COPY_INVERTED    3
-#define PIPE_LOGICOP_AND_REVERSE      4
-#define PIPE_LOGICOP_INVERT           5
-#define PIPE_LOGICOP_XOR              6
-#define PIPE_LOGICOP_NAND             7
-#define PIPE_LOGICOP_AND              8
-#define PIPE_LOGICOP_EQUIV            9
-#define PIPE_LOGICOP_NOOP             10
-#define PIPE_LOGICOP_OR_INVERTED      11
-#define PIPE_LOGICOP_COPY             12
-#define PIPE_LOGICOP_OR_REVERSE       13
-#define PIPE_LOGICOP_OR               14
-#define PIPE_LOGICOP_SET              15  
+
+enum pipe_logicop {
+   PIPE_LOGICOP_CLEAR,
+   PIPE_LOGICOP_NOR,
+   PIPE_LOGICOP_AND_INVERTED,
+   PIPE_LOGICOP_COPY_INVERTED,
+   PIPE_LOGICOP_AND_REVERSE,
+   PIPE_LOGICOP_INVERT,
+   PIPE_LOGICOP_XOR,
+   PIPE_LOGICOP_NAND,
+   PIPE_LOGICOP_AND,
+   PIPE_LOGICOP_EQUIV,
+   PIPE_LOGICOP_NOOP,
+   PIPE_LOGICOP_OR_INVERTED,
+   PIPE_LOGICOP_COPY,
+   PIPE_LOGICOP_OR_REVERSE,
+   PIPE_LOGICOP_OR,
+   PIPE_LOGICOP_SET,
+};
 
 #define PIPE_MASK_R  0x1
 #define PIPE_MASK_G  0x2
