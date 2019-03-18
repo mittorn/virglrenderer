@@ -78,7 +78,7 @@ run_deqp_gl()
       BACKENDS="${BACKENDS} --backend vtest-gpu"
    fi
 
-   ./run_test_suite.sh --deqp --gles2 --gles3 --gles31 \
+   ./run_test_suite.sh --deqp --gles2 --gles3 --gles31 --gl30 --gl31 --gl32 \
       --host-gl \
       ${TEST_UNRELIABLE} \
       ${BACKENDS} \
@@ -100,7 +100,7 @@ run_deqp_gles()
       BACKENDS="${BACKENDS} --backend vtest-gpu"
    fi
 
-   ./run_test_suite.sh --deqp --gles2 --gles3 --gles31 \
+   ./run_test_suite.sh --deqp --gles2 --gles3 --gles31 --gl30 --gl31 --gl32 \
       --host-gles \
       ${TEST_UNRELIABLE} \
       ${BACKENDS} \
