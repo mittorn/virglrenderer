@@ -82,6 +82,18 @@ parse_input()
          TESTS="$TESTS gles31"
    	   ;;
 
+      --gl30)
+         TESTS="$TESTS gl30"
+         ;;
+
+      --gl31)
+         TESTS="$TESTS gl31"
+         ;;
+
+      --gl32)
+         TESTS="$TESTS gl32"
+         ;;
+
       -d|--deqp)
          TEST_APP="deqp"
          ;;
@@ -467,6 +479,21 @@ run_all_tests()
          TEST_NAME="gles31"
          TEST_FILE="$CTS_PATH/android/cts/master/gles31-master.txt"
    	   ;;
+
+      gl30)
+         TEST_NAME="gl30"
+         TEST_FILE="$CTS_PATH/external/openglcts/data/mustpass/gl/khronos_mustpass/4.6.1.x/gl30-master.txt"
+       ;;
+
+      gl31)
+         TEST_NAME="gl31"
+         TEST_FILE="$CTS_PATH/external/openglcts/data/mustpass/gl/khronos_mustpass/4.6.1.x/gl31-master.txt"
+       ;;
+
+      gl32)
+         TEST_NAME="gl32"
+         TEST_FILE="$CTS_PATH/external/openglcts/data/mustpass/gl/khronos_mustpass/4.6.1.x/gl32-master.txt"
+       ;;
 
       *)
          echo "Invalid test: $TEST"
