@@ -113,7 +113,7 @@ RUN git clone --shallow-since="$GIT_DATE" https://github.com/KhronosGroup/VK-GL-
     python3 external/fetch_sources.py && \
     mkdir build && \
     cd build && \
-    cmake -DDEQP_TARGET=x11_egl -DCMAKE_BUILD_TYPE=Release .. && \
+    cmake -DDEQP_TARGET=x11_egl_glx -DCMAKE_BUILD_TYPE=Release .. && \
     make -j$(nproc) && \
     find . -name CMakeFiles | xargs rm -rf && \
     find . -name lib\*.a | xargs rm -rf
