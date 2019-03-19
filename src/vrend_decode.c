@@ -1142,7 +1142,7 @@ static int vrend_decode_set_tess_state(struct vrend_decode_ctx *ctx,
 
 static int vrend_decode_set_shader_buffers(struct vrend_decode_ctx *ctx, uint16_t length)
 {
-   int num_ssbo;
+   uint32_t num_ssbo;
    uint32_t shader_type, start_slot;
 
    if (length < 2)
@@ -1161,7 +1161,7 @@ static int vrend_decode_set_shader_buffers(struct vrend_decode_ctx *ctx, uint16_
        start_slot > PIPE_MAX_SHADER_BUFFERS - num_ssbo)
       return EINVAL;
 
-   for (int i = 0; i < num_ssbo; i++) {
+   for (uint32_t i = 0; i < num_ssbo; i++) {
       uint32_t offset = get_buf_entry(ctx, VIRGL_SET_SHADER_BUFFER_OFFSET(i));
       uint32_t buf_len = get_buf_entry(ctx, VIRGL_SET_SHADER_BUFFER_LENGTH(i));
       uint32_t handle = get_buf_entry(ctx, VIRGL_SET_SHADER_BUFFER_RES_HANDLE(i));
@@ -1173,7 +1173,7 @@ static int vrend_decode_set_shader_buffers(struct vrend_decode_ctx *ctx, uint16_
 
 static int vrend_decode_set_atomic_buffers(struct vrend_decode_ctx *ctx, uint16_t length)
 {
-   int num_abo;
+   uint32_t num_abo;
    uint32_t start_slot;
 
    if (length < 2)
@@ -1188,7 +1188,7 @@ static int vrend_decode_set_atomic_buffers(struct vrend_decode_ctx *ctx, uint16_
        start_slot > PIPE_MAX_HW_ATOMIC_BUFFERS - num_abo)
       return EINVAL;
 
-   for (int i = 0; i < num_abo; i++) {
+   for (uint32_t i = 0; i < num_abo; i++) {
       uint32_t offset = get_buf_entry(ctx, i * VIRGL_SET_ATOMIC_BUFFER_ELEMENT_SIZE + 2);
       uint32_t buf_len = get_buf_entry(ctx, i * VIRGL_SET_ATOMIC_BUFFER_ELEMENT_SIZE + 3);
       uint32_t handle = get_buf_entry(ctx, i * VIRGL_SET_ATOMIC_BUFFER_ELEMENT_SIZE + 4);
@@ -1200,7 +1200,7 @@ static int vrend_decode_set_atomic_buffers(struct vrend_decode_ctx *ctx, uint16_
 
 static int vrend_decode_set_shader_images(struct vrend_decode_ctx *ctx, uint16_t length)
 {
-   int num_images;
+   uint32_t num_images;
    uint32_t shader_type, start_slot;
    if (length < 2)
       return EINVAL;
@@ -1218,7 +1218,7 @@ static int vrend_decode_set_shader_images(struct vrend_decode_ctx *ctx, uint16_t
        start_slot > PIPE_MAX_SHADER_IMAGES - num_images)
       return EINVAL;
 
-   for (int i = 0; i < num_images; i++) {
+   for (uint32_t i = 0; i < num_images; i++) {
       uint32_t format = get_buf_entry(ctx, VIRGL_SET_SHADER_IMAGE_FORMAT(i));
       uint32_t access = get_buf_entry(ctx, VIRGL_SET_SHADER_IMAGE_ACCESS(i));
       uint32_t layer_offset = get_buf_entry(ctx, VIRGL_SET_SHADER_IMAGE_LAYER_OFFSET(i));
