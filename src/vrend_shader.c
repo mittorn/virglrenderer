@@ -69,6 +69,7 @@
 #define SHADER_REQ_ENHANCED_LAYOUTS   (1 << 24)
 #define SHADER_REQ_SEPERATE_SHADER_OBJECTS (1 << 25)
 #define SHADER_REQ_ARRAYS_OF_ARRAYS  (1 << 26)
+#define SHADER_REQ_SHADER_INTEGER_FUNC (1 << 27)
 
 struct vrend_shader_io {
    unsigned                name;
@@ -262,6 +263,7 @@ static const struct vrend_shader_table shader_req_table[] = {
     { SHADER_REQ_TXQS, "ARB_shader_texture_image_samples" },
     { SHADER_REQ_FBFETCH, "EXT_shader_framebuffer_fetch" },
     { SHADER_REQ_SHADER_CLOCK, "ARB_shader_clock" },
+    { SHADER_REQ_SHADER_INTEGER_FUNC, "MESA_shader_integer_functions" },
 };
 
 enum vrend_type_qualifier {
@@ -4628,15 +4630,23 @@ iter_instruction(struct tgsi_iterate_context *iter,
    case TGSI_OPCODE_UMUL_HI:
       emit_buff(ctx, "umulExtended(%s, %s, umul_temp, mul_utemp);\n", srcs[0], srcs[1]);
       emit_buff(ctx, "%s = %s(%s(umul_temp%s));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), writemask);
-      if (!ctx->cfg->use_gles)
-         ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
+      if (!ctx->cfg->use_gles) {
+         if (ctx->cfg->has_gpu_shader5)
+            ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
+         else
+            ctx->shader_req_bits |= SHADER_REQ_SHADER_INTEGER_FUNC;
+      }
       ctx->write_mul_utemp = true;
       break;
    case TGSI_OPCODE_IMUL_HI:
       emit_buff(ctx, "imulExtended(%s, %s, imul_temp, mul_itemp);\n", srcs[0], srcs[1]);
       emit_buff(ctx, "%s = %s(%s(imul_temp%s));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), writemask);
-      if (!ctx->cfg->use_gles)
-         ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
+      if (!ctx->cfg->use_gles) {
+         if (ctx->cfg->has_gpu_shader5)
+            ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
+         else
+            ctx->shader_req_bits |= SHADER_REQ_SHADER_INTEGER_FUNC;
+      }
       ctx->write_mul_itemp = true;
       break;
 

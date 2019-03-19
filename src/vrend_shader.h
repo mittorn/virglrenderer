@@ -126,6 +126,7 @@ struct vrend_shader_cfg {
    bool use_core_profile;
    bool use_explicit_locations;
    bool has_arrays_of_arrays;
+   bool has_gpu_shader5;
 };
 
 struct vrend_context;
