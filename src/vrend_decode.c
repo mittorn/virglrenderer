@@ -1214,7 +1214,7 @@ static int vrend_decode_set_shader_images(struct vrend_decode_ctx *ctx, uint16_t
    if (num_images < 1) {
       return 0;
    }
-   if (start_slot > PIPE_SHADER_TYPES ||
+   if (start_slot > PIPE_MAX_SHADER_IMAGES ||
        start_slot > PIPE_MAX_SHADER_IMAGES - num_images)
       return EINVAL;
 
