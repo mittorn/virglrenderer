@@ -5650,6 +5650,7 @@ struct vrend_context *vrend_create_context(int id, uint32_t nlen, const char *de
    grctx->shader_cfg.max_draw_buffers = vrend_state.max_draw_buffers;
    grctx->shader_cfg.has_arrays_of_arrays = has_feature(feat_arrays_of_arrays);
    grctx->shader_cfg.has_gpu_shader5 = has_feature(feat_gpu_shader5);
+   grctx->shader_cfg.has_es31_compat = has_feature(feat_gles31_compatibility);
 
    vrend_renderer_create_sub_ctx(grctx, 0);
    vrend_renderer_set_sub_ctx(grctx, 0);

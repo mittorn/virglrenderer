@@ -127,6 +127,7 @@ struct vrend_shader_cfg {
    bool use_explicit_locations;
    bool has_arrays_of_arrays;
    bool has_gpu_shader5;
+   bool has_es31_compat;
 };
 
 struct vrend_context;
@@ -134,6 +135,7 @@ struct vrend_context;
 #define SHADER_MAX_STRINGS 3
 #define SHADER_STRING_VER_EXT 0
 #define SHADER_STRING_HDR 1
+
 
 bool vrend_patch_vertex_shader_interpolants(struct vrend_context *rctx,
                                             struct vrend_shader_cfg *cfg,

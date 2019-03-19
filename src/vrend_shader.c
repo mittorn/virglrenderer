@@ -70,6 +70,7 @@
 #define SHADER_REQ_SEPERATE_SHADER_OBJECTS (1 << 25)
 #define SHADER_REQ_ARRAYS_OF_ARRAYS  (1 << 26)
 #define SHADER_REQ_SHADER_INTEGER_FUNC (1 << 27)
+#define SHADER_REQ_SHADER_ATOMIC_FLOAT (1 << 28)
 
 struct vrend_shader_io {
    unsigned                name;
@@ -264,6 +265,7 @@ static const struct vrend_shader_table shader_req_table[] = {
     { SHADER_REQ_FBFETCH, "EXT_shader_framebuffer_fetch" },
     { SHADER_REQ_SHADER_CLOCK, "ARB_shader_clock" },
     { SHADER_REQ_SHADER_INTEGER_FUNC, "MESA_shader_integer_functions" },
+    { SHADER_REQ_SHADER_ATOMIC_FLOAT, "NV_shader_atomic_float"},
 };
 
 enum vrend_type_qualifier {
@@ -2850,7 +2852,10 @@ translate_atomic(struct dump_ctx *ctx,
         stypecast = INT;
         break;
      case TGSI_RETURN_TYPE_FLOAT:
-        ctx->shader_req_bits |= SHADER_REQ_ES31_COMPAT;
+        if (ctx->cfg->has_es31_compat)
+           ctx->shader_req_bits |= SHADER_REQ_ES31_COMPAT;
+        else
+           ctx->shader_req_bits |= SHADER_REQ_SHADER_ATOMIC_FLOAT;
         stypecast = FLOAT;
         break;
      }
