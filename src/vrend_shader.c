@@ -1158,6 +1158,8 @@ iter_declaration(struct tgsi_iterate_context *iter,
          ctx->outputs[i].glsl_predefined_no_emit = true;
          ctx->outputs[i].glsl_no_index = true;
          ctx->outputs[i].override_no_wm = true;
+         ctx->outputs[i].invariant = false;
+         ctx->outputs[i].precise = false;
          if (ctx->glsl_ver_required >= 140)
             ctx->has_clipvertex = true;
          break;
@@ -3086,7 +3088,7 @@ get_destination_info(struct dump_ctx *ctx,
                 ctx->outputs[j].last >= dst_reg->Register.Index &&
                 (ctx->outputs[j].usage_mask & dst_reg->Register.WriteMask)) {
                if (inst->Instruction.Precise) {
-                  if (!ctx->outputs[j].invariant) {
+                  if (!ctx->outputs[j].invariant && ctx->outputs[j].name != TGSI_SEMANTIC_CLIPVERTEX) {
                      ctx->outputs[j].precise = true;
                      ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
                   }
