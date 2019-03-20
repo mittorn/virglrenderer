@@ -153,7 +153,7 @@ START_TEST(virgl_init_egl_create_ctx_create_bind_res_illegal_ctx)
 {
   int ret;
   struct virgl_renderer_resource_create_args res;
-  
+
   testvirgl_init_simple_1d_resource(&res, 1);
 
   ret = virgl_renderer_resource_create(&res, NULL, 0);

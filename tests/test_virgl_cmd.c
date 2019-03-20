@@ -41,7 +41,7 @@ START_TEST(virgl_test_overlap_obj_id)
     struct virgl_context ctx;
     int ctx_handle = 1;
     ret = testvirgl_init_ctx_cmdbuf(&ctx);
-    ck_assert_int_eq(ret, 0);    
+    ck_assert_int_eq(ret, 0);
 
     /* set blend state */
     {
@@ -78,14 +78,14 @@ START_TEST(virgl_test_clear)
     struct virgl_box box;
     int ret;
     int i;
-    
+
     ret = testvirgl_init_ctx_cmdbuf(&ctx);
-    ck_assert_int_eq(ret, 0);    
+    ck_assert_int_eq(ret, 0);
 
     /* init and create simple 2D resource */
     ret = testvirgl_create_backed_simple_2d_res(&res, 1, 50, 50);
     ck_assert_int_eq(ret, 0);
-    
+
     /* attach resource to context */
     virgl_renderer_ctx_attach_resource(ctx.ctx_id, res.handle);
 
@@ -137,7 +137,7 @@ START_TEST(virgl_test_clear)
 
     testvirgl_fini_ctx_cmdbuf(&ctx);
 }
-END_TEST 
+END_TEST
 
 START_TEST(virgl_test_blit_simple)
 {
@@ -741,8 +741,8 @@ START_TEST(virgl_test_render_geom_simple)
 }
 END_TEST
 
-/* create a resource - clear it to a color, render something 
- * and test transform feedback 
+/* create a resource - clear it to a color, render something
+ * and test transform feedback
  */
 START_TEST(virgl_test_render_xfb)
 {
