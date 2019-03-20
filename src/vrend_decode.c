@@ -28,6 +28,7 @@
 #include <epoxy/gl.h>
 
 #include "util/u_memory.h"
+#include "pipe/p_defines.h"
 #include "pipe/p_state.h"
 #include "pipe/p_shader_tokens.h"
 #include "vrend_renderer.h"
@@ -643,6 +644,12 @@ static int vrend_decode_create_sampler_state(struct vrend_decode_ctx *ctx, uint3
 
    for (i = 0; i < 4; i++)
       state.border_color.ui[i] = get_buf_entry(ctx, VIRGL_OBJ_SAMPLER_STATE_BORDER_COLOR(i));
+
+   if (state.min_mip_filter != PIPE_TEX_MIPFILTER_NONE &&
+       state.min_mip_filter != PIPE_TEX_MIPFILTER_LINEAR &&
+       state.min_mip_filter != PIPE_TEX_MIPFILTER_NEAREST)
+     return EINVAL;
+
    return vrend_create_sampler_state(ctx->grctx, handle, &state);
 }
 
