@@ -173,6 +173,7 @@ struct dump_ctx {
    uint32_t ssbo_array_base;
    uint32_t ssbo_atomic_array_base;
    uint32_t ssbo_integer_mask;
+   uint8_t ssbo_memory_qualifier[32];
 
    struct vrend_shader_image images[32];
    uint32_t images_used_mask;
@@ -2655,6 +2656,20 @@ static bool is_integer_memory(struct dump_ctx *ctx, enum tgsi_file_type file_typ
    return false;
 }
 
+static void set_memory_qualifier(struct dump_ctx *ctx,
+                                 struct tgsi_full_instruction *inst,
+                                 uint32_t reg_index, bool indirect)
+{
+   if (inst->Memory.Qualifier == TGSI_MEMORY_COHERENT) {
+      if (indirect) {
+         uint32_t mask = ctx->ssbo_used_mask;
+         while (mask)
+            ctx->ssbo_memory_qualifier[u_bit_scan(&mask)] = TGSI_MEMORY_COHERENT;
+      } else
+         ctx->ssbo_memory_qualifier[reg_index] = TGSI_MEMORY_COHERENT;
+   }
+}
+
 static void
 translate_store(struct dump_ctx *ctx,
                 struct tgsi_full_instruction *inst,
@@ -2689,6 +2704,7 @@ translate_store(struct dump_ctx *ctx,
                conversion, srcs[0], ms_str, get_string(stypeprefix), srcs[1]);
    } else if (dst->Register.File == TGSI_FILE_BUFFER || dst->Register.File == TGSI_FILE_MEMORY) {
       enum vrend_type_qualifier dtypeprefix;
+      set_memory_qualifier(ctx, inst, inst->Dst[0].Register.Index, inst->Dst[0].Register.Indirect);
       dtypeprefix = (is_integer_memory(ctx, dst->Register.File, dst->Register.Index)) ? FLOAT_BITS_TO_INT : FLOAT_BITS_TO_UINT;
       const char *conversion = sinfo->override_no_cast[1] ? "" : get_string(dtypeprefix);
       if (inst->Dst[0].Register.WriteMask & 0x1) {
@@ -2757,8 +2773,12 @@ translate_load(struct dump_ctx *ctx,
               src->Register.File == TGSI_FILE_MEMORY) {
       char mydst[255], atomic_op[9], atomic_src[10];
       enum vrend_type_qualifier dtypeprefix;
+
+      set_memory_qualifier(ctx, inst, inst->Src[0].Register.Index, inst->Src[0].Register.Indirect);
+
       strcpy(mydst, dsts[0]);
       char *wmp = strchr(mydst, '.');
+
       if (wmp)
          wmp[0] = 0;
       emit_buff(ctx, "ssbo_addr_temp = uint(floatBitsToUint(%s)) >> 2;\n", srcs[1]);
@@ -5334,7 +5354,8 @@ static void emit_ios_common(struct dump_ctx *ctx)
       while (mask) {
          uint32_t id = u_bit_scan(&mask);
          enum vrend_type_qualifier type = (ctx->ssbo_integer_mask & (1 << id)) ? INT : UINT;
-         emit_hdrf(ctx, "layout (binding = %d, std430) buffer %sssbo%d { %s %sssbocontents%d[]; };\n", id, sname, id,
+         char *coherent = ctx->ssbo_memory_qualifier[id] == TGSI_MEMORY_COHERENT ? "coherent" : "";
+         emit_hdrf(ctx, "layout (binding = %d, std430) %s buffer %sssbo%d { %s %sssbocontents%d[]; };\n", id, coherent, sname, id,
                   get_string(type), sname, id);
       }
    }
