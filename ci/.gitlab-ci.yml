@@ -33,7 +33,11 @@ build docker image:
 
     - docker history $CI_REGISTRY_IMAGE:latest
 
-    - time docker push $CI_REGISTRY_IMAGE:latest
+    - time docker push $CI_REGISTRY_IMAGE:latest 2>&1 | tee results/docker_push_log.txt
+
+    - "grep -o 'digest: sha256:[0-9a-f]\\+' results/docker_push_log.txt |
+       cut -f 2 -d ' ' |
+       tee results/docker_image_digest.txt"
   only:
     - branches
     - tags
@@ -51,6 +55,8 @@ make check:
   before_script:
     - mkdir -p ccache
     - mkdir -p results
+    - export DOCKER_IMAGE_DIGEST=$(cat results/docker_image_digest.txt)
+    - echo $DOCKER_IMAGE_DIGEST
   script:
     - echo core > /proc/sys/kernel/core_pattern || true
     - echo 0 > /proc/sys/kernel/core_uses_pid || true
@@ -60,7 +66,7 @@ make check:
              --ulimit core=99999999999:99999999999
              $RD_CONFIG
              -v $PWD:/virglrenderer
-             $CI_REGISTRY_IMAGE:latest
+             $CI_REGISTRY_IMAGE@$DOCKER_IMAGE_DIGEST
              bash -c "/virglrenderer/ci/run_tests.sh --make-check"
              2>&1 | tee results/docker_test_log.txt
     - echo "\n\n"
@@ -81,6 +87,8 @@ piglit - gl host:
   before_script:
     - mkdir -p ccache
     - mkdir -p results
+    - export DOCKER_IMAGE_DIGEST=$(cat results/docker_image_digest.txt)
+    - echo $DOCKER_IMAGE_DIGEST
   script:
     - echo core > /proc/sys/kernel/core_pattern || true
     - echo 0 > /proc/sys/kernel/core_uses_pid || true
@@ -90,7 +98,7 @@ piglit - gl host:
              --ulimit core=99999999999:99999999999
              $RD_CONFIG
              -v $PWD:/virglrenderer
-             $CI_REGISTRY_IMAGE:latest
+             $CI_REGISTRY_IMAGE@$DOCKER_IMAGE_DIGEST
              bash -c "/virglrenderer/ci/run_tests.sh --piglit-gl"
              2>&1 | tee results/docker_test_log.txt
     - echo "\n\n"
@@ -104,6 +112,8 @@ piglit - gles host:
   before_script:
     - mkdir -p ccache
     - mkdir -p results
+    - export DOCKER_IMAGE_DIGEST=$(cat results/docker_image_digest.txt)
+    - echo $DOCKER_IMAGE_DIGEST
   script:
     - echo core > /proc/sys/kernel/core_pattern || true
     - echo 0 > /proc/sys/kernel/core_uses_pid || true
@@ -113,7 +123,7 @@ piglit - gles host:
              --ulimit core=99999999999:99999999999
              $RD_CONFIG
              -v $PWD:/virglrenderer
-             $CI_REGISTRY_IMAGE:latest
+             $CI_REGISTRY_IMAGE@$DOCKER_IMAGE_DIGEST
              bash -c "/virglrenderer/ci/run_tests.sh --piglit-gles"
              2>&1 | tee results/docker_test_log.txt
     - echo "\n\n"
@@ -132,6 +142,8 @@ cts - gl host:
   before_script:
     - mkdir -p ccache
     - mkdir -p results
+    - export DOCKER_IMAGE_DIGEST=$(cat results/docker_image_digest.txt)
+    - echo $DOCKER_IMAGE_DIGEST
   script:
     - echo core > /proc/sys/kernel/core_pattern || true
     - echo 0 > /proc/sys/kernel/core_uses_pid || true
@@ -141,7 +153,7 @@ cts - gl host:
              --ulimit core=99999999999:99999999999
              $RD_CONFIG
              -v $PWD:/virglrenderer
-             $CI_REGISTRY_IMAGE:latest
+             $CI_REGISTRY_IMAGE@$DOCKER_IMAGE_DIGEST
              bash -c "/virglrenderer/ci/run_tests.sh --deqp-gl"
              2>&1 | tee results/docker_test_log.txt
     - echo "\n\n"
@@ -160,6 +172,8 @@ cts - gles host:
   before_script:
     - mkdir -p ccache
     - mkdir -p results
+    - export DOCKER_IMAGE_DIGEST=$(cat results/docker_image_digest.txt)
+    - echo $DOCKER_IMAGE_DIGEST
   script:
     - echo core > /proc/sys/kernel/core_pattern || true
     - echo 0 > /proc/sys/kernel/core_uses_pid || true
@@ -169,7 +183,7 @@ cts - gles host:
              --ulimit core=99999999999:99999999999
              $RD_CONFIG
              -v $PWD:/virglrenderer
-             $CI_REGISTRY_IMAGE:latest
+             $CI_REGISTRY_IMAGE@$DOCKER_IMAGE_DIGEST
              bash -c "/virglrenderer/ci/run_tests.sh --deqp-gles"
              2>&1 | tee results/docker_test_log.txt
     - echo "\n\n"
@@ -188,6 +202,8 @@ unreliable tests:
   before_script:
     - mkdir -p ccache
     - mkdir -p results
+    - export DOCKER_IMAGE_DIGEST=$(cat results/docker_image_digest.txt)
+    - echo $DOCKER_IMAGE_DIGEST
   script:
     - echo core > /proc/sys/kernel/core_pattern || true
     - echo 0 > /proc/sys/kernel/core_uses_pid || true
@@ -197,7 +213,7 @@ unreliable tests:
              --ulimit core=99999999999:99999999999
              $RD_CONFIG
              -v $PWD:/virglrenderer
-             $CI_REGISTRY_IMAGE:latest
+             $CI_REGISTRY_IMAGE@$DOCKER_IMAGE_DIGEST
              bash -c "/virglrenderer/ci/run_tests.sh --deqp-gl-unreliable --deqp-gles-unreliable --piglit-gl-unreliable --piglit-gles-unreliable || true"
              2>&1 | tee results/docker_test_log.txt
     - echo "\n\n"
