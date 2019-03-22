@@ -34,6 +34,10 @@ build docker image:
     - docker history $CI_REGISTRY_IMAGE:latest
 
     - time docker push $CI_REGISTRY_IMAGE:latest
+  only:
+    - branches
+    - tags
+    - merge_requests
 
   artifacts:
     when: always
@@ -60,6 +64,10 @@ make check:
              bash -c "/virglrenderer/ci/run_tests.sh --make-check"
              2>&1 | tee results/docker_test_log.txt
     - echo "\n\n"
+  only:
+    - branches
+    - tags
+    - merge_requests
 
   artifacts:
     when: always
