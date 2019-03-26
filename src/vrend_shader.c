@@ -73,6 +73,7 @@
 #define SHADER_REQ_SHADER_ATOMIC_FLOAT (1 << 28)
 #define SHADER_REQ_NV_IMAGE_FORMATS    (1 << 29)
 #define SHADER_REQ_CONSERVATIVE_DEPTH  (1 << 30)
+#define SHADER_REQ_SAMPLER_BUF        (1 << 31)
 
 struct vrend_shader_io {
    unsigned                name;
@@ -215,7 +216,6 @@ struct dump_ctx {
    struct pipe_stream_output_info *so;
    char **so_names;
    bool write_so_outputs[PIPE_MAX_SO_OUTPUTS];
-   bool uses_sampler_buf;
    bool write_all_cbufs;
    uint32_t shadow_samp_mask;
 
@@ -713,7 +713,7 @@ static bool add_images(struct dump_ctx *ctx, int first, int last,
           ctx->images[i].decl.Resource == TGSI_TEXTURE_2D_ARRAY_MSAA)
          ctx->shader_req_bits |= SHADER_REQ_SAMPLER_MS;
       else if (ctx->images[i].decl.Resource == TGSI_TEXTURE_BUFFER)
-         ctx->uses_sampler_buf = true;
+         ctx->shader_req_bits |= SHADER_REQ_SAMPLER_BUF;
       else if (ctx->images[i].decl.Resource == TGSI_TEXTURE_RECT)
          ctx->shader_req_bits |= SHADER_REQ_SAMPLER_RECT;
    }
@@ -2064,7 +2064,7 @@ static void set_texture_reqs(struct dump_ctx *ctx,
       ctx->shader_req_bits |= SHADER_REQ_SAMPLER_MS;
       break;
    case TGSI_TEXTURE_BUFFER:
-      ctx->uses_sampler_buf = true;
+      ctx->shader_req_bits |= SHADER_REQ_SAMPLER_BUF;
       break;
    case TGSI_TEXTURE_SHADOWRECT:
    case TGSI_TEXTURE_RECT:
@@ -2083,7 +2083,8 @@ static void set_texture_reqs(struct dump_ctx *ctx,
    }
 
    if (ctx->cfg->glsl_version >= 140)
-      if ((ctx->shader_req_bits & SHADER_REQ_SAMPLER_RECT) || ctx->uses_sampler_buf)
+      if (ctx->shader_req_bits & (SHADER_REQ_SAMPLER_RECT |
+                                  SHADER_REQ_SAMPLER_BUF))
          require_glsl_ver(ctx, 140);
 }
 
