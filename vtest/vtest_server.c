@@ -190,7 +190,7 @@ static void vtest_main_parse_args(int argc, char **argv)
          break;
       default:
          printf("Usage: %s [--no-fork] [--no-loop-or-fork] [--use-glx] "
-                "[--use-egl-surfaceless] [--use-egl] [file]\n", argv[0]);
+                "[--use-egl-surfaceless] [--use-gles] [file]\n", argv[0]);
          exit(EXIT_FAILURE);
          break;
       }
