@@ -320,7 +320,8 @@ static void vrend_add_formats(struct vrend_format_table *table, int num_entries)
     const struct util_format_description *desc = util_format_description(table[i].format);
     switch (desc->layout) {
     case UTIL_FORMAT_LAYOUT_S3TC:
-      if (epoxy_has_gl_extension("GL_EXT_texture_compression_s3tc"))
+      if (epoxy_has_gl_extension("GL_S3_s3tc") ||
+          epoxy_has_gl_extension("GL_EXT_texture_compression_s3tc"))
         vrend_insert_format(&table[i], VIRGL_BIND_SAMPLER_VIEW);
       continue;
 
