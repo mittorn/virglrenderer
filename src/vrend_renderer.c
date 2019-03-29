@@ -8791,6 +8791,9 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
             set_format_bit(&caps->v2.supported_readback_formats, VIRGL_FORMAT_R32G32B32A32_FLOAT);
       }
    }
+
+   if (epoxy_has_gl_extension("GL_KHR_texture_compression_astc_sliced_3d"))
+      caps->v2.capability_bits |= VIRGL_CAP_3D_ASTC;
 }
 
 void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
