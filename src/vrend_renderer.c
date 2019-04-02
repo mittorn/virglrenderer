@@ -5813,6 +5813,12 @@ int vrend_renderer_resource_attach_iov(int res_handle, struct iovec *iov,
    /* work out size and max resource size */
    res->iov = iov;
    res->num_iovs = num_iovs;
+
+   if (res->storage == VREND_RESOURCE_STORAGE_IOVEC) {
+      vrend_write_to_iovec(res->iov, res->num_iovs, 0,
+            res->ptr, res->base.width0);
+   }
+
    return 0;
 }
 
@@ -5829,6 +5835,11 @@ void vrend_renderer_resource_detach_iov(int res_handle,
       *iov_p = res->iov;
    if (num_iovs_p)
       *num_iovs_p = res->num_iovs;
+
+   if (res->storage == VREND_RESOURCE_STORAGE_IOVEC) {
+      vrend_read_from_iovec(res->iov, res->num_iovs, 0,
+            res->ptr, res->base.width0);
+   }
 
    res->iov = NULL;
    res->num_iovs = 0;
@@ -6210,6 +6221,7 @@ void vrend_renderer_resource_destroy(struct vrend_resource *res)
          glDeleteTextures(1, &res->tbo_tex_id);
       break;
    case VREND_RESOURCE_STORAGE_SYSTEM:
+   case VREND_RESOURCE_STORAGE_IOVEC:
       free(res->ptr);
       break;
    default:
@@ -6458,6 +6470,23 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
                                              const struct vrend_transfer_info *info)
 {
    void *data;
+
+   if (res->storage == VREND_RESOURCE_STORAGE_IOVEC) {
+      const bool need_write = (res->iov == NULL ||
+                               res->iov != iov ||
+                               info->offset != (size_t) info->box->x);
+      if (need_write) {
+         vrend_read_from_iovec(iov, num_iovs, info->offset,
+               res->ptr + info->box->x, info->box->width);
+
+         if (res->iov) {
+            vrend_write_to_iovec(res->iov, res->num_iovs, info->box->x,
+                  res->ptr + info->box->x, info->box->width);
+         }
+      }
+
+      return 0;
+   }
 
    if (res->storage == VREND_RESOURCE_STORAGE_SYSTEM) {
       vrend_read_from_iovec(iov, num_iovs, info->offset, res->ptr + info->box->x, info->box->width);
@@ -6971,6 +7000,23 @@ static int vrend_renderer_transfer_send_iov(struct vrend_resource *res,
                                             struct iovec *iov, int num_iovs,
                                             const struct vrend_transfer_info *info)
 {
+   if (res->storage == VREND_RESOURCE_STORAGE_IOVEC) {
+      const bool need_send = (res->iov == NULL ||
+                              res->iov != iov ||
+                              info->offset != (size_t) info->box->x);
+      if (need_send) {
+         if (res->iov) {
+            vrend_read_from_iovec(res->iov, res->num_iovs, info->box->x,
+                  res->ptr + info->box->x, info->box->width);
+         }
+
+         vrend_write_to_iovec(iov, num_iovs, info->offset,
+               res->ptr + info->box->x, info->box->width);
+      }
+
+      return 0;
+   }
+
    if (res->storage == VREND_RESOURCE_STORAGE_SYSTEM) {
       uint32_t send_size = info->box->width * util_format_get_blocksize(res->base.format);
       vrend_write_to_iovec(iov, num_iovs, info->offset, res->ptr + info->box->x, send_size);
