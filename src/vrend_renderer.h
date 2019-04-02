@@ -49,10 +49,17 @@ struct vrend_context;
  */
 #define VR_MAX_TEXTURE_2D_LEVELS 15
 
+enum vrend_resource_storage_type {
+   VREND_RESOURCE_STORAGE_TEXTURE,
+   VREND_RESOURCE_STORAGE_BUFFER,
+   VREND_RESOURCE_STORAGE_SYSTEM,
+};
+
 struct vrend_resource {
    struct pipe_resource base;
    GLuint id;
    GLenum target;
+   enum vrend_resource_storage_type storage;
    /* fb id if we need to readback this resource */
    GLuint readback_fb_id;
    GLuint readback_fb_level;
@@ -60,7 +67,6 @@ struct vrend_resource {
 
    GLuint tbo_tex_id;/* tbos have two ids to track */
    bool y_0_top;
-   bool is_buffer;
 
    GLuint handle;
 

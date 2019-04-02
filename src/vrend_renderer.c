@@ -1634,7 +1634,8 @@ int vrend_create_surface(struct vrend_context *ctx,
    surf->val1 = val1;
    surf->id = res->id;
 
-   if (has_feature(feat_texture_view) && !res->is_buffer &&
+   if (has_feature(feat_texture_view) &&
+       res->storage != VREND_RESOURCE_STORAGE_BUFFER &&
        (tex_conv_table[res->base.format].bindings & VIRGL_BIND_CAN_TEXTURE_STORAGE)) {
       /* We don't need texture views for buffer objects.
        * Otherwise we only need a texture view if the
@@ -1941,7 +1942,8 @@ int vrend_create_sampler_view(struct vrend_context *ctx,
    view->gl_swizzle_b = to_gl_swizzle(swizzle[2]);
    view->gl_swizzle_a = to_gl_swizzle(swizzle[3]);
 
-   if (has_feature(feat_texture_view) && !view->texture->is_buffer) {
+   if (has_feature(feat_texture_view) &&
+       view->texture->storage != VREND_RESOURCE_STORAGE_BUFFER) {
       enum pipe_format format;
       bool needs_view = false;
 
@@ -2682,7 +2684,7 @@ void vrend_set_single_sampler_view(struct vrend_context *ctx,
 
       ctx->sub->sampler_views_dirty[shader_type] |= 1u << index;
 
-      if (!view->texture->is_buffer) {
+      if (view->texture->storage != VREND_RESOURCE_STORAGE_BUFFER) {
          if (view->texture->id == view->id) {
             glBindTexture(view->target, view->id);
 
@@ -3809,7 +3811,7 @@ static void vrend_draw_bind_samplers_shader(struct vrend_context *ctx,
 
             debug_texture(__func__, tview->texture);
 
-            if (texture->is_buffer) {
+            if (texture->storage == VREND_RESOURCE_STORAGE_BUFFER) {
                id = texture->tbo_tex_id;
                target = GL_TEXTURE_BUFFER;
             } else
@@ -3963,7 +3965,7 @@ static void vrend_draw_bind_images_shader(struct vrend_context *ctx, int shader_
           continue;
       iview = &ctx->sub->image_views[shader_type][i];
       tex_id = iview->texture->id;
-      if (iview->texture->is_buffer) {
+      if (iview->texture->storage == VREND_RESOURCE_STORAGE_BUFFER) {
          if (!iview->texture->tbo_tex_id)
             glGenTextures(1, &iview->texture->tbo_tex_id);
 
@@ -5233,7 +5235,7 @@ static void vrend_apply_sampler_state(struct vrend_context *ctx,
       return;
    }
 
-   if (tex->base.is_buffer) {
+   if (tex->base.storage == VREND_RESOURCE_STORAGE_BUFFER) {
       tex->state = *state;
       return;
    }
@@ -5932,10 +5934,11 @@ static int check_resource_valid(struct vrend_renderer_resource_create_args *args
 
 static void vrend_create_buffer(struct vrend_resource *gr, uint32_t width)
 {
+   gr->storage = VREND_RESOURCE_STORAGE_BUFFER;
+
    glGenBuffersARB(1, &gr->id);
    glBindBufferARB(gr->target, gr->id);
    glBufferData(gr->target, width, NULL, GL_STREAM_DRAW);
-   gr->is_buffer = true;
    glBindBufferARB(gr->target, 0);
 }
 
@@ -5970,6 +5973,7 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
                               (tex_conv_table[pr->format].bindings & VIRGL_BIND_CAN_TEXTURE_STORAGE);
 
    gr->target = tgsitargettogltarget(pr->target, pr->nr_samples);
+   gr->storage = VREND_RESOURCE_STORAGE_TEXTURE;
 
    /* ugly workaround for texture rectangle missing on GLES */
    if (vrend_state.use_gles && gr->target == GL_TEXTURE_RECTANGLE_NV) {
@@ -6134,6 +6138,7 @@ int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *a
 
    if (args->bind == VIRGL_BIND_CUSTOM) {
       /* custom should only be for buffers */
+      gr->storage = VREND_RESOURCE_STORAGE_SYSTEM;
       gr->ptr = malloc(args->width);
       if (!gr->ptr) {
          FREE(gr);
@@ -6195,15 +6200,20 @@ void vrend_renderer_resource_destroy(struct vrend_resource *res)
    if (res->readback_fb_id)
       glDeleteFramebuffers(1, &res->readback_fb_id);
 
-   if (res->ptr)
+   switch (res->storage) {
+   case VREND_RESOURCE_STORAGE_TEXTURE:
+      glDeleteTextures(1, &res->id);
+      break;
+   case VREND_RESOURCE_STORAGE_BUFFER:
+      glDeleteBuffers(1, &res->id);
+      if (res->tbo_tex_id)
+         glDeleteTextures(1, &res->tbo_tex_id);
+      break;
+   case VREND_RESOURCE_STORAGE_SYSTEM:
       free(res->ptr);
-   if (res->id) {
-      if (res->is_buffer) {
-         glDeleteBuffers(1, &res->id);
-         if (res->tbo_tex_id)
-            glDeleteTextures(1, &res->tbo_tex_id);
-      } else
-         glDeleteTextures(1, &res->id);
+      break;
+   default:
+      break;
    }
 
    free(res);
@@ -6449,11 +6459,11 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
 {
    void *data;
 
-   if (res->target == 0 && res->ptr) {
+   if (res->storage == VREND_RESOURCE_STORAGE_SYSTEM) {
       vrend_read_from_iovec(iov, num_iovs, info->offset, res->ptr + info->box->x, info->box->width);
       return 0;
    }
-   if (res->is_buffer) {
+   if (res->storage == VREND_RESOURCE_STORAGE_BUFFER) {
       struct virgl_sub_upload_data d;
       d.box = info->box;
       d.target = res->target;
@@ -6961,13 +6971,13 @@ static int vrend_renderer_transfer_send_iov(struct vrend_resource *res,
                                             struct iovec *iov, int num_iovs,
                                             const struct vrend_transfer_info *info)
 {
-   if (res->target == 0 && res->ptr) {
+   if (res->storage == VREND_RESOURCE_STORAGE_SYSTEM) {
       uint32_t send_size = info->box->width * util_format_get_blocksize(res->base.format);
       vrend_write_to_iovec(iov, num_iovs, info->offset, res->ptr + info->box->x, send_size);
       return 0;
    }
 
-   if (res->is_buffer) {
+   if (res->storage == VREND_RESOURCE_STORAGE_BUFFER) {
       uint32_t send_size = info->box->width * util_format_get_blocksize(res->base.format);
       void *data;
 
