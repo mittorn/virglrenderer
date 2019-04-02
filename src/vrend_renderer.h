@@ -316,7 +316,6 @@ struct vrend_context *vrend_lookup_renderer_ctx(uint32_t ctx_id);
 int vrend_renderer_create_fence(int client_fence_id, uint32_t ctx_id);
 
 void vrend_renderer_check_fences(void);
-void vrend_renderer_check_queries(void);
 
 bool vrend_hw_switch_context(struct vrend_context *ctx, bool now);
 uint32_t vrend_renderer_object_insert(struct vrend_context *ctx, void *data,

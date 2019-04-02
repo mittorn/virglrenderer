@@ -7995,6 +7995,8 @@ static void flush_eventfd(int fd)
     } while ((len == -1 && errno == EINTR) || len == sizeof(value));
 }
 
+static void vrend_renderer_check_queries(void);
+
 void vrend_renderer_check_fences(void)
 {
    struct vrend_fence *fence, *stor;
@@ -8031,6 +8033,9 @@ void vrend_renderer_check_fences(void)
 
    if (latest_id == 0)
       return;
+
+   vrend_renderer_check_queries();
+
    vrend_clicbs->write_fence(latest_id);
 }
 
@@ -8071,12 +8076,9 @@ static bool vrend_check_query(struct vrend_query *query)
    return true;
 }
 
-void vrend_renderer_check_queries(void)
+static void vrend_renderer_check_queries(void)
 {
    struct vrend_query *query, *stor;
-
-   if (!vrend_state.inited)
-      return;
 
    LIST_FOR_EACH_ENTRY_SAFE(query, stor, &vrend_state.waiting_query_list, waiting_queries) {
       vrend_hw_switch_context(vrend_lookup_renderer_ctx(query->ctx_id), true);
