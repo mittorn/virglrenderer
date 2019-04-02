@@ -8232,6 +8232,8 @@ int vrend_begin_query(struct vrend_context *ctx, uint32_t handle)
    if (q->index > 0 && !has_feature(feat_transform_feedback3))
       return EINVAL;
 
+   list_delinit(&q->waiting_queries);
+
    if (q->gltype == GL_TIMESTAMP)
       return 0;
 
@@ -8282,8 +8284,11 @@ void vrend_get_query_result(struct vrend_context *ctx, uint32_t handle,
       return;
 
    ret = vrend_check_query(q);
-   if (ret == false)
+   if (ret) {
+      list_delinit(&q->waiting_queries);
+   } else if (LIST_IS_EMPTY(&q->waiting_queries)) {
       list_addtail(&q->waiting_queries, &vrend_state.waiting_query_list);
+   }
 }
 
 #define BUFFER_OFFSET(i) ((void *)((char *)NULL + i))
