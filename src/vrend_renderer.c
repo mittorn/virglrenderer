@@ -6148,8 +6148,9 @@ int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *a
    pipe_reference_init(&gr->base.reference, 1);
 
    if (args->bind == VIRGL_BIND_CUSTOM) {
-      /* custom should only be for buffers */
-      gr->storage = VREND_RESOURCE_STORAGE_SYSTEM;
+      assert(args->target == PIPE_BUFFER);
+      /* use iovec directly when attached */
+      gr->storage = VREND_RESOURCE_STORAGE_IOVEC;
       gr->ptr = malloc(args->width);
       if (!gr->ptr) {
          FREE(gr);
@@ -8118,17 +8119,24 @@ static bool vrend_get_one_query_result(GLuint query_id, bool use_64, uint64_t *r
 
 static bool vrend_check_query(struct vrend_query *query)
 {
-   uint64_t result;
-   struct virgl_host_query_state *state;
+   struct virgl_host_query_state state;
    bool ret;
 
-   ret = vrend_get_one_query_result(query->id, vrend_is_timer_query(query->gltype), &result);
+   state.result_size = vrend_is_timer_query(query->gltype) ? 8 : 4;
+   ret = vrend_get_one_query_result(query->id, state.result_size == 8,
+         &state.result);
    if (ret == false)
       return false;
 
-   state = (struct virgl_host_query_state *)query->res->ptr;
-   state->result = result;
-   state->query_state = VIRGL_QUERY_STATE_DONE;
+   state.query_state = VIRGL_QUERY_STATE_DONE;
+
+   if (query->res->iov) {
+      vrend_write_to_iovec(query->res->iov, query->res->num_iovs, 0,
+            (const void *) &state, sizeof(state));
+   } else {
+      *((struct virgl_host_query_state *) query->res->ptr) = state;
+   }
+
    return true;
 }
 
@@ -8197,7 +8205,7 @@ int vrend_create_query(struct vrend_context *ctx, uint32_t handle,
    struct vrend_resource *res;
    uint32_t ret_handle;
    res = vrend_renderer_ctx_res_lookup(ctx, res_handle);
-   if (!res) {
+   if (!res || res->storage != VREND_RESOURCE_STORAGE_IOVEC) {
       report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, res_handle);
       return EINVAL;
    }
