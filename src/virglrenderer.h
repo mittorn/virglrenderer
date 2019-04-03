@@ -95,6 +95,7 @@ VIRGL_EXPORT int virgl_renderer_get_fd_for_texture2(uint32_t tex_id, int *fd, in
 #define VIRGL_RES_BIND_STREAM_OUTPUT (1 << 11)
 #define VIRGL_RES_BIND_CURSOR        (1 << 16)
 #define VIRGL_RES_BIND_CUSTOM        (1 << 17)
+#define VIRGL_RES_BIND_SCANOUT       (1 << 18)
 
 struct virgl_renderer_resource_create_args {
    uint32_t handle;
