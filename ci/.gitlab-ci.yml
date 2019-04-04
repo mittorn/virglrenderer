@@ -51,6 +51,7 @@ build docker image:
     - branches
     - tags
     - merge_requests
+    - schedules
 
   artifacts:
     when: always
@@ -83,6 +84,7 @@ make check:
     - branches
     - tags
     - merge_requests
+    - schedules
 
   artifacts:
     when: always
@@ -113,6 +115,7 @@ piglit - gl host:
     - echo "\n\n"
   only:
     - merge_requests
+    - schedules
 
 piglit - gles host:
   stage: test
@@ -138,6 +141,7 @@ piglit - gles host:
     - echo "\n\n"
   only:
     - merge_requests
+    - schedules
 
   artifacts:
     when: always
@@ -168,6 +172,7 @@ cts - gl host:
     - echo "\n\n"
   only:
     - merge_requests
+    - schedules
 
   artifacts:
     when: always
@@ -198,6 +203,7 @@ cts - gles host:
     - echo "\n\n"
   only:
     - merge_requests
+    - schedules
 
   artifacts:
     when: always
@@ -228,6 +234,7 @@ unreliable tests:
     - echo "\n\n"
   only:
     - merge_requests
+    - schedules
 
   artifacts:
     when: always
