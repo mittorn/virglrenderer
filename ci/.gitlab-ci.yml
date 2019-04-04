@@ -25,11 +25,20 @@ build docker image:
   script:
     - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN $CI_REGISTRY
     - time docker pull $CI_REGISTRY_IMAGE:latest || true
+    - echo $MESA_COMMIT
 
-    - time docker build
+    - if [[ -n "$MESA_COMMIT" ]]; then
+             time docker build
+             --build-arg KNOWN_GOOD_MESA=$MESA_COMMIT
              -t $CI_REGISTRY_IMAGE
              --cache-from $CI_REGISTRY_IMAGE:latest ci
-             2>&1 | tee results/docker_build_log.txt
+             2>&1 | tee results/docker_build_log.txt;
+      else
+             time docker build
+             -t $CI_REGISTRY_IMAGE
+             --cache-from $CI_REGISTRY_IMAGE:latest ci
+             2>&1 | tee results/docker_build_log.txt;
+      fi
 
     - docker history $CI_REGISTRY_IMAGE:latest
 
