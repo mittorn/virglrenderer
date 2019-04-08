@@ -207,7 +207,7 @@ static const  struct {
    FEAT(multi_draw_indirect, 43, UNAVAIL,  "GL_ARB_multi_draw_indirect", "GL_EXT_multi_draw_indirect" ),
    FEAT(nv_conditional_render, UNAVAIL, UNAVAIL,  "GL_NV_conditional_render" ),
    FEAT(nv_prim_restart, UNAVAIL, UNAVAIL,  "GL_NV_primitive_restart" ),
-   FEAT(polygon_offset_clamp, 46, UNAVAIL,  "GL_ARB_polygon_offset_clamp" ),
+   FEAT(polygon_offset_clamp, 46, UNAVAIL,  "GL_ARB_polygon_offset_clamp", "GL_EXT_polygon_offset_clamp"),
    FEAT(qbo, 44, UNAVAIL, "GL_ARB_query_buffer_object" ),
    FEAT(robust_buffer_access, 43, UNAVAIL,  "GL_ARB_robust_buffer_access_behavior", "GL_KHR_robust_buffer_access_behavior" ),
    FEAT(sample_mask, 32, 31,  "GL_ARB_texture_multisample" ),
