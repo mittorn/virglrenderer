@@ -52,8 +52,8 @@ KHR-GL32.packed_pixels.pbo_rectangle.compressed_rg Pass
 KHR-GL32.packed_pixels.pbo_rectangle.compressed_rg_rgtc2 Pass
 KHR-GL32.packed_pixels.pbo_rectangle.compressed_signed_red_rgtc1 Pass
 KHR-GL32.packed_pixels.pbo_rectangle.compressed_signed_rg_rgtc2 Pass
-KHR-GL32.packed_pixels.pbo_rectangle.compressed_srgb Fail
-KHR-GL32.packed_pixels.pbo_rectangle.compressed_srgb_alpha Fail
+KHR-GL32.packed_pixels.pbo_rectangle.compressed_srgb Pass
+KHR-GL32.packed_pixels.pbo_rectangle.compressed_srgb_alpha Pass
 KHR-GL32.packed_pixels.pbo_rectangle.depth24_stencil8 Pass
 KHR-GL32.packed_pixels.pbo_rectangle.depth32f_stencil8 Pass
 KHR-GL32.packed_pixels.pbo_rectangle.depth_component16 Pass
@@ -135,8 +135,8 @@ KHR-GL32.packed_pixels.rectangle.compressed_rg Pass
 KHR-GL32.packed_pixels.rectangle.compressed_rg_rgtc2 Pass
 KHR-GL32.packed_pixels.rectangle.compressed_signed_red_rgtc1 Pass
 KHR-GL32.packed_pixels.rectangle.compressed_signed_rg_rgtc2 Pass
-KHR-GL32.packed_pixels.rectangle.compressed_srgb Fail
-KHR-GL32.packed_pixels.rectangle.compressed_srgb_alpha Fail
+KHR-GL32.packed_pixels.rectangle.compressed_srgb Pass
+KHR-GL32.packed_pixels.rectangle.compressed_srgb_alpha Pass
 KHR-GL32.packed_pixels.rectangle.depth24_stencil8 Pass
 KHR-GL32.packed_pixels.rectangle.depth32f_stencil8 Pass
 KHR-GL32.packed_pixels.rectangle.depth_component16 Pass
