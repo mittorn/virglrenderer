@@ -52,7 +52,6 @@ struct vrend_context;
 enum vrend_resource_storage_type {
    VREND_RESOURCE_STORAGE_TEXTURE,
    VREND_RESOURCE_STORAGE_BUFFER,
-   VREND_RESOURCE_STORAGE_SYSTEM,
    VREND_RESOURCE_STORAGE_IOVEC,
 };
 

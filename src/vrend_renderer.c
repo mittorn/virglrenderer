@@ -6221,7 +6221,6 @@ void vrend_renderer_resource_destroy(struct vrend_resource *res)
       if (res->tbo_tex_id)
          glDeleteTextures(1, &res->tbo_tex_id);
       break;
-   case VREND_RESOURCE_STORAGE_SYSTEM:
    case VREND_RESOURCE_STORAGE_IOVEC:
       free(res->ptr);
       break;
@@ -6489,10 +6488,6 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
       return 0;
    }
 
-   if (res->storage == VREND_RESOURCE_STORAGE_SYSTEM) {
-      vrend_read_from_iovec(iov, num_iovs, info->offset, res->ptr + info->box->x, info->box->width);
-      return 0;
-   }
    if (res->storage == VREND_RESOURCE_STORAGE_BUFFER) {
       struct virgl_sub_upload_data d;
       d.box = info->box;
@@ -7015,12 +7010,6 @@ static int vrend_renderer_transfer_send_iov(struct vrend_resource *res,
                res->ptr + info->box->x, info->box->width);
       }
 
-      return 0;
-   }
-
-   if (res->storage == VREND_RESOURCE_STORAGE_SYSTEM) {
-      uint32_t send_size = info->box->width * util_format_get_blocksize(res->base.format);
-      vrend_write_to_iovec(iov, num_iovs, info->offset, res->ptr + info->box->x, send_size);
       return 0;
    }
 
