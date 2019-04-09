@@ -6880,16 +6880,17 @@ static int vrend_renderer_transfer_send_iov(struct vrend_resource *res,
 
       can_readpixels = vrend_format_can_render(res->base.format) || vrend_format_is_ds(res->base.format);
 
-      if (can_readpixels) {
+      if (can_readpixels)
          ret = vrend_transfer_send_readpixels(res, iov, num_iovs, info);
-      } else {
-         ret = vrend_transfer_send_readonly(res, iov, num_iovs, info);
-      }
 
       /* Can hit this on a non-error path as well. */
-      if (ret != 0 && !vrend_state.use_gles) {
-         ret = vrend_transfer_send_getteximage(res, iov, num_iovs, info);
+      if (ret) {
+         if (!vrend_state.use_gles)
+            ret = vrend_transfer_send_getteximage(res, iov, num_iovs, info);
+         else
+            ret = vrend_transfer_send_readonly(res, iov, num_iovs, info);
       }
+
       return ret;
    }
    return 0;
