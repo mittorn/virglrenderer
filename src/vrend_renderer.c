@@ -8557,13 +8557,29 @@ static void vrend_fill_caps_glsl_version(int gl_ver, int gles_ver,
    if (caps->v1.glsl_level < 400) {
       if (has_feature(feat_tessellation) &&
           has_feature(feat_geometry_shader) &&
-          has_feature(feat_gpu_shader5))
+          has_feature(feat_gpu_shader5)) {
          /* This is probably a lie, but Gallium enables
           * OES_geometry_shader and ARB_gpu_shader5
           * based on this value, apart from that it doesn't
           * seem to be a crucial value */
-         caps->v1.glsl_level = has_feature(feat_separate_shader_objects) ? 410 : 400;
+         caps->v1.glsl_level = 400;
+
+         /* Let's lie a bit more */
+         if (has_feature(feat_separate_shader_objects)) {
+            caps->v1.glsl_level = 410;
+
+            /* Compute shaders require GLSL 4.30 unless the shader explicitely
+             * specifies GL_ARB_compute_shader as required. However, on OpenGL ES
+             * they are already supported with version 3.10, so if we already
+             * advertise a feature level of 410, just lie a bit more to make
+             * compute shaders available to GL programs that don't specify the
+             * extension within the shaders. */
+            if (has_feature(feat_compute_shader))
+               caps->v1.glsl_level =  430;
+         }
+      }
    }
+   vrend_printf("GLSL feature level %d\n", caps->v1.glsl_level);
 }
 
 static void set_format_bit(struct virgl_supported_format_mask *mask, enum virgl_formats fmt)
