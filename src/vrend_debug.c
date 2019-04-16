@@ -71,7 +71,9 @@ static const char *command_names[VIRGL_MAX_COMMANDS] = {
    "TEXTURE_BARRIER",
    "SET_ATOMIC_BUFFERS",
    "SET_DEBUG_FLAGS",
-   "GET_QBO_RESULT"
+   "GET_QBO_RESULT",
+   "TRANSFER3D",
+   "END_TRANSFERS",
 };
 
 static const char *object_type_names[VIRGL_MAX_OBJECTS] = {
