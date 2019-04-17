@@ -291,6 +291,8 @@ void vtest_destroy_renderer(void)
 {
    virgl_renderer_context_destroy(ctx_id);
    virgl_renderer_cleanup(&renderer);
+   util_hash_table_destroy(renderer.iovec_hash);
+   renderer.iovec_hash = NULL;
    renderer.input = NULL;
    renderer.out_fd = -1;
 }
