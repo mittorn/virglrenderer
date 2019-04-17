@@ -187,6 +187,20 @@ static int vtest_send_fd(int socket_fd, int fd)
     return 0;
 }
 
+int vtest_buf_read(struct vtest_input *input, void *buf, int size)
+{
+   struct vtest_buffer *inbuf = input->data.buffer;
+   if (size > inbuf->size) {
+      return 0;
+   }
+
+   memcpy(buf, inbuf->buffer, size);
+   inbuf->buffer += size;
+   inbuf->size -= size;
+
+   return size;
+}
+
 int vtest_create_renderer(struct vtest_input *input, int out_fd, uint32_t length,
                           int ctx_flags)
 {

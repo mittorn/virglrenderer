@@ -27,9 +27,15 @@
 
 #include <errno.h>
 
+struct vtest_buffer {
+   const void *buffer;
+   int size;
+};
+
 struct vtest_input {
    union {
       int fd;
+      struct vtest_buffer *buffer;
    } data;
    int (*read)(struct vtest_input *input, void *buf, int size);
 };
@@ -50,6 +56,7 @@ int vtest_transfer_put(uint32_t length_dw);
 int vtest_transfer_put2(uint32_t length_dw);
 
 int vtest_block_read(struct vtest_input *input, void *buf, int size);
+int vtest_buf_read(struct vtest_input *input, void *buf, int size);
 
 int vtest_resource_busy_wait(uint32_t length_dw);
 int vtest_renderer_create_fence(void);
