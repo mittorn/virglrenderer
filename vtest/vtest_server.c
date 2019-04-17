@@ -47,8 +47,9 @@ struct vtest_program
    const char *socket_name;
    int socket;
    const char *read_file;
-   int out_fd;
    int in_fd;
+   int out_fd;
+   struct vtest_input input;
 
    bool do_fork;
    bool loop;
@@ -66,6 +67,7 @@ struct vtest_program prog = {
 
    .in_fd = -1,
    .out_fd = -1,
+   .input = { { -1 }, NULL },
    .do_fork = true,
    .loop = true,
 };
@@ -76,7 +78,8 @@ static void vtest_main_set_signal_child(void);
 static void vtest_main_set_signal_segv(void);
 static void vtest_main_open_read_file(void);
 static void vtest_main_open_socket(void);
-static void vtest_main_run_renderer(int in_fd, int out_fd, int ctx_flags);
+static void vtest_main_run_renderer(int in_fd, int out_fd,
+                                    struct vtest_input *input, int ctx_flags);
 static void vtest_main_wait_for_socket_accept(void);
 static void vtest_main_tidy_fds(void);
 static void vtest_main_close_socket(void);
@@ -123,12 +126,12 @@ start:
       /* fork a renderer process */
       if (fork() == 0) {
          vtest_main_set_signal_segv();
-         vtest_main_run_renderer(prog.in_fd, prog.out_fd, ctx_flags);
+         vtest_main_run_renderer(prog.in_fd, prog.out_fd, &prog.input, ctx_flags);
          exit(0);
       }
    } else {
       vtest_main_set_signal_segv();
-      vtest_main_run_renderer(prog.in_fd, prog.out_fd, ctx_flags);
+       vtest_main_run_renderer(prog.in_fd, prog.out_fd, &prog.input, ctx_flags);
    }
 
    vtest_main_tidy_fds();
@@ -263,6 +266,8 @@ static void vtest_main_open_read_file(void)
       exit(1);
    }
    prog.in_fd = ret;
+   prog.input.data.fd = prog.in_fd;
+   prog.input.read = vtest_block_read;
 
    ret = open("/dev/null", O_WRONLY);
    if (ret == -1) {
@@ -330,6 +335,8 @@ static void vtest_main_wait_for_socket_accept(void)
 
    prog.in_fd = new_fd;
    prog.out_fd = new_fd;
+   prog.input.data.fd = prog.in_fd;
+   prog.input.read = vtest_block_read;
 }
 
 typedef int (*vtest_cmd_fptr_t)(uint32_t);
@@ -352,7 +359,8 @@ static const vtest_cmd_fptr_t vtest_commands[] = {
    vtest_transfer_put2,
 };
 
-static void vtest_main_run_renderer(int in_fd, int out_fd, int ctx_flags)
+static void vtest_main_run_renderer(int in_fd, int out_fd,
+                                    struct vtest_input *input, int ctx_flags)
 {
    int err, ret;
    uint32_t header[VTEST_HDR_SIZE];
@@ -365,7 +373,7 @@ static void vtest_main_run_renderer(int in_fd, int out_fd, int ctx_flags)
          break;
       }
 
-      ret = vtest_block_read(in_fd, &header, sizeof(header));
+      ret = input->read(input, &header, sizeof(header));
       if (ret < 0 || (size_t)ret < sizeof(header)) {
          err = 2;
          break;
@@ -378,7 +386,7 @@ static void vtest_main_run_renderer(int in_fd, int out_fd, int ctx_flags)
             break;
          }
 
-         ret = vtest_create_renderer(in_fd, out_fd, header[0], ctx_flags);
+         ret = vtest_create_renderer(input, out_fd, header[0], ctx_flags);
          if (ret < 0) {
             err = 4;
             break;
@@ -428,6 +436,7 @@ static void vtest_main_tidy_fds(void)
    if (prog.in_fd != -1) {
       close(prog.in_fd);
       prog.in_fd = -1;
+      prog.input.read = NULL;
    }
 
    if (prog.out_fd != -1) {

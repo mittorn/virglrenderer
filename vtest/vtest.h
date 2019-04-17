@@ -27,7 +27,14 @@
 
 #include <errno.h>
 
-int vtest_create_renderer(int in_fd, int out_fd, uint32_t length,
+struct vtest_input {
+   union {
+      int fd;
+   } data;
+   int (*read)(struct vtest_input *input, void *buf, int size);
+};
+
+int vtest_create_renderer(struct vtest_input *input, int out_fd, uint32_t length,
                           int ctx_flags);
 
 int vtest_send_caps(uint32_t length_dw);
@@ -42,7 +49,7 @@ int vtest_transfer_get2(uint32_t length_dw);
 int vtest_transfer_put(uint32_t length_dw);
 int vtest_transfer_put2(uint32_t length_dw);
 
-int vtest_block_read(int fd, void *buf, int size);
+int vtest_block_read(struct vtest_input *input, void *buf, int size);
 
 int vtest_resource_busy_wait(uint32_t length_dw);
 int vtest_renderer_create_fence(void);
