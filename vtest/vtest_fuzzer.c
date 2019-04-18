@@ -73,8 +73,8 @@ static const vtest_cmd_fptr_t vtest_commands[] = {
    vtest_send_caps,
    vtest_create_resource,
    vtest_resource_unref,
-   vtest_transfer_get,
-   vtest_transfer_put,
+   vtest_transfer_get_nop,
+   vtest_transfer_put_nop,
    vtest_submit_cmd,
    vtest_resource_busy_wait,
    NULL, /* vtest_create_renderer is a specific case */
@@ -82,8 +82,8 @@ static const vtest_cmd_fptr_t vtest_commands[] = {
    vtest_ping_protocol_version,
    vtest_protocol_version,
    vtest_create_resource2,
-   vtest_transfer_get2,
-   vtest_transfer_put2,
+   vtest_transfer_get2_nop,
+   vtest_transfer_put2_nop,
 };
 
 static void vtest_fuzzer_run_renderer(int out_fd, struct vtest_input *input,

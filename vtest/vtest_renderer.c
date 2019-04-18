@@ -601,6 +601,37 @@ int vtest_transfer_get(UNUSED uint32_t length_dw)
    return ret < 0 ? ret : 0;
 }
 
+int vtest_transfer_get_nop(UNUSED uint32_t length_dw)
+{
+   uint32_t thdr_buf[VCMD_TRANSFER_HDR_SIZE];
+   int ret;
+   int level;
+   uint32_t stride, layer_stride, handle;
+   struct virgl_box box;
+   uint32_t data_size;
+   void *ptr;
+
+   ret = renderer.input->read(renderer.input, thdr_buf,
+                              VCMD_TRANSFER_HDR_SIZE * 4);
+   if (ret != VCMD_TRANSFER_HDR_SIZE * 4) {
+      return ret;
+   }
+
+   DECODE_TRANSFER;
+
+   ptr = malloc(data_size);
+   if (!ptr) {
+      return -ENOMEM;
+   }
+
+   memset(ptr, 0, data_size);
+
+   ret = vtest_block_write(renderer.out_fd, ptr, data_size);
+
+   free(ptr);
+   return ret < 0 ? ret : 0;
+}
+
 int vtest_transfer_put(UNUSED uint32_t length_dw)
 {
    uint32_t thdr_buf[VCMD_TRANSFER_HDR_SIZE];
@@ -647,6 +678,39 @@ int vtest_transfer_put(UNUSED uint32_t length_dw)
    free(ptr);
    return 0;
 }
+
+int vtest_transfer_put_nop(UNUSED uint32_t length_dw)
+{
+   uint32_t thdr_buf[VCMD_TRANSFER_HDR_SIZE];
+   int ret;
+   int level;
+   uint32_t stride, layer_stride, handle;
+   struct virgl_box box;
+   uint32_t data_size;
+   void *ptr;
+
+   ret = renderer.input->read(renderer.input, thdr_buf,
+                              VCMD_TRANSFER_HDR_SIZE * 4);
+   if (ret != VCMD_TRANSFER_HDR_SIZE * 4) {
+      return ret;
+   }
+
+   DECODE_TRANSFER;
+
+   ptr = malloc(data_size);
+   if (!ptr) {
+      return -ENOMEM;
+   }
+
+   ret = renderer.input->read(renderer.input, ptr, data_size);
+   if (ret < 0) {
+      return ret;
+   }
+
+   free(ptr);
+   return 0;
+}
+
 
 #define DECODE_TRANSFER2 \
    do {							\
@@ -703,6 +767,35 @@ int vtest_transfer_get2(UNUSED uint32_t length_dw)
    return 0;
 }
 
+int vtest_transfer_get2_nop(UNUSED uint32_t length_dw)
+{
+   uint32_t thdr_buf[VCMD_TRANSFER2_HDR_SIZE];
+   int ret;
+   int level;
+   uint32_t handle;
+   struct virgl_box box;
+   uint32_t offset;
+   struct iovec *iovec;
+
+   ret = renderer.input->read(renderer.input, thdr_buf, sizeof(thdr_buf));
+   if (ret != sizeof(thdr_buf)) {
+      return ret;
+   }
+
+   DECODE_TRANSFER2;
+
+   iovec = util_hash_table_get(renderer.iovec_hash, intptr_to_pointer(handle));
+   if (!iovec) {
+      return report_failed_call("util_hash_table_get", -ESRCH);
+   }
+
+   if (offset >= iovec->iov_len) {
+      return report_failure("offset larger then length of backing store", -EFAULT);
+   }
+
+   return 0;
+}
+
 int vtest_transfer_put2(UNUSED uint32_t length_dw)
 {
    uint32_t thdr_buf[VCMD_TRANSFER2_HDR_SIZE];
@@ -736,6 +829,32 @@ int vtest_transfer_put2(UNUSED uint32_t length_dw)
                                            NULL, 0);
    if (ret) {
       return report_failed_call("virgl_renderer_transfer_write_iov", ret);
+   }
+
+   return 0;
+}
+
+int vtest_transfer_put2_nop(UNUSED uint32_t length_dw)
+{
+   uint32_t thdr_buf[VCMD_TRANSFER2_HDR_SIZE];
+   int ret;
+   int level;
+   uint32_t handle;
+   struct virgl_box box;
+   UNUSED uint32_t data_size;
+   uint32_t offset;
+   struct iovec *iovec;
+
+   ret = renderer.input->read(renderer.input, thdr_buf, sizeof(thdr_buf));
+   if (ret != sizeof(thdr_buf)) {
+      return ret;
+   }
+
+   DECODE_TRANSFER2;
+
+   iovec = util_hash_table_get(renderer.iovec_hash, intptr_to_pointer(handle));
+   if (!iovec) {
+      return report_failed_call("util_hash_table_get", -ESRCH);
    }
 
    return 0;

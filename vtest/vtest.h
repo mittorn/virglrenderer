@@ -51,9 +51,13 @@ int vtest_resource_unref(uint32_t length_dw);
 int vtest_submit_cmd(uint32_t length_dw);
 
 int vtest_transfer_get(uint32_t length_dw);
+int vtest_transfer_get_nop(uint32_t length_dw);
 int vtest_transfer_get2(uint32_t length_dw);
+int vtest_transfer_get2_nop(uint32_t length_dw);
 int vtest_transfer_put(uint32_t length_dw);
+int vtest_transfer_put_nop(uint32_t length_dw);
 int vtest_transfer_put2(uint32_t length_dw);
+int vtest_transfer_put2_nop(uint32_t length_dw);
 
 int vtest_block_read(struct vtest_input *input, void *buf, int size);
 int vtest_buf_read(struct vtest_input *input, void *buf, int size);
