@@ -162,9 +162,14 @@ RUN git clone --shallow-since="$GIT_DATE" https://gitlab.freedesktop.org/mesa/dr
     rm -rf /drm
 WORKDIR /
 
-ARG KNOWN_GOOD_MESA=3bccf702118dda542da3b96990fd0bcca97f9a89
+ARG KNOWN_GOOD_MESA
+ENV KNOWN_GOOD_MESA ${KNOWN_GOOD_MESA:-3bccf702118dda542da3b96990fd0bcca97f9a89}
+RUN echo $KNOWN_GOOD_MESA
+ARG MESA_REPO
+ENV MESA_REPO ${MESA_REPO:-https://gitlab.freedesktop.org/mesa/mesa.git}
+RUN echo $MESA_REPO
 WORKDIR /mesa
-RUN git clone --shallow-since="$GIT_DATE" https://gitlab.freedesktop.org/mesa/mesa.git . && \
+RUN git clone --shallow-since="$GIT_DATE" ${MESA_REPO} . && \
     git checkout ${KNOWN_GOOD_MESA} && \
     git log --oneline -n 1 && \
     mkdir -p build && \
