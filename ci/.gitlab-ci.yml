@@ -141,7 +141,7 @@ piglit - gles host:
     paths:
       - results/
 
-cts - gl host:
+cts gl - gl host:
   stage: test
   services:
     - docker:dind
@@ -160,7 +160,7 @@ cts - gl host:
              $RD_CONFIG
              -v $PWD:/virglrenderer
              $CI_REGISTRY_IMAGE@$DOCKER_IMAGE_DIGEST
-             bash -c "/virglrenderer/ci/run_tests.sh --deqp-gl"
+             bash -c "/virglrenderer/ci/run_tests.sh --deqp-gl-gl-tests"
              2>&1 | tee results/docker_test_log.txt
     - echo "\n\n"
   only:
@@ -172,7 +172,7 @@ cts - gl host:
     paths:
       - results/
 
-cts - gles host:
+cts gles - gl host:
   stage: test
   services:
     - docker:dind
@@ -191,7 +191,69 @@ cts - gles host:
              $RD_CONFIG
              -v $PWD:/virglrenderer
              $CI_REGISTRY_IMAGE@$DOCKER_IMAGE_DIGEST
-             bash -c "/virglrenderer/ci/run_tests.sh --deqp-gles"
+             bash -c "/virglrenderer/ci/run_tests.sh --deqp-gl-gles-tests"
+             2>&1 | tee results/docker_test_log.txt
+    - echo "\n\n"
+  only:
+    - merge_requests
+    - schedules
+
+  artifacts:
+    when: always
+    paths:
+      - results/
+
+cts gl - gles host:
+  stage: test
+  services:
+    - docker:dind
+  before_script:
+    - mkdir -p ccache
+    - mkdir -p results
+    - export DOCKER_IMAGE_DIGEST=$(cat results/docker_image_digest.txt)
+    - echo $DOCKER_IMAGE_DIGEST
+  script:
+    - echo core > /proc/sys/kernel/core_pattern || true
+    - echo 0 > /proc/sys/kernel/core_uses_pid || true
+    - if [[ -n "$RENDER_DEVICE" ]]; then RD_CONFIG="--device=$RENDER_DEVICE -e RENDER_DEVICE=$RENDER_DEVICE"; fi
+    - echo RD_CONFIG=$RD_CONFIG
+    - docker run
+             --ulimit core=99999999999:99999999999
+             $RD_CONFIG
+             -v $PWD:/virglrenderer
+             $CI_REGISTRY_IMAGE@$DOCKER_IMAGE_DIGEST
+             bash -c "/virglrenderer/ci/run_tests.sh --deqp-gles-gl-tests"
+             2>&1 | tee results/docker_test_log.txt
+    - echo "\n\n"
+  only:
+    - merge_requests
+    - schedules
+
+  artifacts:
+    when: always
+    paths:
+      - results/
+
+cts gles - gles host:
+  stage: test
+  services:
+    - docker:dind
+  before_script:
+    - mkdir -p ccache
+    - mkdir -p results
+    - export DOCKER_IMAGE_DIGEST=$(cat results/docker_image_digest.txt)
+    - echo $DOCKER_IMAGE_DIGEST
+  script:
+    - echo core > /proc/sys/kernel/core_pattern || true
+    - echo 0 > /proc/sys/kernel/core_uses_pid || true
+    - if [[ -n "$RENDER_DEVICE" ]]; then RD_CONFIG="--device=$RENDER_DEVICE -e RENDER_DEVICE=$RENDER_DEVICE"; fi
+    - echo RD_CONFIG=$RD_CONFIG
+    - docker run
+             --ulimit core=99999999999:99999999999
+             $RD_CONFIG
+             -v $PWD:/virglrenderer
+             $CI_REGISTRY_IMAGE@$DOCKER_IMAGE_DIGEST
+             bash -c "/virglrenderer/ci/run_tests.sh --deqp-gles-gles-tests"
              2>&1 | tee results/docker_test_log.txt
     - echo "\n\n"
   only:
