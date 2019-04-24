@@ -813,7 +813,6 @@ iter_declaration(struct tgsi_iterate_context *iter,
    struct dump_ctx *ctx = (struct dump_ctx *)iter;
    int i;
    int color_offset = 0;
-   char name_prefix_buf[64];
    const char *name_prefix = "";
    bool add_two_side = false;
    unsigned mask_temp;
