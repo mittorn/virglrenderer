@@ -65,9 +65,10 @@ run_make_check()
    )
 }
 
-run_deqp_gl()
+run_deqp()
 {
    UNRELIABLE="$1"
+   OGL_BACKEND="$2"
 
    if [ $UNRELIABLE -eq 1 ]; then
       TEST_UNRELIABLE="--unreliable"
@@ -79,7 +80,7 @@ run_deqp_gl()
    fi
 
    ./run_test_suite.sh --deqp --gles2 --gles3 --gles31 --gl30 --gl31 --gl32 \
-      --host-gl \
+      --host-${OGL_BACKEND} \
       ${TEST_UNRELIABLE} \
       ${BACKENDS} \
       --compare-previous
@@ -87,31 +88,10 @@ run_deqp_gl()
    return $?
 }
 
-run_deqp_gles()
+run_piglit()
 {
    UNRELIABLE="$1"
-
-   if [ $UNRELIABLE -eq 1 ]; then
-      TEST_UNRELIABLE="--unreliable"
-   fi
-
-   BACKENDS="--backend vtest-softpipe"
-   if [[ -z "$SOFTWARE_ONLY" ]]; then
-      BACKENDS="${BACKENDS} --backend vtest-gpu"
-   fi
-
-   ./run_test_suite.sh --deqp --gles2 --gles3 --gles31 --gl30 --gl31 --gl32 \
-      --host-gles \
-      ${TEST_UNRELIABLE} \
-      ${BACKENDS} \
-      --compare-previous
-
-   return $?
-}
-
-run_piglit_gl()
-{
-   UNRELIABLE="$1"
+   OGL_BACKEND="$2"
 
    if [ $UNRELIABLE -eq 1 ]; then
       TEST_UNRELIABLE="--unreliable"
@@ -123,29 +103,7 @@ run_piglit_gl()
    fi
 
    ./run_test_suite.sh --piglit --gles2 --gles3 \
-      --host-gl \
-      ${TEST_UNRELIABLE} \
-      ${BACKENDS} \
-      --compare-previous
-
-   return $?
-}
-
-run_piglit_gles()
-{
-   UNRELIABLE="$1"
-
-   if [ $UNRELIABLE -eq 1 ]; then
-      TEST_UNRELIABLE="--unreliable"
-   fi
-
-   BACKENDS="--backend vtest-softpipe"
-   if [[ -z "$SOFTWARE_ONLY" ]]; then
-      BACKENDS="${BACKENDS} --backend vtest-gpu"
-   fi
-
-   ./run_test_suite.sh --piglit --gles2 --gles3 \
-      --host-gles \
+      --host-${OGL_BACKEND} \
       ${TEST_UNRELIABLE} \
       ${BACKENDS} \
       --compare-previous
@@ -170,7 +128,7 @@ parse_input()
          ;& #Fallthrough
 
          --deqp-gl)
-         run_deqp_gl $UNRELIABLE
+         run_deqp $UNRELIABLE gl
          ;;
 
          --deqp-gles-unreliable)
@@ -178,7 +136,7 @@ parse_input()
          ;& #Fallthrough
 
          --deqp-gles)
-         run_deqp_gles $UNRELIABLE
+         run_deqp $UNRELIABLE gles
          ;;
 
          --piglit-gl-unreliable)
@@ -186,7 +144,7 @@ parse_input()
          ;& #Fallthrough
 
          --piglit-gl)
-         run_piglit_gl $UNRELIABLE
+         run_piglit $UNRELIABLE gl
          ;;
 
          --piglit-gles-unreliable)
@@ -194,7 +152,7 @@ parse_input()
          ;& #Fallthrough
 
          --piglit-gles)
-         run_piglit_gles $UNRELIABLE
+         run_piglit $UNRELIABLE gles
          ;;
 
          *)
