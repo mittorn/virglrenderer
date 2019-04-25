@@ -2074,7 +2074,7 @@ static void emit_txq(struct dump_ctx *ctx,
                      struct tgsi_full_instruction *inst,
                      uint32_t sreg_index,
                      const char *srcs[4],
-                     char dsts[3][255],
+                     const char *dst,
                      const char *writemask)
 {
    unsigned twm = TGSI_WRITEMASK_NONE;
@@ -2113,7 +2113,9 @@ static void emit_txq(struct dump_ctx *ctx,
          ctx->shader_req_bits |= SHADER_REQ_TXQ_LEVELS;
          if (inst->Dst[0].Register.WriteMask & 0x7)
             twm = TGSI_WRITEMASK_W;
-         emit_buff(ctx, "%s%s = %s(textureQueryLevels(%s));\n", dsts[0], get_wm_string(twm), get_string(dtypeprefix), srcs[sampler_index]);
+         emit_buff(ctx, "%s%s = %s(textureQueryLevels(%s));\n", dst,
+                   get_wm_string(twm), get_string(dtypeprefix),
+                   srcs[sampler_index]);
       }
 
       if (inst->Dst[0].Register.WriteMask & 0x7) {
@@ -2158,8 +2160,9 @@ static void emit_txq(struct dump_ctx *ctx,
          writemask = ".xz";
       }
 
-      emit_buff(ctx, "%s%s = %s(textureSize(%s%s))%s;\n", dsts[0], get_wm_string(twm), get_string(dtypeprefix), srcs[sampler_index], bias,
-            txq_returns_vec ? writemask : "");
+      emit_buff(ctx, "%s%s = %s(textureSize(%s%s))%s;\n", dst,
+                get_wm_string(twm), get_string(dtypeprefix),
+                srcs[sampler_index], bias, txq_returns_vec ? writemask : "");
    }
 }
 
@@ -4767,7 +4770,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
       translate_tex(ctx, inst, &sinfo, &dinfo, srcs, dsts, writemask);
       break;
    case TGSI_OPCODE_TXQ:
-      emit_txq(ctx, inst, sinfo.sreg_index, srcs, dsts, writemask);
+      emit_txq(ctx, inst, sinfo.sreg_index, srcs, dsts[0], writemask);
       break;
    case TGSI_OPCODE_TXQS:
       emit_txqs(ctx, inst, sinfo.sreg_index, srcs, dsts);
