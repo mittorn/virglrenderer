@@ -3161,7 +3161,7 @@ translate_atomic(struct dump_ctx *ctx,
                  struct tgsi_full_instruction *inst,
                  struct source_info *sinfo,
                  const char *srcs[4],
-                 char dsts[3][255])
+                 char *dst)
 {
    const struct tgsi_full_src_register *src = &inst->Src[0];
    const char *opname;
@@ -3219,9 +3219,11 @@ translate_atomic(struct dump_ctx *ctx,
       }
 
       if (!ctx->cfg->use_gles || !inst->Src[0].Register.Indirect) {
-      emit_buff(ctx, "%s = %s(imageAtomic%s(%s, %s(%s(%s))%s, %s(%s(%s))%s));\n", dsts[0],
-               get_string(dtypeprefix), opname, srcs[0], get_string(coord_prefix), conversion,
-               srcs[1], ms_str, get_string(stypecast), get_string(stypeprefix), srcs[2], cas_str);
+         emit_buff(ctx, "%s = %s(imageAtomic%s(%s, %s(%s(%s))%s, %s(%s(%s))%s));\n",
+                   dst, get_string(dtypeprefix), opname, srcs[0],
+                   get_string(coord_prefix), conversion, srcs[1], ms_str,
+                   get_string(stypecast), get_string(stypeprefix), srcs[2],
+                   cas_str);
       } else {
          char src[32] = "";
          struct vrend_array *image = lookup_image_array_ptr(ctx, inst->Src[0].Register.Index);
@@ -3233,9 +3235,11 @@ translate_atomic(struct dump_ctx *ctx,
 
             for (int i = 0; i < array_size; ++i) {
                snprintf(src, 32, "%simg%d[%d]", cname, basearrayidx, i);
-               emit_buff(ctx, "case %d: %s = %s(imageAtomic%s(%s, %s(%s(%s))%s, %s(%s(%s))%s));\n", i, dsts[0],
-                        get_string(dtypeprefix), opname, src, get_string(coord_prefix), conversion,
-                        srcs[1], ms_str, get_string(stypecast), get_string(stypeprefix), srcs[2], cas_str);
+               emit_buff(ctx, "case %d: %s = %s(imageAtomic%s(%s, %s(%s(%s))%s, %s(%s(%s))%s));\n",
+                         i, dst, get_string(dtypeprefix), opname, src,
+                         get_string(coord_prefix), conversion, srcs[1],
+                         ms_str, get_string(stypecast),
+                         get_string(stypeprefix), srcs[2], cas_str);
             }
             emit_buff(ctx, "}\n");
          }
@@ -3254,15 +3258,21 @@ translate_atomic(struct dump_ctx *ctx,
 	 stypeprefix = FLOAT_BITS_TO_UINT;
       }
 
-      emit_buff(ctx, "%s = %s(atomic%s(%s[int(floatBitsToInt(%s)) >> 2], %s(%s(%s).x)%s));\n", dsts[0], get_string(dtypeprefix), opname, srcs[0], srcs[1], get_string(type), get_string(stypeprefix), srcs[2], cas_str);
+      emit_buff(ctx, "%s = %s(atomic%s(%s[int(floatBitsToInt(%s)) >> 2], %s(%s(%s).x)%s));\n",
+                dst, get_string(dtypeprefix), opname, srcs[0], srcs[1],
+                get_string(type), get_string(stypeprefix), srcs[2], cas_str);
    }
    if(src->Register.File == TGSI_FILE_HW_ATOMIC) {
       if (sinfo->imm_value == -1)
-         emit_buff(ctx, "%s = %s(atomicCounterDecrement(%s) + 1u);\n", dsts[0], get_string(dtypeprefix), srcs[0]);
+         emit_buff(ctx, "%s = %s(atomicCounterDecrement(%s) + 1u);\n",
+                   dst, get_string(dtypeprefix), srcs[0]);
       else if (sinfo->imm_value == 1)
-         emit_buff(ctx, "%s = %s(atomicCounterIncrement(%s));\n", dsts[0], get_string(dtypeprefix), srcs[0]);
+         emit_buff(ctx, "%s = %s(atomicCounterIncrement(%s));\n",
+                   dst, get_string(dtypeprefix), srcs[0]);
       else
-         emit_buff(ctx, "%s = %s(atomicCounter%sARB(%s, floatBitsToUint(%s).x%s));\n", dsts[0], get_string(dtypeprefix), opname, srcs[0], srcs[2], cas_str);
+         emit_buff(ctx, "%s = %s(atomicCounter%sARB(%s, floatBitsToUint(%s).x%s));\n",
+                   dst, get_string(dtypeprefix), opname, srcs[0], srcs[2],
+                   cas_str);
    }
 
 }
@@ -5122,7 +5132,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
             return false;
          srcs[1] = ctx->src_bufs[1].buf;
       }
-      translate_atomic(ctx, inst, &sinfo, srcs, dsts);
+      translate_atomic(ctx, inst, &sinfo, srcs, dsts[0]);
       break;
    case TGSI_OPCODE_RESQ:
       translate_resq(ctx, inst, srcs, dsts[0], writemask);
