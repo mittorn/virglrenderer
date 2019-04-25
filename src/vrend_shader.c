@@ -2923,8 +2923,6 @@ translate_store(struct dump_ctx *ctx,
       if (!ctx->cfg->use_gles || !inst->Dst[0].Register.Indirect) {
          emit_store_mem(ctx, dsts[0], inst->Dst[0].Register.WriteMask, srcs, conversion);
       } else {
-         char dst[128];
-
          const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
          bool atomic_ssbo = ctx->ssbo_atomic_mask & (1 << inst->Dst[0].Register.Index);
          int base = atomic_ssbo ? ctx->ssbo_atomic_array_base : ctx->ssbo_array_base;
@@ -2935,9 +2933,11 @@ translate_store(struct dump_ctx *ctx,
          emit_buff(ctx, "switch (addr%d + %d) {\n", inst->Dst[0].Indirect.Index, inst->Dst[0].Register.Index - base);
 
          for (int i = 0; i < array_count; ++i)  {
+            char dst_tmp[128];
             emit_buff(ctx, "case %d:\n", i);
-            snprintf(dst, 128, "%simg%d[%d]", cname, basearrayidx, i);
-            emit_store_mem(ctx, dst, inst->Dst[0].Register.WriteMask, srcs, conversion);
+            snprintf(dst_tmp, 128, "%simg%d[%d]", cname, basearrayidx, i);
+            emit_store_mem(ctx, dst_tmp, inst->Dst[0].Register.WriteMask, srcs,
+                           conversion);
             emit_buff(ctx, "break;\n");
          }
          emit_buf(ctx, "}\n");
