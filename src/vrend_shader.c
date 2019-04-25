@@ -2898,7 +2898,6 @@ translate_store(struct dump_ctx *ctx,
          emit_buff(ctx, "imageStore(%s,%s(%s(%s)),%s%s(%s));\n", dsts[0], get_string(coord_prefix),
                conversion, srcs[0], ms_str, get_string(stypeprefix), srcs[1]);
       } else {
-         char dst[32] = "";
          struct vrend_array *image = lookup_image_array_ptr(ctx, inst->Dst[0].Register.Index);
          if (image) {
             int basearrayidx = image->first;
@@ -2907,9 +2906,10 @@ translate_store(struct dump_ctx *ctx,
             const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
 
             for (int i = 0; i < array_size; ++i) {
-               snprintf(dst, 32, "%simg%d[%d]", cname, basearrayidx, i);
-               emit_buff(ctx, "case %d: imageStore(%s,%s(%s(%s)),%s%s(%s)); break;\n", i, dst, get_string(coord_prefix),
-                         conversion, srcs[0], ms_str, get_string(stypeprefix), srcs[1]);
+               emit_buff(ctx, "case %d: imageStore(%simg%d[%d],%s(%s(%s)),%s%s(%s)); break;\n",
+                         i, cname, basearrayidx, i, get_string(coord_prefix),
+                         conversion, srcs[0], ms_str, get_string(stypeprefix),
+                         srcs[1]);
             }
             emit_buff(ctx, "}\n");
          }
