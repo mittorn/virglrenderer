@@ -5642,6 +5642,8 @@ vrend_renderer_fini(void)
    if (!vrend_state.inited)
       return;
 
+   vrend_resource_set_destroy_callback(vrend_renderer_resource_destroy);
+
    vrend_free_sync_thread();
    if (vrend_state.eventfd != -1) {
       close(vrend_state.eventfd);
