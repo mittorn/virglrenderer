@@ -2869,7 +2869,7 @@ translate_store(struct dump_ctx *ctx,
                 struct tgsi_full_instruction *inst,
                 struct source_info *sinfo,
                 const char *srcs[4],
-                char dsts[3][255])
+                const char *dst)
 {
    const struct tgsi_full_dst_register *dst_reg = &inst->Dst[0];
 
@@ -2895,8 +2895,9 @@ translate_store(struct dump_ctx *ctx,
          break;
       }
       if (!ctx->cfg->use_gles || !dst_reg->Register.Indirect) {
-         emit_buff(ctx, "imageStore(%s,%s(%s(%s)),%s%s(%s));\n", dsts[0], get_string(coord_prefix),
-               conversion, srcs[0], ms_str, get_string(stypeprefix), srcs[1]);
+         emit_buff(ctx, "imageStore(%s,%s(%s(%s)),%s%s(%s));\n",
+                   dst, get_string(coord_prefix), conversion, srcs[0],
+                   ms_str, get_string(stypeprefix), srcs[1]);
       } else {
          struct vrend_array *image = lookup_image_array_ptr(ctx, dst_reg->Register.Index);
          if (image) {
@@ -2925,7 +2926,7 @@ translate_store(struct dump_ctx *ctx,
       const char *conversion = sinfo->override_no_cast[1] ? "" : get_string(dtypeprefix);
 
       if (!ctx->cfg->use_gles || !dst_reg->Register.Indirect) {
-         emit_store_mem(ctx, dsts[0], dst_reg->Register.WriteMask, srcs,
+         emit_store_mem(ctx, dst, dst_reg->Register.WriteMask, srcs,
                         conversion);
       } else {
          const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
@@ -5089,7 +5090,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
             return false;
          srcs[1] = ctx->src_bufs[1].buf;
       }
-      translate_store(ctx, inst, &sinfo, srcs, dsts);
+      translate_store(ctx, inst, &sinfo, srcs, dsts[0]);
       break;
    case TGSI_OPCODE_LOAD:
       if (ctx->cfg->use_gles) {
