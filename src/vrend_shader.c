@@ -3129,14 +3129,15 @@ static const char *get_atomic_opname(int tgsi_opcode, bool *is_cas)
 
 static void
 translate_resq(struct dump_ctx *ctx, struct tgsi_full_instruction *inst,
-               const char *srcs[4], char dsts[3][255], const char *writemask)
+               const char *srcs[4], const char *dst, const char *writemask)
 {
    const struct tgsi_full_src_register *src = &inst->Src[0];
 
    if (src->Register.File == TGSI_FILE_IMAGE) {
       if (inst->Dst[0].Register.WriteMask & 0x8) {
          ctx->shader_req_bits |= SHADER_REQ_TXQS | SHADER_REQ_INTS;
-         emit_buff(ctx, "%s = %s(imageSamples(%s));\n", dsts[0], get_string(INT_BITS_TO_FLOAT), srcs[0]);
+         emit_buff(ctx, "%s = %s(imageSamples(%s));\n",
+                   dst, get_string(INT_BITS_TO_FLOAT), srcs[0]);
       }
       if (inst->Dst[0].Register.WriteMask & 0x7) {
          const char *swizzle_mask = (ctx->cfg->use_gles && inst->Memory.Texture == TGSI_TEXTURE_1D_ARRAY) ?
@@ -3145,11 +3146,13 @@ translate_resq(struct dump_ctx *ctx, struct tgsi_full_instruction *inst,
          bool skip_emit_writemask = inst->Memory.Texture == TGSI_TEXTURE_BUFFER ||
                                     (!ctx->cfg->use_gles && inst->Memory.Texture == TGSI_TEXTURE_1D);
 
-         emit_buff(ctx, "%s = %s(imageSize(%s)%s%s);\n", dsts[0], get_string(INT_BITS_TO_FLOAT), srcs[0],
-                   swizzle_mask,skip_emit_writemask ? "" : writemask);
+         emit_buff(ctx, "%s = %s(imageSize(%s)%s%s);\n",
+                   dst, get_string(INT_BITS_TO_FLOAT), srcs[0],
+                   swizzle_mask, skip_emit_writemask ? "" : writemask);
       }
    } else if (src->Register.File == TGSI_FILE_BUFFER) {
-      emit_buff(ctx, "%s = %s(int(%s.length()) << 2);\n", dsts[0], get_string(INT_BITS_TO_FLOAT), srcs[0]);
+      emit_buff(ctx, "%s = %s(int(%s.length()) << 2);\n",
+                dst, get_string(INT_BITS_TO_FLOAT), srcs[0]);
    }
 }
 
@@ -5122,7 +5125,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
       translate_atomic(ctx, inst, &sinfo, srcs, dsts);
       break;
    case TGSI_OPCODE_RESQ:
-      translate_resq(ctx, inst, srcs, dsts, writemask);
+      translate_resq(ctx, inst, srcs, dsts[0], writemask);
       break;
    case TGSI_OPCODE_CLOCK:
       ctx->shader_req_bits |= SHADER_REQ_SHADER_CLOCK;
