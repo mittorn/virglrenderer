@@ -2894,15 +2894,15 @@ translate_store(struct dump_ctx *ctx,
       default:
          break;
       }
-      if (!ctx->cfg->use_gles || !inst->Dst[0].Register.Indirect) {
+      if (!ctx->cfg->use_gles || !dst->Register.Indirect) {
          emit_buff(ctx, "imageStore(%s,%s(%s(%s)),%s%s(%s));\n", dsts[0], get_string(coord_prefix),
                conversion, srcs[0], ms_str, get_string(stypeprefix), srcs[1]);
       } else {
-         struct vrend_array *image = lookup_image_array_ptr(ctx, inst->Dst[0].Register.Index);
+         struct vrend_array *image = lookup_image_array_ptr(ctx, dst->Register.Index);
          if (image) {
             int basearrayidx = image->first;
             int array_size = image->array_size;
-            emit_buff(ctx, "switch (addr%d + %d) {\n", inst->Dst->Indirect.Index, inst->Dst[0].Register.Index - basearrayidx);
+            emit_buff(ctx, "switch (addr%d + %d) {\n", dst->Indirect.Index, dst->Register.Index - basearrayidx);
             const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
 
             for (int i = 0; i < array_size; ++i) {
@@ -2916,27 +2916,27 @@ translate_store(struct dump_ctx *ctx,
       }
    } else if (dst->Register.File == TGSI_FILE_BUFFER || dst->Register.File == TGSI_FILE_MEMORY) {
       enum vrend_type_qualifier dtypeprefix;
-      set_memory_qualifier(ctx, inst, inst->Dst[0].Register.Index, inst->Dst[0].Register.Indirect);
+      set_memory_qualifier(ctx, inst, dst->Register.Index, dst->Register.Indirect);
       dtypeprefix = (is_integer_memory(ctx, dst->Register.File, dst->Register.Index)) ? FLOAT_BITS_TO_INT : FLOAT_BITS_TO_UINT;
       const char *conversion = sinfo->override_no_cast[1] ? "" : get_string(dtypeprefix);
 
-      if (!ctx->cfg->use_gles || !inst->Dst[0].Register.Indirect) {
-         emit_store_mem(ctx, dsts[0], inst->Dst[0].Register.WriteMask, srcs, conversion);
+      if (!ctx->cfg->use_gles || !dst->Register.Indirect) {
+         emit_store_mem(ctx, dsts[0], dst->Register.WriteMask, srcs, conversion);
       } else {
          const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
-         bool atomic_ssbo = ctx->ssbo_atomic_mask & (1 << inst->Dst[0].Register.Index);
+         bool atomic_ssbo = ctx->ssbo_atomic_mask & (1 << dst->Register.Index);
          int base = atomic_ssbo ? ctx->ssbo_atomic_array_base : ctx->ssbo_array_base;
          uint32_t mask = ctx->ssbo_used_mask;
          int start, array_count;
          u_bit_scan_consecutive_range(&mask, &start, &array_count);
-         int basearrayidx = lookup_image_array(ctx, inst->Dst[0].Register.Index);
-         emit_buff(ctx, "switch (addr%d + %d) {\n", inst->Dst[0].Indirect.Index, inst->Dst[0].Register.Index - base);
+         int basearrayidx = lookup_image_array(ctx, dst->Register.Index);
+         emit_buff(ctx, "switch (addr%d + %d) {\n", dst->Indirect.Index, dst->Register.Index - base);
 
          for (int i = 0; i < array_count; ++i)  {
             char dst_tmp[128];
             emit_buff(ctx, "case %d:\n", i);
             snprintf(dst_tmp, 128, "%simg%d[%d]", cname, basearrayidx, i);
-            emit_store_mem(ctx, dst_tmp, inst->Dst[0].Register.WriteMask, srcs,
+            emit_store_mem(ctx, dst_tmp, dst->Register.WriteMask, srcs,
                            conversion);
             emit_buff(ctx, "break;\n");
          }
