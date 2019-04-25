@@ -2759,9 +2759,9 @@ translate_store(struct dump_ctx *ctx,
          emit_buff(ctx, "switch (addr%d + %d) {\n", inst->Dst[0].Indirect.Index, inst->Dst[0].Register.Index - base);
 
          for (int i = 0; i < array_count; ++i)  {
-            snprintf(dst, 128, "%simg%d[addr%d + %d]", cname, basearrayidx, inst->Dst[0].Indirect.Index, inst->Dst[0].Register.Index - basearrayidx);
             emit_buff(ctx, "case %d:\n", i);
-            emit_store_mem(ctx, dsts[0], inst->Dst[0].Register.WriteMask, srcs, conversion);
+            snprintf(dst, 128, "%simg%d[%d]", cname, basearrayidx, i);
+            emit_store_mem(ctx, dst, inst->Dst[0].Register.WriteMask, srcs, conversion);
             emit_buff(ctx, "break;\n");
          }
          emit_buf(ctx, "}\n");
