@@ -49,6 +49,7 @@
 
 static int ctx_id = 1;
 static int fence_id = 1;
+static uint32_t max_length = UINT_MAX;
 
 static int last_fence;
 static void vtest_write_fence(UNUSED void *cookie, uint32_t fence_id_in)
@@ -218,6 +219,10 @@ int vtest_create_renderer(struct vtest_input *input, int out_fd, uint32_t length
          ctx_flags | VIRGL_RENDERER_THREAD_SYNC, &vtest_cbs);
    if (ret) {
       fprintf(stderr, "failed to initialise renderer.\n");
+      return -1;
+   }
+
+   if (length > 1024 * 1024) {
       return -1;
    }
 
@@ -520,7 +525,7 @@ int vtest_submit_cmd(uint32_t length_dw)
    uint32_t *cbuf;
    int ret;
 
-   if (length_dw > UINT_MAX / 4) {
+   if (length_dw > max_length / 4) {
       return -1;
    }
 
@@ -576,6 +581,10 @@ int vtest_transfer_get(UNUSED uint32_t length_dw)
 
    DECODE_TRANSFER;
 
+   if (data_size > max_length) {
+      return -ENOMEM;
+   }
+
    ptr = malloc(data_size);
    if (!ptr) {
       return -ENOMEM;
@@ -619,6 +628,10 @@ int vtest_transfer_get_nop(UNUSED uint32_t length_dw)
 
    DECODE_TRANSFER;
 
+   if (data_size > max_length) {
+      return -ENOMEM;
+   }
+
    ptr = malloc(data_size);
    if (!ptr) {
       return -ENOMEM;
@@ -650,6 +663,10 @@ int vtest_transfer_put(UNUSED uint32_t length_dw)
    }
 
    DECODE_TRANSFER;
+
+   if (data_size > max_length) {
+      return -ENOMEM;
+   }
 
    ptr = malloc(data_size);
    if (!ptr) {
@@ -696,6 +713,10 @@ int vtest_transfer_put_nop(UNUSED uint32_t length_dw)
    }
 
    DECODE_TRANSFER;
+
+   if (data_size > max_length) {
+      return -ENOMEM;
+   }
 
    ptr = malloc(data_size);
    if (!ptr) {
@@ -923,4 +944,9 @@ int vtest_poll(void)
 {
    virgl_renderer_poll();
    return 0;
+}
+
+void vtest_set_max_length(uint32_t length)
+{
+   max_length = length;
 }

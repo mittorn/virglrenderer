@@ -71,5 +71,7 @@ int vtest_protocol_version(uint32_t length_dw);
 
 void vtest_destroy_renderer(void);
 
+void vtest_set_max_length(uint32_t length);
+
 #endif
 

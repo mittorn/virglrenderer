@@ -140,6 +140,9 @@ static void vtest_fuzzer_run_renderer(int out_fd, struct vtest_input *input,
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 {
+   /* Limit unbounded allocations under fuzzer default limits. */
+   vtest_set_max_length(256 * 1024 * 1024);
+
    int out_fd = open("/dev/null", O_WRONLY);
 
    struct vtest_buffer buffer;
