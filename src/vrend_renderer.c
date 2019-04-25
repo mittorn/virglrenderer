@@ -4264,6 +4264,10 @@ int vrend_draw_vbo(struct vrend_context *ctx,
 
    if (info->indexed) {
       struct vrend_resource *res = (struct vrend_resource *)ctx->sub->ib.buffer;
+      if (!res) {
+         vrend_printf( "VBO missing indexed array buffer\n");
+         return 0;
+      }
       glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, res->id);
    } else
       glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
