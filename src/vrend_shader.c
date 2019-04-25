@@ -2171,7 +2171,7 @@ static void emit_txqs(struct dump_ctx *ctx,
                       struct tgsi_full_instruction *inst,
                       uint32_t sreg_index,
                       const char *srcs[4],
-                      char dsts[3][255])
+                      const char *dst)
 {
    const int sampler_index = 0;
    bool is_shad;
@@ -2186,7 +2186,7 @@ static void emit_txqs(struct dump_ctx *ctx,
       return;
    }
 
-   emit_buff(ctx, "%s = %s(textureSamples(%s));\n", dsts[0],
+   emit_buff(ctx, "%s = %s(textureSamples(%s));\n", dst,
             get_string(dtypeprefix), srcs[sampler_index]);
 }
 
@@ -4773,7 +4773,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
       emit_txq(ctx, inst, sinfo.sreg_index, srcs, dsts[0], writemask);
       break;
    case TGSI_OPCODE_TXQS:
-      emit_txqs(ctx, inst, sinfo.sreg_index, srcs, dsts);
+      emit_txqs(ctx, inst, sinfo.sreg_index, srcs, dsts[0]);
       break;
    case TGSI_OPCODE_I2F:
       emit_buff(ctx, "%s = %s(ivec4(%s)%s);\n", dsts[0], get_string(dinfo.dstconv), srcs[0], writemask);
