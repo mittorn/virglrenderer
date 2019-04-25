@@ -1,3 +1,0 @@
-dEQP-GLES31.functional.debug.negative_coverage.get_error.compute.exceed_atomic_counters_limit
-dEQP-GLES31.functional.ubo.random.all_per_block_buffers.20
-dEQP-GLES31.functional.ubo.random.all_per_block_buffers.13

@@ -18813,7 +18813,7 @@ dEQP-GLES3.functional.shaders.matrix.unary_addition.mediump_mat4_float_fragment 
 dEQP-GLES3.functional.shaders.matrix.unary_addition.mediump_mat4_float_vertex Pass
 dEQP-GLES3.functional.shaders.metamorphic.bubblesort_flag.variant_1 BadTerminate
 dEQP-GLES3.functional.shaders.metamorphic.bubblesort_flag.variant_2 BadTerminate
-dEQP-GLES3.functional.shaders.metamorphic.synthetic.variant_1 BadTerminate
+dEQP-GLES3.functional.shaders.metamorphic.synthetic.variant_1 Pass
 dEQP-GLES3.functional.shaders.metamorphic.synthetic.variant_2 Pass
 dEQP-GLES3.functional.shaders.metamorphic.synthetic.variant_3 BadTerminate
 dEQP-GLES3.functional.shaders.metamorphic.synthetic.variant_4 Pass
