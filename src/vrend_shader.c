@@ -2972,7 +2972,7 @@ translate_load(struct dump_ctx *ctx,
                struct source_info *sinfo,
                struct dest_info *dinfo,
                const char *srcs[4],
-               char dsts[3][255],
+               const char *dst,
                const char *writemask)
 {
    const struct tgsi_full_src_register *src = &inst->Src[0];
@@ -3012,8 +3012,10 @@ translate_load(struct dump_ctx *ctx,
          ctx->images[sinfo->sreg_index].decl.Writable = 0;
 
       if (!ctx->cfg->use_gles || !inst->Src[0].Register.Indirect) {
-         emit_buff(ctx, "%s = %s(imageLoad(%s, %s(%s(%s))%s)%s);\n", dsts[0], get_string(dtypeprefix), srcs[0],
-               get_string(coord_prefix), conversion, srcs[1], ms_str, wm);
+         emit_buff(ctx, "%s = %s(imageLoad(%s, %s(%s(%s))%s)%s);\n",
+               dst, get_string(dtypeprefix),
+               srcs[0], get_string(coord_prefix), conversion, srcs[1],
+               ms_str, wm);
       } else {
          char src[32] = "";
          struct vrend_array *image = lookup_image_array_ptr(ctx, inst->Src[0].Register.Index);
@@ -3025,8 +3027,10 @@ translate_load(struct dump_ctx *ctx,
 
             for (int i = 0; i < array_size; ++i) {
                snprintf(src, 32, "%simg%d[%d]", cname, basearrayidx, i);
-               emit_buff(ctx, "case %d: %s = %s(imageLoad(%s, %s(%s(%s))%s)%s);break;\n", i, dsts[0], get_string(dtypeprefix), src,
-                     get_string(coord_prefix), conversion, srcs[1], ms_str, wm);
+               emit_buff(ctx, "case %d: %s = %s(imageLoad(%s, %s(%s(%s))%s)%s);break;\n",
+                         i, dst, get_string(dtypeprefix),
+                         src, get_string(coord_prefix), conversion, srcs[1],
+                         ms_str, wm);
             }
             emit_buff(ctx, "}\n");
          }
@@ -3038,7 +3042,7 @@ translate_load(struct dump_ctx *ctx,
 
       set_memory_qualifier(ctx, inst, inst->Src[0].Register.Index, inst->Src[0].Register.Indirect);
 
-      strcpy(mydst, dsts[0]);
+      strcpy(mydst, dst);
       char *wmp = strchr(mydst, '.');
 
       if (wmp)
@@ -3076,7 +3080,7 @@ translate_load(struct dump_ctx *ctx,
          emit_buf(ctx, "}\n");
       }
    } else if (src->Register.File == TGSI_FILE_HW_ATOMIC) {
-      emit_buff(ctx, "%s = uintBitsToFloat(atomicCounter(%s));\n", dsts[0], srcs[0]);
+      emit_buff(ctx, "%s = uintBitsToFloat(atomicCounter(%s));\n", dst, srcs[0]);
    }
 }
 
@@ -5098,7 +5102,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
             return false;
          srcs[1] = ctx->src_bufs[1].buf;
       }
-      translate_load(ctx, inst, &sinfo, &dinfo, srcs, dsts, writemask);
+      translate_load(ctx, inst, &sinfo, &dinfo, srcs, dsts[0], writemask);
       break;
    case TGSI_OPCODE_ATOMUADD:
    case TGSI_OPCODE_ATOMXCHG:
