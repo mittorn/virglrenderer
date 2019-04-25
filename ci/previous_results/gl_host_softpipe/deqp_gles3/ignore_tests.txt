@@ -2,11 +2,3 @@ dEQP-GLES3.functional.shaders.metamorphic.synthetic.variant_1
 dEQP-GLES3.functional.shaders.metamorphic.synthetic.variant_3
 dEQP-GLES3.functional.shaders.metamorphic.bubblesort_flag.variant_1
 dEQP-GLES3.functional.shaders.metamorphic.bubblesort_flag.variant_2
-
-# possible state leaks  
-dEQP-GLES3.functional.fragment_out.random.8
-dEQP-GLES3.functional.fragment_out.random.29
-dEQP-GLES3.functional.fragment_out.random.45
-dEQP-GLES3.functional.fragment_out.random.62
-dEQP-GLES3.functional.rasterization.fbo.texture_2d.interpolation.lines
-
