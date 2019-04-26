@@ -8840,7 +8840,7 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
          set_format_bit(&caps->v2.supported_readback_formats, VIRGL_FORMAT_R32G32B32A32_SINT);
          set_format_bit(&caps->v2.supported_readback_formats, VIRGL_FORMAT_R32G32B32A32_UINT);
 
-         if (gles_ver >= 32)
+         if (gles_ver >= 32 || epoxy_has_gl_extension("GL_EXT_color_buffer_float"))
             set_format_bit(&caps->v2.supported_readback_formats, VIRGL_FORMAT_R32G32B32A32_FLOAT);
       }
    }
