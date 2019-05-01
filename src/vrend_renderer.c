@@ -5959,9 +5959,6 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
       gr->target = GL_TEXTURE_2D_ARRAY;
    }
 
-   glGenTextures(1, &gr->id);
-   glBindTexture(gr->target, gr->id);
-
    debug_texture(__func__, gr);
 
    internalformat = tex_conv_table[pr->format].internalformat;
@@ -5974,12 +5971,16 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
       return EINVAL;
    }
 
+   glGenTextures(1, &gr->id);
+   glBindTexture(gr->target, gr->id);
+
    if (image_oes) {
       if (epoxy_has_gl_extension("GL_OES_EGL_image_external")) {
          glEGLImageTargetTexture2DOES(gr->target, (GLeglImageOES) image_oes);
       } else {
          vrend_printf( "missing GL_OES_EGL_image_external extension\n");
 	 FREE(gr);
+         glBindTexture(gr->target, 0);
 	 return EINVAL;
       }
    } else if (pr->nr_samples > 0) {
@@ -6068,6 +6069,8 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
       glTexParameteri(gr->target, GL_TEXTURE_BASE_LEVEL, 0);
       glTexParameteri(gr->target, GL_TEXTURE_MAX_LEVEL, pr->last_level);
    }
+
+   glBindTexture(gr->target, 0);
 
    gt->state.max_lod = -1;
    gt->cur_swizzle_r = gt->cur_swizzle_g = gt->cur_swizzle_b = gt->cur_swizzle_a = -1;
