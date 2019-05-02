@@ -11,6 +11,16 @@ variables:
 # variability it introduces.
 #  RENDER_DEVICE: /dev/dri/renderD128
 
+.docker-setup: &docker-setup
+    - mkdir -p ccache
+    - mkdir -p results
+    - export DOCKER_IMAGE_DIGEST=$(cat results/docker_image_digest.txt)
+    - echo $DOCKER_IMAGE_DIGEST
+    - echo core > /proc/sys/kernel/core_pattern || true
+    - echo 0 > /proc/sys/kernel/core_uses_pid || true
+    - if [[ -n "$RENDER_DEVICE" ]]; then RD_CONFIG="--device=$RENDER_DEVICE -e RENDER_DEVICE=$RENDER_DEVICE"; fi
+    - echo RD_CONFIG=$RD_CONFIG
+
 stages:
   - build
   - sanity test
@@ -56,15 +66,8 @@ make check:
   services:
     - docker:dind
   before_script:
-    - mkdir -p ccache
-    - mkdir -p results
-    - export DOCKER_IMAGE_DIGEST=$(cat results/docker_image_digest.txt)
-    - echo $DOCKER_IMAGE_DIGEST
+    *docker-setup
   script:
-    - echo core > /proc/sys/kernel/core_pattern || true
-    - echo 0 > /proc/sys/kernel/core_uses_pid || true
-    - if [[ -n "$RENDER_DEVICE" ]]; then RD_CONFIG="--device=$RENDER_DEVICE -e RENDER_DEVICE=$RENDER_DEVICE"; fi
-    - echo RD_CONFIG=$RD_CONFIG
     - docker run
              --ulimit core=99999999999:99999999999
              $RD_CONFIG
@@ -89,15 +92,8 @@ piglit - gl host:
   services:
     - docker:dind
   before_script:
-    - mkdir -p ccache
-    - mkdir -p results
-    - export DOCKER_IMAGE_DIGEST=$(cat results/docker_image_digest.txt)
-    - echo $DOCKER_IMAGE_DIGEST
+    *docker-setup
   script:
-    - echo core > /proc/sys/kernel/core_pattern || true
-    - echo 0 > /proc/sys/kernel/core_uses_pid || true
-    - if [[ -n "$RENDER_DEVICE" ]]; then RD_CONFIG="--device=$RENDER_DEVICE -e RENDER_DEVICE=$RENDER_DEVICE"; fi
-    - echo RD_CONFIG=$RD_CONFIG
     - docker run
              --ulimit core=99999999999:99999999999
              $RD_CONFIG
@@ -115,15 +111,8 @@ piglit - gles host:
   services:
     - docker:dind
   before_script:
-    - mkdir -p ccache
-    - mkdir -p results
-    - export DOCKER_IMAGE_DIGEST=$(cat results/docker_image_digest.txt)
-    - echo $DOCKER_IMAGE_DIGEST
+    *docker-setup
   script:
-    - echo core > /proc/sys/kernel/core_pattern || true
-    - echo 0 > /proc/sys/kernel/core_uses_pid || true
-    - if [[ -n "$RENDER_DEVICE" ]]; then RD_CONFIG="--device=$RENDER_DEVICE -e RENDER_DEVICE=$RENDER_DEVICE"; fi
-    - echo RD_CONFIG=$RD_CONFIG
     - docker run
              --ulimit core=99999999999:99999999999
              $RD_CONFIG
@@ -146,15 +135,8 @@ cts gl - gl host:
   services:
     - docker:dind
   before_script:
-    - mkdir -p ccache
-    - mkdir -p results
-    - export DOCKER_IMAGE_DIGEST=$(cat results/docker_image_digest.txt)
-    - echo $DOCKER_IMAGE_DIGEST
+    *docker-setup
   script:
-    - echo core > /proc/sys/kernel/core_pattern || true
-    - echo 0 > /proc/sys/kernel/core_uses_pid || true
-    - if [[ -n "$RENDER_DEVICE" ]]; then RD_CONFIG="--device=$RENDER_DEVICE -e RENDER_DEVICE=$RENDER_DEVICE"; fi
-    - echo RD_CONFIG=$RD_CONFIG
     - docker run
              --ulimit core=99999999999:99999999999
              $RD_CONFIG
@@ -177,15 +159,8 @@ cts gles - gl host:
   services:
     - docker:dind
   before_script:
-    - mkdir -p ccache
-    - mkdir -p results
-    - export DOCKER_IMAGE_DIGEST=$(cat results/docker_image_digest.txt)
-    - echo $DOCKER_IMAGE_DIGEST
+    *docker-setup
   script:
-    - echo core > /proc/sys/kernel/core_pattern || true
-    - echo 0 > /proc/sys/kernel/core_uses_pid || true
-    - if [[ -n "$RENDER_DEVICE" ]]; then RD_CONFIG="--device=$RENDER_DEVICE -e RENDER_DEVICE=$RENDER_DEVICE"; fi
-    - echo RD_CONFIG=$RD_CONFIG
     - docker run
              --ulimit core=99999999999:99999999999
              $RD_CONFIG
@@ -208,15 +183,8 @@ cts gl - gles host:
   services:
     - docker:dind
   before_script:
-    - mkdir -p ccache
-    - mkdir -p results
-    - export DOCKER_IMAGE_DIGEST=$(cat results/docker_image_digest.txt)
-    - echo $DOCKER_IMAGE_DIGEST
+    *docker-setup
   script:
-    - echo core > /proc/sys/kernel/core_pattern || true
-    - echo 0 > /proc/sys/kernel/core_uses_pid || true
-    - if [[ -n "$RENDER_DEVICE" ]]; then RD_CONFIG="--device=$RENDER_DEVICE -e RENDER_DEVICE=$RENDER_DEVICE"; fi
-    - echo RD_CONFIG=$RD_CONFIG
     - docker run
              --ulimit core=99999999999:99999999999
              $RD_CONFIG
@@ -239,15 +207,8 @@ cts gles - gles host:
   services:
     - docker:dind
   before_script:
-    - mkdir -p ccache
-    - mkdir -p results
-    - export DOCKER_IMAGE_DIGEST=$(cat results/docker_image_digest.txt)
-    - echo $DOCKER_IMAGE_DIGEST
+    *docker-setup
   script:
-    - echo core > /proc/sys/kernel/core_pattern || true
-    - echo 0 > /proc/sys/kernel/core_uses_pid || true
-    - if [[ -n "$RENDER_DEVICE" ]]; then RD_CONFIG="--device=$RENDER_DEVICE -e RENDER_DEVICE=$RENDER_DEVICE"; fi
-    - echo RD_CONFIG=$RD_CONFIG
     - docker run
              --ulimit core=99999999999:99999999999
              $RD_CONFIG
@@ -270,15 +231,8 @@ unreliable tests:
   services:
     - docker:dind
   before_script:
-    - mkdir -p ccache
-    - mkdir -p results
-    - export DOCKER_IMAGE_DIGEST=$(cat results/docker_image_digest.txt)
-    - echo $DOCKER_IMAGE_DIGEST
+    *docker-setup
   script:
-    - echo core > /proc/sys/kernel/core_pattern || true
-    - echo 0 > /proc/sys/kernel/core_uses_pid || true
-    - if [[ -n "$RENDER_DEVICE" ]]; then RD_CONFIG="--device=$RENDER_DEVICE -e RENDER_DEVICE=$RENDER_DEVICE"; fi
-    - echo RD_CONFIG=$RD_CONFIG
     - docker run
              --ulimit core=99999999999:99999999999
              $RD_CONFIG
