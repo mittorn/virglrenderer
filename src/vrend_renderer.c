@@ -534,7 +534,6 @@ struct vrend_sub_context {
    struct vrend_surface *surf[PIPE_MAX_COLOR_BUFS];
 
    struct vrend_viewport vps[PIPE_MAX_VIEWPORTS];
-   float depth_transform, depth_scale;
    /* viewport is negative */
    uint32_t scissor_state_dirty;
    uint32_t viewport_state_dirty;
@@ -2382,9 +2381,6 @@ void vrend_set_viewport_states(struct vrend_context *ctx,
       if (idx == 0) {
          if (ctx->sub->viewport_is_negative != viewport_is_negative)
             ctx->sub->viewport_is_negative = viewport_is_negative;
-
-         ctx->sub->depth_scale = fabsf(far_val - near_val);
-         ctx->sub->depth_transform = near_val;
       }
 
       if (ctx->sub->vps[idx].near_val != near_val ||
