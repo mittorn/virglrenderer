@@ -1105,20 +1105,20 @@ iter_declaration(struct tgsi_iterate_context *iter,
             ctx->inputs[i].num_components = 4;
             ctx->inputs[i].swizzle_offset = 0;
             ctx->inputs[i].override_no_wm = false;
-            snprintf(ctx->inputs[i].glsl_name, 64, "%s_f%d", name_prefix, ctx->inputs[i].sid);
+            snprintf(ctx->inputs[i].glsl_name, 128, "%s_f%d", name_prefix, ctx->inputs[i].sid);
          } else if (ctx->inputs[i].name == TGSI_SEMANTIC_COLOR)
-            snprintf(ctx->inputs[i].glsl_name, 64, "%s_c%d", name_prefix, ctx->inputs[i].sid);
+            snprintf(ctx->inputs[i].glsl_name, 128, "%s_c%d", name_prefix, ctx->inputs[i].sid);
          else if (ctx->inputs[i].name == TGSI_SEMANTIC_GENERIC)
-            snprintf(ctx->inputs[i].glsl_name, 64, "%s_g%dA%d", name_prefix, ctx->inputs[i].sid, ctx->inputs[i].array_id);
+            snprintf(ctx->inputs[i].glsl_name, 128, "%s_g%dA%d", name_prefix, ctx->inputs[i].sid, ctx->inputs[i].array_id);
          else if (ctx->inputs[i].name == TGSI_SEMANTIC_PATCH)
-            snprintf(ctx->inputs[i].glsl_name, 64, "%s_p%dA%d", name_prefix, ctx->inputs[i].sid, ctx->inputs[i].array_id);
+            snprintf(ctx->inputs[i].glsl_name, 128, "%s_p%dA%d", name_prefix, ctx->inputs[i].sid, ctx->inputs[i].array_id);
          else
-            snprintf(ctx->inputs[i].glsl_name, 64, "%s_%d", name_prefix, ctx->inputs[i].first);
+            snprintf(ctx->inputs[i].glsl_name, 128, "%s_%d", name_prefix, ctx->inputs[i].first);
       }
       if (add_two_side) {
-         snprintf(ctx->inputs[i + 1].glsl_name, 64, "%s_bc%d", name_prefix, ctx->inputs[i + 1].sid);
+         snprintf(ctx->inputs[i + 1].glsl_name, 128, "%s_bc%d", name_prefix, ctx->inputs[i + 1].sid);
          if (!ctx->front_face_emitted) {
-            snprintf(ctx->inputs[i + 2].glsl_name, 64, "%s", "gl_FrontFacing");
+            snprintf(ctx->inputs[i + 2].glsl_name, 128, "%s", "gl_FrontFacing");
             ctx->front_face_emitted = true;
          }
       }
