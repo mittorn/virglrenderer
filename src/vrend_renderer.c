@@ -95,6 +95,7 @@ enum features_id
    feat_barrier,
    feat_bind_vertex_buffers,
    feat_bit_encoding,
+   feat_clip_control,
    feat_compute_shader,
    feat_copy_image,
    feat_conditional_render_inverted,
@@ -179,6 +180,7 @@ static const  struct {
    FEAT(barrier, 42, 31, NULL),
    FEAT(bind_vertex_buffers, 44, UNAVAIL, NULL),
    FEAT(bit_encoding, 33, UNAVAIL,  "GL_ARB_shader_bit_encoding" ),
+   FEAT(clip_control, 45, UNAVAIL, "GL_ARB_clip_control", "GL_EXT_clip_control"),
    FEAT(compute_shader, 43, 31,  "GL_ARB_compute_shader" ),
    FEAT(copy_image, 43, 32,  "GL_ARB_copy_image", "GL_EXT_copy_image", "GL_OES_copy_image" ),
    FEAT(conditional_render_inverted, 45, UNAVAIL,  "GL_ARB_conditional_render_inverted" ),
@@ -2357,8 +2359,13 @@ void vrend_set_viewport_states(struct vrend_context *ctx,
       x = state[i].translate[0] - state[i].scale[0];
       y = state[i].translate[1] - state[i].scale[1];
 
-      near_val = state[i].translate[2] - state[i].scale[2];
-      far_val = near_val + (state[i].scale[2] * 2.0);
+      if (!ctx->sub->rs_state.clip_halfz) {
+         near_val = state[i].translate[2] - state[i].scale[2];
+         far_val = near_val + (state[i].scale[2] * 2.0);
+      } else {
+         near_val = state[i].translate[2];
+         far_val = state[i].scale[2] + state[i].translate[2];
+      }
 
       if (ctx->sub->vps[idx].cur_x != x ||
           ctx->sub->vps[idx].cur_y != y ||
@@ -4995,6 +5002,17 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
       }
    }
 
+   if (state->clip_halfz != ctx->sub->hw_rs_state.clip_halfz) {
+       if (has_feature(feat_clip_control)) {
+          /* We only need to handle clip_halfz here, the bottom_edge_rule is
+           * already handled via Gallium */
+          GLenum depthrule = state->clip_halfz ? GL_ZERO_TO_ONE : GL_NEGATIVE_ONE_TO_ONE;
+          glClipControl(GL_LOWER_LEFT, depthrule);
+          ctx->sub->hw_rs_state.clip_halfz = state->clip_halfz;
+       } else {
+          vrend_printf("No clip control supported\n");
+       }
+   }
    if (state->flatshade_first != ctx->sub->hw_rs_state.flatshade_first) {
       ctx->sub->hw_rs_state.flatshade_first = state->flatshade_first;
       if (vrend_state.use_gles) {
@@ -9134,6 +9152,9 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
          }
       }
    }
+
+   if (has_feature(feat_clip_control))
+      caps->v2.capability_bits |= VIRGL_CAP_CLIP_HALFZ;
 
    if (epoxy_has_gl_extension("GL_KHR_texture_compression_astc_sliced_3d"))
       caps->v2.capability_bits |= VIRGL_CAP_3D_ASTC;
