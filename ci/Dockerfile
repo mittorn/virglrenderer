@@ -31,6 +31,7 @@ RUN apt-get -y install ca-certificates && \
       clang-6.0 \
       cmake \
       dbus \
+      libepoxy-dev \
       g++-7 \
       gcc-7 \
       gdb \
@@ -77,7 +78,6 @@ RUN apt-get -y install ca-certificates && \
 
 RUN apt-get -y build-dep --no-install-recommends \
       libdrm \
-      libepoxy \
       mesa \
       piglit \
       virglrenderer
@@ -94,16 +94,6 @@ RUN go install -x github.com/tomeuv/fakemachine/cmd/fakemachine
 # To avoid this error:
 # error: RPC failed; curl 56 GnuTLS recv error (-54): Error in the pull function.
 RUN git config --global http.postBuffer 1048576000
-
-ARG KNOWN_GOOD_EPOXY=737b6918703c
-WORKDIR /libepoxy
-RUN git clone --shallow-since="$GIT_DATE" https://github.com/anholt/libepoxy.git . && \
-    git checkout ${KNOWN_GOOD_EPOXY} && \
-    git log --oneline -n 1 && \
-    ./autogen.sh --prefix=/usr/local && \
-    make -j$(nproc) install && \
-    rm -rf /libepoxy
-WORKDIR /
 
 ARG KNOWN_GOOD_CTS=6c709dc9a99b70572aceb0f7698ab044383ff948
 WORKDIR /VK-GL-CTS
