@@ -77,9 +77,8 @@ struct vrend_resource {
    uint64_t mipmap_offsets[VR_MAX_TEXTURE_2D_LEVELS];
 };
 
-#define VIRGL_BIND_NEED_SWIZZLE (1 << 28)
-#define VIRGL_BIND_CAN_TEXTURE_STORAGE (1 << 29)
-
+#define VIRGL_TEXTURE_NEED_SWIZZLE        (1 << 0)
+#define VIRGL_TEXTURE_CAN_TEXTURE_STORAGE (1 << 1)
 
 struct vrend_format_table {
    enum virgl_formats format;
@@ -88,7 +87,7 @@ struct vrend_format_table {
    GLenum gltype;
    uint8_t swizzle[4];
    uint32_t bindings;
-   int flags;
+   uint32_t flags;
 };
 
 struct vrend_transfer_info {

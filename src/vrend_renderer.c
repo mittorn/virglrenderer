@@ -1636,7 +1636,7 @@ int vrend_create_surface(struct vrend_context *ctx,
 
    if (has_feature(feat_texture_view) &&
        res->storage != VREND_RESOURCE_STORAGE_BUFFER &&
-       (tex_conv_table[res->base.format].bindings & VIRGL_BIND_CAN_TEXTURE_STORAGE)) {
+       (tex_conv_table[res->base.format].flags & VIRGL_TEXTURE_CAN_TEXTURE_STORAGE)) {
       /* We don't need texture views for buffer objects.
        * Otherwise we only need a texture view if the
        * a) formats differ between the surface and base texture
@@ -1926,7 +1926,7 @@ int vrend_create_sampler_view(struct vrend_context *ctx,
           swizzle[3] = PIPE_SWIZZLE_ONE;
    }
 
-   if (tex_conv_table[view->format].flags & VIRGL_BIND_NEED_SWIZZLE) {
+   if (tex_conv_table[view->format].flags & VIRGL_TEXTURE_NEED_SWIZZLE) {
       if (swizzle[0] <= PIPE_SWIZZLE_ALPHA)
          swizzle[0] = tex_conv_table[view->format].swizzle[swizzle[0]];
       if (swizzle[1] <= PIPE_SWIZZLE_ALPHA)
@@ -1970,7 +1970,7 @@ int vrend_create_sampler_view(struct vrend_context *ctx,
          format = view->texture->base.format;
       else if (view->format != view->texture->base.format)
          needs_view = true;
-      if (needs_view && (tex_conv_table[view->texture->base.format].bindings & VIRGL_BIND_CAN_TEXTURE_STORAGE)) {
+      if (needs_view && (tex_conv_table[view->texture->base.format].flags & VIRGL_TEXTURE_CAN_TEXTURE_STORAGE)) {
         glGenTextures(1, &view->id);
         GLenum internalformat = tex_conv_table[format].internalformat;
         unsigned base_layer = view->val0 & 0xffff;
@@ -5981,7 +5981,7 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
    assert(pr->width0 > 0);
 
    bool format_can_texture_storage = has_feature(feat_texture_storage) &&
-                              (tex_conv_table[pr->format].bindings & VIRGL_BIND_CAN_TEXTURE_STORAGE);
+                              (tex_conv_table[pr->format].flags & VIRGL_TEXTURE_CAN_TEXTURE_STORAGE);
 
    gr->target = tgsitargettogltarget(pr->target, pr->nr_samples);
    gr->storage = VREND_RESOURCE_STORAGE_TEXTURE;
@@ -7651,7 +7651,7 @@ static GLuint vrend_make_view(struct vrend_resource *res, enum pipe_format forma
    GLenum fmt = tex_conv_table[format].internalformat;
 
    /* If the format doesn't support TextureStorage it is not immutable, so no TextureView*/
-   if (!(tex_conv_table[format].bindings & VIRGL_BIND_CAN_TEXTURE_STORAGE))
+   if (!(tex_conv_table[format].flags & VIRGL_TEXTURE_CAN_TEXTURE_STORAGE))
       return res->id;
 
    VREND_DEBUG(dbg_blit, NULL, "Create texture view from %s for %s\n",

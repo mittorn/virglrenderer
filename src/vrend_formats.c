@@ -348,7 +348,7 @@ static void vrend_add_formats(struct vrend_format_table *table, int num_entries)
     if (status == GL_INVALID_VALUE || status == GL_INVALID_ENUM || status == GL_INVALID_OPERATION) {
       struct vrend_format_table *entry = NULL;
       uint8_t swizzle[4];
-      binding = VIRGL_BIND_SAMPLER_VIEW | VIRGL_BIND_RENDER_TARGET | VIRGL_BIND_NEED_SWIZZLE;
+      binding = VIRGL_BIND_SAMPLER_VIEW | VIRGL_BIND_RENDER_TARGET;
 
       switch (table[i].format) {
       case PIPE_FORMAT_A8_UNORM:
@@ -493,7 +493,7 @@ void vrend_check_texture_storage(struct vrend_format_table *table)
          glBindTexture(GL_TEXTURE_2D, tex_id);
          glTexStorage2D(GL_TEXTURE_2D, 1, table[i].internalformat, 32, 32);
          if (glGetError() == GL_NO_ERROR)
-            table[i].bindings |= VIRGL_BIND_CAN_TEXTURE_STORAGE;
+            table[i].flags |= VIRGL_TEXTURE_CAN_TEXTURE_STORAGE;
          glDeleteTextures(1, &tex_id);
       }
    }
