@@ -85,7 +85,7 @@ make check:
     paths:
       - results/
 
-piglit - gl host:
+.tests:
   stage: test
   services:
     - docker:dind
@@ -97,7 +97,7 @@ piglit - gl host:
              $RD_CONFIG
              -v $PWD:/virglrenderer
              $CI_REGISTRY_IMAGE@$DOCKER_IMAGE_DIGEST
-             bash -c "/virglrenderer/ci/run_tests.sh --piglit-gl"
+             bash -c "/virglrenderer/ci/run_tests.sh $TEST_SUITE"
     - echo "\n\n"
   only:
     - merge_requests
@@ -107,118 +107,33 @@ piglit - gl host:
     when: always
     paths:
       - results/
+
+piglit - gl host:
+  variables:
+    TEST_SUITE: '--piglit-gl'
+  extends: .tests
 
 piglit - gles host:
-  stage: test
-  services:
-    - docker:dind
-  before_script:
-    *docker-setup
-  script:
-    - docker run
-             --ulimit core=99999999999:99999999999
-             $RD_CONFIG
-             -v $PWD:/virglrenderer
-             $CI_REGISTRY_IMAGE@$DOCKER_IMAGE_DIGEST
-             bash -c "/virglrenderer/ci/run_tests.sh --piglit-gles"
-    - echo "\n\n"
-  only:
-    - merge_requests
-    - schedules
-
-  artifacts:
-    when: always
-    paths:
-      - results/
+  variables:
+    TEST_SUITE: '--piglit-gles'
+  extends: .tests
 
 cts gl - gl host:
-  stage: test
-  services:
-    - docker:dind
-  before_script:
-    *docker-setup
-  script:
-    - docker run
-             --ulimit core=99999999999:99999999999
-             $RD_CONFIG
-             -v $PWD:/virglrenderer
-             $CI_REGISTRY_IMAGE@$DOCKER_IMAGE_DIGEST
-             bash -c "/virglrenderer/ci/run_tests.sh --deqp-gl-gl-tests"
-    - echo "\n\n"
-  only:
-    - merge_requests
-    - schedules
-
-  artifacts:
-    when: always
-    paths:
-      - results/
+  variables:
+    TEST_SUITE: '--deqp-gl-gl-tests'
+  extends: .tests
 
 cts gles - gl host:
-  stage: test
-  services:
-    - docker:dind
-  before_script:
-    *docker-setup
-  script:
-    - docker run
-             --ulimit core=99999999999:99999999999
-             $RD_CONFIG
-             -v $PWD:/virglrenderer
-             $CI_REGISTRY_IMAGE@$DOCKER_IMAGE_DIGEST
-             bash -c "/virglrenderer/ci/run_tests.sh --deqp-gl-gles-tests"
-    - echo "\n\n"
-  only:
-    - merge_requests
-    - schedules
-
-  artifacts:
-    when: always
-    paths:
-      - results/
+  variables:
+    TEST_SUITE: '--deqp-gl-gles-tests'
+  extends: .tests
 
 cts gl - gles host:
-  stage: test
-  services:
-    - docker:dind
-  before_script:
-    *docker-setup
-  script:
-    - docker run
-             --ulimit core=99999999999:99999999999
-             $RD_CONFIG
-             -v $PWD:/virglrenderer
-             $CI_REGISTRY_IMAGE@$DOCKER_IMAGE_DIGEST
-             bash -c "/virglrenderer/ci/run_tests.sh --deqp-gles-gl-tests"
-    - echo "\n\n"
-  only:
-    - merge_requests
-    - schedules
-
-  artifacts:
-    when: always
-    paths:
-      - results/
+  variables:
+    TEST_SUITE: '--deqp-gles-gl-tests'
+  extends: .tests
 
 cts gles - gles host:
-  stage: test
-  services:
-    - docker:dind
-  before_script:
-    *docker-setup
-  script:
-    - docker run
-             --ulimit core=99999999999:99999999999
-             $RD_CONFIG
-             -v $PWD:/virglrenderer
-             $CI_REGISTRY_IMAGE@$DOCKER_IMAGE_DIGEST
-             bash -c "/virglrenderer/ci/run_tests.sh --deqp-gles-gles-tests"
-    - echo "\n\n"
-  only:
-    - merge_requests
-    - schedules
-
-  artifacts:
-    when: always
-    paths:
-      - results/
+  variables:
+    TEST_SUITE: '--deqp-gles-gles-tests'
+  extends: .tests
