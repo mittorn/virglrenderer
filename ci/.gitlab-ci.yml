@@ -73,7 +73,6 @@ make check:
              -v $PWD:/virglrenderer
              $CI_REGISTRY_IMAGE@$DOCKER_IMAGE_DIGEST
              bash -c "/virglrenderer/ci/run_tests.sh --make-check"
-             2>&1 | tee results/docker_test_log.txt
     - echo "\n\n"
   only:
     - branches
@@ -99,7 +98,6 @@ piglit - gl host:
              -v $PWD:/virglrenderer
              $CI_REGISTRY_IMAGE@$DOCKER_IMAGE_DIGEST
              bash -c "/virglrenderer/ci/run_tests.sh --piglit-gl"
-             2>&1 | tee results/docker_test_log.txt
     - echo "\n\n"
   only:
     - merge_requests
@@ -123,7 +121,6 @@ piglit - gles host:
              -v $PWD:/virglrenderer
              $CI_REGISTRY_IMAGE@$DOCKER_IMAGE_DIGEST
              bash -c "/virglrenderer/ci/run_tests.sh --piglit-gles"
-             2>&1 | tee results/docker_test_log.txt
     - echo "\n\n"
   only:
     - merge_requests
@@ -147,7 +144,6 @@ cts gl - gl host:
              -v $PWD:/virglrenderer
              $CI_REGISTRY_IMAGE@$DOCKER_IMAGE_DIGEST
              bash -c "/virglrenderer/ci/run_tests.sh --deqp-gl-gl-tests"
-             2>&1 | tee results/docker_test_log.txt
     - echo "\n\n"
   only:
     - merge_requests
@@ -171,7 +167,6 @@ cts gles - gl host:
              -v $PWD:/virglrenderer
              $CI_REGISTRY_IMAGE@$DOCKER_IMAGE_DIGEST
              bash -c "/virglrenderer/ci/run_tests.sh --deqp-gl-gles-tests"
-             2>&1 | tee results/docker_test_log.txt
     - echo "\n\n"
   only:
     - merge_requests
@@ -195,7 +190,6 @@ cts gl - gles host:
              -v $PWD:/virglrenderer
              $CI_REGISTRY_IMAGE@$DOCKER_IMAGE_DIGEST
              bash -c "/virglrenderer/ci/run_tests.sh --deqp-gles-gl-tests"
-             2>&1 | tee results/docker_test_log.txt
     - echo "\n\n"
   only:
     - merge_requests
@@ -219,7 +213,6 @@ cts gles - gles host:
              -v $PWD:/virglrenderer
              $CI_REGISTRY_IMAGE@$DOCKER_IMAGE_DIGEST
              bash -c "/virglrenderer/ci/run_tests.sh --deqp-gles-gles-tests"
-             2>&1 | tee results/docker_test_log.txt
     - echo "\n\n"
   only:
     - merge_requests
@@ -243,7 +236,6 @@ unreliable tests:
              -v $PWD:/virglrenderer
              $CI_REGISTRY_IMAGE@$DOCKER_IMAGE_DIGEST
              bash -c "/virglrenderer/ci/run_tests.sh --deqp-gl-unreliable --deqp-gles-unreliable --piglit-gl-unreliable --piglit-gles-unreliable || true"
-             2>&1 | tee results/docker_test_log.txt
     - echo "\n\n"
   only:
     - merge_requests
