@@ -41,7 +41,6 @@ build docker image:
              --build-arg MESA_REPO=$MESA_REPO
              -t $CI_REGISTRY_IMAGE
              --cache-from $CI_REGISTRY_IMAGE:latest ci
-             2>&1 | tee results/docker_build_log.txt;
 
     - docker history $CI_REGISTRY_IMAGE:latest
 
