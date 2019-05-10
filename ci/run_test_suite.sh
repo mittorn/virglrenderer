@@ -413,45 +413,18 @@ run_all_tests()
 #   echo "run_all_tests() TESTS: $TESTS"
 
 
+   # TODO: add similar must pass lists for piglit
    for TEST in $TESTS; do
       case $TEST in
-      gles2)
-         TEST_NAME="gles2"
-         TEST_FILE="$CTS_PATH/android/cts/master/gles2-master.txt"
-   	   ;;
-
-   	gles3)
-         TEST_NAME="gles3"
-         TEST_FILE="$CTS_PATH/android/cts/master/gles3-master.txt"
-   	   ;;
-
-   	gles31)
-         TEST_NAME="gles31"
-         TEST_FILE="$CTS_PATH/android/cts/master/gles31-master.txt"
-   	   ;;
-
-      gl30)
-         TEST_NAME="gl30"
-         TEST_FILE="$CTS_PATH/external/openglcts/data/mustpass/gl/khronos_mustpass/4.6.1.x/gl30-master.txt"
-       ;;
-
-      gl31)
-         TEST_NAME="gl31"
-         TEST_FILE="$CTS_PATH/external/openglcts/data/mustpass/gl/khronos_mustpass/4.6.1.x/gl31-master.txt"
-       ;;
-
-      gl32)
-         TEST_NAME="gl32"
-         TEST_FILE="$CTS_PATH/external/openglcts/data/mustpass/gl/khronos_mustpass/4.6.1.x/gl32-master.txt"
-       ;;
-
-      *)
-         echo "Invalid test: $TEST"
-         exit 1
+      gles2|gles3|gles31)
+         TEST_FILE="$CTS_PATH/android/cts/master/$TEST-master.txt"
+         ;;
+      gl30|gl31|gl32)
+         TEST_FILE="$CTS_PATH/external/openglcts/data/mustpass/gl/khronos_mustpass/4.6.1.x/$TEST-master.txt"
          ;;
       esac
 
-      run_test_on_backends "$BACKENDS" "$TEST_NAME" "$TEST_FILE"
+      run_test_on_backends "$BACKENDS" "$TEST" "$TEST_FILE"
 
       if [ $? -ne 0 ]; then
          RET=1
