@@ -86,9 +86,16 @@ virgl_debug_callback_type vrend_set_debug_callback(virgl_debug_callback_type cb)
             X; \
       } while (0)
 
+#define VREND_DEBUG_NOCTX(flag, ctx, ...) \
+   if (vrend_debug(ctx, flag)) \
+      do { \
+            vrend_printf(__VA_ARGS__); \
+      } while (0)
+
 #else
 #define VREND_DEBUG(flag, ctx, fmt, ...)
 #define VREND_DEBUG_EXT(flag, ctx, X)
+#define VREND_DEBUG_NOCTX(flag, ctx, ...)
 #endif
 
 #endif
