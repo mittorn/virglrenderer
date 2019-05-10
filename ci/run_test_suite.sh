@@ -391,16 +391,6 @@ run_test_on_backends()
                DEVICE_NAME=$(basename /dev/dri/renderD128)
                export DRIVER_NAME="$(basename `readlink /sys/class/drm/${DEVICE_NAME}/device/driver`)"
                ;;
-
-            *)
-               DEVICE_NAME=$(basename /dev/dri/renderD128)
-               export DRIVER_NAME="$(basename `readlink /sys/class/drm/${DEVICE_NAME}/device/driver`)"
-
-               if  [ "$BACKEND" != "$DRIVER_NAME" ]; then
-                  echo "Invalid backend: $BACKEND"
-                  exit 1
-               fi
-               ;;
          esac
 
          # This case statement is broken into two parts
