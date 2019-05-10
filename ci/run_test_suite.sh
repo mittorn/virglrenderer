@@ -8,19 +8,13 @@ BACKENDS=""
 NUM_THREADS=${NUM_THREADS:-$(expr $(expr $(nproc) / 8) + 1)}
 
 COMPARE_BACKENDS=0
-COMPARE_PREVIOUS=0
 USE_HOST_GLES=0
 TEST_APP="deqp"
-VERIFY_UNRELIABLE_TESTS=0
 
 parse_input()
 {
    while  [ -n "$1" ]; do
       case $1 in
-
-      -u|--unreliable)
-         VERIFY_UNRELIABLE_TESTS=1
-         ;;
 
       -a|--all-backends)
          BACKENDS=""
@@ -90,11 +84,6 @@ parse_input()
          TEST_APP="piglit"
          ;;
 
-      -cp|--compare-previous)
-         # Compare results against previous runs
-         COMPARE_PREVIOUS=1
-         ;;
-
    	*)
    	   echo "Unknown flag $1"
    	   exit 1
@@ -104,11 +93,6 @@ parse_input()
 
    if [[ -z $BACKENDS ]]; then
       BACKENDS="gpu"
-   fi
-
-   # These two options are incompatible, and one has to be disabled
-   if [ $VERIFY_UNRELIABLE_TESTS -eq 1 ]; then
-      COMPARE_PREVIOUS=0
    fi
 }
 
@@ -158,8 +142,10 @@ interpret_results()
 {
    PASSED_TESTS="$1"
    TOTAL_TESTS="$2"
+   UNRELIABLE="$3"
 
-   if [ $COMPARE_PREVIOUS -eq 1 ]; then
+   # TODO: Add comparison for the unreliable tests
+   if [ $UNRELIABLE -eq 0 ]; then
       compare_previous
       case $? in
          0)
@@ -211,12 +197,13 @@ run_test_suite()
 {
    local BACKEND="$1"
    local TEST_NAME="$2"
+   local UNRELIABLE="$3"
 
 #   echo "run_test_suite() OUTPUT_PATH: $OUTPUT_PATH"
 #   echo "run_test_suite() LOG_FILE: $LOG_FILE"
 #   echo "run_test_suite() RESULTS_FILE: $RESULTS_FILE"
 
-   if [ $VERIFY_UNRELIABLE_TESTS -eq 1 ]; then
+   if [ $UNRELIABLE -eq 1 ]; then
       UNRELIABLE_STRING="unreliable "
    fi
 
@@ -226,7 +213,7 @@ run_test_suite()
       printf "Running ${UNRELIABLE_STRING}$TEST_APP-$TEST_NAME on $DRIVER_NAME: "
    fi
 
-   if test $VERIFY_UNRELIABLE_TESTS -eq 1; then
+   if test $UNRELIABLE -eq 1; then
       TEST_FILE="$IGNORE_TESTS_FILE"
       if test ! -f $TEST_FILE -o $(wc -l $TEST_FILE | cut -f1 -d' ') -eq 0; then
          echo "Unreliable: no ignore tests."
@@ -239,7 +226,7 @@ run_test_suite()
       # Don't run GLX tests
       PIGLIT_TESTS=" -x glx"
 
-      if [ $VERIFY_UNRELIABLE_TESTS -eq 1 ]; then
+      if test $UNRELIABLE -eq 1; then
          # XXX: Fold the glx exception?
          PIGLIT_TESTS_CMD="--test-list $TEST_FILE"
       else
@@ -374,11 +361,14 @@ run_test_on_backends()
                ;;
          esac
 
-         run_test_suite "$BACKEND" "$TEST_NAME"
-
+         # Execute both mustpass and unstable tests
+         # Only the former twigger an overall run fail
+         run_test_suite "$BACKEND" "$TEST_NAME" 0
          if [ $? -ne 0 ]; then
             RET=1
          fi
+
+         run_test_suite "$BACKEND" "$TEST_NAME" 1
 
          killall -q virgl_test_server
    done

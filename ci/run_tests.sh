@@ -67,13 +67,8 @@ run_make_check()
 
 run_deqp()
 {
-   UNRELIABLE="$1"
-   OGL_BACKEND="$2"
-   SUITE="$3"
-
-   if [ $UNRELIABLE -eq 1 ]; then
-      TEST_UNRELIABLE="--unreliable"
-   fi
+   OGL_BACKEND="$1"
+   SUITE="$2"
 
    if [ "$SUITE" = "gl" ]; then
       TEST_SUITE="--gl30 --gl31 --gl32"
@@ -90,21 +85,14 @@ run_deqp()
 
    ./run_test_suite.sh --deqp ${TEST_SUITE} \
       --host-${OGL_BACKEND} \
-      ${TEST_UNRELIABLE} \
-      ${BACKENDS} \
-      --compare-previous
+      ${BACKENDS}
 
    return $?
 }
 
 run_piglit()
 {
-   UNRELIABLE="$1"
-   OGL_BACKEND="$2"
-
-   if [ $UNRELIABLE -eq 1 ]; then
-      TEST_UNRELIABLE="--unreliable"
-   fi
+   OGL_BACKEND="$1"
 
    BACKENDS="--backend vtest-softpipe"
    if [[ -z "$SOFTWARE_ONLY" ]]; then
@@ -113,9 +101,7 @@ run_piglit()
 
    ./run_test_suite.sh --piglit --gles2 --gles3 \
       --host-${OGL_BACKEND} \
-      ${TEST_UNRELIABLE} \
-      ${BACKENDS} \
-      --compare-previous
+      ${BACKENDS}
 
    return $?
 }
@@ -125,51 +111,34 @@ parse_input()
    RET=0
    while  [ -n "$1" ]; do
       echo ""
-      UNRELIABLE=0
 
       case $1 in
          --make-check)
          run_make_check
          ;;
 
-         --deqp-gl-unreliable)
-         UNRELIABLE=1
-         ;& #Fallthrough
-
          --deqp-gl-gl-tests)
-         run_deqp $UNRELIABLE gl gl
+         run_deqp gl gl
          ;;
 
          --deqp-gl-gles-tests)
-         run_deqp $UNRELIABLE gl gles
+         run_deqp gl gles
          ;;
 
-         --deqp-gles-unreliable)
-         UNRELIABLE=1
-         ;& #Fallthrough
-
          --deqp-gles-gl-tests)
-         run_deqp $UNRELIABLE gles gl
+         run_deqp gles gl
          ;;
 
          --deqp-gles-gles-tests)
-         run_deqp $UNRELIABLE gles gles
+         run_deqp gles gles
          ;;
-
-         --piglit-gl-unreliable)
-         UNRELIABLE=1
-         ;& #Fallthrough
 
          --piglit-gl)
-         run_piglit $UNRELIABLE gl
+         run_piglit gl
          ;;
 
-         --piglit-gles-unreliable)
-         UNRELIABLE=1
-         ;& #Fallthrough
-
          --piglit-gles)
-         run_piglit $UNRELIABLE gles
+         run_piglit gles
          ;;
 
          *)
