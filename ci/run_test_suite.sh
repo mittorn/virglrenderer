@@ -374,25 +374,13 @@ run_test_on_backends()
          fi
 
          case $BACKEND in
-            vtest-softpipe)
+            vtest-softpipe|softpipe)
                export LIBGL_ALWAYS_SOFTWARE=1
                export GALLIUM_DRIVER=softpipe
                export DRIVER_NAME=$GALLIUM_DRIVER
                ;;
 
-            vtest-llvmpipe)
-               export LIBGL_ALWAYS_SOFTWARE=1
-               export GALLIUM_DRIVER=llvmpipe
-               export DRIVER_NAME=$GALLIUM_DRIVER
-               ;;
-
-            softpipe)
-               export LIBGL_ALWAYS_SOFTWARE=1
-               export GALLIUM_DRIVER=softpipe
-               export DRIVER_NAME=$GALLIUM_DRIVER
-               ;;
-
-            llvmpipe)
+            vtest-llvmpipe|llvmpipe)
                export GALLIVM_PERF=nopt,no_filter_hacks
                export LIBGL_ALWAYS_SOFTWARE=1
                export GALLIUM_DRIVER=llvmpipe
