@@ -1,7 +1,5 @@
 #!/bin/bash
 
-trap "{ rm -f $TMP_TEST_FILE; }" EXIT
-
 # Setup paths and import util functions
 . $(dirname $(readlink -f "$0"))/util.sh
 
@@ -32,16 +30,6 @@ parse_input()
          BACKENDS="$BACKENDS softpipe"
          BACKENDS="$BACKENDS llvmpipe"
          BACKENDS="$BACKENDS gpu"
-         ;;
-
-   	-t|--test)
-         TEST_NAME="$2"
-         shift
-         if [ -z "$TMP_TEST_FILE" ]; then
-            TMP_TEST_FILE=$(mktemp /tmp/deqp_test.XXXXXX)
-            TESTS="$TESTS custom"
-         fi
-         echo "$TEST_NAME" >> "$TMP_TEST_FILE"
          ;;
 
    	-v|--vtest)
@@ -368,11 +356,6 @@ run_test_on_backends()
          unset LIBGL_ALWAYS_SOFTWARE
          unset VTEST_USE_EGL_SURFACELESS
 
-         # If the custom test is being run, we're probably debugging
-         if [ "$TEST_NAME" = "custom" ]; then
-            export MESA_DEBUG=1
-         fi
-
          case $BACKEND in
             vtest-softpipe|softpipe)
                export LIBGL_ALWAYS_SOFTWARE=1
@@ -439,10 +422,6 @@ run_all_tests()
 
    for TEST in $TESTS; do
       case $TEST in
-      custom)
-         TEST_NAME="custom"
-         TEST_FILE="$TMP_TEST_FILE"
-         ;;
       gles2)
          TEST_NAME="gles2"
          TEST_FILE="$CTS_PATH/android/cts/master/gles2-master.txt"
