@@ -122,7 +122,8 @@ compare_previous()
    # which enables us to ignore tests by driver
    # BUT: We're not able to get the driver name and
    # use it to disambiguate between HW-based drivers
-   IGNORE_TESTS=$(cat $IGNORE_TESTS_FILE 2>/dev/null)
+   # Piglit tests use @ as separator for path/to/test
+   IGNORE_TESTS=$(sed "s/\@/\//g" $IGNORE_TESTS_FILE 2>/dev/null)
 
    # Avoid introducing changes while doing this comparison
    TMP_RESULTS=$(mktemp /tmp/virgl_ci_results.XXXXXX)

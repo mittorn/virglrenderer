@@ -1,1 +1,1 @@
-arb_blend_func_extended-fbo-extended-blend-pattern_gles2
+spec@arb_blend_func_extended@arb_blend_func_extended-fbo-extended-blend-pattern_gles2
