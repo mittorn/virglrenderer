@@ -212,8 +212,6 @@ run_test_suite()
    local BACKEND="$1"
    local TEST_NAME="$2"
 
-   local RET=0
-
 #   echo "run_test_suite() OUTPUT_PATH: $OUTPUT_PATH"
 #   echo "run_test_suite() LOG_FILE: $LOG_FILE"
 #   echo "run_test_suite() RESULTS_FILE: $RESULTS_FILE"
@@ -236,8 +234,8 @@ run_test_suite()
       fi
    fi
 
-   if [ "$TEST_APP" = "piglit" ]; then
-
+   case $TEST_APP in
+   piglit)
       # Don't run GLX tests
       PIGLIT_TESTS=" -x glx"
 
@@ -261,12 +259,9 @@ run_test_suite()
 
       TOTAL_TESTS=$(cat $RESULTS_FILE | wc -l)
       PASSED_TESTS=$(grep " pass" $RESULTS_FILE | wc -l)
+      ;;
 
-      interpret_results $PASSED_TESTS $TOTAL_TESTS
-      RET=$?
-
-   elif [ "$TEST_APP" = "deqp" ]; then
-
+   deqp)
       deqp  \
          --cts-build-dir $CTS_PATH/build \
          --test-names-file "$TEST_FILE" \
@@ -287,16 +282,11 @@ run_test_suite()
 
       TOTAL_TESTS=$(cat $RESULTS_FILE | wc -l)
       PASSED_TESTS=$(grep " Pass" $RESULTS_FILE | wc -l)
+      ;;
+   esac
 
-      interpret_results "$PASSED_TESTS" "$TOTAL_TESTS"
-      RET=$?
-
-   else
-      echo "Invalid test-application supplied: \"$TEST_APP\""
-      exit 1
-   fi
-
-   return $RET
+   interpret_results $PASSED_TESTS $TOTAL_TESTS $UNRELIABLE
+   return $?
 }
 
 create_result_dir()
