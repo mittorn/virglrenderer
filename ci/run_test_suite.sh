@@ -107,7 +107,7 @@ parse_input()
    fi
 
    # These two options are incompatible, and one has to be disabled
-   if [ $VERIFY_UNRELIABLE_TESTS -ne 0 ]; then
+   if [ $VERIFY_UNRELIABLE_TESTS -eq 1 ]; then
       COMPARE_PREVIOUS=0
    fi
 }
@@ -159,7 +159,7 @@ interpret_results()
    PASSED_TESTS="$1"
    TOTAL_TESTS="$2"
 
-   if [ $COMPARE_PREVIOUS -ne 0 ]; then
+   if [ $COMPARE_PREVIOUS -eq 1 ]; then
       compare_previous
       case $? in
          0)
@@ -196,7 +196,7 @@ interpret_results()
 run_vtest_server()
 {
    (
-   if [ $USE_HOST_GLES -ne 0 ]; then
+   if [ $USE_HOST_GLES -eq 1 ]; then
       VTEST_USE_EGL_SURFACELESS=1 \
       VTEST_USE_GLES=1 \
       virgl_test_server &>$VTEST_LOG_FILE &
