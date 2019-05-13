@@ -328,7 +328,7 @@ create_result_dir()
 
    # Remove comments from test-list
    FILTERED_TEST_FILE=$(mktemp /tmp/virgl-ci.XXXXX)
-   cat $IGNORE_TESTS_FILE 2>/dev/null | grep -Ev "^#" | sed '/^$/d' > $FILTERED_TEST_FILE
+   sed '/^#/d;/^$/d' $IGNORE_TESTS_FILE 2>/dev/null > $FILTERED_TEST_FILE
    IGNORE_TESTS_FILE=$FILTERED_TEST_FILE
 
    mkdir -p "$RESULTS_DIR"
