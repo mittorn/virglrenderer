@@ -7,7 +7,6 @@ TESTS=""
 BACKENDS=""
 NUM_THREADS=${NUM_THREADS:-$(expr $(expr $(nproc) / 8) + 1)}
 
-COMPARE_BACKENDS=0
 USE_HOST_GLES=0
 TEST_APP="deqp"
 
