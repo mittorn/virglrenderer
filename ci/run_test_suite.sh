@@ -118,10 +118,6 @@ compare_previous()
       return 2
    fi
 
-   # The wildcard here will match ""/"_radeonsi"/"_i915"/etc
-   # which enables us to ignore tests by driver
-   # BUT: We're not able to get the driver name and
-   # use it to disambiguate between HW-based drivers
    # Piglit tests use @ as separator for path/to/test
    IGNORE_TESTS=$(sed "s/\@/\//g" $IGNORE_TESTS_FILE 2>/dev/null)
 
