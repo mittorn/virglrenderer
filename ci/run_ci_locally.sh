@@ -39,4 +39,6 @@ time docker run \
      $LOCAL_MESA \
      $LOCAL_VIRGL \
      $DOCKER_IMAGE:latest \
-     bash -c "/virglrenderer/ci/run_tests.sh --make-check --deqp-gl --deqp-gles --piglit-gl --piglit-gles" 2>&1 | tee results/log.txt
+     bash -c "/virglrenderer/ci/run_tests.sh --make-check " \
+             "--deqp-gl-gl-tests --deqp-gl-gles-tests --deqp-gles-gl-tests --deqp-gles-gles-tests" \
+             " --piglit-gl --piglit-gles" 2>&1 | tee results/log.txt
