@@ -256,6 +256,7 @@ run_test_suite()
 
       piglit run --platform x11_egl \
          -l verbose \
+         --jobs $NUM_THREADS \
          $PIGLIT_TESTS_CMD \
          gpu \
          /tmp/  &> $LOG_FILE
