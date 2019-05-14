@@ -346,6 +346,10 @@ static void vrend_add_formats(struct vrend_format_table *table, int num_entries)
       ;/* do logic below */
     }
 
+    /* The error state should be clear here */
+    status = glGetError();
+    assert(status == GL_NO_ERROR);
+
     glTexImage2D(GL_TEXTURE_2D, 0, table[i].internalformat, 32, 32, 0, table[i].glformat, table[i].gltype, NULL);
     status = glGetError();
     if (status == GL_INVALID_VALUE || status == GL_INVALID_ENUM || status == GL_INVALID_OPERATION) {
