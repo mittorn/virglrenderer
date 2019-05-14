@@ -1344,6 +1344,26 @@ static int vrend_decode_transfer3d(struct vrend_decode_ctx *ctx, int length, uin
    return vrend_renderer_transfer_iov(&info, transfer_mode);
 }
 
+static int vrend_decode_copy_transfer3d(struct vrend_decode_ctx *ctx, int length)
+{
+   struct pipe_box box;
+   struct vrend_transfer_info info;
+   uint32_t src_handle;
+
+   if (length != VIRGL_COPY_TRANSFER3D_SIZE)
+      return EINVAL;
+
+   memset(&info, 0, sizeof(info));
+   info.box = &box;
+   vrend_decode_transfer_common(ctx, &info);
+   info.offset = get_buf_entry(ctx, VIRGL_COPY_TRANSFER3D_SRC_RES_OFFSET);
+   info.synchronized = (get_buf_entry(ctx, VIRGL_COPY_TRANSFER3D_SYNCHRONIZED) != 0);
+
+   src_handle = get_buf_entry(ctx, VIRGL_COPY_TRANSFER3D_SRC_RES_HANDLE);
+
+   return vrend_renderer_copy_transfer3d(ctx->grctx, &info, src_handle);
+}
+
 void vrend_renderer_context_create_internal(uint32_t handle, uint32_t nlen,
                                             const char *debug_name)
 {
@@ -1583,6 +1603,9 @@ int vrend_decode_block(uint32_t ctx_id, uint32_t *block, int ndw)
          break;
       case VIRGL_CCMD_TRANSFER3D:
          ret = vrend_decode_transfer3d(gdctx, len, ctx_id);
+         break;
+      case VIRGL_CCMD_COPY_TRANSFER3D:
+         ret = vrend_decode_copy_transfer3d(gdctx, len);
          break;
       case VIRGL_CCMD_END_TRANSFERS:
          ret = 0;

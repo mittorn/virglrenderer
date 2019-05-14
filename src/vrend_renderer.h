@@ -225,6 +225,10 @@ void vrend_set_num_vbo(struct vrend_context *ctx,
 int vrend_transfer_inline_write(struct vrend_context *ctx,
                                 struct vrend_transfer_info *info);
 
+int vrend_renderer_copy_transfer3d(struct vrend_context *ctx,
+                                   struct vrend_transfer_info *info,
+                                   uint32_t src_handle);
+
 void vrend_set_viewport_states(struct vrend_context *ctx,
                                uint32_t start_slot, uint32_t num_viewports,
                                const struct pipe_viewport_state *state);

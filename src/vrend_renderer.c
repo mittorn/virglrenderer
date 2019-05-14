@@ -7140,6 +7140,44 @@ int vrend_transfer_inline_write(struct vrend_context *ctx,
 
 }
 
+int vrend_renderer_copy_transfer3d(struct vrend_context *ctx,
+                                   struct vrend_transfer_info *info,
+                                   uint32_t src_handle)
+{
+   struct vrend_resource *src_res, *dst_res;
+
+   src_res = vrend_renderer_ctx_res_lookup(ctx, src_handle);
+   dst_res = vrend_renderer_ctx_res_lookup(ctx, info->handle);
+
+   if (!src_res) {
+      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, src_handle);
+      return EINVAL;
+   }
+
+   if (!dst_res) {
+      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, info->handle);
+      return EINVAL;
+   }
+
+   if (!src_res->iov) {
+      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, info->handle);
+      return EINVAL;
+   }
+
+   if (!check_transfer_bounds(dst_res, info)) {
+      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_CMD_BUFFER, info->handle);
+      return EINVAL;
+   }
+
+   if (!check_iov_bounds(dst_res, info, src_res->iov, src_res->num_iovs)) {
+      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_CMD_BUFFER, info->handle);
+      return EINVAL;
+   }
+
+  return vrend_renderer_transfer_write_iov(ctx, dst_res, src_res->iov,
+                                           src_res->num_iovs, info);
+}
+
 void vrend_set_stencil_ref(struct vrend_context *ctx,
                            struct pipe_stencil_ref *ref)
 {
@@ -9045,6 +9083,8 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
       caps->v2.capability_bits |= VIRGL_CAP_3D_ASTC;
 
    caps->v2.capability_bits |= VIRGL_CAP_INDIRECT_INPUT_ADDR;
+
+   caps->v2.capability_bits |= VIRGL_CAP_COPY_TRANSFER;
 }
 
 void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
