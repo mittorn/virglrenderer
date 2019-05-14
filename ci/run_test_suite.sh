@@ -246,18 +246,17 @@ run_test_suite()
       PIGLIT_TESTS=" -x glx"
 
       if [ $VERIFY_UNRELIABLE_TESTS -eq 1 ]; then
-         UNRELIABLE_TESTS=$(cat $IGNORE_TESTS_FILE 2>/dev/null)
-
-         for UNRELIABLE_TEST in $UNRELIABLE_TESTS; do
-            PIGLIT_TESTS="$PIGLIT_TESTS -t $UNRELIABLE_TEST"
-         done
+         # XXX: Fold the glx exception?
+         PIGLIT_TESTS_CMD="--test-list $TEST_FILE"
       else
-         PIGLIT_TESTS="$PIGLIT_TESTS -t $TEST_NAME"
+         # TODO: create test_file for normal runs
+         PIGLIT_TESTS_CMD="$PIGLIT_TESTS -t $TEST_NAME"
+
       fi
 
       piglit run --platform x11_egl \
          -l verbose \
-         $PIGLIT_TESTS \
+         $PIGLIT_TESTS_CMD \
          gpu \
          /tmp/  &> $LOG_FILE
 
