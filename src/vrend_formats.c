@@ -310,6 +310,15 @@ static bool color_format_can_readback(struct vrend_format_table *virgl_format, i
        (gles_ver >= 32 || epoxy_has_gl_extension("GL_EXT_color_buffer_float")))
       return true;
 
+   /* Hotfix for the CI, on GLES these formats are defined like
+    * VIRGL_FORMAT_R10G10B10.2_UNORM, and seems to be incorrect for direct
+    * readback but the blit workaround seems to work, so disable the
+    * direct readback for these two formats. */
+   if (virgl_format->format == VIRGL_FORMAT_B10G10R10A2_UNORM ||
+       virgl_format->format == VIRGL_FORMAT_B10G10R10X2_UNORM)
+      return false;
+
+
    /* Check implementation specific readback formats */
    glGetIntegerv(GL_IMPLEMENTATION_COLOR_READ_TYPE, &imp);
    if (imp == (GLint)virgl_format->gltype) {
