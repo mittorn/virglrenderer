@@ -297,13 +297,16 @@ static struct vrend_format_table gles_bit10_formats[] = {
 static void vrend_add_formats(struct vrend_format_table *table, int num_entries)
 {
   int i;
-  uint32_t binding = 0;
-  GLuint buffers;
-  GLuint tex_id, fb_id;
+
 
   for (i = 0; i < num_entries; i++) {
     GLenum status;
     bool is_depth = false;
+    uint32_t flags = 0;
+    uint32_t binding = 0;
+    GLuint buffers;
+    GLuint tex_id, fb_id;
+
     /**/
     glGenTextures(1, &tex_id);
     glGenFramebuffers(1, &fb_id);
@@ -319,24 +322,24 @@ static void vrend_add_formats(struct vrend_format_table *table, int num_entries)
     case UTIL_FORMAT_LAYOUT_S3TC:
       if (epoxy_has_gl_extension("GL_S3_s3tc") ||
           epoxy_has_gl_extension("GL_EXT_texture_compression_s3tc"))
-        vrend_insert_format(&table[i], VIRGL_BIND_SAMPLER_VIEW);
+        vrend_insert_format(&table[i], VIRGL_BIND_SAMPLER_VIEW, flags);
       continue;
 
     case UTIL_FORMAT_LAYOUT_RGTC:
       if (epoxy_has_gl_extension("GL_ARB_texture_compression_rgtc") ||
           epoxy_has_gl_extension("GL_EXT_texture_compression_rgtc") )
-        vrend_insert_format(&table[i], VIRGL_BIND_SAMPLER_VIEW);
+        vrend_insert_format(&table[i], VIRGL_BIND_SAMPLER_VIEW, flags);
       continue;
 
     case UTIL_FORMAT_LAYOUT_ETC:
       if (epoxy_has_gl_extension("GL_OES_compressed_ETC1_RGB8_texture"))
-        vrend_insert_format(&table[i], VIRGL_BIND_SAMPLER_VIEW);
+        vrend_insert_format(&table[i], VIRGL_BIND_SAMPLER_VIEW, flags);
       continue;
 
     case UTIL_FORMAT_LAYOUT_BPTC:
       if (epoxy_has_gl_extension("GL_ARB_texture_compression_bptc") ||
           epoxy_has_gl_extension("GL_EXT_texture_compression_bptc"))
-        vrend_insert_format(&table[i], VIRGL_BIND_SAMPLER_VIEW);
+        vrend_insert_format(&table[i], VIRGL_BIND_SAMPLER_VIEW, flags);
       continue;
 
     default:
@@ -366,7 +369,7 @@ static void vrend_add_formats(struct vrend_format_table *table, int num_entries)
       }
 
       if (entry) {
-        vrend_insert_format_swizzle(table[i].format, entry, binding, swizzle);
+        vrend_insert_format_swizzle(table[i].format, entry, binding, swizzle, flags);
       }
       glDeleteTextures(1, &tex_id);
       glDeleteFramebuffers(1, &fb_id);
@@ -402,9 +405,9 @@ static void vrend_add_formats(struct vrend_format_table *table, int num_entries)
     glDeleteFramebuffers(1, &fb_id);
 
     if (table[i].swizzle[0] != SWIZZLE_INVALID)
-        vrend_insert_format_swizzle(table[i].format, &table[i], binding, table[i].swizzle);
+       vrend_insert_format_swizzle(table[i].format, &table[i], binding, table[i].swizzle, flags);
     else
-        vrend_insert_format(&table[i], binding);
+       vrend_insert_format(&table[i], binding, flags);
   }
 }
 

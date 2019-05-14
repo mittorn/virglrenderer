@@ -960,19 +960,21 @@ vrend_shader_state_reference(struct vrend_shader_selector **ptr, struct vrend_sh
 }
 
 void
-vrend_insert_format(struct vrend_format_table *entry, uint32_t bindings)
+vrend_insert_format(struct vrend_format_table *entry, uint32_t bindings, uint32_t flags)
 {
    tex_conv_table[entry->format] = *entry;
    tex_conv_table[entry->format].bindings = bindings;
+   tex_conv_table[entry->format].flags = flags;
 }
 
 void
-vrend_insert_format_swizzle(int override_format, struct vrend_format_table *entry, uint32_t bindings, uint8_t swizzle[4])
+vrend_insert_format_swizzle(int override_format, struct vrend_format_table *entry,
+                            uint32_t bindings, uint8_t swizzle[4], uint32_t flags)
 {
    int i;
    tex_conv_table[override_format] = *entry;
    tex_conv_table[override_format].bindings = bindings;
-   tex_conv_table[override_format].flags = VIRGL_BIND_NEED_SWIZZLE;
+   tex_conv_table[override_format].flags = flags | VIRGL_TEXTURE_NEED_SWIZZLE;
    for (i = 0; i < 4; i++)
       tex_conv_table[override_format].swizzle[i] = swizzle[i];
 }
