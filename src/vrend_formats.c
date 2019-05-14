@@ -319,6 +319,31 @@ static bool color_format_can_readback(struct vrend_format_table *virgl_format, i
    }
    return false;
 }
+
+static bool depth_stencil_formats_can_readback(enum virgl_formats format)
+{
+   switch (format) {
+   case VIRGL_FORMAT_Z16_UNORM:
+   case VIRGL_FORMAT_Z32_UNORM:
+   case VIRGL_FORMAT_Z32_FLOAT:
+   case VIRGL_FORMAT_Z24X8_UNORM:
+      return epoxy_has_gl_extension("GL_NV_read_depth");
+
+   case VIRGL_FORMAT_Z24_UNORM_S8_UINT:
+   case VIRGL_FORMAT_S8_UINT_Z24_UNORM:
+   case VIRGL_FORMAT_Z32_FLOAT_S8X24_UINT:
+      return epoxy_has_gl_extension("GL_NV_read_depth_stencil");
+
+   case VIRGL_FORMAT_X24S8_UINT:
+   case VIRGL_FORMAT_S8X24_UINT:
+   case VIRGL_FORMAT_S8_UINT:
+      return epoxy_has_gl_extension("GL_NV_read_stencil");
+
+   default:
+      return false;
+   }
+}
+
 static void vrend_add_formats(struct vrend_format_table *table, int num_entries)
 {
   int i;
@@ -433,6 +458,7 @@ static void vrend_add_formats(struct vrend_format_table *table, int num_entries)
        binding |= is_depth ? VIRGL_BIND_DEPTH_STENCIL : VIRGL_BIND_RENDER_TARGET;
 
        if (is_desktop_gl ||
+           (is_depth && depth_stencil_formats_can_readback(table[i].format)) ||
            color_format_can_readback(&table[i], gles_ver))
           flags |= VIRGL_TEXTURE_CAN_READBACK;
     }
