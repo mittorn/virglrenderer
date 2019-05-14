@@ -79,6 +79,7 @@ struct vrend_resource {
 
 #define VIRGL_TEXTURE_NEED_SWIZZLE        (1 << 0)
 #define VIRGL_TEXTURE_CAN_TEXTURE_STORAGE (1 << 1)
+#define VIRGL_TEXTURE_CAN_READBACK        (1 << 2)
 
 struct vrend_format_table {
    enum virgl_formats format;

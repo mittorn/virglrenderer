@@ -294,10 +294,37 @@ static struct vrend_format_table gles_bit10_formats[] = {
   { VIRGL_FORMAT_B10G10R10A2_UNORM, GL_RGB10_A2, GL_RGBA, GL_UNSIGNED_INT_2_10_10_10_REV, NO_SWIZZLE },
 };
 
+static bool color_format_can_readback(struct vrend_format_table *virgl_format, int gles_ver)
+{
+   GLint imp = 0;
+
+   if (virgl_format->format == VIRGL_FORMAT_R8G8B8A8_UNORM)
+      return true;
+
+   if (gles_ver >= 30 &&
+        (virgl_format->format == VIRGL_FORMAT_R32G32B32A32_SINT ||
+         virgl_format->format == VIRGL_FORMAT_R32G32B32A32_UINT))
+       return true;
+
+   if ((virgl_format->format == VIRGL_FORMAT_R32G32B32A32_FLOAT) &&
+       (gles_ver >= 32 || epoxy_has_gl_extension("GL_EXT_color_buffer_float")))
+      return true;
+
+   /* Check implementation specific readback formats */
+   glGetIntegerv(GL_IMPLEMENTATION_COLOR_READ_TYPE, &imp);
+   if (imp == (GLint)virgl_format->gltype) {
+      glGetIntegerv(GL_IMPLEMENTATION_COLOR_READ_FORMAT, &imp);
+      if (imp == (GLint)virgl_format->glformat)
+         return true;
+   }
+   return false;
+}
 static void vrend_add_formats(struct vrend_format_table *table, int num_entries)
 {
   int i;
 
+  const bool is_desktop_gl = epoxy_is_desktop_gl();
+  const int gles_ver = is_desktop_gl ? 0 : epoxy_gl_version();
 
   for (i = 0; i < num_entries; i++) {
     GLenum status;
@@ -402,8 +429,13 @@ static void vrend_add_formats(struct vrend_format_table *table, int num_entries)
 
     status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
     binding = VIRGL_BIND_SAMPLER_VIEW;
-    if (status == GL_FRAMEBUFFER_COMPLETE)
-      binding |= (is_depth ? VIRGL_BIND_DEPTH_STENCIL : VIRGL_BIND_RENDER_TARGET);
+    if (status == GL_FRAMEBUFFER_COMPLETE) {
+       binding |= is_depth ? VIRGL_BIND_DEPTH_STENCIL : VIRGL_BIND_RENDER_TARGET;
+
+       if (is_desktop_gl ||
+           color_format_can_readback(&table[i], gles_ver))
+          flags |= VIRGL_TEXTURE_CAN_READBACK;
+    }
 
     glDeleteTextures(1, &tex_id);
     glDeleteFramebuffers(1, &fb_id);
