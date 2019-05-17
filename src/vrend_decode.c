@@ -374,6 +374,7 @@ static int vrend_decode_resource_inline_write(struct vrend_decode_ctx *ctx, uint
    if (length + ctx->ds->buf_offset > ctx->ds->buf_total)
       return EINVAL;
 
+   memset(&info, 0, sizeof(info));
    info.box = &box;
    vrend_decode_transfer_common(ctx, &info);
    data_len = (length - 11) * 4;

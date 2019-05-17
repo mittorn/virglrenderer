@@ -6494,12 +6494,16 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
    }
 
    if (res->storage == VREND_RESOURCE_STORAGE_BUFFER) {
+      GLuint map_flags = GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_WRITE_BIT;
       struct virgl_sub_upload_data d;
       d.box = info->box;
       d.target = res->target;
 
+      if (!info->synchronized)
+         map_flags |= GL_MAP_UNSYNCHRONIZED_BIT;
+
       glBindBufferARB(res->target, res->id);
-      data = glMapBufferRange(res->target, info->box->x, info->box->width, GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_UNSYNCHRONIZED_BIT | GL_MAP_WRITE_BIT);
+      data = glMapBufferRange(res->target, info->box->x, info->box->width, map_flags);
       if (data == NULL) {
 	 vrend_printf("map failed for element buffer\n");
 	 vrend_read_from_iovec_cb(iov, num_iovs, info->offset, info->box->width, &iov_buffer_upload, &d);

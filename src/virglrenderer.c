@@ -132,6 +132,7 @@ int virgl_renderer_transfer_write_iov(uint32_t handle,
    transfer_info.iovec = iovec;
    transfer_info.iovec_cnt = iovec_cnt;
    transfer_info.context0 = true;
+   transfer_info.synchronized = false;
 
    return vrend_renderer_transfer_iov(&transfer_info, VIRGL_TRANSFER_TO_HOST);
 }
@@ -155,6 +156,7 @@ int virgl_renderer_transfer_read_iov(uint32_t handle, uint32_t ctx_id,
    transfer_info.iovec = iovec;
    transfer_info.iovec_cnt = iovec_cnt;
    transfer_info.context0 = true;
+   transfer_info.synchronized = false;
 
    return vrend_renderer_transfer_iov(&transfer_info, VIRGL_TRANSFER_FROM_HOST);
 }

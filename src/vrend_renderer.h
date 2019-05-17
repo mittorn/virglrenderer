@@ -110,6 +110,7 @@ struct vrend_transfer_info {
    uint64_t offset;
    bool context0;
    struct pipe_box *box;
+   bool synchronized;
 };
 
 struct vrend_if_cbs {
