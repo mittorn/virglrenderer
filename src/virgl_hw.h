@@ -265,6 +265,10 @@ enum virgl_formats {
 #define VIRGL_BIND_CURSOR        (1 << 16)
 #define VIRGL_BIND_CUSTOM        (1 << 17)
 #define VIRGL_BIND_SCANOUT       (1 << 18)
+/* Used for buffers that are backed by guest storage and
+ * are only read by the host.
+ */
+#define VIRGL_BIND_STAGING       (1 << 19)
 
 struct virgl_caps_bool_set1 {
         unsigned indep_blend_enable:1;

@@ -5908,6 +5908,7 @@ static int check_resource_valid(struct vrend_renderer_resource_create_args *args
 
    if (args->bind == 0 ||
        args->bind == VIRGL_BIND_CUSTOM ||
+       args->bind == VIRGL_BIND_STAGING ||
        args->bind == VIRGL_BIND_INDEX_BUFFER ||
        args->bind == VIRGL_BIND_STREAM_OUTPUT ||
        args->bind == VIRGL_BIND_VERTEX_BUFFER ||
@@ -6160,6 +6161,9 @@ int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *a
          FREE(gr);
          return ENOMEM;
       }
+   } else if (args->bind == VIRGL_BIND_STAGING) {
+      /* Staging buffers use only guest memory. */
+      gr->storage = VREND_RESOURCE_STORAGE_GUEST;
    } else if (args->bind == VIRGL_BIND_INDEX_BUFFER) {
       gr->target = GL_ELEMENT_ARRAY_BUFFER_ARB;
       vrend_create_buffer(gr, args->width);
