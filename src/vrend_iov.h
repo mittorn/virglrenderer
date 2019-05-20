@@ -46,4 +46,8 @@ size_t vrend_write_to_iovec(const struct iovec *iov, int iov_cnt,
 size_t vrend_read_from_iovec_cb(const struct iovec *iov, int iov_cnt,
                           size_t offset, size_t bytes, iov_cb iocb, void *cookie);
 
+int vrend_copy_iovec(const struct iovec *src_iov, int src_iovlen, size_t src_offset,
+                     const struct iovec *dst_iov, int dst_iovlen, size_t dst_offset,
+                     size_t count, char *buf);
+
 #endif

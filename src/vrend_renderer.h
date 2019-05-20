@@ -52,7 +52,11 @@ struct vrend_context;
 enum vrend_resource_storage_type {
    VREND_RESOURCE_STORAGE_TEXTURE,
    VREND_RESOURCE_STORAGE_BUFFER,
-   VREND_RESOURCE_STORAGE_IOVEC,
+   /* The resource contents are stored in shared guest memory. */
+   VREND_RESOURCE_STORAGE_GUEST,
+   /* The resource contents are stored in shared guest memory if it's
+    * attached, otherwise in host system memory. */
+   VREND_RESOURCE_STORAGE_GUEST_ELSE_SYSTEM,
 };
 
 struct vrend_resource {
@@ -71,7 +75,11 @@ struct vrend_resource {
    GLuint handle;
 
    void *priv;
+   /* Pointer to system memory storage for this resource. Only valid for
+    * VREND_RESOURCE_STORAGE_GUEST_ELSE_SYSTEM buffer storage.
+    */
    char *ptr;
+   /* IOV pointing to shared guest memory storage for this resource. */
    struct iovec *iov;
    uint32_t num_iovs;
    uint64_t mipmap_offsets[VR_MAX_TEXTURE_2D_LEVELS];
