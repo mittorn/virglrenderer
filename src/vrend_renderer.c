@@ -7112,8 +7112,7 @@ int vrend_renderer_transfer_iov(const struct vrend_transfer_info *info,
 }
 
 int vrend_transfer_inline_write(struct vrend_context *ctx,
-                                struct vrend_transfer_info *info,
-                                UNUSED unsigned usage)
+                                struct vrend_transfer_info *info)
 {
    struct vrend_resource *res;
 

@@ -350,7 +350,6 @@ static void vrend_decode_transfer_common(struct vrend_decode_ctx *ctx, struct vr
 {
    info->handle = get_buf_entry(ctx, VIRGL_RESOURCE_IW_RES_HANDLE);
    info->level = get_buf_entry(ctx, VIRGL_RESOURCE_IW_LEVEL);
-   info->usage = get_buf_entry(ctx, VIRGL_RESOURCE_IW_USAGE);
    info->stride = get_buf_entry(ctx, VIRGL_RESOURCE_IW_STRIDE);
    info->layer_stride = get_buf_entry(ctx, VIRGL_RESOURCE_IW_LAYER_STRIDE);
    info->box->x = get_buf_entry(ctx, VIRGL_RESOURCE_IW_X);
@@ -388,7 +387,7 @@ static int vrend_decode_resource_inline_write(struct vrend_decode_ctx *ctx, uint
 
    info.iovec = &dataiovec;
    info.iovec_cnt = 1;
-   return vrend_transfer_inline_write(ctx->grctx, &info, info.usage);
+   return vrend_transfer_inline_write(ctx->grctx, &info);
 }
 
 static int vrend_decode_draw_vbo(struct vrend_decode_ctx *ctx, int length)

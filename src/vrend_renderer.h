@@ -105,7 +105,6 @@ struct vrend_transfer_info {
    int level;
    uint32_t stride;
    uint32_t layer_stride;
-   uint32_t usage;
    unsigned int iovec_cnt;
    struct iovec *iovec;
    uint64_t offset;
@@ -223,8 +222,7 @@ void vrend_set_num_vbo(struct vrend_context *ctx,
                        int num_vbo);
 
 int vrend_transfer_inline_write(struct vrend_context *ctx,
-                                struct vrend_transfer_info *info,
-                                unsigned usage);
+                                struct vrend_transfer_info *info);
 
 void vrend_set_viewport_states(struct vrend_context *ctx,
                                uint32_t start_slot, uint32_t num_viewports,
