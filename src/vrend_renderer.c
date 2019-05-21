@@ -6999,7 +6999,6 @@ static int vrend_transfer_send_readonly(struct vrend_resource *res,
       return 0;
    }
 
-   /* Fallback to getteximage, will probably fail on GLES. */
    return -1;
 }
 
