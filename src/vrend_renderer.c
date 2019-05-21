@@ -6803,6 +6803,19 @@ static int vrend_transfer_send_getteximage(struct vrend_resource *res,
    return 0;
 }
 
+static void do_readpixels(GLint x, GLint y,
+                          GLsizei width, GLsizei height,
+                          GLenum format, GLenum type,
+                          GLsizei bufSize, void *data)
+{
+   if (has_feature(feat_arb_robustness))
+      glReadnPixelsARB(x, y, width, height, format, type, bufSize, data);
+   else if (has_feature(feat_gles_khr_robustness))
+      glReadnPixelsKHR(x, y, width, height, format, type, bufSize, data);
+   else
+      glReadPixels(x, y, width, height, format, type, data);
+}
+
 static int vrend_transfer_send_readpixels(struct vrend_resource *res,
                                           struct iovec *iov, int num_iovs,
                                           const struct vrend_transfer_info *info)
@@ -6933,12 +6946,7 @@ static int vrend_transfer_send_readpixels(struct vrend_resource *res,
       }
    }
 
-   if (has_feature(feat_arb_robustness))
-      glReadnPixelsARB(info->box->x, y1, info->box->width, info->box->height, format, type, send_size, data);
-   else if (has_feature(feat_gles_khr_robustness))
-      glReadnPixelsKHR(info->box->x, y1, info->box->width, info->box->height, format, type, send_size, data);
-   else
-      glReadPixels(info->box->x, y1, info->box->width, info->box->height, format, type, data);
+   do_readpixels(info->box->x, y1, info->box->width, info->box->height, format, type, send_size, data);
 
    if (res->base.format == (enum pipe_format)VIRGL_FORMAT_Z24X8_UNORM) {
       if (!vrend_state.use_core_profile)
@@ -9190,14 +9198,7 @@ void *vrend_renderer_get_cursor_contents(uint32_t res_handle, uint32_t *width, u
          glBindFramebuffer(GL_FRAMEBUFFER, res->readback_fb_id);
       }
 
-      if (has_feature(feat_arb_robustness)) {
-         glReadnPixelsARB(0, 0, *width, *height, format, type, size, data);
-      } else if (has_feature(feat_gles_khr_robustness)) {
-         glReadnPixelsKHR(0, 0, *width, *height, format, type, size, data);
-      } else {
-         glReadPixels(0, 0, *width, *height, format, type, data);
-      }
-
+      do_readpixels(0, 0, *width, *height, format, type, size, data);
    } else {
       glBindTexture(res->target, res->id);
       glGetTexImage(res->target, 0, format, type, data);
