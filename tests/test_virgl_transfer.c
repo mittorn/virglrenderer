@@ -30,6 +30,7 @@
 #include <virglrenderer.h>
 #include "pipe/p_defines.h"
 #include "virgl_hw.h"
+#include "virgl_protocol.h"
 #include "testvirgl_encode.h"
 
 /* pass an illegal context to transfer fn */
@@ -727,6 +728,197 @@ START_TEST(virgl_test_transfer_inline_valid_large)
 }
 END_TEST
 
+START_TEST(virgl_test_transfer_to_staging_without_iov_fails)
+{
+  static const unsigned bufsize = 50;
+  struct virgl_context ctx;
+  struct virgl_resource res;
+  struct pipe_box box;
+  int ret;
+
+  ret = testvirgl_init_ctx_cmdbuf(&ctx);
+  ck_assert_int_eq(ret, 0);
+
+  ret = testvirgl_create_unbacked_simple_buffer(&res, 1, bufsize, VIRGL_BIND_STAGING);
+  ck_assert_int_eq(ret, 0);
+  virgl_renderer_ctx_attach_resource(ctx.ctx_id, res.handle);
+
+  box.width = bufsize;
+  virgl_encoder_transfer(&ctx, &res, 0, 0, &box, 0, VIRGL_TRANSFER_TO_HOST);
+
+  ret = virgl_renderer_submit_cmd(ctx.cbuf->buf, ctx.ctx_id, ctx.cbuf->cdw);
+  ck_assert_int_eq(ret, EINVAL);
+
+  virgl_renderer_ctx_detach_resource(ctx.ctx_id, res.handle);
+  virgl_renderer_resource_unref(res.handle);
+  testvirgl_fini_ctx_cmdbuf(&ctx);
+}
+END_TEST
+
+START_TEST(virgl_test_transfer_to_staging_with_iov_succeeds)
+{
+  static const unsigned bufsize = 50;
+  struct virgl_context ctx = {0};
+  struct virgl_resource res = {0};
+  struct pipe_box box = {0};
+  int ret;
+
+  ret = testvirgl_init_ctx_cmdbuf(&ctx);
+  ck_assert_int_eq(ret, 0);
+
+  ret = testvirgl_create_backed_simple_buffer(&res, 1, bufsize, VIRGL_BIND_STAGING);
+  ck_assert_int_eq(ret, 0);
+  virgl_renderer_ctx_attach_resource(ctx.ctx_id, res.handle);
+
+  box.width = bufsize;
+  virgl_encoder_transfer(&ctx, &res, 0, 0, &box, 0, VIRGL_TRANSFER_TO_HOST);
+
+  ret = virgl_renderer_submit_cmd(ctx.cbuf->buf, ctx.ctx_id, ctx.cbuf->cdw);
+  ck_assert_int_eq(ret, 0);
+
+  virgl_renderer_ctx_detach_resource(ctx.ctx_id, res.handle);
+  testvirgl_destroy_backed_res(&res);
+  testvirgl_fini_ctx_cmdbuf(&ctx);
+}
+END_TEST
+
+START_TEST(virgl_test_copy_transfer_from_staging_without_iov_fails)
+{
+  static const unsigned bufsize = 50;
+  static const unsigned synchronized = 1;
+  struct virgl_context ctx = {0};
+  struct virgl_resource src_res = {0};
+  struct virgl_resource dst_res = {0};
+  struct pipe_box box = {0};
+  int ret;
+
+  ret = testvirgl_init_ctx_cmdbuf(&ctx);
+  ck_assert_int_eq(ret, 0);
+
+  ret = testvirgl_create_unbacked_simple_buffer(&src_res, 1, bufsize, VIRGL_BIND_STAGING);
+  ck_assert_int_eq(ret, 0);
+  virgl_renderer_ctx_attach_resource(ctx.ctx_id, src_res.handle);
+
+  ret = testvirgl_create_backed_simple_buffer(&dst_res, 2, bufsize, VIRGL_BIND_VERTEX_BUFFER);
+  ck_assert_int_eq(ret, 0);
+  virgl_renderer_ctx_attach_resource(ctx.ctx_id, dst_res.handle);
+
+  box.width = bufsize;
+  virgl_encoder_copy_transfer(&ctx, &dst_res, 0, 0, &box, &src_res, 0, synchronized);
+
+  ret = virgl_renderer_submit_cmd(ctx.cbuf->buf, ctx.ctx_id, ctx.cbuf->cdw);
+  ck_assert_int_eq(ret, EINVAL);
+
+  virgl_renderer_ctx_detach_resource(ctx.ctx_id, src_res.handle);
+  virgl_renderer_ctx_detach_resource(ctx.ctx_id, dst_res.handle);
+  virgl_renderer_resource_unref(src_res.handle);
+  testvirgl_destroy_backed_res(&dst_res);
+  testvirgl_fini_ctx_cmdbuf(&ctx);
+}
+END_TEST
+
+START_TEST(virgl_test_copy_transfer_from_staging_with_iov_succeeds)
+{
+  static const unsigned bufsize = 50;
+  const unsigned synchronized = 1;
+  struct virgl_context ctx = {0};
+  struct virgl_resource src_res = {0};
+  struct virgl_resource dst_res = {0};
+  struct pipe_box box = {0};
+  int ret;
+
+  ret = testvirgl_init_ctx_cmdbuf(&ctx);
+  ck_assert_int_eq(ret, 0);
+
+  ret = testvirgl_create_backed_simple_buffer(&src_res, 1, bufsize, VIRGL_BIND_STAGING);
+  ck_assert_int_eq(ret, 0);
+  virgl_renderer_ctx_attach_resource(ctx.ctx_id, src_res.handle);
+
+  ret = testvirgl_create_backed_simple_buffer(&dst_res, 2, bufsize, VIRGL_BIND_VERTEX_BUFFER);
+  ck_assert_int_eq(ret, 0);
+  virgl_renderer_ctx_attach_resource(ctx.ctx_id, dst_res.handle);
+
+  box.width = bufsize;
+  virgl_encoder_copy_transfer(&ctx, &dst_res, 0, 0, &box, &src_res, 0, synchronized);
+
+  ret = virgl_renderer_submit_cmd(ctx.cbuf->buf, ctx.ctx_id, ctx.cbuf->cdw);
+  ck_assert_int_eq(ret, 0);
+
+  virgl_renderer_ctx_detach_resource(ctx.ctx_id, src_res.handle);
+  virgl_renderer_ctx_detach_resource(ctx.ctx_id, dst_res.handle);
+  testvirgl_destroy_backed_res(&src_res);
+  testvirgl_destroy_backed_res(&dst_res);
+  testvirgl_fini_ctx_cmdbuf(&ctx);
+}
+END_TEST
+
+START_TEST(virgl_test_copy_transfer_to_staging_without_iov_fails)
+{
+  const unsigned synchronized = 1;
+  struct virgl_context ctx = {0};
+  struct virgl_resource src_res = {0};
+  struct virgl_resource dst_res = {0};
+  struct pipe_box box = {0};
+  int ret;
+
+  ret = testvirgl_init_ctx_cmdbuf(&ctx);
+  ck_assert_int_eq(ret, 0);
+
+  ret = testvirgl_create_backed_simple_buffer(&src_res, 1, 50, VIRGL_BIND_STAGING);
+  ck_assert_int_eq(ret, 0);
+  virgl_renderer_ctx_attach_resource(ctx.ctx_id, src_res.handle);
+
+  ret = testvirgl_create_unbacked_simple_buffer(&dst_res, 2, 50, VIRGL_BIND_STAGING);
+  ck_assert_int_eq(ret, 0);
+  virgl_renderer_ctx_attach_resource(ctx.ctx_id, dst_res.handle);
+
+  box.width = 50;
+  virgl_encoder_copy_transfer(&ctx, &dst_res, 0, 0, &box, &src_res, 0, synchronized);
+
+  ret = virgl_renderer_submit_cmd(ctx.cbuf->buf, ctx.ctx_id, ctx.cbuf->cdw);
+  ck_assert_int_eq(ret, 0);
+
+  virgl_renderer_ctx_detach_resource(ctx.ctx_id, src_res.handle);
+  virgl_renderer_ctx_detach_resource(ctx.ctx_id, dst_res.handle);
+  testvirgl_destroy_backed_res(&src_res);
+  virgl_renderer_resource_unref(dst_res.handle);
+  testvirgl_fini_ctx_cmdbuf(&ctx);
+}
+END_TEST
+START_TEST(virgl_test_copy_transfer_to_staging_with_iov_succeeds)
+{
+  const unsigned synchronized = 1;
+  struct virgl_context ctx = {0};
+  struct virgl_resource src_res = {0};
+  struct virgl_resource dst_res = {0};
+  struct pipe_box box = {0};
+  int ret;
+
+  ret = testvirgl_init_ctx_cmdbuf(&ctx);
+  ck_assert_int_eq(ret, 0);
+
+  ret = testvirgl_create_backed_simple_buffer(&src_res, 1, 50, VIRGL_BIND_STAGING);
+  ck_assert_int_eq(ret, 0);
+  virgl_renderer_ctx_attach_resource(ctx.ctx_id, src_res.handle);
+
+  ret = testvirgl_create_backed_simple_buffer(&dst_res, 2, 50, VIRGL_BIND_STAGING);
+  ck_assert_int_eq(ret, 0);
+  virgl_renderer_ctx_attach_resource(ctx.ctx_id, dst_res.handle);
+
+  box.width = 50;
+  virgl_encoder_copy_transfer(&ctx, &dst_res, 0, 0, &box, &src_res, 0, synchronized);
+
+  ret = virgl_renderer_submit_cmd(ctx.cbuf->buf, ctx.ctx_id, ctx.cbuf->cdw);
+  ck_assert_int_eq(ret, 0);
+
+  virgl_renderer_ctx_detach_resource(ctx.ctx_id, src_res.handle);
+  virgl_renderer_ctx_detach_resource(ctx.ctx_id, dst_res.handle);
+  testvirgl_destroy_backed_res(&src_res);
+  testvirgl_destroy_backed_res(&dst_res);
+  testvirgl_fini_ctx_cmdbuf(&ctx);
+}
+END_TEST
+
 static Suite *virgl_init_suite(void)
 {
   Suite *s;
@@ -770,6 +962,17 @@ static Suite *virgl_init_suite(void)
   tcase_add_loop_test(tc_core, virgl_test_transfer_inline_valid_large, 0, PIPE_MAX_TEXTURE_TYPES);
 
   suite_add_tcase(s, tc_core);
+
+  tc_core = tcase_create("transfers_staging");
+  tcase_add_test(tc_core, virgl_test_transfer_to_staging_without_iov_fails);
+  tcase_add_test(tc_core, virgl_test_transfer_to_staging_with_iov_succeeds);
+  tcase_add_test(tc_core, virgl_test_copy_transfer_from_staging_without_iov_fails);
+  tcase_add_test(tc_core, virgl_test_copy_transfer_from_staging_with_iov_succeeds);
+  tcase_add_test(tc_core, virgl_test_copy_transfer_to_staging_without_iov_fails);
+  tcase_add_test(tc_core, virgl_test_copy_transfer_to_staging_with_iov_succeeds);
+
+  suite_add_tcase(s, tc_core);
+
   return s;
 
 }

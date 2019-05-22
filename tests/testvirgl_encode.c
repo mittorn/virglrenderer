@@ -456,11 +456,11 @@ int virgl_encoder_create_so_target(struct virgl_context *ctx,
    return 0;
 }
 
-static void virgl_encoder_iw_emit_header_1d(struct virgl_context *ctx,
-                                           struct virgl_resource *res,
-                                           unsigned level, unsigned usage,
-                                           const struct pipe_box *box,
-                                           unsigned stride, unsigned layer_stride)
+static void virgl_encoder_transfer3d_common(struct virgl_context *ctx,
+                                            struct virgl_resource *res,
+                                            unsigned level, unsigned usage,
+                                            const struct pipe_box *box,
+                                            unsigned stride, unsigned layer_stride)
 {
    virgl_encoder_write_res(ctx, res);
    virgl_encoder_write_dword(ctx->cbuf, level);
@@ -483,7 +483,7 @@ static void virgl_encoder_inline_send_box(struct virgl_context *ctx,
 					  unsigned layer_stride, int length)
 {
   virgl_encoder_write_cmd_dword(ctx, VIRGL_CMD0(VIRGL_CCMD_RESOURCE_INLINE_WRITE, 0, ((length + 3) / 4) + 11));
-  virgl_encoder_iw_emit_header_1d(ctx, res, level, usage, box, stride, layer_stride);
+  virgl_encoder_transfer3d_common(ctx, res, level, usage, box, stride, layer_stride);
   virgl_encoder_write_block(ctx->cbuf, data, length);
 }
 
@@ -560,6 +560,39 @@ int virgl_encoder_inline_write(struct virgl_context *ctx,
      }
      data += layer_stride_internal;
    }
+   return 0;
+}
+
+int virgl_encoder_transfer(struct virgl_context *ctx,
+                           struct virgl_resource *res,
+                           unsigned level, unsigned usage,
+                           const struct pipe_box *box,
+                           unsigned offset, unsigned direction)
+{
+   uint32_t command;
+   command = VIRGL_CMD0(VIRGL_CCMD_TRANSFER3D, 0, VIRGL_TRANSFER3D_SIZE);
+   virgl_encoder_write_dword(ctx->cbuf, command);
+   virgl_encoder_transfer3d_common(ctx, res, level, usage, box, 0, 0);
+   virgl_encoder_write_dword(ctx->cbuf, offset);
+   virgl_encoder_write_dword(ctx->cbuf, direction);
+   return 0;
+}
+
+int virgl_encoder_copy_transfer(struct virgl_context *ctx,
+                                struct virgl_resource *res,
+                                unsigned level, unsigned usage,
+                                const struct pipe_box *box,
+                                struct virgl_resource *src_res,
+                                unsigned src_offset,
+                                unsigned synchronized)
+{
+   uint32_t command;
+   command = VIRGL_CMD0(VIRGL_CCMD_COPY_TRANSFER3D, 0, VIRGL_COPY_TRANSFER3D_SIZE);
+   virgl_encoder_write_dword(ctx->cbuf, command);
+   virgl_encoder_transfer3d_common(ctx, res, level, usage, box, 0, 0);
+   virgl_encoder_write_res(ctx, src_res);
+   virgl_encoder_write_dword(ctx->cbuf, src_offset);
+   virgl_encoder_write_dword(ctx->cbuf, synchronized);
    return 0;
 }
 

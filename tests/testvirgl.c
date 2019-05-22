@@ -269,6 +269,25 @@ int testvirgl_create_backed_simple_buffer(struct virgl_resource *res,
     return 0;
 }
 
+int testvirgl_create_unbacked_simple_buffer(struct virgl_resource *res,
+					    int handle, int size, int binding)
+{
+    struct virgl_renderer_resource_create_args args;
+    int ret;
+
+    testvirgl_init_simple_buffer_sized(&args, handle, size);
+    args.bind = binding;
+    ret = virgl_renderer_resource_create(&args, NULL, 0);
+    ck_assert_int_eq(ret, 0);
+
+    res->handle = handle;
+    res->base.target = args.target;
+    res->base.format = args.format;
+    res->base.bind = args.bind;
+
+    return 0;
+}
+
 static void *get_caps(void)
 {
     uint32_t max_ver, max_size;
