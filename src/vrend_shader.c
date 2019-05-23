@@ -899,6 +899,9 @@ iter_declaration(struct tgsi_iterate_context *iter,
          ctx->has_sample_input = true;
       }
 
+      if (ctx->inputs[i].first != ctx->inputs[i].last)
+         require_glsl_ver(ctx, 150);
+
       switch (ctx->inputs[i].name) {
       case TGSI_SEMANTIC_COLOR:
          if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
