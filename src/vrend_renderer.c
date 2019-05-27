@@ -279,6 +279,8 @@ struct global_renderer_state {
 
    /* Needed on GLES to inject a TCS */
    float tess_factors[6];
+   bool bgra_srgb_emulation_loaded;
+
 };
 
 static struct global_renderer_state vrend_state;
@@ -988,10 +990,42 @@ vrend_insert_format_swizzle(int override_format, struct vrend_format_table *entr
       tex_conv_table[override_format].swizzle[i] = swizzle[i];
 }
 
+static inline enum virgl_formats
+vrend_format_replace_emulated(uint32_t bind, enum pipe_format format)
+{
+   enum virgl_formats retval = (enum virgl_formats)format;
+
+   if (vrend_state.use_gles && (bind & VIRGL_BIND_PREFER_EMULATED_BGRA)) {
+      VREND_DEBUG(dbg_tweak, vrend_state.current_ctx, "Check tweak for format %s", util_format_name(format));
+      if (!vrend_state.bgra_srgb_emulation_loaded) {
+         GLint err = glGetError();
+         if (err != GL_NO_ERROR)
+            vrend_printf("Warning: stale error state when calling %s\n", __func__);
+         VREND_DEBUG_NOCTX(dbg_tweak, vrend_state.current_ctx, " ... add swizzled formats\n");
+         vrend_build_emulated_format_list_gles();
+         vrend_check_texture_storage(tex_conv_table);
+         vrend_state.bgra_srgb_emulation_loaded = true;
+      }
+      if (format == PIPE_FORMAT_B8G8R8A8_UNORM)
+         retval = VIRGL_FORMAT_B8G8R8A8_UNORM_EMULATED;
+      else if (format == PIPE_FORMAT_B8G8R8X8_UNORM)
+         retval = VIRGL_FORMAT_B8G8R8X8_UNORM_EMULATED;
+
+      VREND_DEBUG_NOCTX(dbg_tweak, vrend_state.current_ctx,
+                        "%s\n", (retval != (enum virgl_formats)format ? "... replace" : ""));
+   }
+   return retval;
+}
+
 const struct vrend_format_table *
 vrend_get_format_table_entry(enum virgl_formats format)
 {
    return &tex_conv_table[format];
+}
+
+const struct vrend_format_table *vrend_get_format_table_entry_with_emulation(uint32_t bind, enum virgl_formats format)
+{
+   return vrend_get_format_table_entry(vrend_format_replace_emulated(bind, format));
 }
 
 static bool vrend_is_timer_query(GLenum gltype)
@@ -1644,13 +1678,15 @@ int vrend_create_surface(struct vrend_context *ctx,
 
    surf->res_handle = res_handle;
    surf->format = format;
+   format = vrend_format_replace_emulated(res->base.bind, format);
+
    surf->val0 = val0;
    surf->val1 = val1;
    surf->id = res->id;
 
    if (has_feature(feat_texture_view) &&
        res->storage != VREND_RESOURCE_STORAGE_BUFFER &&
-       (tex_conv_table[res->base.format].flags & VIRGL_TEXTURE_CAN_TEXTURE_STORAGE)) {
+       (tex_conv_table[format].flags & VIRGL_TEXTURE_CAN_TEXTURE_STORAGE)) {
       /* We don't need texture views for buffer objects.
        * Otherwise we only need a texture view if the
        * a) formats differ between the surface and base texture
@@ -1662,17 +1698,18 @@ int vrend_create_surface(struct vrend_context *ctx,
       int first_layer = surf->val1 & 0xffff;
       int last_layer = (surf->val1 >> 16) & 0xffff;
 
-      VREND_DEBUG(dbg_tex, ctx, "Create texture view from %s for %s\n",
+      VREND_DEBUG(dbg_tex, ctx, "Create texture view from %s for %s (emulated:%d)\n",
                   util_format_name(res->base.format),
-                  util_format_name(surf->format));
+                  util_format_name(surf->format),
+                  surf->format != format);
 
       if ((first_layer != last_layer &&
            (first_layer != 0 || (last_layer != (int)util_max_layer(&res->base, surf->val0)))) ||
           surf->format != res->base.format) {
-         GLenum internalformat = tex_conv_table[surf->format].internalformat;
          GLenum target = res->target;
-         glGenTextures(1, &surf->id);
+         GLenum internalformat = tex_conv_table[format].internalformat;
 
+         glGenTextures(1, &surf->id);
          if (vrend_state.use_gles) {
             if (target == GL_TEXTURE_RECTANGLE_NV ||
                 target == GL_TEXTURE_1D)
@@ -5619,6 +5656,7 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
       glDisable(GL_DEBUG_OUTPUT);
    }
 
+   vrend_state.bgra_srgb_emulation_loaded = false;
    vrend_build_format_list_common();
 
    if (vrend_state.use_gles) {
@@ -5996,6 +6034,7 @@ vrend_renderer_resource_copy_args(struct vrend_renderer_resource_create_args *ar
    assert(args);
 
    gr->handle = args->handle;
+   gr->base.bind = args->bind;
    gr->base.width0 = args->width;
    gr->base.height0 = args->height;
    gr->base.depth0 = args->depth;
@@ -6017,8 +6056,9 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
    if (pr->width0 == 0)
       return EINVAL;
 
+   enum virgl_formats format = vrend_format_replace_emulated(gr->base.bind, gr->base.format);
    bool format_can_texture_storage = has_feature(feat_texture_storage) &&
-                              (tex_conv_table[pr->format].flags & VIRGL_TEXTURE_CAN_TEXTURE_STORAGE);
+         (tex_conv_table[format].flags & VIRGL_TEXTURE_CAN_TEXTURE_STORAGE);
 
    gr->target = tgsitargettogltarget(pr->target, pr->nr_samples);
    gr->storage = VREND_RESOURCE_STORAGE_TEXTURE;
@@ -6044,9 +6084,9 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
 
    debug_texture(__func__, gr);
 
-   internalformat = tex_conv_table[pr->format].internalformat;
-   glformat = tex_conv_table[pr->format].glformat;
-   gltype = tex_conv_table[pr->format].gltype;
+   internalformat = tex_conv_table[format].internalformat;
+   glformat = tex_conv_table[format].glformat;
+   gltype = tex_conv_table[format].gltype;
 
    if (internalformat == 0) {
       vrend_printf("unknown format is %d\n", pr->format);
@@ -6921,8 +6961,9 @@ static int vrend_transfer_send_readpixels(struct vrend_resource *res,
 
    glUseProgram(0);
 
-   format = tex_conv_table[res->base.format].glformat;
-   type = tex_conv_table[res->base.format].gltype;
+   enum virgl_formats fmt = vrend_format_replace_emulated(res->base.bind, res->base.format);
+   format = tex_conv_table[fmt].glformat;
+   type = tex_conv_table[fmt].gltype;
    /* if we are asked to invert and reading from a front then don't */
 
    actually_invert = res->y_0_top;
@@ -7781,15 +7822,21 @@ static GLuint vrend_make_view(struct vrend_resource *res, enum pipe_format forma
 {
    GLuint view_id;
    glGenTextures(1, &view_id);
-   GLenum fmt = tex_conv_table[format].internalformat;
+
+   enum virgl_formats src_fmt = vrend_format_replace_emulated(res->base.bind, res->base.format);
+   enum virgl_formats dst_fmt = vrend_format_replace_emulated(res->base.bind, format);
+
+   GLenum fmt = tex_conv_table[dst_fmt].internalformat;
 
    /* If the format doesn't support TextureStorage it is not immutable, so no TextureView*/
-   if (!(tex_conv_table[format].flags & VIRGL_TEXTURE_CAN_TEXTURE_STORAGE))
+   if (!(tex_conv_table[src_fmt].flags & VIRGL_TEXTURE_CAN_TEXTURE_STORAGE))
       return res->id;
 
-   VREND_DEBUG(dbg_blit, NULL, "Create texture view from %s for %s\n",
+   VREND_DEBUG(dbg_blit, NULL, "Create texture view from %s%s as %s%s\n",
                util_format_name(res->base.format),
-               util_format_name(format));
+               (enum virgl_formats)res->base.format != src_fmt ? "(emulated)" : "",
+               util_format_name(format),
+               (enum virgl_formats)format != dst_fmt ? "(emulated)" : "");
 
    unsigned layers_factor = 1;
    if (res->target == GL_TEXTURE_CUBE_MAP || res->target == GL_TEXTURE_CUBE_MAP_ARRAY)
@@ -9145,8 +9192,10 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
       caps->v2.capability_bits |= VIRGL_CAP_FBO_MIXED_COLOR_FORMATS;
 
    /* We want to expose ARB_gpu_shader_fp64 when running on top of ES */
-   if (vrend_state.use_gles)
+   if (vrend_state.use_gles) {
       caps->v2.capability_bits |= VIRGL_CAP_FAKE_FP64;
+      caps->v2.capability_bits |= VIRGL_CAP_BGRA_SRGB_IS_EMULATED;
+   }
 
    if (has_feature(feat_indirect_draw))
       caps->v2.capability_bits |= VIRGL_CAP_BIND_COMMAND_ARGS;

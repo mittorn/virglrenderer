@@ -132,6 +132,8 @@ bool vrend_check_framebuffer_mixed_color_attachements(void);
 void vrend_insert_format_swizzle(int override_format, struct vrend_format_table *entry,
                                  uint32_t bindings, uint8_t swizzle[4], uint32_t flags);
 const struct vrend_format_table *vrend_get_format_table_entry(enum virgl_formats format);
+const struct vrend_format_table *vrend_get_format_table_entry_with_emulation(uint32_t bind, enum virgl_formats format);
+
 int vrend_create_shader(struct vrend_context *ctx,
                         uint32_t handle,
                         const struct pipe_stream_output_info *stream_output,
@@ -370,6 +372,7 @@ GLint64 vrend_renderer_get_timestamp(void);
 void vrend_build_format_list_common(void);
 void vrend_build_format_list_gl(void);
 void vrend_build_format_list_gles(void);
+void vrend_build_emulated_format_list_gles(void);
 void vrend_check_texture_storage(struct vrend_format_table *table);
 
 int vrend_renderer_resource_attach_iov(int res_handle, struct iovec *iov,

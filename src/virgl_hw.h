@@ -261,6 +261,7 @@ enum virgl_formats {
 #define VIRGL_CAP_COPY_TRANSFER        (1 << 26)
 #define VIRGL_CAP_CLIP_HALFZ           (1 << 27)
 #define VIRGL_CAP_APP_TWEAK_SUPPORT    (1 << 28)
+#define VIRGL_CAP_BGRA_SRGB_IS_EMULATED  (1 << 29)
 
 /* virgl bind flags - these are compatible with mesa 10.5 gallium.
  * but are fixed, no other should be passed to virgl either.
@@ -284,6 +285,8 @@ enum virgl_formats {
  */
 #define VIRGL_BIND_STAGING       (1 << 19)
 #define VIRGL_BIND_SHARED        (1 << 20)
+
+#define VIRGL_BIND_PREFER_EMULATED_BGRA  (1 << 21)
 
 struct virgl_caps_bool_set1 {
         unsigned indep_blend_enable:1;
@@ -419,6 +422,7 @@ enum virgl_ctx_errors {
         VIRGL_ERROR_CTX_ILLEGAL_VERTEX_FORMAT,
         VIRGL_ERROR_CTX_ILLEGAL_CMD_BUFFER,
         VIRGL_ERROR_CTX_GLES_HAVE_TES_BUT_MISS_TCS,
+        VIRGL_ERROR_GL_ANY_SAMPLES_PASSED,
 };
 
 #define VIRGL_RESOURCE_Y_0_TOP (1 << 0)
