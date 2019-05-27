@@ -222,7 +222,12 @@ enum virgl_formats {
    VIRGL_FORMAT_A4B4G4R4_UNORM          = 311,
 
    VIRGL_FORMAT_R8_SRGB                 = 312,
-   VIRGL_FORMAT_MAX,
+   VIRGL_FORMAT_MAX /* = PIPE_FORMAT_COUNT */,
+
+   /* Below formats must not be used in the guest. */
+   VIRGL_FORMAT_B8G8R8X8_UNORM_EMULATED,
+   VIRGL_FORMAT_B8G8R8A8_UNORM_EMULATED,
+   VIRGL_FORMAT_MAX_EXTENDED
 };
 
 /* These are used by the capability_bits field in virgl_caps_v2. */

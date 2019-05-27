@@ -32,6 +32,9 @@
 #define RRR1_SWIZZLE { PIPE_SWIZZLE_RED, PIPE_SWIZZLE_RED, PIPE_SWIZZLE_RED, PIPE_SWIZZLE_ONE }
 #define RGB1_SWIZZLE { PIPE_SWIZZLE_RED, PIPE_SWIZZLE_GREEN, PIPE_SWIZZLE_BLUE, PIPE_SWIZZLE_ONE }
 
+#define BGR1_SWIZZLE { PIPE_SWIZZLE_BLUE, PIPE_SWIZZLE_GREEN, PIPE_SWIZZLE_RED, PIPE_SWIZZLE_ONE }
+#define BGRA_SWIZZLE { PIPE_SWIZZLE_BLUE, PIPE_SWIZZLE_GREEN, PIPE_SWIZZLE_RED, PIPE_SWIZZLE_ALPHA }
+
 #ifdef __GNUC__
 /* The warning missing-field-initializers is misleading: If at least one field
  * is initialized, then the un-initialized fields will be filled with zero.
@@ -50,9 +53,6 @@
 /* fill the format table */
 static struct vrend_format_table base_rgba_formats[] =
   {
-    { VIRGL_FORMAT_B8G8R8X8_UNORM, GL_RGBA8, GL_BGRA, GL_UNSIGNED_BYTE, RGB1_SWIZZLE },
-    { VIRGL_FORMAT_B8G8R8A8_UNORM, GL_RGBA8, GL_BGRA, GL_UNSIGNED_BYTE, NO_SWIZZLE },
-
     { VIRGL_FORMAT_R8G8B8X8_UNORM, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE, RGB1_SWIZZLE },
     { VIRGL_FORMAT_R8G8B8A8_UNORM, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE, NO_SWIZZLE },
 
@@ -280,10 +280,24 @@ static struct vrend_format_table bptc_formats[] = {
    { VIRGL_FORMAT_BPTC_RGB_UFLOAT, GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT, GL_RGB, GL_UNSIGNED_BYTE, NO_SWIZZLE },
 };
 
+static struct vrend_format_table gl_bgra_formats[] = {
+  { VIRGL_FORMAT_B8G8R8X8_UNORM, GL_RGBA8, GL_BGRA, GL_UNSIGNED_BYTE, RGB1_SWIZZLE },
+  { VIRGL_FORMAT_B8G8R8A8_UNORM, GL_RGBA8, GL_BGRA, GL_UNSIGNED_BYTE, NO_SWIZZLE },
+};
+
+
 static struct vrend_format_table gles_bgra_formats[] = {
   { VIRGL_FORMAT_B8G8R8X8_UNORM, GL_BGRA_EXT, GL_BGRA_EXT, GL_UNSIGNED_BYTE, RGB1_SWIZZLE },
   { VIRGL_FORMAT_B8G8R8A8_UNORM, GL_BGRA_EXT, GL_BGRA_EXT, GL_UNSIGNED_BYTE, NO_SWIZZLE },
 };
+
+static struct vrend_format_table gles_bgra_formats_emulation[] = {
+  { VIRGL_FORMAT_B8G8R8X8_UNORM_EMULATED, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE, BGR1_SWIZZLE },
+  { VIRGL_FORMAT_B8G8R8A8_UNORM_EMULATED, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE, BGRA_SWIZZLE },
+  { VIRGL_FORMAT_B8G8R8X8_SRGB,  GL_SRGB8_ALPHA8, GL_RGBA, GL_UNSIGNED_BYTE, BGR1_SWIZZLE },
+  { VIRGL_FORMAT_B8G8R8A8_SRGB,  GL_SRGB8_ALPHA8, GL_RGBA, GL_UNSIGNED_BYTE, BGRA_SWIZZLE },
+};
+
 
 static struct vrend_format_table gles_z32_format[] = {
   { VIRGL_FORMAT_Z32_UNORM, GL_DEPTH_COMPONENT24, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, NO_SWIZZLE },
@@ -378,33 +392,35 @@ static void vrend_add_formats(struct vrend_format_table *table, int num_entries)
     /* we can't probe compressed formats, as we'd need valid payloads to
      * glCompressedTexImage2D. Let's just check for extensions instead.
      */
-    const struct util_format_description *desc = util_format_description(table[i].format);
-    switch (desc->layout) {
-    case UTIL_FORMAT_LAYOUT_S3TC:
-      if (epoxy_has_gl_extension("GL_S3_s3tc") ||
-          epoxy_has_gl_extension("GL_EXT_texture_compression_s3tc"))
-        vrend_insert_format(&table[i], VIRGL_BIND_SAMPLER_VIEW, flags);
-      continue;
+    if (table[i].format < VIRGL_FORMAT_MAX) {
+       const struct util_format_description *desc = util_format_description(table[i].format);
+       switch (desc->layout) {
+       case UTIL_FORMAT_LAYOUT_S3TC:
+          if (epoxy_has_gl_extension("GL_S3_s3tc") ||
+              epoxy_has_gl_extension("GL_EXT_texture_compression_s3tc"))
+             vrend_insert_format(&table[i], VIRGL_BIND_SAMPLER_VIEW, flags);
+          continue;
 
-    case UTIL_FORMAT_LAYOUT_RGTC:
-      if (epoxy_has_gl_extension("GL_ARB_texture_compression_rgtc") ||
-          epoxy_has_gl_extension("GL_EXT_texture_compression_rgtc") )
-        vrend_insert_format(&table[i], VIRGL_BIND_SAMPLER_VIEW, flags);
-      continue;
+       case UTIL_FORMAT_LAYOUT_RGTC:
+          if (epoxy_has_gl_extension("GL_ARB_texture_compression_rgtc") ||
+              epoxy_has_gl_extension("GL_EXT_texture_compression_rgtc") )
+             vrend_insert_format(&table[i], VIRGL_BIND_SAMPLER_VIEW, flags);
+          continue;
 
-    case UTIL_FORMAT_LAYOUT_ETC:
-      if (epoxy_has_gl_extension("GL_OES_compressed_ETC1_RGB8_texture"))
-        vrend_insert_format(&table[i], VIRGL_BIND_SAMPLER_VIEW, flags);
-      continue;
+       case UTIL_FORMAT_LAYOUT_ETC:
+          if (epoxy_has_gl_extension("GL_OES_compressed_ETC1_RGB8_texture"))
+             vrend_insert_format(&table[i], VIRGL_BIND_SAMPLER_VIEW, flags);
+          continue;
 
-    case UTIL_FORMAT_LAYOUT_BPTC:
-      if (epoxy_has_gl_extension("GL_ARB_texture_compression_bptc") ||
-          epoxy_has_gl_extension("GL_EXT_texture_compression_bptc"))
-        vrend_insert_format(&table[i], VIRGL_BIND_SAMPLER_VIEW, flags);
-      continue;
+       case UTIL_FORMAT_LAYOUT_BPTC:
+          if (epoxy_has_gl_extension("GL_ARB_texture_compression_bptc") ||
+              epoxy_has_gl_extension("GL_EXT_texture_compression_bptc"))
+             vrend_insert_format(&table[i], VIRGL_BIND_SAMPLER_VIEW, flags);
+          continue;
 
-    default:
-      ;/* do logic below */
+       default:
+          ;/* do logic below */
+       }
     }
 
     /* The error state should be clear here */
@@ -441,7 +457,7 @@ static void vrend_add_formats(struct vrend_format_table *table, int num_entries)
       continue;
     }
 
-    if (util_format_is_depth_or_stencil(table[i].format)) {
+    if (table[i].format < VIRGL_FORMAT_MAX  && util_format_is_depth_or_stencil(table[i].format)) {
       GLenum attachment;
 
       if (table[i].format == VIRGL_FORMAT_Z24X8_UNORM || table[i].format == VIRGL_FORMAT_Z32_UNORM || table[i].format == VIRGL_FORMAT_Z16_UNORM || table[i].format == VIRGL_FORMAT_Z32_FLOAT)
@@ -470,6 +486,14 @@ static void vrend_add_formats(struct vrend_format_table *table, int num_entries)
            (is_depth && depth_stencil_formats_can_readback(table[i].format)) ||
            color_format_can_readback(&table[i], gles_ver))
           flags |= VIRGL_TEXTURE_CAN_READBACK;
+    }
+
+    if (i == VIRGL_FORMAT_B8G8R8A8_UNORM_EMULATED) {
+       table[VIRGL_FORMAT_B8G8R8A8_UNORM].flags |= VIRGL_TEXTURE_CAN_READBACK;
+       binding |= VIRGL_BIND_PREFER_EMULATED_BGRA;
+    } else if (i == VIRGL_FORMAT_B8G8R8X8_UNORM_EMULATED) {
+       table[VIRGL_FORMAT_B8G8R8X8_UNORM].flags |= VIRGL_TEXTURE_CAN_READBACK;
+       binding |= VIRGL_BIND_PREFER_EMULATED_BGRA;
     }
 
     glDeleteTextures(1, &tex_id);
@@ -533,6 +557,7 @@ void vrend_build_format_list_gl(void)
    * transfer operations. So we only register support for it in GL.
    */
   add_formats(gl_base_rgba_formats);
+  add_formats(gl_bgra_formats);
   add_formats(gl_srgb_formats);
 }
 
@@ -553,6 +578,11 @@ void vrend_build_format_list_gles(void)
   add_formats(gles_bit10_formats);
 }
 
+void vrend_build_emulated_format_list_gles(void)
+{
+  add_formats(gles_bgra_formats_emulation);
+}
+
 /* glTexStorage may not support all that is supported by glTexImage,
  * so add a flag to indicate when it can be used.
  */
@@ -560,9 +590,10 @@ void vrend_check_texture_storage(struct vrend_format_table *table)
 {
    int i;
    GLuint tex_id;
-   for (i = 0; i < VIRGL_FORMAT_MAX; i++) {
+   for (i = 0; i < VIRGL_FORMAT_MAX_EXTENDED; i++) {
 
-      if (table[i].internalformat != 0) {
+      if (table[i].internalformat != 0 &&
+          !(table[i].flags & VIRGL_TEXTURE_CAN_TEXTURE_STORAGE)) {
          glGenTextures(1, &tex_id);
          glBindTexture(GL_TEXTURE_2D, tex_id);
          glTexStorage2D(GL_TEXTURE_2D, 1, table[i].internalformat, 32, 32);

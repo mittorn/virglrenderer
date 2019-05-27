@@ -646,7 +646,7 @@ static GLenum tgsitargettogltarget(const enum pipe_texture_target target, int nr
 
 void vrend_update_stencil_state(struct vrend_context *ctx);
 
-static struct vrend_format_table tex_conv_table[VIRGL_FORMAT_MAX];
+static struct vrend_format_table tex_conv_table[VIRGL_FORMAT_MAX_EXTENDED];
 
 static inline bool vrend_format_can_sample(enum virgl_formats format)
 {
