@@ -593,6 +593,7 @@ struct vrend_sub_context {
 
    struct vrend_abo abo[PIPE_MAX_HW_ATOMIC_BUFFERS];
    uint32_t abo_used_mask;
+   struct vrend_context_tweaks tweaks;
 };
 
 struct vrend_context {
@@ -665,6 +666,11 @@ static inline bool vrend_format_can_render(enum virgl_formats format)
 static inline bool vrend_format_is_ds(enum virgl_formats format)
 {
    return tex_conv_table[format].bindings & VIRGL_BIND_DEPTH_STENCIL;
+}
+
+struct vrend_context_tweaks *vrend_get_context_tweaks(struct vrend_context *ctx)
+{
+   return &ctx->sub->tweaks;
 }
 
 bool vrend_format_is_emulated_alpha(enum virgl_formats format)

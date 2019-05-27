@@ -395,6 +395,8 @@ void vrend_renderer_get_rect(int resource_id, struct iovec *iov, unsigned int nu
 void vrend_renderer_attach_res_ctx(int ctx_id, int resource_id);
 void vrend_renderer_detach_res_ctx(int ctx_id, int resource_id);
 
+struct vrend_context_tweaks *vrend_get_context_tweaks(struct vrend_context *ctx);
+
 struct vrend_renderer_resource_info {
    uint32_t handle;
    uint32_t format;

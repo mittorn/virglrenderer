@@ -592,4 +592,8 @@ enum virgl_context_cmd {
 #define VIRGL_COPY_TRANSFER3D_SRC_RES_OFFSET 13
 #define VIRGL_COPY_TRANSFER3D_SYNCHRONIZED 14
 
+enum vrend_tweak_type {
+   virgl_tweak_undefined
+};
+
 #endif
