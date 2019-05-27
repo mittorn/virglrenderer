@@ -9233,7 +9233,8 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
    if (has_feature(feat_storage_multisample))
       caps->v1.max_samples = vrend_renderer_query_multisample_caps(caps->v1.max_samples, &caps->v2);
 
-   caps->v2.capability_bits |= VIRGL_CAP_TGSI_INVARIANT | VIRGL_CAP_SET_MIN_SAMPLES | VIRGL_CAP_TGSI_PRECISE;
+   caps->v2.capability_bits |= VIRGL_CAP_TGSI_INVARIANT | VIRGL_CAP_SET_MIN_SAMPLES |
+                               VIRGL_CAP_TGSI_PRECISE | VIRGL_CAP_APP_TWEAK_SUPPORT;
 
    /* If attribute isn't supported, assume 2048 which is the minimum allowed
       by the specification. */
@@ -9716,6 +9717,8 @@ void vrend_renderer_create_sub_ctx(struct vrend_context *ctx, int sub_ctx_id)
    list_add(&sub->head, &ctx->sub_ctxs);
    if (sub_ctx_id == 0)
       ctx->sub0 = sub;
+
+   vrend_set_tweak_from_env(&ctx->sub->tweaks);
 }
 
 unsigned vrend_context_has_debug_flag(struct vrend_context *ctx, enum virgl_debug_flags flag)
