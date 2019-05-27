@@ -37,7 +37,6 @@ bool vrend_get_tweak_is_active_with_params(struct vrend_context_tweaks *ctx, enu
 {
    if (!(ctx->active_tweaks & (1u << t)))
       return false;
-
    return true;
 }
 
@@ -47,6 +46,9 @@ bool vrend_get_tweak_is_active(struct vrend_context_tweaks *ctx, enum vrend_twea
 }
 
 const char *tweak_debug_table[] = {
+   [virgl_tweak_gles_brga_emulate] =
+   "GLES: Skip linearization in blits to BGRA_UNORM surfaces",
+
    [virgl_tweak_undefined] = "Undefined tweak"
 };
 
@@ -71,5 +73,41 @@ void vrend_set_active_tweaks(struct vrend_context_tweaks *ctx, uint32_t tweak_id
       set_tweak_and_params(ctx, tweak_id, value);
    } else {
       VREND_DEBUG(dbg_tweak, NULL, "Unknown tweak %d = %d sent\n", tweak_id, value);
+   }
+}
+
+struct {
+   enum vrend_tweak_type flag;
+   const char *name;
+   const char *descr;
+} tweak_table [] = {
+   { virgl_tweak_gles_brga_emulate, "emu-bgra",
+     "Emulate BGRA_UNORM and BGRA_SRB by using swizzled RGBA formats" },
+   { virgl_tweak_undefined, NULL, NULL}
+};
+
+
+void vrend_set_tweak_from_env(struct vrend_context_tweaks *ctx)
+{
+   char *tweaks = getenv("VREND_TWEAK");
+   if (tweaks) {
+      VREND_DEBUG(dbg_tweak, NULL, "ENV tweaks %s\n", tweaks);
+
+      char *saveptr;
+      char *tweak_descr_copy = strdup(tweaks);
+
+      char *tweak = strtok_r(tweak_descr_copy, ":", &saveptr);
+      while (tweak) {
+         char *tweak_param = strtok_r(NULL, ",", &saveptr);
+
+         for (int i = 0; i < virgl_tweak_undefined; ++i) {
+            if (!strcmp(tweak, tweak_table[i].name)) {
+               VREND_DEBUG(dbg_tweak, NULL, "Apply tweak %s=%s\n", tweak, tweak_param);
+               set_tweak_and_params_from_string(ctx, tweak_table[i].flag, tweak_param);
+            }
+         }
+         tweak = strtok_r(NULL, ":", &saveptr);
+      }
+      free(tweak_descr_copy);
    }
 }
