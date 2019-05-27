@@ -35,6 +35,7 @@
 #include "vrend_object.h"
 #include "tgsi/tgsi_text.h"
 #include "vrend_debug.h"
+#include "vrend_tweaks.h"
 
 /* decode side */
 #define DECODE_MAX_TOKENS 8000
@@ -1321,6 +1322,21 @@ static int vrend_decode_set_debug_mask(struct vrend_decode_ctx *ctx, int length)
    return 0;
 }
 
+static int vrend_decode_set_tweaks(struct vrend_decode_ctx *ctx, int length)
+{
+   VREND_DEBUG(dbg_tweak, NULL, "Received TWEAK set command\n");
+
+   if (length < VIRGL_SET_TWEAKS_SIZE)
+      return EINVAL;
+
+   uint32_t tweak_id = get_buf_entry(ctx, VIRGL_SET_TWEAKS_ID);
+   uint32_t tweak_value = get_buf_entry(ctx, VIRGL_SET_TWEAKS_VALUE);
+
+   vrend_set_active_tweaks(vrend_get_context_tweaks(ctx->grctx), tweak_id, tweak_value);
+   return 0;
+}
+
+
 static int vrend_decode_transfer3d(struct vrend_decode_ctx *ctx, int length, uint32_t ctx_id)
 {
    struct pipe_box box;
@@ -1609,6 +1625,9 @@ int vrend_decode_block(uint32_t ctx_id, uint32_t *block, int ndw)
          break;
       case VIRGL_CCMD_END_TRANSFERS:
          ret = 0;
+         break;
+      case VIRGL_CCMD_SET_TWEAKS:
+         ret = vrend_decode_set_tweaks(gdctx, len);
          break;
       default:
          ret = EINVAL;

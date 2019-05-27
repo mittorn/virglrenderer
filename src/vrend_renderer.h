@@ -29,6 +29,7 @@
 #include "util/u_inlines.h"
 #include "virgl_protocol.h"
 #include "vrend_debug.h"
+#include "vrend_tweaks.h"
 #include "vrend_iov.h"
 #include "virgl_hw.h"
 #include <epoxy/gl.h>
