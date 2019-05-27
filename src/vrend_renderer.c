@@ -6284,22 +6284,22 @@ static void vrend_scale_depth(void *ptr, int size, float scale_val)
    }
 }
 
-static void read_transfer_data(struct pipe_resource *res,
-                               struct iovec *iov,
+static void read_transfer_data(struct iovec *iov,
                                unsigned int num_iovs,
                                char *data,
-                               uint32_t src_stride,
-                               struct pipe_box *box,
-                               uint32_t level,
+                               enum pipe_format format,
                                uint64_t offset,
+                               uint32_t src_stride,
+                               uint32_t src_layer_stride,
+                               struct pipe_box *box,
                                bool invert)
 {
-   int blsize = util_format_get_blocksize(res->format);
+   int blsize = util_format_get_blocksize(format);
    uint32_t size = vrend_get_iovec_size(iov, num_iovs);
-   uint32_t send_size = util_format_get_nblocks(res->format, box->width,
+   uint32_t send_size = util_format_get_nblocks(format, box->width,
                                               box->height) * blsize * box->depth;
-   uint32_t bwx = util_format_get_nblocksx(res->format, box->width) * blsize;
-   int32_t bh = util_format_get_nblocksy(res->format, box->height);
+   uint32_t bwx = util_format_get_nblocksx(format, box->width) * blsize;
+   int32_t bh = util_format_get_nblocksy(format, box->height);
    int d, h;
 
    if ((send_size == size || bh == 1) && !invert && box->depth == 1)
@@ -6307,7 +6307,7 @@ static void read_transfer_data(struct pipe_resource *res,
    else {
       if (invert) {
          for (d = 0; d < box->depth; d++) {
-            uint32_t myoffset = offset + d * src_stride * u_minify(res->height0, level);
+            uint32_t myoffset = offset + d * src_layer_stride;
             for (h = bh - 1; h >= 0; h--) {
                void *ptr = data + (h * bwx) + d * (bh * bwx);
                vrend_read_from_iovec(iov, num_iovs, myoffset, ptr, bwx);
@@ -6316,7 +6316,7 @@ static void read_transfer_data(struct pipe_resource *res,
          }
       } else {
          for (d = 0; d < box->depth; d++) {
-            uint32_t myoffset = offset + d * src_stride * u_minify(res->height0, level);
+            uint32_t myoffset = offset + d * src_layer_stride;
             for (h = 0; h < bh; h++) {
                void *ptr = data + (h * bwx) + d * (bh * bwx);
                vrend_read_from_iovec(iov, num_iovs, myoffset, ptr, bwx);
@@ -6561,6 +6561,7 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
       float depth_scale;
       GLuint send_size = 0;
       uint32_t stride = info->stride;
+      uint32_t layer_stride = info->layer_stride;
 
       if (ctx)
          vrend_use_program(ctx, 0);
@@ -6569,6 +6570,10 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
 
       if (!stride)
          stride = util_format_get_nblocksx(res->base.format, u_minify(res->base.width0, info->level)) * elsize;
+
+      if (!layer_stride)
+         layer_stride = util_format_get_2d_size(res->base.format, stride,
+                                                u_minify(res->base.height0, info->level));
 
       compressed = util_format_is_compressed(res->base.format);
       if (num_iovs > 1 || compressed) {
@@ -6587,15 +6592,15 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
          data = malloc(send_size);
          if (!data)
             return ENOMEM;
-         read_transfer_data(&res->base, iov, num_iovs, data, stride,
-                            info->box, info->level, info->offset, invert);
+         read_transfer_data(iov, num_iovs, data, res->base.format, info->offset,
+                            stride, layer_stride, info->box, invert);
       } else {
          data = (char*)iov[0].iov_base + info->offset;
       }
 
       if (stride && !need_temp) {
          glPixelStorei(GL_UNPACK_ROW_LENGTH, stride / elsize);
-         glPixelStorei(GL_UNPACK_IMAGE_HEIGHT, u_minify(res->base.height0, info->level));
+         glPixelStorei(GL_UNPACK_IMAGE_HEIGHT, layer_stride / stride);
       } else
          glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
 
@@ -7434,7 +7439,7 @@ static void vrend_resource_copy_fallback(struct vrend_resource *src_res,
                                          const struct pipe_box *src_box)
 {
    char *tptr;
-   uint32_t total_size, src_stride, dst_stride;
+   uint32_t total_size, src_stride, dst_stride, src_layer_stride;
    GLenum glformat, gltype;
    int elsize = util_format_get_blocksize(dst_res->base.format);
    int compressed = util_format_is_compressed(dst_res->base.format);
@@ -7483,8 +7488,12 @@ static void vrend_resource_copy_fallback(struct vrend_resource *src_res,
 
       src_stride = util_format_get_nblocksx(src_res->base.format,
                                             u_minify(src_res->base.width0, src_level)) * elsize;
-      read_transfer_data(&src_res->base, src_res->iov, src_res->num_iovs, tptr,
-                         src_stride, &box, src_level, src_offset, false);
+      src_layer_stride = util_format_get_2d_size(src_res->base.format,
+                                                 src_stride,
+                                                 u_minify(src_res->base.height0, src_level));
+      read_transfer_data(src_res->iov, src_res->num_iovs, tptr,
+                         src_res->base.format, src_offset,
+                         src_stride, src_layer_stride, &box, false);
       /* When on GLES sync the iov that backs the dst resource because
        * we might need it in a chain copy A->B, B->C */
       write_transfer_data(&dst_res->base, dst_res->iov, dst_res->num_iovs, tptr,
