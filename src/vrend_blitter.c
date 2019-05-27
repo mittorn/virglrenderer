@@ -406,11 +406,12 @@ static GLuint blit_get_frag_tex_col(struct vrend_blitter_ctx *blit_ctx,
                                     int pipe_tex_target,
                                     unsigned nr_samples,
                                     const struct vrend_format_table *src_entry,
-                                    const struct vrend_format_table *dst_entry)
+                                    const struct vrend_format_table *dst_entry,
+                                    bool skip_dest_swizzle)
 {
    assert(pipe_tex_target < PIPE_MAX_TEXTURE_TYPES);
 
-   bool needs_swizzle = dst_entry->flags & VIRGL_TEXTURE_NEED_SWIZZLE;
+   bool needs_swizzle = !skip_dest_swizzle && (dst_entry->flags & VIRGL_TEXTURE_NEED_SWIZZLE);
 
    if (needs_swizzle || nr_samples > 1) {
       const uint8_t *swizzle = needs_swizzle ? dst_entry->swizzle : NULL;
@@ -711,7 +712,8 @@ void vrend_renderer_blit_gl(struct vrend_context *ctx,
                             GLenum blit_views[2],
                             const struct pipe_blit_info *info,
                             bool has_texture_srgb_decode,
-                            bool has_srgb_write_control)
+                            bool has_srgb_write_control,
+                            bool skip_dest_swizzle)
 {
    struct vrend_blitter_ctx *blit_ctx = &vrend_blit_ctx;
    GLuint buffers;
@@ -731,9 +733,10 @@ void vrend_renderer_blit_gl(struct vrend_context *ctx,
    const struct util_format_description *dst_desc =
       util_format_description(dst_res->base.format);
    const struct vrend_format_table *src_entry =
-      vrend_get_format_table_entry(info->src.format);
+      vrend_get_format_table_entry_with_emulation(src_res->base.bind, info->src.format);
+   const struct vrend_format_table *orig_src_entry = vrend_get_format_table_entry(info->src.format);
    const struct vrend_format_table *dst_entry =
-      vrend_get_format_table_entry(info->dst.format);
+      vrend_get_format_table_entry_with_emulation(dst_res->base.bind, info->dst.format);
 
    has_depth = util_format_has_depth(src_desc) &&
       util_format_has_depth(dst_desc);
@@ -779,7 +782,8 @@ void vrend_renderer_blit_gl(struct vrend_context *ctx,
    } else {
       fs_id = blit_get_frag_tex_col(blit_ctx, src_res->base.target,
                                     src_res->base.nr_samples,
-                                    src_entry, dst_entry);
+                                    orig_src_entry, dst_entry,
+                                    skip_dest_swizzle);
    }
    glAttachShader(prog_id, fs_id);
 

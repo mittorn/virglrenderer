@@ -124,6 +124,7 @@ struct vrend_shader_key {
    uint8_t num_indirect_generic_inputs;
    uint8_t num_indirect_patch_inputs;
    uint32_t generic_outputs_expected_mask;
+   uint8_t fs_swizzle_output_rgb_to_bgr;
 };
 
 struct vrend_shader_cfg {

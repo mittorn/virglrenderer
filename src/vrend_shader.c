@@ -2030,6 +2030,15 @@ static void emit_fragment_logicop(struct dump_ctx *ctx)
    }
 }
 
+static void emit_cbuf_swizzle(struct dump_ctx *ctx)
+{
+   for (uint i = 0; i < ctx->num_outputs; i++) {
+      if (ctx->key->fs_swizzle_output_rgb_to_bgr & (1 << i)) {
+         emit_buff(ctx, "fsout_c%d = fsout_c%d.zyxw;\n", i, i);
+      }
+   }
+}
+
 static void handle_fragment_proc_exit(struct dump_ctx *ctx)
 {
     if (ctx->key->pstipple_tex)
@@ -2041,8 +2050,12 @@ static void handle_fragment_proc_exit(struct dump_ctx *ctx)
     if (ctx->key->add_alpha_test)
        emit_alpha_test(ctx);
 
+
     if (ctx->key->fs_logicop_enabled)
        emit_fragment_logicop(ctx);
+
+    if (ctx->key->fs_swizzle_output_rgb_to_bgr)
+       emit_cbuf_swizzle(ctx);
 
     if (ctx->write_all_cbufs)
        emit_cbuf_writes(ctx);

@@ -49,6 +49,10 @@ const char *tweak_debug_table[] = {
    [virgl_tweak_gles_brga_emulate] =
    "GLES: Skip linearization in blits to BGRA_UNORM surfaces",
 
+   [virgl_tweak_gles_brga_apply_dest_swizzle] =
+   "GLES: Apply dest swizzle when a BGRA surface is emulated by an RGBA surface",
+
+   [virgl_tweak_gles_tf3_samples_passes_multiplier] =
    [virgl_tweak_undefined] = "Undefined tweak"
 };
 
@@ -83,6 +87,11 @@ struct {
 } tweak_table [] = {
    { virgl_tweak_gles_brga_emulate, "emu-bgra",
      "Emulate BGRA_UNORM and BGRA_SRB by using swizzled RGBA formats" },
+
+   { virgl_tweak_gles_brga_apply_dest_swizzle, "bgra-dest-swz",
+     "Apply the destination swizzle of emulated BGRA surfaces in blits"},
+
+   { virgl_tweak_gles_tf3_samples_passes_multiplier, "samples-passed",
    { virgl_tweak_undefined, NULL, NULL}
 };
 

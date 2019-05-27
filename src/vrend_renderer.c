@@ -596,6 +596,7 @@ struct vrend_sub_context {
    struct vrend_abo abo[PIPE_MAX_HW_ATOMIC_BUFFERS];
    uint32_t abo_used_mask;
    struct vrend_context_tweaks tweaks;
+   uint8_t swizzle_output_rgb_to_bgr;
 };
 
 struct vrend_context {
@@ -2259,6 +2260,22 @@ static void vrend_hw_emit_framebuffer_state(struct vrend_context *ctx)
          glDisable(GL_FRAMEBUFFER_SRGB_EXT);
       }
    }
+
+   if (vrend_state.use_gles &&
+       vrend_get_tweak_is_active(&ctx->sub->tweaks, virgl_tweak_gles_brga_apply_dest_swizzle)) {
+      ctx->sub->swizzle_output_rgb_to_bgr = 0;
+      for (int i = 0; i < ctx->sub->nr_cbufs; i++) {
+         if (ctx->sub->surf[i]) {
+            struct vrend_surface *surf = ctx->sub->surf[i];
+            if (surf->texture->base.bind & VIRGL_BIND_PREFER_EMULATED_BGRA) {
+               VREND_DEBUG(dbg_tweak, ctx, "Swizzled BGRA output for 0x%x (%s)\n", i, util_format_name(surf->format));
+               ctx->sub->swizzle_output_rgb_to_bgr |= 1 << i;
+            }
+         }
+      }
+
+   }
+
    glDrawBuffers(ctx->sub->nr_cbufs, buffers);
 }
 
@@ -3043,6 +3060,9 @@ static inline void vrend_fill_shader_key(struct vrend_context *ctx,
    key->invert_fs_origin = !ctx->sub->inverted_fbo_content;
    key->coord_replace = ctx->sub->rs_state.point_quad_rasterization ? ctx->sub->rs_state.sprite_coord_enable : 0;
    key->winsys_adjust_y_emitted = false;
+
+   if (type == PIPE_SHADER_FRAGMENT)
+      key->fs_swizzle_output_rgb_to_bgr = ctx->sub->swizzle_output_rgb_to_bgr;
 
    if (ctx->sub->shaders[PIPE_SHADER_GEOMETRY])
       key->gs_present = true;
@@ -4177,7 +4197,7 @@ int vrend_draw_vbo(struct vrend_context *ctx,
    if (ctx->sub->blend_state_dirty)
       vrend_patch_blend_state(ctx);
 
-   if (ctx->sub->shader_dirty) {
+   if (ctx->sub->shader_dirty || ctx->sub->swizzle_output_rgb_to_bgr) {
       struct vrend_linked_shader_program *prog;
       bool fs_dirty, vs_dirty, gs_dirty, tcs_dirty, tes_dirty;
       bool dual_src = util_blend_state_is_dual(&ctx->sub->blend_state, 0);
@@ -7864,6 +7884,7 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
    int n_layers = 1, i;
    bool use_gl = false;
    bool make_intermediate_copy = false;
+   bool skip_dest_swizzle = false;
    GLuint intermediate_fbo = 0;
    struct vrend_resource *intermediate_copy = 0;
 
@@ -7946,8 +7967,16 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
    if (info->src.box.depth != info->dst.box.depth)
       use_gl = true;
 
-   if (vrend_blit_needs_swizzle(info->dst.format, info->src.format))
+   if (vrend_blit_needs_swizzle(vrend_format_replace_emulated(dst_res->base.bind, info->dst.format),
+                                vrend_format_replace_emulated(src_res->base.bind, info->src.format))) {
       use_gl = true;
+
+      if (vrend_state.use_gles &&
+          (dst_res->base.bind & VIRGL_BIND_PREFER_EMULATED_BGRA) &&
+          !vrend_get_tweak_is_active(&ctx->sub->tweaks, virgl_tweak_gles_brga_apply_dest_swizzle)) {
+         skip_dest_swizzle = true;
+      }
+   }
 
    if ((src_res->base.format != info->src.format) && has_feature(feat_texture_view))
       blitter_views[0] = vrend_make_view(src_res, info->src.format);
@@ -7960,7 +7989,8 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
       VREND_DEBUG(dbg_blit, ctx, "BLIT_INT: use GL fallback\n");
       vrend_renderer_blit_gl(ctx, src_res, dst_res, blitter_views, info,
                              has_feature(feat_texture_srgb_decode),
-                             has_feature(feat_srgb_write_control));
+                             has_feature(feat_srgb_write_control),
+                             skip_dest_swizzle);
       vrend_clicbs->make_current(ctx->sub->gl_context);
       goto cleanup;
    }

@@ -440,7 +440,8 @@ void vrend_renderer_blit_gl(struct vrend_context *ctx,
                             GLenum blit_views[2],
                             const struct pipe_blit_info *info,
                             bool has_texture_srgb_decode,
-                            bool has_srgb_write_control);
+                            bool has_srgb_write_control,
+                            bool skip_dest_swizzle);
 void vrend_blitter_fini(void);
 
 void vrend_renderer_reset(void);
