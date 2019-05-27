@@ -374,7 +374,7 @@ START_TEST(virgl_test_transfer_1d_bad_iov_offset)
 }
 END_TEST
 
-START_TEST(virgl_test_transfer_1d_bad_layer_stride)
+START_TEST(virgl_test_transfer_1d_strides_are_ignored)
 {
     struct virgl_renderer_resource_create_args res;
     unsigned char data[50*4];
@@ -382,6 +382,7 @@ START_TEST(virgl_test_transfer_1d_bad_layer_stride)
     int niovs = 1;
     int ret;
     struct virgl_box box = { .w = 50, .h = 1, .d = 1 };
+    int bad_stride = box.w - 1;
 
     testvirgl_init_simple_1d_resource(&res, 1);
     res.target = PIPE_TEXTURE_1D;
@@ -392,8 +393,12 @@ START_TEST(virgl_test_transfer_1d_bad_layer_stride)
 
     virgl_renderer_ctx_attach_resource(1, res.handle);
 
-    ret = virgl_renderer_transfer_write_iov(res.handle, 1, 0, 0, 50, &box, 0, &iov, niovs);
-    ck_assert_int_eq(ret, EINVAL);
+    ret = virgl_renderer_transfer_write_iov(res.handle, 1, 0, bad_stride, 0,
+                                            &box, 0, &iov, niovs);
+    ck_assert_int_eq(ret, 0);
+    ret = virgl_renderer_transfer_write_iov(res.handle, 1, 0, 0, bad_stride,
+                                            &box, 0, &iov, niovs);
+    ck_assert_int_eq(ret, 0);
 
     virgl_renderer_ctx_detach_resource(1, res.handle);
 
@@ -401,7 +406,7 @@ START_TEST(virgl_test_transfer_1d_bad_layer_stride)
 }
 END_TEST
 
-START_TEST(virgl_test_transfer_2d_bad_layer_stride)
+START_TEST(virgl_test_transfer_2d_layer_stride_is_ignored)
 {
     struct virgl_renderer_resource_create_args res;
     unsigned char data[50*4];
@@ -409,6 +414,7 @@ START_TEST(virgl_test_transfer_2d_bad_layer_stride)
     int niovs = 1;
     int ret;
     struct virgl_box box = { .w = 50, .h = 1, .d = 1 };
+    int bad_stride = box.w - 1;
 
     testvirgl_init_simple_2d_resource(&res, 1);
 
@@ -417,8 +423,9 @@ START_TEST(virgl_test_transfer_2d_bad_layer_stride)
 
     virgl_renderer_ctx_attach_resource(1, res.handle);
 
-    ret = virgl_renderer_transfer_write_iov(res.handle, 1, 0, 0, 50, &box, 0, &iov, niovs);
-    ck_assert_int_eq(ret, EINVAL);
+    ret = virgl_renderer_transfer_write_iov(res.handle, 1, 0, 0, bad_stride,
+                                            &box, 0, &iov, niovs);
+    ck_assert_int_eq(ret, 0);
 
     virgl_renderer_ctx_detach_resource(1, res.handle);
 
@@ -426,7 +433,7 @@ START_TEST(virgl_test_transfer_2d_bad_layer_stride)
 }
 END_TEST
 
-START_TEST(virgl_test_transfer_buffer_bad_layer_stride)
+START_TEST(virgl_test_transfer_buffer_strides_are_ignored)
 {
     struct virgl_renderer_resource_create_args res;
     unsigned char data[50*4];
@@ -434,6 +441,7 @@ START_TEST(virgl_test_transfer_buffer_bad_layer_stride)
     int niovs = 1;
     int ret;
     struct virgl_box box = { .w = 50, .h = 1, .d = 1 };
+    int bad_stride = box.w - 1;
 
     testvirgl_init_simple_buffer(&res, 1);
 
@@ -442,8 +450,12 @@ START_TEST(virgl_test_transfer_buffer_bad_layer_stride)
 
     virgl_renderer_ctx_attach_resource(1, res.handle);
 
-    ret = virgl_renderer_transfer_write_iov(res.handle, 1, 0, 0, 50, &box, 0, &iov, niovs);
-    ck_assert_int_eq(ret, EINVAL);
+    ret = virgl_renderer_transfer_write_iov(res.handle, 1, 0, bad_stride, 0,
+                                            &box, 0, &iov, niovs);
+    ck_assert_int_eq(ret, 0);
+    ret = virgl_renderer_transfer_write_iov(res.handle, 1, 0, bad_stride, 0,
+                                            &box, 0, &iov, niovs);
+    ck_assert_int_eq(ret, 0);
 
     virgl_renderer_ctx_detach_resource(1, res.handle);
 
@@ -944,9 +956,9 @@ static Suite *virgl_init_suite(void)
   tcase_add_test(tc_core, virgl_test_transfer_1d);
   tcase_add_test(tc_core, virgl_test_transfer_1d_bad_iov);
   tcase_add_test(tc_core, virgl_test_transfer_1d_bad_iov_offset);
-  tcase_add_test(tc_core, virgl_test_transfer_1d_bad_layer_stride);
-  tcase_add_test(tc_core, virgl_test_transfer_2d_bad_layer_stride);
-  tcase_add_test(tc_core, virgl_test_transfer_buffer_bad_layer_stride);
+  tcase_add_test(tc_core, virgl_test_transfer_1d_strides_are_ignored);
+  tcase_add_test(tc_core, virgl_test_transfer_2d_layer_stride_is_ignored);
+  tcase_add_test(tc_core, virgl_test_transfer_buffer_strides_are_ignored);
   tcase_add_test(tc_core, virgl_test_transfer_2d_array_bad_layer_stride);
   tcase_add_test(tc_core, virgl_test_transfer_2d_bad_level);
   tcase_add_test(tc_core, virgl_test_transfer_2d_bad_stride);

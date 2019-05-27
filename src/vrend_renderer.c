@@ -6437,16 +6437,7 @@ static bool check_iov_bounds(struct vrend_resource *res,
 
    valid_layer_stride = util_format_get_2d_size(res->base.format, valid_stride,
                                                 info->box->height);
-
-   /* layer stride only makes sense for 3d,cube and arrays */
    if (info->layer_stride) {
-      if ((res->base.target != PIPE_TEXTURE_3D &&
-           res->base.target != PIPE_TEXTURE_CUBE &&
-           res->base.target != PIPE_TEXTURE_1D_ARRAY &&
-           res->base.target != PIPE_TEXTURE_2D_ARRAY &&
-           res->base.target != PIPE_TEXTURE_CUBE_ARRAY))
-         return false;
-
       /* only validate passed in layer_stride for boxes with depth */
       if (info->box->depth > 1) {
          if (info->layer_stride < valid_layer_stride)
