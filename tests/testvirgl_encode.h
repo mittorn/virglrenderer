@@ -149,6 +149,13 @@ int virgl_encoder_transfer(struct virgl_context *ctx,
                            const struct pipe_box *box,
                            unsigned offset, unsigned direction);
 
+int virgl_encoder_transfer_with_stride(struct virgl_context *ctx,
+                                       struct virgl_resource *res,
+                                       unsigned level, unsigned usage,
+                                       const struct pipe_box *box,
+                                       unsigned offset, unsigned direction,
+                                       unsigned stride, unsigned layer_stride);
+
 int virgl_encoder_copy_transfer(struct virgl_context *ctx,
                                 struct virgl_resource *res,
                                 unsigned level, unsigned usage,

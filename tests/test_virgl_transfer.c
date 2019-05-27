@@ -932,6 +932,35 @@ START_TEST(virgl_test_copy_transfer_to_staging_with_iov_succeeds)
 }
 END_TEST
 
+START_TEST(virgl_test_transfer_near_res_bounds_with_stride_succeeds)
+{
+  struct virgl_context ctx = {0};
+  struct virgl_resource res = {0};
+  int res_width = 4;
+  int res_height = 3;
+  int res_stride = res_width * 4;
+  struct pipe_box box = {.x = 2, .y = 1, .z = 0, .width = 2, .height = 2, .depth = 1};
+  int ret;
+
+  ret = testvirgl_init_ctx_cmdbuf(&ctx);
+  ck_assert_int_eq(ret, 0);
+
+  ret = testvirgl_create_backed_simple_2d_res(&res, 1, res_width, res_height);
+  ck_assert_int_eq(ret, 0);
+  virgl_renderer_ctx_attach_resource(ctx.ctx_id, res.handle);
+
+  virgl_encoder_transfer_with_stride(&ctx, &res, 0, 0, &box, 6 * 4, VIRGL_TRANSFER_TO_HOST,
+                                     res_stride, 0);
+
+  ret = virgl_renderer_submit_cmd(ctx.cbuf->buf, ctx.ctx_id, ctx.cbuf->cdw);
+  ck_assert_int_eq(ret, 0);
+
+  virgl_renderer_ctx_detach_resource(ctx.ctx_id, res.handle);
+  testvirgl_destroy_backed_res(&res);
+  testvirgl_fini_ctx_cmdbuf(&ctx);
+}
+END_TEST
+
 static Suite *virgl_init_suite(void)
 {
   Suite *s;
@@ -983,6 +1012,11 @@ static Suite *virgl_init_suite(void)
   tcase_add_test(tc_core, virgl_test_copy_transfer_from_staging_with_iov_succeeds);
   tcase_add_test(tc_core, virgl_test_copy_transfer_to_staging_without_iov_fails);
   tcase_add_test(tc_core, virgl_test_copy_transfer_to_staging_with_iov_succeeds);
+
+  suite_add_tcase(s, tc_core);
+
+  tc_core = tcase_create("transfer_command_bounds");
+  tcase_add_test(tc_core, virgl_test_transfer_near_res_bounds_with_stride_succeeds);
 
   suite_add_tcase(s, tc_core);
 

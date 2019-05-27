@@ -569,10 +569,21 @@ int virgl_encoder_transfer(struct virgl_context *ctx,
                            const struct pipe_box *box,
                            unsigned offset, unsigned direction)
 {
+  return virgl_encoder_transfer_with_stride(ctx, res, level, usage, box,
+                                            offset, direction, 0, 0);
+}
+
+int virgl_encoder_transfer_with_stride(struct virgl_context *ctx,
+                                       struct virgl_resource *res,
+                                       unsigned level, unsigned usage,
+                                       const struct pipe_box *box,
+                                       unsigned offset, unsigned direction,
+                                       unsigned stride, unsigned layer_stride)
+{
    uint32_t command;
    command = VIRGL_CMD0(VIRGL_CCMD_TRANSFER3D, 0, VIRGL_TRANSFER3D_SIZE);
    virgl_encoder_write_dword(ctx->cbuf, command);
-   virgl_encoder_transfer3d_common(ctx, res, level, usage, box, 0, 0);
+   virgl_encoder_transfer3d_common(ctx, res, level, usage, box, stride, layer_stride);
    virgl_encoder_write_dword(ctx->cbuf, offset);
    virgl_encoder_write_dword(ctx->cbuf, direction);
    return 0;

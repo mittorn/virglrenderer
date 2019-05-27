@@ -6416,42 +6416,95 @@ static bool check_transfer_bounds(struct vrend_resource *res,
    return true;
 }
 
+/* Calculate the size of the memory needed to hold all the data of a
+ * transfer for particular stride values.
+ */
+static uint64_t vrend_transfer_size(struct vrend_resource *vres,
+                                    const struct vrend_transfer_info *info,
+                                    uint32_t stride, uint32_t layer_stride)
+{
+   struct pipe_resource *pres = &vres->base;
+   struct pipe_box *box = info->box;
+   uint64_t size;
+   /* For purposes of size calculation, assume that invalid dimension values
+    * correspond to 1.
+    */
+   int w = box->width > 0 ? box->width : 1;
+   int h = box->height > 0 ? box->height : 1;
+   int d = box->depth > 0 ? box->depth : 1;
+   int nblocksx = util_format_get_nblocksx(pres->format, w);
+   int nblocksy = util_format_get_nblocksy(pres->format, h);
+
+   /* Calculate the box size, not including the last layer. The last layer
+    * is the only one which may be incomplete, and is the only layer for
+    * non 3d/2d-array formats.
+    */
+   size = (d - 1) * layer_stride;
+   /* Calculate the size of the last (or only) layer, not including the last
+    * block row. The last block row is the only one which may be incomplete and
+    * is the only block row for non 2d/1d-array formats.
+    */
+   size += (nblocksy - 1) * stride;
+   /* Calculate the size of the the last (or only) block row. */
+   size += nblocksx * util_format_get_blocksize(pres->format);
+
+   return size;
+}
+
 static bool check_iov_bounds(struct vrend_resource *res,
                              const struct vrend_transfer_info *info,
                              struct iovec *iov, int num_iovs)
 {
-   GLuint send_size;
+   GLuint transfer_size;
    GLuint iovsize = vrend_get_iovec_size(iov, num_iovs);
    GLuint valid_stride, valid_layer_stride;
 
-   /* validate the send size */
-   valid_stride = util_format_get_stride(res->base.format, info->box->width);
-   if (info->stride) {
-      /* only validate passed in stride for boxes with height */
-      if (info->box->height > 1) {
-         if (info->stride < valid_stride)
-            return false;
-         valid_stride = info->stride;
-      }
+   /* If the transfer specifies a stride, verify that it's at least as large as
+    * the minimum required for the transfer. If no stride is specified use the
+    * image stride for the specified level. For backward compatibility, we only
+    * use any guest-specified transfer stride for boxes with height.
+    */
+   if (info->stride && info->box->height > 1) {
+      GLuint min_stride = util_format_get_stride(res->base.format, info->box->width);
+      if (info->stride < min_stride)
+         return false;
+      valid_stride = info->stride;
+   } else {
+      valid_stride = util_format_get_stride(res->base.format,
+                                            u_minify(res->base.width0, info->level));
    }
 
-   valid_layer_stride = util_format_get_2d_size(res->base.format, valid_stride,
-                                                info->box->height);
-   if (info->layer_stride) {
-      /* only validate passed in layer_stride for boxes with depth */
-      if (info->box->depth > 1) {
-         if (info->layer_stride < valid_layer_stride)
-            return false;
-         valid_layer_stride = info->layer_stride;
-      }
+   /* If the transfer specifies a layer_stride, verify that it's at least as
+    * large as the minimum required for the transfer. If no layer_stride is
+    * specified use the image layer_stride for the specified level. For
+    * backward compatibility, we only use any guest-specified transfer
+    * layer_stride for boxes with depth.
+    */
+   if (info->layer_stride && info->box->depth > 1) {
+      GLuint min_layer_stride = util_format_get_2d_size(res->base.format,
+                                                        valid_stride,
+                                                        info->box->height);
+      if (info->layer_stride < min_layer_stride)
+         return false;
+      valid_layer_stride = info->layer_stride;
+   } else {
+      valid_layer_stride =
+         util_format_get_2d_size(res->base.format, valid_stride,
+                                 u_minify(res->base.height0, info->level));
    }
 
-   send_size = valid_layer_stride * info->box->depth;
+   /* Calculate the size required for the transferred data, based on the
+    * calculated or provided strides, and ensure that the iov, starting at the
+    * specified offset, is able to hold at least that size.
+    */
+   transfer_size = vrend_transfer_size(res, info,
+                                       valid_stride,
+                                       valid_layer_stride);
    if (iovsize < info->offset)
       return false;
-   if (iovsize < send_size)
+   if (iovsize < transfer_size)
       return false;
-   if (iovsize < info->offset + send_size)
+   if (iovsize < info->offset + transfer_size)
       return false;
 
    return true;
