@@ -5300,6 +5300,30 @@ void vrend_bind_sampler_states(struct vrend_context *ctx,
    ctx->sub->sampler_views_dirty[shader_type] |= dirty;
 }
 
+static bool get_swizzled_border_color(enum pipe_format fmt,
+                                      union pipe_color_union *in_border_color,
+                                      union pipe_color_union *out_border_color)
+{
+   const struct vrend_format_table *fmt_entry = vrend_get_format_table_entry(fmt);
+   if (vrend_state.use_gles &&
+       (fmt_entry->flags & VIRGL_TEXTURE_CAN_TEXTURE_STORAGE) &&
+       (fmt_entry->bindings & VIRGL_BIND_PREFER_EMULATED_BGRA)) {
+      for (int i = 0; i < 4; ++i) {
+         int swz = fmt_entry->swizzle[i];
+         switch (swz) {
+         case PIPE_SWIZZLE_ZERO: out_border_color->ui[i] = 0;
+            break;
+         case PIPE_SWIZZLE_ONE: out_border_color->ui[i] = 1;
+            break;
+         default:
+            out_border_color->ui[i] = in_border_color->ui[swz];
+         }
+      }
+      return true;
+   }
+   return false;
+}
+
 static void vrend_apply_sampler_state(struct vrend_context *ctx,
                                       struct vrend_resource *res,
                                       uint32_t shader_type,
@@ -5341,6 +5365,10 @@ static void vrend_apply_sampler_state(struct vrend_context *ctx,
          border_color.ui[0] = border_color.ui[3];
          border_color.ui[3] = 0;
          glSamplerParameterIuiv(sampler, GL_TEXTURE_BORDER_COLOR, border_color.ui);
+      } else {
+         union pipe_color_union border_color;
+         if (get_swizzled_border_color(tview->format, &state->border_color, &border_color))
+            glSamplerParameterIuiv(sampler, GL_TEXTURE_BORDER_COLOR, border_color.ui);
       }
 
       glBindSampler(sampler_id, sampler);
@@ -5403,8 +5431,14 @@ static void vrend_apply_sampler_state(struct vrend_context *ctx,
          border_color.ui[0] = border_color.ui[3];
          border_color.ui[3] = 0;
          glTexParameterIuiv(target, GL_TEXTURE_BORDER_COLOR, border_color.ui);
-      } else
-         glTexParameterIuiv(target, GL_TEXTURE_BORDER_COLOR, state->border_color.ui);
+      } else {
+         union pipe_color_union border_color;
+         if (get_swizzled_border_color(tview->format, &state->border_color, &border_color))
+            glTexParameterIuiv(target, GL_TEXTURE_BORDER_COLOR, border_color.ui);
+         else
+            glTexParameterIuiv(target, GL_TEXTURE_BORDER_COLOR, state->border_color.ui);
+      }
+
    }
    tex->state = *state;
 }
