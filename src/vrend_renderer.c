@@ -60,6 +60,8 @@
 /* debugging via KHR_debug extension */
 int vrend_use_debug_cb = 0;
 
+static const uint32_t fake_occlusion_query_samples_passed_default = 1024;
+
 struct vrend_if_cbs *vrend_clicbs;
 
 struct vrend_fence {
@@ -79,6 +81,7 @@ struct vrend_query {
    int ctx_id;
    struct vrend_resource *res;
    uint64_t current_total;
+   bool fake_samples_passed;
 };
 
 struct global_error_state {
@@ -601,6 +604,7 @@ struct vrend_sub_context {
    uint32_t abo_used_mask;
    struct vrend_context_tweaks tweaks;
    uint8_t swizzle_output_rgb_to_bgr;
+   int fake_occlusion_query_samples_passed_multiplier;
 };
 
 struct vrend_context {
@@ -721,7 +725,8 @@ static const char *vrend_ctx_error_strings[] = {
    [VIRGL_ERROR_CTX_ILLEGAL_SURFACE]       = "Illegal surface",
    [VIRGL_ERROR_CTX_ILLEGAL_VERTEX_FORMAT] = "Illegal vertex format",
    [VIRGL_ERROR_CTX_ILLEGAL_CMD_BUFFER]    = "Illegal command buffer",
-   [VIRGL_ERROR_CTX_GLES_HAVE_TES_BUT_MISS_TCS] = "On GLES context and shader program has tesselation evaluation shader but no tesselation control shader"
+   [VIRGL_ERROR_CTX_GLES_HAVE_TES_BUT_MISS_TCS] = "On GLES context and shader program has tesselation evaluation shader but no tesselation control shader",
+   [VIRGL_ERROR_GL_ANY_SAMPLES_PASSED] = "Query for ANY_SAMPLES_PASSED not supported",
 };
 
 static void __report_context_error(const char *fname, struct vrend_context *ctx,
@@ -8354,6 +8359,19 @@ static bool vrend_get_one_query_result(GLuint query_id, bool use_64, uint64_t *r
    return true;
 }
 
+static inline void
+vrend_update_oq_samples_multiplier(struct vrend_context *ctx)
+{
+   if (!vrend_state.current_ctx->sub->fake_occlusion_query_samples_passed_multiplier) {
+      uint32_t multiplier = 0;
+      bool tweaked = vrend_get_tweak_is_active_with_params(vrend_get_context_tweaks(ctx),
+                                                           virgl_tweak_gles_tf3_samples_passes_multiplier, &multiplier);
+      vrend_state.current_ctx->sub->fake_occlusion_query_samples_passed_multiplier =
+            tweaked ? multiplier: fake_occlusion_query_samples_passed_default;
+   }
+}
+
+
 static bool vrend_check_query(struct vrend_query *query)
 {
    struct virgl_host_query_state state;
@@ -8364,6 +8382,14 @@ static bool vrend_check_query(struct vrend_query *query)
          &state.result);
    if (ret == false)
       return false;
+
+   /* We got a boolean, but the client wanted the actual number of samples
+    * blow the number up so that the client doesn't think it was just one pixel
+    * and discards an object that might be bigger */
+   if (query->fake_samples_passed) {
+      vrend_update_oq_samples_multiplier(vrend_state.current_ctx);
+      state.result *=  vrend_state.current_ctx->sub->fake_occlusion_query_samples_passed_multiplier;
+   }
 
    state.query_state = VIRGL_QUERY_STATE_DONE;
 
@@ -8441,9 +8467,24 @@ int vrend_create_query(struct vrend_context *ctx, uint32_t handle,
    struct vrend_query *q;
    struct vrend_resource *res;
    uint32_t ret_handle;
+   bool fake_samples_passed = false;
    res = vrend_renderer_ctx_res_lookup(ctx, res_handle);
    if (!res || res->storage != VREND_RESOURCE_STORAGE_GUEST_ELSE_SYSTEM) {
       report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, res_handle);
+      return EINVAL;
+   }
+
+   /* If we don't have ARB_occlusion_query, at least try to fake GL_SAMPLES_PASSED
+    * by using GL_ANY_SAMPLES_PASSED (i.e. EXT_occlusion_query_boolean) */
+   if (!has_feature(feat_occlusion_query) && query_type == PIPE_QUERY_OCCLUSION_COUNTER) {
+      VREND_DEBUG(dbg_query, ctx, "GL_SAMPLES_PASSED not supported will try GL_ANY_SAMPLES_PASSED\n");
+      query_type = PIPE_QUERY_OCCLUSION_PREDICATE;
+      fake_samples_passed = true;
+   }
+
+   if (query_type == PIPE_QUERY_OCCLUSION_PREDICATE &&
+       !has_feature(feat_occlusion_query_boolean)) {
+      report_context_error(ctx, VIRGL_ERROR_GL_ANY_SAMPLES_PASSED, res_handle);
       return EINVAL;
    }
 
@@ -8455,6 +8496,7 @@ int vrend_create_query(struct vrend_context *ctx, uint32_t handle,
    q->type = query_type;
    q->index = query_index;
    q->ctx_id = ctx->ctx_id;
+   q->fake_samples_passed = fake_samples_passed;
 
    vrend_resource_reference(&q->res, res);
 
@@ -8463,8 +8505,11 @@ int vrend_create_query(struct vrend_context *ctx, uint32_t handle,
       q->gltype = GL_SAMPLES_PASSED_ARB;
       break;
    case PIPE_QUERY_OCCLUSION_PREDICATE:
-      q->gltype = GL_ANY_SAMPLES_PASSED;
-      break;
+      if (has_feature(feat_occlusion_query_boolean)) {
+         q->gltype = GL_ANY_SAMPLES_PASSED;
+         break;
+      } else
+         return EINVAL;
    case PIPE_QUERY_TIMESTAMP:
       if (!has_feature(feat_timer_query))
          return EINVAL;
@@ -8594,6 +8639,13 @@ void vrend_get_query_result(struct vrend_context *ctx, uint32_t handle,
    }
 }
 
+#define COPY_QUERY_RESULT_TO_BUFFER(resid, offset, pvalue, size, multiplier) \
+    glBindBuffer(GL_QUERY_BUFFER, resid); \
+    value *= multiplier; \
+    void* buf = glMapBufferRange(GL_QUERY_BUFFER, offset, size, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_RANGE_BIT); \
+    if (buf) memcpy(buf, &value, size); \
+    glUnmapBuffer(GL_QUERY_BUFFER);
+
 #define BUFFER_OFFSET(i) ((void *)((char *)NULL + i))
 void vrend_get_query_result_qbo(struct vrend_context *ctx, uint32_t handle,
                                 uint32_t qbo_handle,
@@ -8616,7 +8668,8 @@ void vrend_get_query_result_qbo(struct vrend_context *ctx, uint32_t handle,
      return;
   }
 
-  glBindBuffer(GL_QUERY_BUFFER, res->id);
+  VREND_DEBUG(dbg_query, ctx, "Get query result from Query:%d\n", q->id);
+
   GLenum qtype;
 
   if (index == -1)
@@ -8624,19 +8677,56 @@ void vrend_get_query_result_qbo(struct vrend_context *ctx, uint32_t handle,
   else
      qtype = wait ? GL_QUERY_RESULT : GL_QUERY_RESULT_NO_WAIT;
 
-  switch ((enum pipe_query_value_type)result_type) {
-  case PIPE_QUERY_TYPE_I32:
-     glGetQueryObjectiv(q->id, qtype, BUFFER_OFFSET(offset));
-     break;
-  case PIPE_QUERY_TYPE_U32:
-     glGetQueryObjectuiv(q->id, qtype, BUFFER_OFFSET(offset));
-     break;
-  case PIPE_QUERY_TYPE_I64:
-     glGetQueryObjecti64v(q->id, qtype, BUFFER_OFFSET(offset));
-     break;
-  case PIPE_QUERY_TYPE_U64:
-     glGetQueryObjectui64v(q->id, qtype, BUFFER_OFFSET(offset));
-     break;
+  if (!q->fake_samples_passed) {
+     glBindBuffer(GL_QUERY_BUFFER, res->id);
+     switch ((enum pipe_query_value_type)result_type) {
+     case PIPE_QUERY_TYPE_I32:
+        glGetQueryObjectiv(q->id, qtype, BUFFER_OFFSET(offset));
+        break;
+     case PIPE_QUERY_TYPE_U32:
+        glGetQueryObjectuiv(q->id, qtype, BUFFER_OFFSET(offset));
+        break;
+     case PIPE_QUERY_TYPE_I64:
+        glGetQueryObjecti64v(q->id, qtype, BUFFER_OFFSET(offset));
+        break;
+     case PIPE_QUERY_TYPE_U64:
+        glGetQueryObjectui64v(q->id, qtype, BUFFER_OFFSET(offset));
+        break;
+     }
+  } else {
+     VREND_DEBUG(dbg_query, ctx, "Was emulating GL_PIXELS_PASSED by GL_ANY_PIXELS_PASSED, artifically upscaling the result\n");
+     /* The application expects a sample count but we have only a boolean
+      * so we blow the result up by 1/10 of the screen space to make sure the
+      * app doesn't think only one sample passed. */
+     vrend_update_oq_samples_multiplier(ctx);
+     switch ((enum pipe_query_value_type)result_type) {
+     case PIPE_QUERY_TYPE_I32: {
+        GLint value;
+        glGetQueryObjectiv(q->id, qtype, &value);
+        COPY_QUERY_RESULT_TO_BUFFER(q->id, offset, value, 4, ctx->sub->fake_occlusion_query_samples_passed_multiplier);
+        break;
+     }
+     case PIPE_QUERY_TYPE_U32: {
+        GLuint value;
+        glGetQueryObjectuiv(q->id, qtype, &value);
+        COPY_QUERY_RESULT_TO_BUFFER(q->id, offset, value, 4, ctx->sub->fake_occlusion_query_samples_passed_multiplier);
+        break;
+     }
+     case PIPE_QUERY_TYPE_I64: {
+        GLint64 value;
+        glGetQueryObjecti64v(q->id, qtype, &value);
+        COPY_QUERY_RESULT_TO_BUFFER(q->id, offset, value, 8, ctx->sub->fake_occlusion_query_samples_passed_multiplier);
+        break;
+     }
+     case PIPE_QUERY_TYPE_U64: {
+        GLuint64 value;
+        glGetQueryObjectui64v(q->id, qtype, &value);
+        COPY_QUERY_RESULT_TO_BUFFER(q->id, offset, value, 8, ctx->sub->fake_occlusion_query_samples_passed_multiplier);
+        break;
+     }
+     }
+
+
   }
 
   glBindBuffer(GL_QUERY_BUFFER, 0);

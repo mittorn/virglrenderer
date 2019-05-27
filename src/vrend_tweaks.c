@@ -37,6 +37,14 @@ bool vrend_get_tweak_is_active_with_params(struct vrend_context_tweaks *ctx, enu
 {
    if (!(ctx->active_tweaks & (1u << t)))
       return false;
+
+   switch (t) {
+   case virgl_tweak_gles_tf3_samples_passes_multiplier:
+      get_tf3_samples_passed_factor(ctx, params); break;
+   default:
+      ;
+   }
+
    return true;
 }
 
@@ -53,6 +61,8 @@ const char *tweak_debug_table[] = {
    "GLES: Apply dest swizzle when a BGRA surface is emulated by an RGBA surface",
 
    [virgl_tweak_gles_tf3_samples_passes_multiplier] =
+    "GLES: Value to return when emulating GL_SAMPLES_PASSES by using GL_ANY_SAMPLES_PASSES",
+
    [virgl_tweak_undefined] = "Undefined tweak"
 };
 
@@ -60,13 +70,28 @@ static void set_tweak_and_params(struct vrend_context_tweaks *ctx,
                                  enum vrend_tweak_type t, uint32_t value)
 {
    ctx->active_tweaks |= 1u << t;
+
+   switch (t) {
+   case virgl_tweak_gles_tf3_samples_passes_multiplier:
+      ctx->tf3_samples_passed_factor = value;
+      break;
+   default:
+      ;
+   }
 }
 
 static void set_tweak_and_params_from_string(struct vrend_context_tweaks *ctx,
                                              enum vrend_tweak_type t, const char *value)
 {
    ctx->active_tweaks |= 1u << t;
-   (void)value;
+
+   switch (t) {
+   case virgl_tweak_gles_tf3_samples_passes_multiplier:
+      ctx->tf3_samples_passed_factor = value ? atoi(value) : 2048;
+      break;
+   default:
+      ;
+   }
 }
 
 /* we expect a string like tweak1:value,tweak2:value */
@@ -92,6 +117,8 @@ struct {
      "Apply the destination swizzle of emulated BGRA surfaces in blits"},
 
    { virgl_tweak_gles_tf3_samples_passes_multiplier, "samples-passed",
+     "Return this value when GL_SAMPLES_PASSED is emulated by GL_ANY_SAMPLES_PASSED"},
+
    { virgl_tweak_undefined, NULL, NULL}
 };
 
