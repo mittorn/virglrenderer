@@ -5977,7 +5977,9 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
    GLenum internalformat, glformat, gltype;
    struct vrend_texture *gt = (struct vrend_texture *)gr;
    struct pipe_resource *pr = &gr->base;
-   assert(pr->width0 > 0);
+
+   if (pr->width0 == 0)
+      return EINVAL;
 
    bool format_can_texture_storage = has_feature(feat_texture_storage) &&
                               (tex_conv_table[pr->format].flags & VIRGL_TEXTURE_CAN_TEXTURE_STORAGE);
@@ -6598,7 +6600,8 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
          data = (char*)iov[0].iov_base + info->offset;
       }
 
-      if (stride && !need_temp) {
+      if (!need_temp) {
+         assert(stride);
          glPixelStorei(GL_UNPACK_ROW_LENGTH, stride / elsize);
          glPixelStorei(GL_UNPACK_IMAGE_HEIGHT, layer_stride / stride);
       } else
