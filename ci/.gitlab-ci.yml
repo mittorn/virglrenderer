@@ -73,7 +73,7 @@ make check:
              -v $PWD:/virglrenderer
              $CI_REGISTRY_IMAGE@$DOCKER_IMAGE_DIGEST
              bash -c "/virglrenderer/ci/run_tests.sh --make-check"
-    - echo "\n\n"
+    - echo -e "\nThat's all folks\n"
   only:
     - branches
     - tags
@@ -98,7 +98,7 @@ make check:
              -v $PWD:/virglrenderer
              $CI_REGISTRY_IMAGE@$DOCKER_IMAGE_DIGEST
              bash -c "/virglrenderer/ci/run_tests.sh $TEST_SUITE"
-    - echo "\n\n"
+    - echo -e "\nThat's all folks\n"
   only:
     - merge_requests
     - schedules
