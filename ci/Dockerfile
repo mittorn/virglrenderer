@@ -21,8 +21,8 @@ RUN echo 'exit 101' >> /usr/sbin/policy-rc.d
 RUN chmod +x /usr/sbin/policy-rc.d
 
 RUN echo deb-src http://deb.debian.org/debian testing main >> /etc/apt/sources.list
-RUN apt-get update
-RUN apt-get -y install ca-certificates && \
+RUN apt-get update && \
+    apt-get -y install ca-certificates && \
     apt-get -y install --no-install-recommends \
       autoconf \
       busybox \
@@ -74,16 +74,14 @@ RUN apt-get -y install ca-certificates && \
       xserver-xorg-core \
       xterm \
       xvfb \
-      zlib1g-dev
-
-RUN apt-get -y build-dep --no-install-recommends \
+      zlib1g-dev && \
+    apt-get -y build-dep --no-install-recommends \
       libdrm \
       mesa \
       piglit \
-      virglrenderer
-
-RUN apt-get -y remove valgrind && \
-    apt-get clean
+      virglrenderer && \
+    apt-get -y remove valgrind && \
+    rm -rf /var/lib/apt/lists/*
 
 RUN pip3 install meson
 
