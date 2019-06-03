@@ -232,6 +232,14 @@ run_test_suite()
       printf "Running ${UNRELIABLE_STRING}$TEST_APP-$TEST_NAME on $DRIVER_NAME: "
    fi
 
+   if test $VERIFY_UNRELIABLE_TESTS -eq 1; then
+      TEST_FILE="$IGNORE_TESTS_FILE"
+      if test ! -f $TEST_FILE -o $(wc -l $TEST_FILE | cut -f1 -d' ') -eq 0; then
+         echo "Unreliable: no ignore tests."
+         return 0
+      fi
+   fi
+
    if [ "$TEST_APP" = "piglit" ]; then
 
       # Don't run GLX tests
@@ -239,10 +247,6 @@ run_test_suite()
 
       if [ $VERIFY_UNRELIABLE_TESTS -eq 1 ]; then
          UNRELIABLE_TESTS=$(cat $IGNORE_TESTS_FILE 2>/dev/null)
-         if [[ -z $UNRELIABLE_TESTS ]]; then
-            echo "Ignore - No unreliable tests found"
-            return 0
-         fi
 
          for UNRELIABLE_TEST in $UNRELIABLE_TESTS; do
             PIGLIT_TESTS="$PIGLIT_TESTS -t $UNRELIABLE_TEST"
@@ -266,14 +270,6 @@ run_test_suite()
       RET=$?
 
    elif [ "$TEST_APP" = "deqp" ]; then
-
-      if [ $VERIFY_UNRELIABLE_TESTS -eq 1 ]; then
-         TEST_FILE="$IGNORE_TESTS_FILE"
-         if [ ! -f $TEST_FILE ]; then
-            echo "Ignore - No unreliable tests found"
-            return 0
-         fi
-      fi
 
       deqp  \
          --cts-build-dir $CTS_PATH/build \
