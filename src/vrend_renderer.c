@@ -6481,10 +6481,9 @@ static bool check_iov_bounds(struct vrend_resource *res,
 
    /* If the transfer specifies a stride, verify that it's at least as large as
     * the minimum required for the transfer. If no stride is specified use the
-    * image stride for the specified level. For backward compatibility, we only
-    * use any guest-specified transfer stride for boxes with height.
+    * image stride for the specified level.
     */
-   if (info->stride && info->box->height > 1) {
+   if (info->stride) {
       GLuint min_stride = util_format_get_stride(res->base.format, info->box->width);
       if (info->stride < min_stride)
          return false;
@@ -6496,11 +6495,9 @@ static bool check_iov_bounds(struct vrend_resource *res,
 
    /* If the transfer specifies a layer_stride, verify that it's at least as
     * large as the minimum required for the transfer. If no layer_stride is
-    * specified use the image layer_stride for the specified level. For
-    * backward compatibility, we only use any guest-specified transfer
-    * layer_stride for boxes with depth.
+    * specified use the image layer_stride for the specified level.
     */
-   if (info->layer_stride && info->box->depth > 1) {
+   if (info->layer_stride) {
       GLuint min_layer_stride = util_format_get_2d_size(res->base.format,
                                                         valid_stride,
                                                         info->box->height);

@@ -374,7 +374,7 @@ START_TEST(virgl_test_transfer_1d_bad_iov_offset)
 }
 END_TEST
 
-START_TEST(virgl_test_transfer_1d_strides_are_ignored)
+START_TEST(virgl_test_transfer_1d_bad_strides)
 {
     struct virgl_renderer_resource_create_args res;
     unsigned char data[50*4];
@@ -395,10 +395,10 @@ START_TEST(virgl_test_transfer_1d_strides_are_ignored)
 
     ret = virgl_renderer_transfer_write_iov(res.handle, 1, 0, bad_stride, 0,
                                             &box, 0, &iov, niovs);
-    ck_assert_int_eq(ret, 0);
+    ck_assert_int_eq(ret, EINVAL);
     ret = virgl_renderer_transfer_write_iov(res.handle, 1, 0, 0, bad_stride,
                                             &box, 0, &iov, niovs);
-    ck_assert_int_eq(ret, 0);
+    ck_assert_int_eq(ret, EINVAL);
 
     virgl_renderer_ctx_detach_resource(1, res.handle);
 
@@ -406,7 +406,7 @@ START_TEST(virgl_test_transfer_1d_strides_are_ignored)
 }
 END_TEST
 
-START_TEST(virgl_test_transfer_2d_layer_stride_is_ignored)
+START_TEST(virgl_test_transfer_2d_bad_strides)
 {
     struct virgl_renderer_resource_create_args res;
     unsigned char data[50*4];
@@ -423,9 +423,12 @@ START_TEST(virgl_test_transfer_2d_layer_stride_is_ignored)
 
     virgl_renderer_ctx_attach_resource(1, res.handle);
 
+    ret = virgl_renderer_transfer_write_iov(res.handle, 1, 0, bad_stride, 0,
+                                            &box, 0, &iov, niovs);
+    ck_assert_int_eq(ret, EINVAL);
     ret = virgl_renderer_transfer_write_iov(res.handle, 1, 0, 0, bad_stride,
                                             &box, 0, &iov, niovs);
-    ck_assert_int_eq(ret, 0);
+    ck_assert_int_eq(ret, EINVAL);
 
     virgl_renderer_ctx_detach_resource(1, res.handle);
 
@@ -433,7 +436,7 @@ START_TEST(virgl_test_transfer_2d_layer_stride_is_ignored)
 }
 END_TEST
 
-START_TEST(virgl_test_transfer_buffer_strides_are_ignored)
+START_TEST(virgl_test_transfer_buffer_bad_strides)
 {
     struct virgl_renderer_resource_create_args res;
     unsigned char data[50*4];
@@ -452,10 +455,10 @@ START_TEST(virgl_test_transfer_buffer_strides_are_ignored)
 
     ret = virgl_renderer_transfer_write_iov(res.handle, 1, 0, bad_stride, 0,
                                             &box, 0, &iov, niovs);
-    ck_assert_int_eq(ret, 0);
-    ret = virgl_renderer_transfer_write_iov(res.handle, 1, 0, bad_stride, 0,
+    ck_assert_int_eq(ret, EINVAL);
+    ret = virgl_renderer_transfer_write_iov(res.handle, 1, 0, 0, bad_stride,
                                             &box, 0, &iov, niovs);
-    ck_assert_int_eq(ret, 0);
+    ck_assert_int_eq(ret, EINVAL);
 
     virgl_renderer_ctx_detach_resource(1, res.handle);
 
@@ -511,32 +514,6 @@ START_TEST(virgl_test_transfer_2d_bad_level)
     virgl_renderer_ctx_attach_resource(1, res.handle);
 
     ret = virgl_renderer_transfer_write_iov(res.handle, 1, 2, 0, 0, &box, 0, &iov, niovs);
-    ck_assert_int_eq(ret, EINVAL);
-
-    virgl_renderer_ctx_detach_resource(1, res.handle);
-
-    virgl_renderer_resource_unref(1);
-}
-END_TEST
-
-/* test stride less than box size */
-START_TEST(virgl_test_transfer_2d_bad_stride)
-{
-    struct virgl_renderer_resource_create_args res;
-    unsigned char data[50*4*2];
-    struct iovec iov = { .iov_base = data, .iov_len = sizeof(data) };
-    int niovs = 1;
-    int ret;
-    struct virgl_box box = { .w = 50, .h = 2, .d = 1 };
-
-    testvirgl_init_simple_2d_resource(&res, 1);
-
-    ret = virgl_renderer_resource_create(&res, NULL, 0);
-    ck_assert_int_eq(ret, 0);
-
-    virgl_renderer_ctx_attach_resource(1, res.handle);
-
-    ret = virgl_renderer_transfer_write_iov(res.handle, 1, 0, 10, 0, &box, 0, &iov, niovs);
     ck_assert_int_eq(ret, EINVAL);
 
     virgl_renderer_ctx_detach_resource(1, res.handle);
@@ -985,12 +962,11 @@ static Suite *virgl_init_suite(void)
   tcase_add_test(tc_core, virgl_test_transfer_1d);
   tcase_add_test(tc_core, virgl_test_transfer_1d_bad_iov);
   tcase_add_test(tc_core, virgl_test_transfer_1d_bad_iov_offset);
-  tcase_add_test(tc_core, virgl_test_transfer_1d_strides_are_ignored);
-  tcase_add_test(tc_core, virgl_test_transfer_2d_layer_stride_is_ignored);
-  tcase_add_test(tc_core, virgl_test_transfer_buffer_strides_are_ignored);
+  tcase_add_test(tc_core, virgl_test_transfer_1d_bad_strides);
+  tcase_add_test(tc_core, virgl_test_transfer_2d_bad_strides);
+  tcase_add_test(tc_core, virgl_test_transfer_buffer_bad_strides);
   tcase_add_test(tc_core, virgl_test_transfer_2d_array_bad_layer_stride);
   tcase_add_test(tc_core, virgl_test_transfer_2d_bad_level);
-  tcase_add_test(tc_core, virgl_test_transfer_2d_bad_stride);
 
   tcase_add_loop_test(tc_core, virgl_test_transfer_res_read_valid, 0, PIPE_MAX_TEXTURE_TYPES);
   tcase_add_loop_test(tc_core, virgl_test_transfer_res_write_valid, 0, PIPE_MAX_TEXTURE_TYPES);
