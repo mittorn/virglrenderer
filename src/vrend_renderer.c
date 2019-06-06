@@ -5350,7 +5350,7 @@ static void vrend_apply_sampler_state(struct vrend_context *ctx,
       vrend_printf( "cannot find sampler state for %d %d\n", shader_type, id);
       return;
    }
-   if (res->base.nr_samples > 1) {
+   if (res->base.nr_samples > 0) {
       tex->state = *state;
       return;
    }
@@ -5994,7 +5994,7 @@ static int check_resource_valid(struct vrend_renderer_resource_create_args *args
       return -1;
 
    /* only texture 2d and 2d array can have multiple samples */
-   if (args->nr_samples > 1) {
+   if (args->nr_samples > 0) {
       if (!has_feature(feat_texture_multisample))
          return -1;
 
@@ -7960,7 +7960,7 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
 
    /* for scaled MS blits we either need extensions or hand roll */
    if (info->mask & PIPE_MASK_RGBA &&
-       src_res->base.nr_samples > 1 &&
+       src_res->base.nr_samples > 0 &&
        src_res->base.nr_samples != dst_res->base.nr_samples &&
        (info->src.box.width != info->dst.box.width ||
         info->src.box.height != info->dst.box.height)) {
@@ -7991,9 +7991,9 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
     * source and target format are different. For
     * downsampling DS blits to zero samples we solve this by doing two blits */
    if (vrend_state.use_gles &&
-       (info->mask & PIPE_MASK_RGBA) &&
-       (dst_res->base.nr_samples > 1 ||
-        (src_res->base.nr_samples > 1 &&
+       ((dst_res->base.nr_samples > 0) ||
+        ((info->mask & PIPE_MASK_RGBA) &&
+         (src_res->base.nr_samples > 0) &&
          (info->src.box.x != info->dst.box.x ||
           info->src.box.width != info->dst.box.width ||
           dst_y1 != src_y1 || dst_y2 != src_y2 ||
@@ -8065,7 +8065,7 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
     */
    if (vrend_state.use_gles &&
        (info->mask & PIPE_MASK_ZS) &&
-       ((src_res->base.nr_samples > 1) &&
+       ((src_res->base.nr_samples > 0) &&
         (src_res->base.nr_samples != dst_res->base.nr_samples)) &&
         ((info->src.box.x != info->dst.box.x) ||
          (src_y1 != dst_y1) ||

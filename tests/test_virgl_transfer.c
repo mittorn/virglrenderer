@@ -614,7 +614,7 @@ static void virgl_test_transfer_res(enum pipe_texture_target target,
   int ret;
   int size;
 
-  get_resource_args(target, invalid, &res, &box, 1, 0);
+  get_resource_args(target, invalid, &res, &box, 0, 0);
 
   size = get_box_size(&box, target == PIPE_BUFFER ? 1 : 4);
   data = calloc(1, size);
@@ -677,7 +677,7 @@ static void virgl_test_transfer_inline(enum pipe_texture_target target,
   ret = testvirgl_init_ctx_cmdbuf(&ctx);
   ck_assert_int_eq(ret, 0);
 
-  get_resource_args(target, invalid, &args, &box, 1, large_flags);
+  get_resource_args(target, invalid, &args, &box, 0, large_flags);
 
   size = get_box_size(&box, elsize);
   data = calloc(1, size);

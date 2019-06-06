@@ -380,7 +380,7 @@ static GLuint blit_get_frag_tex_writedepth(struct vrend_blitter_ctx *blit_ctx, i
 {
    assert(pipe_tex_target < PIPE_MAX_TEXTURE_TYPES);
 
-   if (nr_samples > 1) {
+   if (nr_samples > 0) {
       GLuint *shader = &blit_ctx->fs_texfetch_depth_msaa[pipe_tex_target];
 
       if (!*shader) {
@@ -423,7 +423,7 @@ static GLuint blit_get_frag_tex_col(struct vrend_blitter_ctx *blit_ctx,
       unsigned tgsi_tex = util_pipe_tex_to_tgsi_tex(pipe_tex_target, nr_samples);
       enum tgsi_return_type tgsi_ret = tgsi_ret_for_format(src_entry->format);
 
-      if (nr_samples > 1) {
+      if (nr_samples > 0) {
          // Integer textures are resolved using just one sample
          int msaa_samples = tgsi_ret == TGSI_RETURN_TYPE_UNORM ? nr_samples : 1;
          *shader = blit_build_frag_tex_col_msaa(blit_ctx, tgsi_tex, tgsi_ret,
@@ -530,7 +530,7 @@ static void get_texcoords(struct vrend_blitter_ctx *blit_ctx,
                           float out[4])
 {
    bool normalized = (src_res->base.target != PIPE_TEXTURE_RECT || blit_ctx->use_gles) &&
-                     src_res->base.nr_samples <= 1;
+                     src_res->base.nr_samples < 1;
 
    if (normalized) {
       out[0] = x1 / (float)u_minify(src_res->base.width0,  src_level);
@@ -822,10 +822,10 @@ void vrend_renderer_blit_gl(struct vrend_context *ctx,
 
    /* Just make sure that no stale state disabled decoding */
    if (has_texture_srgb_decode && util_format_is_srgb(info->src.format) &&
-       src_res->base.nr_samples < 2)
+       src_res->base.nr_samples < 1)
       glTexParameteri(src_res->target, GL_TEXTURE_SRGB_DECODE_EXT, GL_DECODE_EXT);
 
-   if (src_res->base.nr_samples <= 1) {
+   if (src_res->base.nr_samples < 1) {
       glTexParameteri(src_res->target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
       glTexParameteri(src_res->target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
       glTexParameteri(src_res->target, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
@@ -834,7 +834,7 @@ void vrend_renderer_blit_gl(struct vrend_context *ctx,
    glTexParameteri(src_res->target, GL_TEXTURE_BASE_LEVEL, info->src.level);
    glTexParameteri(src_res->target, GL_TEXTURE_MAX_LEVEL, info->src.level);
 
-   if (src_res->base.nr_samples <= 1) {
+   if (src_res->base.nr_samples < 1) {
       glTexParameterf(src_res->target, GL_TEXTURE_MAG_FILTER, filter);
       glTexParameterf(src_res->target, GL_TEXTURE_MIN_FILTER, filter);
    }
