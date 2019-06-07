@@ -3862,7 +3862,7 @@ static int vrend_draw_bind_ubo_shader(struct vrend_context *ctx,
    update = dirty & ctx->sub->const_bufs_used_mask[shader_type];
 
    if (!update)
-      return next_ubo_id;
+      return next_ubo_id + util_bitcount(mask);
 
    while (mask) {
       /* The const_bufs_used_mask stores the gallium uniform buffer indices */
