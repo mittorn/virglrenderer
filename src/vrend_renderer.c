@@ -1158,8 +1158,8 @@ static void set_stream_out_varyings(struct vrend_context *ctx, int prog_id,
          free(varyings[i]);
 }
 
-static void bind_sampler_locs(struct vrend_linked_shader_program *sprog,
-                              int id, int *sampler_id)
+static int bind_sampler_locs(struct vrend_linked_shader_program *sprog,
+                             int id, int next_sampler_id)
 {
    if (sprog->ss[id]->sel->sinfo.samplers_used_mask) {
       uint32_t mask = sprog->ss[id]->sel->sinfo.samplers_used_mask;
@@ -1183,7 +1183,7 @@ static void bind_sampler_locs(struct vrend_linked_shader_program *sprog,
          } else
             snprintf(name, 32, "%ssamp%d", prefix, i);
 
-         glUniform1i(glGetUniformLocation(sprog->id, name), *sampler_id);
+         glUniform1i(glGetUniformLocation(sprog->id, name), next_sampler_id++);
 
          if (sprog->ss[id]->sel->sinfo.shadow_samp_mask & (1 << i)) {
             snprintf(name, 32, "%sshadmask%d", prefix, i);
@@ -1192,7 +1192,6 @@ static void bind_sampler_locs(struct vrend_linked_shader_program *sprog,
             sprog->shadow_samp_add_locs[id][index] = glGetUniformLocation(sprog->id, name);
          }
          index++;
-         (*sampler_id)++;
       }
    } else {
       sprog->shadow_samp_mask_locs[id] = NULL;
@@ -1200,6 +1199,8 @@ static void bind_sampler_locs(struct vrend_linked_shader_program *sprog,
       sprog->shadow_samp_mask[id] = 0;
    }
    sprog->samplers_used_mask[id] = sprog->ss[id]->sel->sinfo.samplers_used_mask;
+
+   return next_sampler_id;
 }
 
 static void bind_const_locs(struct vrend_linked_shader_program *sprog,
@@ -1213,11 +1214,11 @@ static void bind_const_locs(struct vrend_linked_shader_program *sprog,
       sprog->const_location[id] = -1;
 }
 
-static void bind_ubo_locs(struct vrend_linked_shader_program *sprog,
-                          int id, int *ubo_id)
+static int bind_ubo_locs(struct vrend_linked_shader_program *sprog,
+                         int id, int next_ubo_id)
 {
    if (!has_feature(feat_ubo))
-      return;
+      return next_ubo_id;
    if (sprog->ss[id]->sel->sinfo.ubo_used_mask) {
       const char *prefix = pipe_shader_to_prefix(id);
 
@@ -1231,12 +1232,13 @@ static void bind_ubo_locs(struct vrend_linked_shader_program *sprog,
             snprintf(name, 32, "%subo%d", prefix, ubo_idx);
 
          GLuint loc = glGetUniformBlockIndex(sprog->id, name);
-         glUniformBlockBinding(sprog->id, loc, *ubo_id);
-         (*ubo_id)++;
+         glUniformBlockBinding(sprog->id, loc, next_ubo_id++);
       }
    }
 
    sprog->ubo_used_mask[id] = sprog->ss[id]->sel->sinfo.ubo_used_mask;
+
+   return next_ubo_id;
 }
 
 static void bind_ssbo_locs(struct vrend_linked_shader_program *sprog,
@@ -1339,9 +1341,8 @@ static struct vrend_linked_shader_program *add_cs_shader_program(struct vrend_co
 
    vrend_use_program(ctx, prog_id);
 
-   int sampler_id = 0, ubo_id = 0;
-   bind_sampler_locs(sprog, PIPE_SHADER_COMPUTE, &sampler_id);
-   bind_ubo_locs(sprog, PIPE_SHADER_COMPUTE, &ubo_id);
+   bind_sampler_locs(sprog, PIPE_SHADER_COMPUTE, 0);
+   bind_ubo_locs(sprog, PIPE_SHADER_COMPUTE, 0);
    bind_ssbo_locs(sprog, PIPE_SHADER_COMPUTE);
    bind_const_locs(sprog, PIPE_SHADER_COMPUTE);
    bind_image_locs(sprog, PIPE_SHADER_COMPUTE);
@@ -1489,14 +1490,14 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
 
    vrend_use_program(ctx, prog_id);
 
-   int ubo_id = 0, sampler_id = 0;
+   int next_ubo_id = 0, next_sampler_id = 0;
    for (id = PIPE_SHADER_VERTEX; id <= last_shader; id++) {
       if (!sprog->ss[id])
          continue;
 
-      bind_sampler_locs(sprog, id, &sampler_id);
+      next_sampler_id = bind_sampler_locs(sprog, id, next_sampler_id);
       bind_const_locs(sprog, id);
-      bind_ubo_locs(sprog, id, &ubo_id);
+      next_ubo_id = bind_ubo_locs(sprog, id, next_ubo_id);
       bind_image_locs(sprog, id);
       bind_ssbo_locs(sprog, id);
    }
@@ -3786,9 +3787,9 @@ static void vrend_draw_bind_vertex_binding(struct vrend_context *ctx,
    }
 }
 
-static void vrend_draw_bind_samplers_shader(struct vrend_context *ctx,
-                                            int shader_type,
-                                            int *sampler_id)
+static int vrend_draw_bind_samplers_shader(struct vrend_context *ctx,
+                                           int shader_type,
+                                           int next_sampler_id)
 {
    int index = 0;
 
@@ -3826,39 +3827,42 @@ static void vrend_draw_bind_samplers_shader(struct vrend_context *ctx,
             } else
                id = tview->id;
 
-            glActiveTexture(GL_TEXTURE0 + *sampler_id);
+            glActiveTexture(GL_TEXTURE0 + next_sampler_id);
             glBindTexture(target, id);
 
             if (ctx->sub->views[shader_type].old_ids[i] != id ||
                 ctx->sub->sampler_views_dirty[shader_type] & (1 << i)) {
-               vrend_apply_sampler_state(ctx, texture, shader_type, i, *sampler_id, tview);
+               vrend_apply_sampler_state(ctx, texture, shader_type, i,
+                                         next_sampler_id, tview);
                ctx->sub->views[shader_type].old_ids[i] = id;
             }
             dirty &= ~(1 << i);
          }
       }
-      (*sampler_id)++;
+      next_sampler_id++;
       index++;
    }
    ctx->sub->sampler_views_dirty[shader_type] = dirty;
+
+   return next_sampler_id;
 }
 
-static void vrend_draw_bind_ubo_shader(struct vrend_context *ctx,
-                                       int shader_type, int *ubo_id)
+static int vrend_draw_bind_ubo_shader(struct vrend_context *ctx,
+                                      int shader_type, int next_ubo_id)
 {
    uint32_t mask, dirty, update;
    struct pipe_constant_buffer *cb;
    struct vrend_resource *res;
 
    if (!has_feature(feat_ubo))
-      return;
+      return next_ubo_id;
 
    mask = ctx->sub->prog->ubo_used_mask[shader_type];
    dirty = ctx->sub->const_bufs_dirty[shader_type];
    update = dirty & ctx->sub->const_bufs_used_mask[shader_type];
 
    if (!update)
-      return;
+      return next_ubo_id;
 
    while (mask) {
       /* The const_bufs_used_mask stores the gallium uniform buffer indices */
@@ -3869,13 +3873,15 @@ static void vrend_draw_bind_ubo_shader(struct vrend_context *ctx,
          cb = &ctx->sub->cbs[shader_type][i];
          res = (struct vrend_resource *)cb->buffer;
 
-         glBindBufferRange(GL_UNIFORM_BUFFER, *ubo_id, res->id,
+         glBindBufferRange(GL_UNIFORM_BUFFER, next_ubo_id, res->id,
                            cb->buffer_offset, cb->buffer_size);
          dirty &= ~(1 << i);
       }
-      (*ubo_id)++;
+      next_ubo_id++;
    }
    ctx->sub->const_bufs_dirty[shader_type] = dirty;
+
+   return next_ubo_id;
 }
 
 static void vrend_draw_bind_const_shader(struct vrend_context *ctx,
@@ -4018,11 +4024,12 @@ static void vrend_draw_bind_images_shader(struct vrend_context *ctx, int shader_
 
 static void vrend_draw_bind_objects(struct vrend_context *ctx, bool new_program)
 {
-   int ubo_id = 0, sampler_id = 0;
+   int next_ubo_id = 0, next_sampler_id = 0;
    for (int shader_type = PIPE_SHADER_VERTEX; shader_type <= ctx->sub->last_shader_idx; shader_type++) {
-      vrend_draw_bind_ubo_shader(ctx, shader_type, &ubo_id);
+      next_ubo_id = vrend_draw_bind_ubo_shader(ctx, shader_type, next_ubo_id);
       vrend_draw_bind_const_shader(ctx, shader_type, new_program);
-      vrend_draw_bind_samplers_shader(ctx, shader_type, &sampler_id);
+      next_sampler_id = vrend_draw_bind_samplers_shader(ctx, shader_type,
+                                                        next_sampler_id);
       vrend_draw_bind_images_shader(ctx, shader_type);
       vrend_draw_bind_ssbo_shader(ctx, shader_type);
    }
@@ -4030,9 +4037,9 @@ static void vrend_draw_bind_objects(struct vrend_context *ctx, bool new_program)
    vrend_draw_bind_abo_shader(ctx);
 
    if (vrend_state.use_core_profile && ctx->sub->prog->fs_stipple_loc != -1) {
-      glActiveTexture(GL_TEXTURE0 + sampler_id);
+      glActiveTexture(GL_TEXTURE0 + next_sampler_id);
       glBindTexture(GL_TEXTURE_2D, ctx->pstipple_tex_id);
-      glUniform1i(ctx->sub->prog->fs_stipple_loc, sampler_id);
+      glUniform1i(ctx->sub->prog->fs_stipple_loc, next_sampler_id);
    }
 }
 
@@ -4447,10 +4454,9 @@ void vrend_launch_grid(struct vrend_context *ctx,
    }
    vrend_use_program(ctx, ctx->sub->prog->id);
 
-   int sampler_id = 0, ubo_id = 0;
-   vrend_draw_bind_ubo_shader(ctx, PIPE_SHADER_COMPUTE, &ubo_id);
+   vrend_draw_bind_ubo_shader(ctx, PIPE_SHADER_COMPUTE, 0);
    vrend_draw_bind_const_shader(ctx, PIPE_SHADER_COMPUTE, new_program);
-   vrend_draw_bind_samplers_shader(ctx, PIPE_SHADER_COMPUTE, &sampler_id);
+   vrend_draw_bind_samplers_shader(ctx, PIPE_SHADER_COMPUTE, 0);
    vrend_draw_bind_images_shader(ctx, PIPE_SHADER_COMPUTE);
    vrend_draw_bind_ssbo_shader(ctx, PIPE_SHADER_COMPUTE);
    vrend_draw_bind_abo_shader(ctx);
