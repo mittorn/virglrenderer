@@ -304,6 +304,7 @@ struct vrend_linked_shader_program {
    bool dual_src_linked;
    struct vrend_shader *ss[PIPE_SHADER_TYPES];
 
+   uint32_t ubo_used_mask[PIPE_SHADER_TYPES];
    uint32_t samplers_used_mask[PIPE_SHADER_TYPES];
 
    GLuint *shadow_samp_mask_locs[PIPE_SHADER_TYPES];
@@ -1234,6 +1235,8 @@ static void bind_ubo_locs(struct vrend_linked_shader_program *sprog,
          (*ubo_id)++;
       }
    }
+
+   sprog->ubo_used_mask[id] = sprog->ss[id]->sel->sinfo.ubo_used_mask;
 }
 
 static void bind_ssbo_locs(struct vrend_linked_shader_program *sprog,
@@ -3846,20 +3849,17 @@ static void vrend_draw_bind_ubo_shader(struct vrend_context *ctx,
    uint32_t mask, dirty, update;
    struct pipe_constant_buffer *cb;
    struct vrend_resource *res;
-   struct vrend_shader_info* sinfo;
 
    if (!has_feature(feat_ubo))
       return;
 
+   mask = ctx->sub->prog->ubo_used_mask[shader_type];
    dirty = ctx->sub->const_bufs_dirty[shader_type];
    update = dirty & ctx->sub->const_bufs_used_mask[shader_type];
 
    if (!update)
       return;
 
-   sinfo = &ctx->sub->prog->ss[shader_type]->sel->sinfo;
-
-   mask = sinfo->ubo_used_mask;
    while (mask) {
       /* The const_bufs_used_mask stores the gallium uniform buffer indices */
       int i = u_bit_scan(&mask);
