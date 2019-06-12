@@ -10,7 +10,7 @@ ENV CC="gcc-7"
 ENV CXX="g++-7"
 ENV CFLAGS="-g3"
 ENV CXXFLAGS="-g3"
-ENV GIT_DATE="`date +%Y-%m-%d -d \"1 year ago\"`"
+ENV GIT_DATE="`date +%Y-%m-%d -d \"15 months ago\"`"
 ENV MESA_DEBUG=1
 
 
