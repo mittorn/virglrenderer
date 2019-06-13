@@ -72,6 +72,7 @@
 #define SHADER_REQ_SHADER_INTEGER_FUNC (1 << 27)
 #define SHADER_REQ_SHADER_ATOMIC_FLOAT (1 << 28)
 #define SHADER_REQ_NV_IMAGE_FORMATS    (1 << 29)
+#define SHADER_REQ_CONSERVATIVE_DEPTH  (1 << 30)
 
 struct vrend_shader_io {
    unsigned                name;
@@ -219,6 +220,7 @@ struct dump_ctx {
    uint32_t shadow_samp_mask;
 
    int fs_coord_origin, fs_pixel_center;
+   int fs_depth_layout;
 
    int gs_in_prim, gs_out_prim, gs_max_out_verts;
    int gs_num_invocations;
@@ -275,6 +277,7 @@ static const struct vrend_shader_table shader_req_table[] = {
     { SHADER_REQ_SHADER_CLOCK, "ARB_shader_clock" },
     { SHADER_REQ_SHADER_INTEGER_FUNC, "MESA_shader_integer_functions" },
     { SHADER_REQ_SHADER_ATOMIC_FLOAT, "NV_shader_atomic_float"},
+    { SHADER_REQ_CONSERVATIVE_DEPTH, "ARB_conservative_depth"},
 };
 
 enum vrend_type_qualifier {
@@ -1529,6 +1532,14 @@ iter_property(struct tgsi_iterate_context *iter,
       break;
    case TGSI_PROPERTY_FS_COORD_PIXEL_CENTER:
       ctx->fs_pixel_center = prop->u[0].Data;
+      break;
+   case TGSI_PROPERTY_FS_DEPTH_LAYOUT:
+      /* If the host doesn't support this, then we can savely ignore this,
+       * we only lost an opportunity to optimize */
+      if (ctx->cfg->has_conservative_depth) {
+         ctx->shader_req_bits |= SHADER_REQ_CONSERVATIVE_DEPTH;
+         ctx->fs_depth_layout = prop->u[0].Data;
+      }
       break;
    case TGSI_PROPERTY_GS_INPUT_PRIM:
       ctx->gs_in_prim = prop->u[0].Data;
@@ -5200,6 +5211,9 @@ static void emit_header(struct dump_ctx *ctx)
       if (ctx->shader_req_bits & SHADER_REQ_SAMPLER_MS)
          emit_ext(ctx, "OES_texture_storage_multisample_2d_array", "require");
 
+      if (ctx->shader_req_bits & SHADER_REQ_CONSERVATIVE_DEPTH)
+         emit_ext(ctx, "EXT_conservative_depth", "require");
+
       if (ctx->prog_type == TGSI_PROCESSOR_FRAGMENT) {
          if (ctx->shader_req_bits & SHADER_REQ_FBFETCH)
             emit_ext(ctx, "EXT_shader_framebuffer_fetch", "require");
@@ -6007,6 +6021,19 @@ static void emit_ios_vs(struct dump_ctx *ctx)
    }
 }
 
+static const char *get_depth_layout(int depth_layout)
+{
+   const char *dl[4]  = {
+      "depth_any",
+      "depth_greater",
+      "depth_less",
+      "depth_unchanged"
+   };
+
+   if (depth_layout < 1 || depth_layout > TGSI_FS_DEPTH_LAYOUT_UNCHANGED)
+      return NULL;
+   return dl[depth_layout -1];
+}
 
 static void emit_ios_fs(struct dump_ctx *ctx)
 {
@@ -6091,6 +6118,12 @@ static void emit_ios_fs(struct dump_ctx *ctx)
                       ctx->outputs[i].glsl_name);
          }
       }
+   }
+
+   if (ctx->fs_depth_layout) {
+      const char *depth_layout = get_depth_layout(ctx->fs_depth_layout);
+      if (depth_layout)
+         emit_hdrf(ctx, "layout (%s) out float gl_FragDepth;\n", depth_layout);
    }
 
    if (ctx->num_in_clip_dist) {

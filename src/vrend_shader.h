@@ -135,6 +135,7 @@ struct vrend_shader_cfg {
    bool has_arrays_of_arrays;
    bool has_gpu_shader5;
    bool has_es31_compat;
+   bool has_conservative_depth;
 };
 
 struct vrend_context;

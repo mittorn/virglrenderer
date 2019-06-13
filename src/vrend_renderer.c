@@ -99,6 +99,7 @@ enum features_id
    feat_compute_shader,
    feat_copy_image,
    feat_conditional_render_inverted,
+   feat_conservative_depth,
    feat_cube_map_array,
    feat_debug_cb,
    feat_depth_clamp,
@@ -184,6 +185,7 @@ static const  struct {
    FEAT(compute_shader, 43, 31,  "GL_ARB_compute_shader" ),
    FEAT(copy_image, 43, 32,  "GL_ARB_copy_image", "GL_EXT_copy_image", "GL_OES_copy_image" ),
    FEAT(conditional_render_inverted, 45, UNAVAIL,  "GL_ARB_conditional_render_inverted" ),
+   FEAT(conservative_depth, 42, UNAVAIL, "GL_ARB_conservative_depth", "GL_EXT_conservative_depth" ),
    FEAT(cube_map_array, 40, 32,  "GL_ARB_texture_cube_map_array", "GL_EXT_texture_cube_map_array", "GL_OES_texture_cube_map_array" ),
    FEAT(debug_cb, UNAVAIL, UNAVAIL, NULL), /* special case */
    FEAT(draw_instance, 31, 30,  "GL_ARB_draw_instanced" ),
@@ -5811,6 +5813,7 @@ struct vrend_context *vrend_create_context(int id, uint32_t nlen, const char *de
    grctx->shader_cfg.has_arrays_of_arrays = has_feature(feat_arrays_of_arrays);
    grctx->shader_cfg.has_gpu_shader5 = has_feature(feat_gpu_shader5);
    grctx->shader_cfg.has_es31_compat = has_feature(feat_gles31_compatibility);
+   grctx->shader_cfg.has_conservative_depth = has_feature(feat_conservative_depth);
 
    vrend_renderer_create_sub_ctx(grctx, 0);
    vrend_renderer_set_sub_ctx(grctx, 0);
