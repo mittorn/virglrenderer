@@ -614,9 +614,9 @@ int vtest_transfer_get_nop(UNUSED uint32_t length_dw)
 {
    uint32_t thdr_buf[VCMD_TRANSFER_HDR_SIZE];
    int ret;
-   int level;
-   uint32_t stride, layer_stride, handle;
-   struct virgl_box box;
+   UNUSED int level;
+   UNUSED uint32_t stride, layer_stride, handle;
+   UNUSED struct virgl_box box;
    uint32_t data_size;
    void *ptr;
 
@@ -700,9 +700,9 @@ int vtest_transfer_put_nop(UNUSED uint32_t length_dw)
 {
    uint32_t thdr_buf[VCMD_TRANSFER_HDR_SIZE];
    int ret;
-   int level;
-   uint32_t stride, layer_stride, handle;
-   struct virgl_box box;
+   UNUSED int level;
+   UNUSED uint32_t stride, layer_stride, handle;
+   UNUSED struct virgl_box box;
    uint32_t data_size;
    void *ptr;
 
@@ -792,9 +792,9 @@ int vtest_transfer_get2_nop(UNUSED uint32_t length_dw)
 {
    uint32_t thdr_buf[VCMD_TRANSFER2_HDR_SIZE];
    int ret;
-   int level;
+   UNUSED int level;
    uint32_t handle;
-   struct virgl_box box;
+   UNUSED struct virgl_box box;
    uint32_t offset;
    struct iovec *iovec;
 
@@ -859,11 +859,11 @@ int vtest_transfer_put2_nop(UNUSED uint32_t length_dw)
 {
    uint32_t thdr_buf[VCMD_TRANSFER2_HDR_SIZE];
    int ret;
-   int level;
+   UNUSED int level;
    uint32_t handle;
-   struct virgl_box box;
+   UNUSED struct virgl_box box;
    UNUSED uint32_t data_size;
-   uint32_t offset;
+   UNUSED uint32_t offset;
    struct iovec *iovec;
 
    ret = renderer.input->read(renderer.input, thdr_buf, sizeof(thdr_buf));
