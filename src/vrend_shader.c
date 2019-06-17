@@ -1818,7 +1818,7 @@ static void get_so_name(struct dump_ctx *ctx, bool from_block, const struct vren
 static void emit_so_movs(struct dump_ctx *ctx)
 {
    uint32_t i, j;
-   char outtype[15] = {0};
+   char outtype[15] = "";
    char writemask[6];
 
    if (ctx->so->num_outputs >= PIPE_MAX_SO_OUTPUTS) {
@@ -2090,7 +2090,7 @@ static void emit_txq(struct dump_ctx *ctx,
                      const char *writemask)
 {
    unsigned twm = TGSI_WRITEMASK_NONE;
-   char bias[128] = {0};
+   char bias[128] = "";
    const int sampler_index = 1;
    enum vrend_type_qualifier dtypeprefix = INT_BITS_TO_FLOAT;
 
@@ -2366,8 +2366,8 @@ static void translate_tex(struct dump_ctx *ctx,
    unsigned twm = TGSI_WRITEMASK_NONE, gwm = TGSI_WRITEMASK_NONE;
    enum vrend_type_qualifier dtypeprefix = TYPE_CONVERSION_NONE;
    bool is_shad;
-   char offbuf[256] = {0};
-   char bias[256] = {0};
+   char offbuf[256] = "";
+   char bias[256] = "";
    int sampler_index;
    const char *tex_ext;
 
@@ -2896,7 +2896,7 @@ translate_store(struct dump_ctx *ctx,
       bool is_ms = false;
       enum vrend_type_qualifier coord_prefix = get_coord_prefix(ctx->images[dst_reg->Register.Index].decl.Resource, &is_ms, ctx->cfg->use_gles);
       enum tgsi_return_type itype;
-      char ms_str[32] = {};
+      char ms_str[32] = "";
       enum vrend_type_qualifier stypeprefix = TYPE_CONVERSION_NONE;
       const char *conversion = sinfo->override_no_cast[0] ? "" : get_string(FLOAT_BITS_TO_INT);
       get_internalformat_string(inst->Memory.Format, &itype);
@@ -3002,7 +3002,7 @@ translate_load(struct dump_ctx *ctx,
       const char *conversion = sinfo->override_no_cast[1] ? "" : get_string(FLOAT_BITS_TO_INT);
       enum tgsi_return_type itype;
       get_internalformat_string(ctx->images[sinfo->sreg_index].decl.Format, &itype);
-      char ms_str[32] = {};
+      char ms_str[32] = "";
       const char *wm = dinfo->dst_override_no_wm[0] ? "" : writemask;
       if (is_ms) {
          snprintf(ms_str, 32, ", int(%s.w)", srcs[1]);
@@ -3188,7 +3188,7 @@ translate_atomic(struct dump_ctx *ctx,
    enum vrend_type_qualifier dtypeprefix = TYPE_CONVERSION_NONE;
    enum vrend_type_qualifier stypecast = TYPE_CONVERSION_NONE;
    bool is_cas;
-   char cas_str[128] = {};
+   char cas_str[128] = "";
 
    if (src->Register.File == TGSI_FILE_IMAGE) {
      enum tgsi_return_type itype;
@@ -3232,7 +3232,7 @@ translate_atomic(struct dump_ctx *ctx,
       bool is_ms = false;
       enum vrend_type_qualifier coord_prefix = get_coord_prefix(ctx->images[sinfo->sreg_index].decl.Resource, &is_ms, ctx->cfg->use_gles);
       const char *conversion = sinfo->override_no_cast[1] ? "" : get_string(FLOAT_BITS_TO_INT);
-      char ms_str[32] = {};
+      char ms_str[32] = "";
       if (is_ms) {
          snprintf(ms_str, 32, ", int(%s.w)", srcs[1]);
       }
@@ -3386,7 +3386,7 @@ get_destination_info(struct dump_ctx *ctx,
    }
 
    for (uint32_t i = 0; i < inst->Instruction.NumDstRegs; i++) {
-      char fp64_writemask[6] = {0};
+      char fp64_writemask[6] = "";
       dst_reg = &inst->Dst[i];
       dinfo->dst_override_no_wm[i] = false;
       if (dst_reg->Register.WriteMask != TGSI_WRITEMASK_XYZW) {
@@ -3727,11 +3727,11 @@ get_source_info(struct dump_ctx *ctx,
    for (uint32_t i = 0; i < inst->Instruction.NumSrcRegs; i++) {
       const struct tgsi_full_src_register *src = &inst->Src[i];
       struct vrend_strbuf *src_buf = &srcs[i];
-      char swizzle[8] = {0};
+      char swizzle[8] = "";
       int usage_mask = 0;
       char *swizzle_writer = swizzle;
-      char prefix[6] = {0};
-      char arrayname[16] = {0};
+      char prefix[6] = "";
+      char arrayname[16] = "";
       char fp64_src[255];
       int swz_idx = 0, pre_idx = 0;
       boolean isfloatabsolute = src->Register.Absolute && stype != TGSI_TYPE_DOUBLE;
@@ -4618,7 +4618,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
    char dsts[3][255];
    char fp64_dsts[3][255];
    uint instno = ctx->instno++;
-   char writemask[6] = {0};
+   char writemask[6] = "";
    char src_swizzle0[10];
 
    sinfo.svec4 = VEC4;
@@ -5728,7 +5728,7 @@ static void emit_ios_common(struct dump_ctx *ctx)
 static void emit_ios_streamout(struct dump_ctx *ctx)
 {
    if (ctx->so) {
-      char outtype[6] = {0};
+      char outtype[6] = "";
       for (uint i = 0; i < ctx->so->num_outputs; i++) {
          if (!ctx->write_so_outputs[i])
             continue;
@@ -6006,8 +6006,8 @@ static void emit_ios_vs(struct dump_ctx *ctx)
       bool has_prop = (ctx->num_clip_dist_prop + ctx->num_cull_dist_prop) > 0;
       int num_clip_dists = ctx->num_clip_dist ? ctx->num_clip_dist : 8;
       int num_cull_dists = 0;
-      char cull_buf[64] = { 0 };
-      char clip_buf[64] = { 0 };
+      char cull_buf[64] = "";
+      char clip_buf[64] = "";
       if (has_prop) {
          num_clip_dists = ctx->num_clip_dist_prop;
          num_cull_dists = ctx->num_cull_dist_prop;
@@ -6203,7 +6203,8 @@ static void emit_ios_geom(struct dump_ctx *ctx)
 
    if (ctx->num_in_clip_dist || ctx->key->clip_plane_enable || ctx->key->prev_stage_pervertex_out) {
       int clip_dist, cull_dist;
-      char clip_var[64] = {}, cull_var[64] = {};
+      char clip_var[64] = "";
+      char cull_var[64] = "";
 
       clip_dist = ctx->key->prev_stage_num_clip_out ? ctx->key->prev_stage_num_clip_out : ctx->num_in_clip_dist;
       cull_dist = ctx->key->prev_stage_num_cull_out;
@@ -6219,8 +6220,8 @@ static void emit_ios_geom(struct dump_ctx *ctx)
       bool has_prop = (ctx->num_clip_dist_prop + ctx->num_cull_dist_prop) > 0;
       int num_clip_dists = ctx->num_clip_dist ? ctx->num_clip_dist : 8;
       int num_cull_dists = 0;
-      char cull_buf[64] = { 0 };
-      char clip_buf[64] = { 0 };
+      char cull_buf[64] = "";
+      char clip_buf[64] = "";
       if (has_prop) {
          num_clip_dists = ctx->num_clip_dist_prop;
          num_cull_dists = ctx->num_cull_dist_prop;
