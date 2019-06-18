@@ -42,7 +42,7 @@ START_TEST(strbuf_add_small_string)
 {
    struct vrend_strbuf sb;
    bool ret;
-   char str[27] = {};
+   char str[27];
    ret = strbuf_alloc(&sb, 1024);
    ck_assert_int_eq(ret, true);
 
@@ -60,7 +60,7 @@ START_TEST(strbuf_add_small_string_twice)
 {
    struct vrend_strbuf sb;
    bool ret;
-   char str[27] = {};
+   char str[27];
    ret = strbuf_alloc(&sb, 1024);
    ck_assert_int_eq(ret, true);
 
