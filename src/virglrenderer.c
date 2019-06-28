@@ -40,7 +40,7 @@
 
 #ifdef HAVE_EPOXY_EGL_H
 #include "virgl_egl.h"
-static struct virgl_egl *egl_info;
+static struct virgl_egl *egl;
 #endif
 
 #ifdef HAVE_EPOXY_GLX_H
@@ -199,7 +199,7 @@ int virgl_renderer_resource_get_info(int res_handle,
    ret = vrend_renderer_resource_get_info(res_handle, (struct vrend_renderer_resource_info *)info);
 #ifdef HAVE_EPOXY_EGL_H
    if (ret == 0 && use_context == CONTEXT_EGL)
-      return virgl_egl_get_fourcc_for_texture(egl_info, info->tex_id, info->virgl_format, &info->drm_fourcc);
+      return virgl_egl_get_fourcc_for_texture(egl, info->tex_id, info->virgl_format, &info->drm_fourcc);
 #endif
 
    return ret;
@@ -209,8 +209,8 @@ int virgl_has_gl_colorspace(void)
 {
    bool egl_colorspace = false;
 #ifdef HAVE_EPOXY_EGL_H
-   if (egl_info)
-      egl_colorspace = virgl_has_egl_khr_gl_colorspace(egl_info);
+   if (egl)
+      egl_colorspace = virgl_has_egl_khr_gl_colorspace(egl);
 #endif
    return use_context == CONTEXT_NONE ||
          use_context == CONTEXT_GLX ||
@@ -247,7 +247,7 @@ static virgl_renderer_gl_context create_gl_context(int scanout_idx, struct virgl
 
 #ifdef HAVE_EPOXY_EGL_H
    if (use_context == CONTEXT_EGL)
-      return virgl_egl_create_context(egl_info, param);
+      return virgl_egl_create_context(egl, param);
 #endif
 #ifdef HAVE_EPOXY_GLX_H
    if (use_context == CONTEXT_GLX)
@@ -264,7 +264,7 @@ static void destroy_gl_context(virgl_renderer_gl_context ctx)
 {
 #ifdef HAVE_EPOXY_EGL_H
    if (use_context == CONTEXT_EGL)
-      return virgl_egl_destroy_context(egl_info, ctx);
+      return virgl_egl_destroy_context(egl, ctx);
 #endif
 #ifdef HAVE_EPOXY_GLX_H
    if (use_context == CONTEXT_GLX)
@@ -277,7 +277,7 @@ static int make_current(virgl_renderer_gl_context ctx)
 {
 #ifdef HAVE_EPOXY_EGL_H
    if (use_context == CONTEXT_EGL)
-      return virgl_egl_make_context_current(egl_info, ctx);
+      return virgl_egl_make_context_current(egl, ctx);
 #endif
 #ifdef HAVE_EPOXY_GLX_H
    if (use_context == CONTEXT_GLX)
@@ -309,8 +309,8 @@ void virgl_renderer_cleanup(UNUSED void *cookie)
    vrend_renderer_fini();
 #ifdef HAVE_EPOXY_EGL_H
    if (use_context == CONTEXT_EGL) {
-      virgl_egl_destroy(egl_info);
-      egl_info = NULL;
+      virgl_egl_destroy(egl);
+      egl = NULL;
       use_context = CONTEXT_NONE;
    }
 #endif
@@ -341,9 +341,9 @@ int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks
       if (cbs->version >= 2 && cbs->get_drm_fd) {
          fd = cbs->get_drm_fd(cookie);
       }
-      egl_info = virgl_egl_init(fd, flags & VIRGL_RENDERER_USE_SURFACELESS,
+      egl = virgl_egl_init(fd, flags & VIRGL_RENDERER_USE_SURFACELESS,
                                     flags & VIRGL_RENDERER_USE_GLES);
-      if (!egl_info)
+      if (!egl)
          return -1;
       use_context = CONTEXT_EGL;
 #else
@@ -371,7 +371,7 @@ int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks
 int virgl_renderer_get_fd_for_texture(uint32_t tex_id, int *fd)
 {
 #ifdef HAVE_EPOXY_EGL_H
-   return virgl_egl_get_fd_for_texture(egl_info, tex_id, fd);
+   return virgl_egl_get_fd_for_texture(egl, tex_id, fd);
 #else
    return -1;
 #endif
@@ -380,7 +380,7 @@ int virgl_renderer_get_fd_for_texture(uint32_t tex_id, int *fd)
 int virgl_renderer_get_fd_for_texture2(uint32_t tex_id, int *fd, int *stride, int *offset)
 {
 #ifdef HAVE_EPOXY_EGL_H
-   return virgl_egl_get_fd_for_texture2(egl_info, tex_id, fd, stride, offset);
+   return virgl_egl_get_fd_for_texture2(egl, tex_id, fd, stride, offset);
 #else
    return -1;
 #endif

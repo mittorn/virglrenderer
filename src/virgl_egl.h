@@ -28,16 +28,27 @@
 struct virgl_egl;
 
 struct virgl_egl *virgl_egl_init(int fd, bool surfaceless, bool gles);
-void virgl_egl_destroy(struct virgl_egl *ve);
 
-virgl_renderer_gl_context virgl_egl_create_context(struct virgl_egl *ve, struct virgl_gl_ctx_param *vparams);
-void virgl_egl_destroy_context(struct virgl_egl *ve, virgl_renderer_gl_context virglctx);
-int virgl_egl_make_context_current(struct virgl_egl *ve, virgl_renderer_gl_context virglctx);
-virgl_renderer_gl_context virgl_egl_get_current_context(struct virgl_egl *ve);
+void virgl_egl_destroy(struct virgl_egl *egl);
 
-bool virgl_has_egl_khr_gl_colorspace(struct virgl_egl *ve);
-int virgl_egl_get_fourcc_for_texture(struct virgl_egl *ve, uint32_t tex_id, uint32_t format, int *fourcc);
-int virgl_egl_get_fd_for_texture(struct virgl_egl *ve, uint32_t tex_id, int *fd);
-int virgl_egl_get_fd_for_texture2(struct virgl_egl *ve, uint32_t tex_id, int *fd, int *stride, int *offset);
+virgl_renderer_gl_context virgl_egl_create_context(struct virgl_egl *egl,
+                                                   struct virgl_gl_ctx_param *vparams);
+
+void virgl_egl_destroy_context(struct virgl_egl *egl, virgl_renderer_gl_context virglctx);
+
+int virgl_egl_make_context_current(struct virgl_egl *egl, virgl_renderer_gl_context virglctx);
+
+virgl_renderer_gl_context virgl_egl_get_current_context(struct virgl_egl *egl);
+
+bool virgl_has_egl_khr_gl_colorspace(struct virgl_egl *egl);
+
+int virgl_egl_get_fourcc_for_texture(struct virgl_egl *egl, uint32_t tex_id, uint32_t format,
+                                     int *fourcc);
+
+int virgl_egl_get_fd_for_texture(struct virgl_egl *egl, uint32_t tex_id, int *fd);
+
+int virgl_egl_get_fd_for_texture2(struct virgl_egl *egl, uint32_t tex_id, int *fd, int *stride,
+                                  int *offset);
+
 uint32_t virgl_egl_get_gbm_format(uint32_t format);
 #endif
