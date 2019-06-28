@@ -54,7 +54,9 @@ struct virgl_egl {
    EGLContext egl_ctx;
    bool have_mesa_drm_image;
    bool have_mesa_dma_buf_img_export;
-   bool have_egl_khr_gl_colorspace;
+   bool have_khr_gl_colorspace;
+   bool have_ext_image_dma_buf_import;
+   bool have_ext_image_dma_buf_import_modifiers;
 };
 
 static int egl_rendernode_open(void)
@@ -265,7 +267,13 @@ struct virgl_egl *virgl_egl_init(int fd, bool surfaceless, bool gles)
    if (virgl_egl_has_extension_in_string(extension_list, "EGL_MESA_image_dma_buf_export"))
       egl->have_mesa_dma_buf_img_export = true;
 
-   egl->have_egl_khr_gl_colorspace =
+   if (virgl_egl_has_extension_in_string(extension_list, "EGL_EXT_image_dma_buf_import"))
+      egl->have_ext_image_dma_buf_import = true;
+
+   if (virgl_egl_has_extension_in_string(extension_list, "EGL_EXT_image_dma_buf_import_modifiers"))
+      egl->have_ext_image_dma_buf_import_modifiers = true;
+
+   egl->have_khr_gl_colorspace =
          virgl_egl_has_extension_in_string(extension_list, "EGL_KHR_gl_colorspace");
 
    if (gles)
@@ -449,7 +457,7 @@ int virgl_egl_get_fd_for_texture(struct virgl_egl *egl, uint32_t tex_id, int *fd
 
 bool virgl_has_egl_khr_gl_colorspace(struct virgl_egl *egl)
 {
-   return egl->have_egl_khr_gl_colorspace;
+   return egl->have_khr_gl_colorspace;
 }
 
 uint32_t virgl_egl_get_gbm_format(uint32_t format)
