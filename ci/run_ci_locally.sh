@@ -8,8 +8,10 @@ cd ${VIRGL_PATH}
 DOCKER_DRIVER=overlay2
 DOCKER_IMAGE=virglrenderer/ci
 
-# Use slightly less than half of available threads
-NUM_THREADS=$(expr $(expr $(nproc) + 2) / 3)
+if [[ -z $NUM_THREADS ]] ; then 
+    # If not forced use slightly less than half of available threads
+    NUM_THREADS=$(expr $(expr $(nproc) + 2) / 3)
+fi    
 
 # When running the erhm, CI, locally,
 # do use HW based backends, which
