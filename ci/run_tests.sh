@@ -78,7 +78,11 @@ run_deqp()
       TEST_SUITE="--gles2 --gles3 --gles31"
    fi
 
-   BACKENDS="--backend vtest-softpipe"
+   BACKENDS=""
+   if [[ -z "$HARDWARE_ONLY" ]]; then
+      BACKENDS="${BACKENDS} --backend vtest-softpipe"
+   fi
+
    if [[ -z "$SOFTWARE_ONLY" ]]; then
       BACKENDS="${BACKENDS} --backend vtest-gpu"
    fi
@@ -94,7 +98,11 @@ run_piglit()
 {
    OGL_BACKEND="$1"
 
-   BACKENDS="--backend vtest-softpipe"
+   BACKENDS=""
+   if [[ -z "$HARDWARE_ONLY" ]]; then
+      BACKENDS="${BACKENDS} --backend vtest-softpipe"
+   fi
+   
    if [[ -z "$SOFTWARE_ONLY" ]]; then
       BACKENDS="${BACKENDS} --backend vtest-gpu"
    fi
