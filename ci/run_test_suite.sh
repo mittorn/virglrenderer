@@ -197,11 +197,13 @@ run_test_suite()
    local BACKEND="$1"
    local TEST_NAME="$2"
    local UNRELIABLE="$3"
-
+   local LOCAL_TEST_FILE="$4"
+   
 #   echo "run_test_suite() OUTPUT_PATH: $OUTPUT_PATH"
 #   echo "run_test_suite() LOG_FILE: $LOG_FILE"
 #   echo "run_test_suite() RESULTS_FILE: $RESULTS_FILE"
-
+   
+   UNRELIABLE_STRING=""
    if [ $UNRELIABLE -eq 1 ]; then
       UNRELIABLE_STRING="unreliable "
    fi
@@ -213,8 +215,8 @@ run_test_suite()
    fi
 
    if test $UNRELIABLE -eq 1; then
-      TEST_FILE="$IGNORE_TESTS_FILE"
-      if test ! -f $TEST_FILE -o $(wc -l $TEST_FILE | cut -f1 -d' ') -eq 0; then
+      LOCAL_TEST_FILE="$IGNORE_TESTS_FILE"
+      if test ! -f $LOCAL_TEST_FILE -o $(wc -l $LOCAL_TEST_FILE | cut -f1 -d' ') -eq 0; then
          echo "Unreliable: no ignore tests."
          return 0
       fi
@@ -227,7 +229,7 @@ run_test_suite()
 
       if test $UNRELIABLE -eq 1; then
          # XXX: Fold the glx exception?
-         PIGLIT_TESTS_CMD="--test-list $TEST_FILE"
+         PIGLIT_TESTS_CMD="--test-list $LOCAL_TEST_FILE"
       else
          # TODO: create test_file for normal runs
          PIGLIT_TESTS_CMD="$PIGLIT_TESTS -t $TEST_NAME"
@@ -250,7 +252,7 @@ run_test_suite()
    deqp)
       deqp  \
          --cts-build-dir $CTS_PATH/build \
-         --test-names-file "$TEST_FILE" \
+         --test-names-file "$LOCAL_TEST_FILE" \
          --results-file "$RESULTS_FILE" \
          --threads $NUM_THREADS &> $LOG_FILE
 
@@ -362,12 +364,12 @@ run_test_on_backends()
 
          # Execute both mustpass and unstable tests
          # Only the former twigger an overall run fail
-         run_test_suite "$BACKEND" "$TEST_NAME" 0
+         run_test_suite "$BACKEND" "$TEST_NAME" 0 "$TEST_FILE"
          if [ $? -ne 0 ]; then
             RET=1
          fi
 
-         run_test_suite "$BACKEND" "$TEST_NAME" 1
+         run_test_suite "$BACKEND" "$TEST_NAME" 1 "$TEST_FILE"
 
          killall -q virgl_test_server
    done
