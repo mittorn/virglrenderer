@@ -42,6 +42,8 @@ libvrend_la_SOURCES = \
 if HAVE_EPOXY_EGL
 libvrend_la_SOURCES += \
         virgl_egl.h \
+        virgl_gbm.h \
+        virgl_gbm.c \
         virgl_egl_context.c
 endif
 

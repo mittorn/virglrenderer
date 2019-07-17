@@ -31,24 +31,18 @@
 #endif
 
 #define EGL_EGLEXT_PROTOTYPES
-#include <dirent.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <stdbool.h>
 #include <epoxy/egl.h>
-#include <gbm.h>
 #include <xf86drm.h>
 #include "virglrenderer.h"
 #include "virgl_egl.h"
-
 #include "virgl_hw.h"
+#include "virgl_gbm.h"
+
 struct virgl_egl {
-   int fd;
-   struct gbm_device *gbm_dev;
+   struct virgl_gbm *gbm;
    EGLDisplay egl_display;
    EGLConfig egl_conf;
    EGLContext egl_ctx;
@@ -58,44 +52,6 @@ struct virgl_egl {
    bool have_ext_image_dma_buf_import;
    bool have_ext_image_dma_buf_import_modifiers;
 };
-
-static int egl_rendernode_open(void)
-{
-   DIR *dir;
-   struct dirent *dir_ent;
-   int ret, fd;
-   char *rendernode_name;
-   dir = opendir("/dev/dri");
-   if (!dir)
-      return -1;
-
-   fd = -1;
-   while ((dir_ent = readdir(dir))) {
-      if (dir_ent->d_type != DT_CHR)
-         continue;
-
-      if (strncmp(dir_ent->d_name, "renderD", 7))
-         continue;
-
-      ret = asprintf(&rendernode_name, "/dev/dri/%s", dir_ent->d_name);
-      if (ret < 0)
-         return -1;
-
-      fd = open(rendernode_name, O_RDWR | O_CLOEXEC | O_NOCTTY | O_NONBLOCK);
-      if (fd < 0){
-         free(rendernode_name);
-         continue;
-      }
-
-      free(rendernode_name);
-      break;
-   }
-
-   closedir(dir);
-   if (fd < 0)
-      return -1;
-   return fd;
-}
 
 static bool virgl_egl_has_extension_in_string(const char *haystack, const char *needle)
 {
@@ -169,18 +125,10 @@ struct virgl_egl *virgl_egl_init(int fd, bool surfaceless, bool gles)
 
    if (surfaceless) {
       conf_att[1] = EGL_PBUFFER_BIT;
-      egl->fd = -1;
-      egl->gbm_dev = NULL;
+      egl->gbm = NULL;
    } else {
-      if (fd >= 0) {
-         egl->fd = fd;
-      } else {
-         egl->fd = egl_rendernode_open();
-      }
-      if (egl->fd == -1)
-         goto fail;
-      egl->gbm_dev = gbm_create_device(egl->fd);
-      if (!egl->gbm_dev)
+      egl->gbm = virgl_gbm_init(fd);
+      if (!egl->gbm)
          goto fail;
    }
 
@@ -198,7 +146,7 @@ struct virgl_egl *virgl_egl_init(int fd, bool surfaceless, bool gles)
                                                   EGL_DEFAULT_DISPLAY, NULL);
       } else
          egl->egl_display = get_platform_display (EGL_PLATFORM_GBM_KHR,
-                                                  (EGLNativeDisplayType)egl->gbm_dev, NULL);
+                                                  (EGLNativeDisplayType)egl->gbm->device, NULL);
    } else if (strstr (client_extensions, "EGL_EXT_platform_base")) {
       PFNEGLGETPLATFORMDISPLAYEXTPROC get_platform_display =
          (PFNEGLGETPLATFORMDISPLAYEXTPROC) eglGetProcAddress ("eglGetPlatformDisplayEXT");
@@ -211,28 +159,27 @@ struct virgl_egl *virgl_egl_init(int fd, bool surfaceless, bool gles)
                                                   EGL_DEFAULT_DISPLAY, NULL);
       } else
          egl->egl_display = get_platform_display (EGL_PLATFORM_GBM_KHR,
-                                                 (EGLNativeDisplayType)egl->gbm_dev, NULL);
+                                                 (EGLNativeDisplayType)egl->gbm->device, NULL);
    } else {
-      egl->egl_display = eglGetDisplay((EGLNativeDisplayType)egl->gbm_dev);
+      egl->egl_display = eglGetDisplay((EGLNativeDisplayType)egl->gbm->device);
    }
 
    if (!egl->egl_display) {
-      if (egl->gbm_dev) {
-	 gbm_device_destroy(egl->gbm_dev);
-	 egl->gbm_dev = NULL;
+      /*
+       * Don't fallback to the default display if the fd provided by (*get_drm_fd)
+       * can't be used.
+       */
+      if (fd >= 0)
+         goto fail;
+
+      if (egl->gbm) {
+         virgl_gbm_fini(egl->gbm);
+         egl->gbm = NULL;
       }
 
-      if (egl->fd >= 0) {
-	 close(egl->fd);
-	 egl->fd = -1;
-      }
-
-      /* Fallback to using the default display unless an fd was specified. */
-      if (fd < 0)
-	 egl->egl_display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
-
+      egl->egl_display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
       if (!egl->egl_display)
-	 goto fail;
+         goto fail;
    }
 
    success = eglInitialize(egl->egl_display, &major, &minor);
@@ -299,13 +246,8 @@ struct virgl_egl *virgl_egl_init(int fd, bool surfaceless, bool gles)
    return egl;
 
  fail:
-   if (egl->gbm_dev) {
-      gbm_device_destroy(egl->gbm_dev);
-   }
-
-   if (egl->fd >= 0) {
-      close(egl->fd);
-   }
+   if (egl->gbm)
+      virgl_gbm_fini(egl->gbm);
 
    free(egl);
    return NULL;
@@ -317,10 +259,8 @@ void virgl_egl_destroy(struct virgl_egl *egl)
                   EGL_NO_CONTEXT);
    eglDestroyContext(egl->egl_display, egl->egl_ctx);
    eglTerminate(egl->egl_display);
-   if (egl->gbm_dev)
-      gbm_device_destroy(egl->gbm_dev);
-   if (egl->fd >= 0)
-      close(egl->fd);
+   if (egl->gbm)
+      virgl_gbm_fini(egl->gbm);
    free(egl);
 }
 
@@ -386,7 +326,7 @@ int virgl_egl_get_fourcc_for_texture(struct virgl_egl *egl, uint32_t tex_id, uin
    return ret;
 
  fallback:
-   *fourcc = virgl_egl_get_gbm_format(format);
+   *fourcc = virgl_gbm_convert_format(format);
    return ret;
 }
 
@@ -440,9 +380,10 @@ int virgl_egl_get_fd_for_texture(struct virgl_egl *egl, uint32_t tex_id, int *fd
       if (!success)
          goto out_destroy;
 
-      vrend_printf("image exported %d %d\n", handle, stride);
+      if (!egl->gbm)
+         goto out_destroy;
 
-      ret = drmPrimeHandleToFD(egl->fd, handle, DRM_CLOEXEC, fd);
+      ret = drmPrimeHandleToFD(gbm_device_get_fd(egl->gbm->device), handle, DRM_CLOEXEC, fd);
       if (ret < 0)
          goto out_destroy;
    } else {
@@ -458,16 +399,4 @@ int virgl_egl_get_fd_for_texture(struct virgl_egl *egl, uint32_t tex_id, int *fd
 bool virgl_has_egl_khr_gl_colorspace(struct virgl_egl *egl)
 {
    return egl->have_khr_gl_colorspace;
-}
-
-uint32_t virgl_egl_get_gbm_format(uint32_t format)
-{
-   switch (format) {
-   case VIRGL_FORMAT_B8G8R8X8_UNORM:
-   case VIRGL_FORMAT_B8G8R8A8_UNORM:
-      return GBM_FORMAT_ARGB8888;
-   default:
-      vrend_printf( "unknown format to convert to GBM %d\n", format);
-      return 0;
-   }
 }

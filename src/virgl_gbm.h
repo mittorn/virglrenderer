@@ -1,6 +1,6 @@
 /**************************************************************************
  *
- * Copyright (C) 2014 Red Hat Inc.
+ * Copyright (C) 2019 Chromium.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -21,32 +21,26 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  *
  **************************************************************************/
-#ifndef VIRGL_EGL_H
-#define VIRGL_EGL_H
 
-#include "vrend_renderer.h"
-struct virgl_egl;
+#ifndef VIRGL_GBM_H
+#define VIRGL_GBM_H
 
-struct virgl_egl *virgl_egl_init(int fd, bool surfaceless, bool gles);
+#include <gbm.h>
 
-void virgl_egl_destroy(struct virgl_egl *egl);
+/*
+ * If fd >= 0, virglrenderer owns the fd since it was opened via a rendernode
+ * query. If fd < 0, the gbm device was opened with the fd provided by the
+ * (*get_drm_fd) hook.
+ */
+struct virgl_gbm {
+   int fd;
+   struct gbm_device *device;
+};
 
-virgl_renderer_gl_context virgl_egl_create_context(struct virgl_egl *egl,
-                                                   struct virgl_gl_ctx_param *vparams);
+struct virgl_gbm *virgl_gbm_init(int fd);
 
-void virgl_egl_destroy_context(struct virgl_egl *egl, virgl_renderer_gl_context virglctx);
+void virgl_gbm_fini(struct virgl_gbm *gbm);
 
-int virgl_egl_make_context_current(struct virgl_egl *egl, virgl_renderer_gl_context virglctx);
+uint32_t virgl_gbm_convert_format(uint32_t virgl_format);
 
-virgl_renderer_gl_context virgl_egl_get_current_context(struct virgl_egl *egl);
-
-bool virgl_has_egl_khr_gl_colorspace(struct virgl_egl *egl);
-
-int virgl_egl_get_fourcc_for_texture(struct virgl_egl *egl, uint32_t tex_id, uint32_t format,
-                                     int *fourcc);
-
-int virgl_egl_get_fd_for_texture(struct virgl_egl *egl, uint32_t tex_id, int *fd);
-
-int virgl_egl_get_fd_for_texture2(struct virgl_egl *egl, uint32_t tex_id, int *fd, int *stride,
-                                  int *offset);
 #endif
