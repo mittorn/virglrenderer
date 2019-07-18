@@ -894,6 +894,7 @@ void vrend_renderer_blit_gl(struct vrend_context *ctx,
                              GL_TEXTURE_2D, 0, 0);
    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
                              GL_TEXTURE_2D, 0, 0);
+   glBindTexture(src_res->target, 0);
 }
 
 void vrend_blitter_fini(void)

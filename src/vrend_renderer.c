@@ -6887,6 +6887,7 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
             if (!vrend_state.use_core_profile)
                glPixelTransferf(GL_DEPTH_SCALE, 1.0);
          }
+         glBindTexture(res->target, 0);
       }
 
       if (stride && !need_temp) {
@@ -6988,6 +6989,7 @@ static int vrend_transfer_send_getteximage(struct vrend_resource *res,
                        info->stride, info->box, info->level, info->offset,
                        false);
    free(data);
+   glBindTexture(res->target, 0);
    return 0;
 }
 
@@ -7433,6 +7435,7 @@ void vrend_set_polygon_stipple(struct vrend_context *ctx,
       glBindTexture(GL_TEXTURE_2D, ctx->pstipple_tex_id);
       glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 32, 32,
                       GL_RED, GL_UNSIGNED_BYTE, stip);
+      glBindTexture(GL_TEXTURE_2D, 0);
 
       free(stip);
       return;
@@ -7737,6 +7740,7 @@ static void vrend_resource_copy_fallback(struct vrend_resource *src_res,
 
    glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
    free(tptr);
+   glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 static inline
@@ -9510,7 +9514,7 @@ void *vrend_renderer_get_cursor_contents(uint32_t res_handle, uint32_t *width, u
       memcpy(data2 + doff, data + soff, res->base.width0 * blsize);
    }
    free(data);
-
+   glBindTexture(res->target, 0);
    return data2;
 }
 
