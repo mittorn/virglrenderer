@@ -82,7 +82,7 @@ static bool virgl_egl_has_extension_in_string(const char *haystack, const char *
    return false;
 }
 
-struct virgl_egl *virgl_egl_init(int fd, bool surfaceless, bool gles)
+struct virgl_egl *virgl_egl_init(struct virgl_gbm *gbm, bool surfaceless, bool gles)
 {
    static EGLint conf_att[] = {
       EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
@@ -110,28 +110,12 @@ struct virgl_egl *virgl_egl_init(int fd, bool surfaceless, bool gles)
    if (gles)
       conf_att[3] = EGL_OPENGL_ES2_BIT;
 
-   /*
-    * The surfaceless flag (specified with VIRGL_RENDERER_USE_SURFACELESS)
-    * takes precedence and will attempt to get a display of type
-    * EGL_PLATFORM_SURFACELESS_MESA.
-    * If surfaceless is not specified, an fd supplied with the get_drm_fd
-    * is used to open a GBM device.
-    * If not provided, /dev/dri rendernodes are scanned and used to open
-    * a GBM device.
-    * If none of the above results in a valid display, a fallback will be
-    * done to use the default display, as long as an fd hasn't been explicitly
-    * provided.
-    */
-
-   if (surfaceless) {
+   if (surfaceless)
       conf_att[1] = EGL_PBUFFER_BIT;
-      egl->gbm = NULL;
-   } else {
-      egl->gbm = virgl_gbm_init(fd);
-      if (!egl->gbm)
-         goto fail;
-   }
+   else if (!gbm)
+      goto fail;
 
+   egl->gbm = gbm;
    const char *client_extensions = eglQueryString (NULL, EGL_EXTENSIONS);
 
    if (strstr (client_extensions, "EGL_KHR_platform_base")) {
@@ -169,13 +153,8 @@ struct virgl_egl *virgl_egl_init(int fd, bool surfaceless, bool gles)
        * Don't fallback to the default display if the fd provided by (*get_drm_fd)
        * can't be used.
        */
-      if (fd >= 0)
+      if (egl->gbm && egl->gbm->fd < 0)
          goto fail;
-
-      if (egl->gbm) {
-         virgl_gbm_fini(egl->gbm);
-         egl->gbm = NULL;
-      }
 
       egl->egl_display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
       if (!egl->egl_display)
@@ -246,9 +225,6 @@ struct virgl_egl *virgl_egl_init(int fd, bool surfaceless, bool gles)
    return egl;
 
  fail:
-   if (egl->gbm)
-      virgl_gbm_fini(egl->gbm);
-
    free(egl);
    return NULL;
 }
@@ -259,8 +235,6 @@ void virgl_egl_destroy(struct virgl_egl *egl)
                   EGL_NO_CONTEXT);
    eglDestroyContext(egl->egl_display, egl->egl_ctx);
    eglTerminate(egl->egl_display);
-   if (egl->gbm)
-      virgl_gbm_fini(egl->gbm);
    free(egl);
 }
 

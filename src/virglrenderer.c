@@ -39,8 +39,10 @@
 #include "virglrenderer.h"
 
 #ifdef HAVE_EPOXY_EGL_H
+#include "virgl_gbm.h"
 #include "virgl_egl.h"
-static struct virgl_egl *egl;
+static struct virgl_gbm *gbm = NULL;
+static struct virgl_egl *egl = NULL;
 #endif
 
 #ifdef HAVE_EPOXY_GLX_H
@@ -312,6 +314,10 @@ void virgl_renderer_cleanup(UNUSED void *cookie)
       virgl_egl_destroy(egl);
       egl = NULL;
       use_context = CONTEXT_NONE;
+      if (gbm) {
+         virgl_gbm_fini(gbm);
+         gbm = NULL;
+      }
    }
 #endif
 #ifdef HAVE_EPOXY_GLX_H
@@ -341,10 +347,26 @@ int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks
       if (cbs->version >= 2 && cbs->get_drm_fd) {
          fd = cbs->get_drm_fd(cookie);
       }
-      egl = virgl_egl_init(fd, flags & VIRGL_RENDERER_USE_SURFACELESS,
-                                    flags & VIRGL_RENDERER_USE_GLES);
-      if (!egl)
+
+      /*
+       * If the user specifies a preferred DRM fd and we can't use it, fail. If the user doesn't
+       * specify an fd, it's possible to initialize EGL without one.
+       */
+      gbm = virgl_gbm_init(fd);
+      if (fd > 0 && !gbm)
          return -1;
+
+      egl = virgl_egl_init(gbm, flags & VIRGL_RENDERER_USE_SURFACELESS,
+                           flags & VIRGL_RENDERER_USE_GLES);
+      if (!egl) {
+         if (gbm) {
+            virgl_gbm_fini(gbm);
+            gbm = NULL;
+         }
+
+         return -1;
+      }
+
       use_context = CONTEXT_EGL;
 #else
       vrend_printf( "EGL is not supported on this platform\n");

@@ -26,8 +26,9 @@
 
 #include "vrend_renderer.h"
 struct virgl_egl;
+struct virgl_gbm;
 
-struct virgl_egl *virgl_egl_init(int fd, bool surfaceless, bool gles);
+struct virgl_egl *virgl_egl_init(struct virgl_gbm *gbm, bool surfaceless, bool gles);
 
 void virgl_egl_destroy(struct virgl_egl *egl);
 
