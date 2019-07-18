@@ -123,17 +123,38 @@ cts gl - gl host:
     TEST_SUITE: '--deqp-gl-gl-tests'
   extends: .tests
 
-cts gles - gl host:
+cts gles2 - gl host:
   variables:
-    TEST_SUITE: '--deqp-gl-gles-tests'
+    TEST_SUITE: '--deqp-gl-gles2-tests'
   extends: .tests
+
+cts gles3 - gl host:
+  variables:
+    TEST_SUITE: '--deqp-gl-gles3-tests'
+  extends: .tests
+
+cts gles31 - gl host:
+  variables:
+    TEST_SUITE: '--deqp-gl-gles31-tests'
+  extends: .tests
+
 
 cts gl - gles host:
   variables:
     TEST_SUITE: '--deqp-gles-gl-tests'
   extends: .tests
 
-cts gles - gles host:
+cts gles2 - gles host:
   variables:
-    TEST_SUITE: '--deqp-gles-gles-tests'
+    TEST_SUITE: '--deqp-gles-gles2-tests'
+  extends: .tests
+
+cts gles3 - gles host:
+  variables:
+    TEST_SUITE: '--deqp-gles-gles3-tests'
+  extends: .tests
+
+cts gles31 - gles host:
+  variables:
+    TEST_SUITE: '--deqp-gles-gles31-tests'
   extends: .tests

@@ -78,6 +78,18 @@ run_deqp()
       TEST_SUITE="--gles2 --gles3 --gles31"
    fi
 
+   if [ "$SUITE" = "gles2" ]; then
+      TEST_SUITE="--gles2"
+   fi
+
+   if [ "$SUITE" = "gles3" ]; then
+      TEST_SUITE="--gles3"
+   fi
+
+   if [ "$SUITE" = "gles31" ]; then
+      TEST_SUITE="--gles31"
+   fi
+   
    BACKENDS=""
    if [[ -z "$HARDWARE_ONLY" ]]; then
       BACKENDS="${BACKENDS} --backend vtest-softpipe"
@@ -133,6 +145,18 @@ parse_input()
          run_deqp gl gles
          ;;
 
+         --deqp-gl-gles2-tests)
+         run_deqp gl gles2
+         ;;
+
+         --deqp-gl-gles3-tests)
+         run_deqp gl gles3
+         ;;
+
+         --deqp-gl-gles31-tests)
+         run_deqp gl gles31
+         ;;
+         
          --deqp-gles-gl-tests)
          run_deqp gles gl
          ;;
@@ -141,6 +165,18 @@ parse_input()
          run_deqp gles gles
          ;;
 
+         --deqp-gles-gles2-tests)
+         run_deqp gles gles2
+         ;;
+
+         --deqp-gles-gles3-tests)
+         run_deqp gles gles3
+         ;;
+
+         --deqp-gles-gles31-tests)
+         run_deqp gles gles31
+         ;;
+         
          --piglit-gl)
          run_piglit gl
          ;;
