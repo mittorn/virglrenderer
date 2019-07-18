@@ -62,6 +62,13 @@ AC_ARG_ENABLE([debug],
     [enable_debug="$enableval"],
     [enable_debug=no]
 )
+
+AC_ARG_ENABLE([gbm-allocation],
+    [AS_HELP_STRING([--enable-gbm-allocation], [Enable GBM allocation])],
+    [enable_gbm_allocation="$enableval"],
+    [enable_gbm_allocation=no]
+)
+
 if test "x$enable_debug" = xyes; then
     DEFINES="$DEFINES -DDEBUG"
     if test "x$GCC" = xyes; then
@@ -132,6 +139,13 @@ AS_IF([test "x$epoxy_has_egl" = "x1" && test "x$enable_egl" != "xno"], [
 ])
 AM_CONDITIONAL([HAVE_EPOXY_EGL], [test "x$epoxy_has_egl" = "xyes"])
 
+if test "x$enable_gbm_allocation" = xyes; then
+	if test "x$enable_egl" = xno; then
+		AC_MSG_ERROR([GBM integration requires EGL support])
+	fi
+	AC_DEFINE([ENABLE_GBM_ALLOCATION], [1], [GBM will be used to allocate in some cases])
+fi
+
 if test "x$os_win32" = xno; then
 	AS_IF([test "x$epoxy_has_egl" = "x1"], [
 		PKG_CHECK_MODULES([LIBDRM], [libdrm >= $LIBDRM_REQUIRED])
@@ -181,6 +195,7 @@ AC_MSG_NOTICE([
 
       glx:                      $epoxy_has_glx
       egl:                      $epoxy_has_egl
+      gbm_allocation:           $enable_gbm_allocation
       debug:                    $enable_debug
       tests:                    $build_tests
       fuzzer:                   $enable_fuzzer
