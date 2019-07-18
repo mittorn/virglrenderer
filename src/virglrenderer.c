@@ -41,8 +41,8 @@
 #ifdef HAVE_EPOXY_EGL_H
 #include "virgl_gbm.h"
 #include "virgl_egl.h"
-static struct virgl_gbm *gbm = NULL;
-static struct virgl_egl *egl = NULL;
+struct virgl_gbm *gbm = NULL;
+struct virgl_egl *egl = NULL;
 #endif
 
 #ifdef HAVE_EPOXY_GLX_H

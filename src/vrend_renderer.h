@@ -84,6 +84,7 @@ struct vrend_resource {
    struct iovec *iov;
    uint32_t num_iovs;
    uint64_t mipmap_offsets[VR_MAX_TEXTURE_2D_LEVELS];
+   void *gbm_bo, *egl_image;
 };
 
 #define VIRGL_TEXTURE_NEED_SWIZZLE        (1 << 0)

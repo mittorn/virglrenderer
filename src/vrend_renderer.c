@@ -6120,6 +6120,54 @@ vrend_renderer_resource_copy_args(struct vrend_renderer_resource_create_args *ar
    gr->base.array_size = args->array_size;
 }
 
+static void *vrend_allocate_using_gbm(struct vrend_resource *gr)
+{
+#ifdef ENABLE_GBM_ALLOCATION
+   uint32_t gbm_flags = virgl_gbm_convert_flags(gr->base.bind);
+   uint32_t gbm_format = virgl_gbm_convert_format(gr->base.format);
+   if (gr->base.depth0 != 1 || gr->base.last_level != 0 || gr->base.nr_samples != 0)
+      return NULL;
+
+   if (!gbm_format)
+      return NULL;
+
+   if (!gbm_flags)
+      return NULL;
+
+   if ((gr->base.bind & (VIRGL_RES_BIND_SCANOUT | VIRGL_RES_BIND_SHARED)) == 0)
+      return NULL;
+
+   if (!gbm_device_is_format_supported(gbm->device, gbm_format, gbm_flags))
+      return NULL;
+
+   /*
+    * loader_dri3_get_buffers requests 1x1 textures with the following flags:
+    *  *_BIND_SCANOUT | *_BIND_SHARED | *_SAMPLER_VIEW | *_RENDER_TARGET.
+    * 32 x 32 buffers are also requested with the same flags and never sent to the
+    * display. TODO(gsingh): figure out how to optimize this.
+    */
+   if (gr->base.width0 == 1 && gr->base.height0 == 1)
+      return NULL;
+
+   struct gbm_bo *bo = gbm_bo_create(gbm->device, gr->base.width0, gr->base.height0,
+                                     gbm_format, gbm_flags);
+   if (!bo)
+      return NULL;
+
+   void *image = virgl_egl_image_from_dmabuf(egl, bo);
+   if (!image) {
+      gbm_bo_destroy(bo);
+      return NULL;
+   }
+
+   gr->egl_image = image;
+   gr->gbm_bo = bo;
+   return image;
+#else
+   return NULL;
+#endif
+}
+
 static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
                                                     void *image_oes)
 {
@@ -6131,6 +6179,9 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
 
    if (pr->width0 == 0)
       return EINVAL;
+
+   if (!image_oes)
+      image_oes = vrend_allocate_using_gbm(gr);
 
    if (image_oes)
       gr->base.bind &= ~VIRGL_BIND_PREFER_EMULATED_BGRA;
@@ -6387,6 +6438,13 @@ void vrend_renderer_resource_destroy(struct vrend_resource *res)
    default:
       break;
    }
+
+#ifdef ENABLE_GBM_ALLOCATION
+   if (res->egl_image)
+      virgl_egl_image_destroy(egl, res->egl_image);
+   if (res->gbm_bo)
+      gbm_bo_destroy(res->gbm_bo);
+#endif
 
    free(res);
 }
@@ -7317,6 +7375,11 @@ int vrend_renderer_transfer_iov(const struct vrend_transfer_info *info,
       vrend_renderer_force_ctx_0();
       ctx = NULL;
    }
+
+#ifdef ENABLE_GBM_ALLOCATION
+   if (res->gbm_bo)
+      return virgl_gbm_transfer(res->gbm_bo, transfer_mode, iov, num_iovs, info);
+#endif
 
    switch (transfer_mode) {
    case VIRGL_TRANSFER_TO_HOST:

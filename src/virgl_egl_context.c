@@ -435,3 +435,8 @@ out_close:
 
    return (void*)image;
 }
+
+void virgl_egl_image_destroy(struct virgl_egl *egl, void *image)
+{
+   eglDestroyImageKHR(egl->egl_display, image);
+}

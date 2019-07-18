@@ -46,4 +46,7 @@ uint32_t virgl_gbm_convert_format(uint32_t virgl_format);
 
 int virgl_gbm_transfer(struct gbm_bo *bo, uint32_t direction, struct iovec *iovecs,
                        uint32_t num_iovecs, const struct vrend_transfer_info *info);
+
+uint32_t virgl_gbm_convert_flags(uint32_t virgl_bind_flags);
+
 #endif
