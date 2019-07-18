@@ -374,3 +374,64 @@ bool virgl_has_egl_khr_gl_colorspace(struct virgl_egl *egl)
 {
    return egl->have_khr_gl_colorspace;
 }
+
+void *virgl_egl_image_from_dmabuf(struct virgl_egl *egl, struct gbm_bo *bo)
+{
+   int ret;
+   EGLImageKHR image;
+   int fds[4] = {-1, -1, -1, -1};
+   int num_planes = gbm_bo_get_plane_count(bo);
+   // When the bo has 3 planes with modifier support, it requires 37 components.
+   EGLint khr_image_attrs[37] = {
+      EGL_WIDTH,
+      gbm_bo_get_width(bo),
+      EGL_HEIGHT,
+      gbm_bo_get_height(bo),
+      EGL_LINUX_DRM_FOURCC_EXT,
+      (int)gbm_bo_get_format(bo),
+      EGL_NONE,
+   };
+
+   if (num_planes < 0 || num_planes > 4)
+      return (void *)EGL_NO_IMAGE_KHR;
+
+   for (int plane = 0; plane < num_planes; plane++) {
+      uint32_t handle = gbm_bo_get_handle_for_plane(bo, plane).u32;
+      ret = drmPrimeHandleToFD(gbm_device_get_fd(egl->gbm->device), handle, DRM_CLOEXEC,
+                               &fds[plane]);
+      if (ret < 0) {
+         vrend_printf( "failed to export plane handle\n");
+         image = (void *)EGL_NO_IMAGE_KHR;
+         goto out_close;
+      }
+   }
+
+   size_t attrs_index = 6;
+   for (int plane = 0; plane < num_planes; plane++) {
+      khr_image_attrs[attrs_index++] = EGL_DMA_BUF_PLANE0_FD_EXT + plane * 3;
+      khr_image_attrs[attrs_index++] = fds[plane];
+      khr_image_attrs[attrs_index++] = EGL_DMA_BUF_PLANE0_OFFSET_EXT + plane * 3;
+      khr_image_attrs[attrs_index++] = gbm_bo_get_offset(bo, plane);
+      khr_image_attrs[attrs_index++] = EGL_DMA_BUF_PLANE0_PITCH_EXT + plane * 3;
+      khr_image_attrs[attrs_index++] = gbm_bo_get_stride_for_plane(bo, plane);
+      if (egl->have_ext_image_dma_buf_import_modifiers) {
+         const uint64_t modifier = gbm_bo_get_modifier(bo);
+         khr_image_attrs[attrs_index++] =
+         EGL_DMA_BUF_PLANE0_MODIFIER_LO_EXT + plane * 2;
+         khr_image_attrs[attrs_index++] = modifier & 0xfffffffful;
+         khr_image_attrs[attrs_index++] =
+         EGL_DMA_BUF_PLANE0_MODIFIER_HI_EXT + plane * 2;
+         khr_image_attrs[attrs_index++] = modifier >> 32;
+      }
+   }
+
+   khr_image_attrs[attrs_index++] = EGL_NONE;
+   image = eglCreateImageKHR(egl->egl_display, EGL_NO_CONTEXT, EGL_LINUX_DMA_BUF_EXT, NULL,
+                             khr_image_attrs);
+
+out_close:
+   for (int plane = 0; plane < num_planes; plane++)
+      close(fds[plane]);
+
+   return (void*)image;
+}

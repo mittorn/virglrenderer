@@ -28,6 +28,7 @@
 #include "vrend_renderer.h"
 struct virgl_egl;
 struct virgl_gbm;
+struct gbm_bo;
 
 struct virgl_egl *virgl_egl_init(struct virgl_gbm *gbm, bool surfaceless, bool gles);
 
@@ -51,4 +52,6 @@ int virgl_egl_get_fd_for_texture(struct virgl_egl *egl, uint32_t tex_id, int *fd
 
 int virgl_egl_get_fd_for_texture2(struct virgl_egl *egl, uint32_t tex_id, int *fd, int *stride,
                                   int *offset);
+
+void *virgl_egl_image_from_dmabuf(struct virgl_egl *egl, struct gbm_bo *bo);
 #endif
