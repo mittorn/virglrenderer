@@ -24,6 +24,7 @@
 #ifndef VIRGL_EGL_H
 #define VIRGL_EGL_H
 
+#include "virglrenderer.h"
 #include "vrend_renderer.h"
 struct virgl_egl;
 struct virgl_gbm;

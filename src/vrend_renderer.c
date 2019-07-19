@@ -57,6 +57,13 @@
 #include <sys/eventfd.h>
 #endif
 
+#ifdef HAVE_EPOXY_EGL_H
+#include "virgl_gbm.h"
+#include "virgl_egl.h"
+extern struct virgl_gbm *gbm;
+extern struct virgl_egl *egl;
+#endif
+
 /* debugging via KHR_debug extension */
 int vrend_use_debug_cb = 0;
 
