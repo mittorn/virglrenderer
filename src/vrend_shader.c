@@ -4679,13 +4679,13 @@ iter_instruction(struct tgsi_iterate_context *iter,
    case TGSI_OPCODE_DMAX:
    case TGSI_OPCODE_IMAX:
    case TGSI_OPCODE_UMAX:
-      emit_buff(ctx, "%s = %s(%s(max(%s, %s)));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0], srcs[1]);
+      emit_buff(ctx, "%s = %s(%s(max(%s, %s))%s);\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0], srcs[1], writemask);
       break;
    case TGSI_OPCODE_MIN:
    case TGSI_OPCODE_DMIN:
    case TGSI_OPCODE_IMIN:
    case TGSI_OPCODE_UMIN:
-      emit_buff(ctx, "%s = %s(%s(min(%s, %s)));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0], srcs[1]);
+      emit_buff(ctx, "%s = %s(%s(min(%s, %s))%s);\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0], srcs[1], writemask);
       break;
    case TGSI_OPCODE_ABS:
    case TGSI_OPCODE_IABS:
