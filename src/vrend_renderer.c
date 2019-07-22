@@ -9150,8 +9150,9 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
    /* Count this up when you add a feature flag that is used to set a CAP in
     * the guest that was set unconditionally before. Then check that flag and
     * this value to avoid regressions when a guest with a new mesa version is
-    * run on an old virgl host */
-   caps->v2.host_feature_check_version = 2;
+    * run on an old virgl host. Use it also to indicate non-cap fixes on the
+    * host that help enable features in the guest. */
+   caps->v2.host_feature_check_version = 3;
 
    glGetFloatv(GL_ALIASED_POINT_SIZE_RANGE, range);
    caps->v2.min_aliased_point_size = range[0];
