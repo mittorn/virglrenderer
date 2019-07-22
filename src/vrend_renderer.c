@@ -9173,7 +9173,12 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
 
    glGetFloatv(GL_MAX_TEXTURE_LOD_BIAS, &caps->v2.max_texture_lod_bias);
    glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, (GLint*)&caps->v2.max_vertex_attribs);
-   glGetIntegerv(GL_MAX_VERTEX_OUTPUT_COMPONENTS, &max);
+
+   if (gl_ver >= 32 || (vrend_state.use_gles && gl_ver >= 30))
+      glGetIntegerv(GL_MAX_VERTEX_OUTPUT_COMPONENTS, &max);
+   else
+      max = 64; // minimum required value
+
    caps->v2.max_vertex_outputs = max / 4;
 
    glGetIntegerv(GL_MIN_PROGRAM_TEXEL_OFFSET, &caps->v2.min_texel_offset);
