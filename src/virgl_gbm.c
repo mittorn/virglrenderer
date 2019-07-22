@@ -38,6 +38,48 @@
 #include "virgl_hw.h"
 #include "vrend_debug.h"
 
+struct planar_layout {
+    size_t num_planes;
+    int horizontal_subsampling[4];
+    int vertical_subsampling[4];
+    int bytes_per_pixel[4];
+};
+
+static const struct planar_layout packed_1bpp_layout = {
+    .num_planes = 1,
+    .horizontal_subsampling = { 1 },
+    .vertical_subsampling = { 1 },
+    .bytes_per_pixel = { 1 }
+};
+
+static const struct planar_layout packed_2bpp_layout = {
+    .num_planes = 1,
+    .horizontal_subsampling = { 1 },
+    .vertical_subsampling = { 1 },
+    .bytes_per_pixel = { 2 }
+};
+
+static const struct planar_layout packed_4bpp_layout = {
+    .num_planes = 1,
+    .horizontal_subsampling = { 1 },
+    .vertical_subsampling = { 1 },
+    .bytes_per_pixel = { 4 }
+};
+
+static const struct planar_layout biplanar_yuv_420_layout = {
+    .num_planes = 2,
+    .horizontal_subsampling = { 1, 2 },
+    .vertical_subsampling = { 1, 2 },
+    .bytes_per_pixel = { 1, 2 }
+};
+
+static const struct planar_layout triplanar_yuv_420_layout = {
+    .num_planes = 3,
+    .horizontal_subsampling = { 1, 2, 2 },
+    .vertical_subsampling = { 1, 2, 2 },
+    .bytes_per_pixel = { 1, 1, 1 }
+};
+
 static int rendernode_open(void)
 {
    DIR *dir;
@@ -74,6 +116,27 @@ static int rendernode_open(void)
    if (fd < 0)
       return -1;
    return fd;
+}
+
+static const struct planar_layout *layout_from_format(uint32_t format)
+{
+   switch (format) {
+   case GBM_FORMAT_R8:
+      return &packed_1bpp_layout;
+   case GBM_FORMAT_YVU420:
+      return &triplanar_yuv_420_layout;
+   case GBM_FORMAT_NV12:
+      return &biplanar_yuv_420_layout;
+   case GBM_FORMAT_RGB565:
+      return &packed_2bpp_layout;
+   case GBM_FORMAT_ARGB8888:
+   case GBM_FORMAT_XRGB8888:
+   case GBM_FORMAT_ABGR8888:
+   case GBM_FORMAT_XBGR8888:
+      return &packed_4bpp_layout;
+   default:
+      return NULL;
+   }
 }
 
 struct virgl_gbm *virgl_gbm_init(int fd)
@@ -117,11 +180,23 @@ void virgl_gbm_fini(struct virgl_gbm *gbm)
 uint32_t virgl_gbm_convert_format(uint32_t virgl_format)
 {
    switch (virgl_format) {
-   case VIRGL_FORMAT_B8G8R8X8_UNORM:
+   case VIRGL_FORMAT_B5G6R5_UNORM:
+      return GBM_FORMAT_RGB565;
    case VIRGL_FORMAT_B8G8R8A8_UNORM:
       return GBM_FORMAT_ARGB8888;
+   case VIRGL_FORMAT_B8G8R8X8_UNORM:
+      return GBM_FORMAT_XRGB8888;
+   case VIRGL_FORMAT_NV12:
+      return GBM_FORMAT_NV12;
+   case VIRGL_FORMAT_R8G8B8A8_UNORM:
+      return GBM_FORMAT_ABGR8888;
+   case VIRGL_FORMAT_R8G8B8X8_UNORM:
+      return GBM_FORMAT_XBGR8888;
+   case VIRGL_FORMAT_R8_UNORM:
+      return GBM_FORMAT_R8;
+   case VIRGL_FORMAT_YV12:
+      return GBM_FORMAT_YVU420;
    default:
-      vrend_printf("unsupported virgl format: %u\n", virgl_format);
       return 0;
    }
 }
