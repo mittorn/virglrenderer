@@ -100,20 +100,6 @@ struct vrend_format_table {
    uint32_t flags;
 };
 
-struct vrend_transfer_info {
-   uint32_t handle;
-   uint32_t ctx_id;
-   int level;
-   uint32_t stride;
-   uint32_t layer_stride;
-   unsigned int iovec_cnt;
-   struct iovec *iovec;
-   uint64_t offset;
-   bool context0;
-   struct pipe_box *box;
-   bool synchronized;
-};
-
 struct vrend_if_cbs {
    void (*write_fence)(unsigned fence_id);
 

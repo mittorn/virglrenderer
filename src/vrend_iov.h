@@ -24,6 +24,8 @@
 #ifndef VREND_IOV_H
 #define VREND_IOV_H
 
+#include <stdint.h>
+#include <stdbool.h>
 #include "config.h"
 
 #ifdef HAVE_SYS_UIO_H
@@ -34,6 +36,20 @@ struct iovec {
     size_t iov_len;
 };
 #endif
+
+struct vrend_transfer_info {
+   uint32_t handle;
+   uint32_t ctx_id;
+   int level;
+   uint32_t stride;
+   uint32_t layer_stride;
+   unsigned int iovec_cnt;
+   struct iovec *iovec;
+   uint64_t offset;
+   bool context0;
+   struct pipe_box *box;
+   bool synchronized;
+};
 
 typedef void (*iov_cb)(void *cookie, unsigned int doff, void *src, int len);
 

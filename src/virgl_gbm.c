@@ -34,6 +34,9 @@
 #include <xf86drm.h>
 #include <unistd.h>
 
+#include "util/u_math.h"
+#include "pipe/p_state.h"
+
 #include "virgl_gbm.h"
 #include "virgl_hw.h"
 #include "vrend_debug.h"
@@ -139,6 +142,70 @@ static const struct planar_layout *layout_from_format(uint32_t format)
    }
 }
 
+static void virgl_gbm_transfer_internal(uint32_t planar_bytes_per_pixel,
+                                        uint32_t subsampled_width,
+                                        uint32_t subsampled_height,
+                                        uint32_t guest_plane_stride,
+                                        uint32_t guest_resource_offset,
+                                        uint32_t host_plane_stride, uint8_t *host_address,
+                                        struct iovec *iovecs, uint32_t num_iovecs,
+                                        uint32_t direction)
+{
+   bool next_iovec, next_line;
+   uint32_t current_height, current_iovec, iovec_start_offset;
+   current_height = current_iovec = iovec_start_offset = 0;
+
+   while (current_height < subsampled_height && current_iovec < num_iovecs) {
+      uint32_t iovec_size = iovecs[current_iovec].iov_len;
+      uint32_t iovec_end_offset = iovec_start_offset + iovec_size;
+
+      uint32_t box_start_offset = guest_resource_offset + current_height * guest_plane_stride;
+      uint32_t box_end_offset = box_start_offset + subsampled_width * planar_bytes_per_pixel;
+
+      uint32_t max_start = MAX2(iovec_start_offset, box_start_offset);
+      uint32_t min_end = MIN2(iovec_end_offset, box_end_offset);
+
+      if (max_start < min_end) {
+         uint32_t offset_in_iovec = (max_start > iovec_start_offset) ?
+                                    (max_start - iovec_start_offset) : 0;
+
+         uint32_t copy_iovec_size = min_end - max_start;
+         if (min_end >= iovec_end_offset) {
+            next_iovec = true;
+            next_line = false;
+         } else {
+            next_iovec = false;
+            next_line = true;
+         }
+
+         uint8_t *guest_start = (uint8_t*)iovecs[current_iovec].iov_base + offset_in_iovec;
+         uint8_t *host_start = host_address + (current_height * host_plane_stride) +
+                               (max_start - box_start_offset);
+
+         if (direction == VIRGL_TRANSFER_TO_HOST)
+            memcpy(host_start, guest_start, copy_iovec_size);
+         else
+            memcpy(guest_start, host_start, copy_iovec_size);
+      } else {
+         if (box_start_offset >= iovec_start_offset) {
+            next_iovec = true;
+            next_line = false;
+         } else {
+            next_iovec = false;
+            next_line = true;
+         }
+      }
+
+      if (next_iovec) {
+         iovec_start_offset += iovec_size;
+         current_iovec++;
+      }
+
+      if (next_line)
+         current_height++;
+   }
+}
+
 struct virgl_gbm *virgl_gbm_init(int fd)
 {
    struct virgl_gbm *gbm = calloc(1, sizeof(struct virgl_gbm));
@@ -199,4 +266,70 @@ uint32_t virgl_gbm_convert_format(uint32_t virgl_format)
    default:
       return 0;
    }
+}
+
+int virgl_gbm_transfer(struct gbm_bo *bo, uint32_t direction, struct iovec *iovecs,
+                       uint32_t num_iovecs, const struct vrend_transfer_info *info)
+{
+   void *map_data;
+   uint32_t host_plane_offset, guest_plane_offset, guest_stride0, calc_stride0, host_map_stride0;
+
+   uint32_t width = gbm_bo_get_width(bo);
+   uint32_t height = gbm_bo_get_height(bo);
+   uint32_t format = gbm_bo_get_format(bo);
+   int plane_count = gbm_bo_get_plane_count(bo);
+   const struct planar_layout *layout = layout_from_format(format);
+   if (!layout)
+      return -1;
+
+   host_plane_offset = guest_plane_offset = host_map_stride0 = guest_stride0 = 0;
+   uint32_t map_flags = (direction == VIRGL_TRANSFER_TO_HOST) ? GBM_BO_TRANSFER_WRITE :
+                                                                GBM_BO_TRANSFER_READ;
+   void *addr = gbm_bo_map(bo, 0, 0, width, height, map_flags, &host_map_stride0, &map_data);
+   if (!addr)
+      return -1;
+
+   /*
+    * Unfortunately, the kernel doesn't actually pass the guest layer_stride and
+    * guest stride to the host (compare virtio_gpu.h and virtgpu_drm.h). We can use
+    * the level (always zero for 2D images) to work around this.
+    */
+   guest_stride0 = info->stride;
+   calc_stride0 = width * layout->bytes_per_pixel[0];
+   if (!guest_stride0)
+      guest_stride0 = (info->level > 0) ? (uint32_t)info->level : calc_stride0;
+
+   if (guest_stride0 < calc_stride0)
+      return -1;
+
+   if (guest_stride0 > host_map_stride0)
+      return -1;
+
+   for (int plane = 0; plane < plane_count; plane++) {
+      host_plane_offset += gbm_bo_get_offset(bo, plane);
+
+      uint32_t subsampled_x = info->box->x / layout->horizontal_subsampling[plane];
+      uint32_t subsampled_y = info->box->y / layout->vertical_subsampling[plane];
+      uint32_t subsampled_width = info->box->width / layout->horizontal_subsampling[plane];
+      uint32_t subsampled_height = info->box->height / layout->vertical_subsampling[plane];
+      uint32_t plane_height = height / layout->vertical_subsampling[plane];
+      uint32_t guest_plane_stride = guest_stride0 / layout->horizontal_subsampling[plane];
+      uint32_t host_plane_stride = host_map_stride0 / layout->horizontal_subsampling[plane];
+
+      uint32_t guest_resource_offset = guest_plane_offset + (subsampled_y * guest_plane_stride)
+                                       + subsampled_x * layout->bytes_per_pixel[plane];
+      uint32_t host_resource_offset = host_plane_offset + (subsampled_y * host_plane_stride)
+                                       + subsampled_x * layout->bytes_per_pixel[plane];
+
+      uint8_t *host_address = (uint8_t*)addr + host_resource_offset;
+
+      virgl_gbm_transfer_internal(layout->bytes_per_pixel[plane], subsampled_width,
+                                  subsampled_height, guest_plane_stride, guest_resource_offset,
+                                  host_plane_stride, host_address, iovecs, num_iovecs, direction);
+
+      guest_plane_offset += plane_height * guest_plane_stride;
+   }
+
+   gbm_bo_unmap(bo, map_data);
+   return 0;
 }

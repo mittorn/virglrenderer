@@ -7302,6 +7302,11 @@ int vrend_renderer_transfer_iov(const struct vrend_transfer_info *info,
       return EINVAL;
    }
 
+#ifdef ENABLE_GBM_ALLOCATION
+   if (res->gbm_bo)
+      return virgl_gbm_transfer(res->gbm_bo, transfer_mode, iov, num_iovs, info);
+#endif
+
    if (!check_transfer_bounds(res, info))
       return EINVAL;
 
