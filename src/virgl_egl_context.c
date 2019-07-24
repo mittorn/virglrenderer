@@ -150,7 +150,7 @@ struct virgl_egl *virgl_egl_init(int fd, bool surfaceless, bool gles)
       return NULL;
 
    if (gles)
-      conf_att[3] = EGL_OPENGL_ES_BIT;
+      conf_att[3] = EGL_OPENGL_ES2_BIT;
 
    if (surfaceless) {
       conf_att[1] = EGL_PBUFFER_BIT;
