@@ -2445,34 +2445,21 @@ void vrend_set_viewport_states(struct vrend_context *ctx,
           ctx->sub->vps[idx].cur_y != y ||
           ctx->sub->vps[idx].width != width ||
           ctx->sub->vps[idx].height != height ||
+          ctx->sub->vps[idx].near_val != near_val ||
+          ctx->sub->vps[idx].far_val != far_val ||
           (!(ctx->sub->viewport_state_initialized &= (1 << idx)))) {
          ctx->sub->vps[idx].cur_x = x;
          ctx->sub->vps[idx].cur_y = y;
          ctx->sub->vps[idx].width = width;
          ctx->sub->vps[idx].height = height;
+         ctx->sub->vps[idx].near_val = near_val;
+         ctx->sub->vps[idx].far_val = far_val;
          ctx->sub->viewport_state_dirty |= (1 << idx);
       }
 
       if (idx == 0) {
          if (ctx->sub->viewport_is_negative != viewport_is_negative)
             ctx->sub->viewport_is_negative = viewport_is_negative;
-      }
-
-      if (ctx->sub->vps[idx].near_val != near_val ||
-          ctx->sub->vps[idx].far_val != far_val) {
-         ctx->sub->vps[idx].near_val = near_val;
-         ctx->sub->vps[idx].far_val = far_val;
-
-         if (idx && has_feature(feat_viewport_array))
-            if (vrend_state.use_gles) {
-               glDepthRangeIndexedfOES(idx, ctx->sub->vps[idx].near_val, ctx->sub->vps[idx].far_val);
-            } else
-               glDepthRangeIndexed(idx, ctx->sub->vps[idx].near_val, ctx->sub->vps[idx].far_val);
-         else
-            if (vrend_state.use_gles)
-               glDepthRangefOES(ctx->sub->vps[idx].near_val, ctx->sub->vps[idx].far_val);
-            else
-               glDepthRange(ctx->sub->vps[idx].near_val, ctx->sub->vps[idx].far_val);
       }
    }
 }
@@ -3658,6 +3645,17 @@ static void vrend_update_viewport_state(struct vrend_context *ctx)
          glViewportIndexedf(idx, ctx->sub->vps[idx].cur_x, cy, ctx->sub->vps[idx].width, ctx->sub->vps[idx].height);
       else
          glViewport(ctx->sub->vps[idx].cur_x, cy, ctx->sub->vps[idx].width, ctx->sub->vps[idx].height);
+
+      if (idx && has_feature(feat_viewport_array))
+         if (vrend_state.use_gles) {
+            glDepthRangeIndexedfOES(idx, ctx->sub->vps[idx].near_val, ctx->sub->vps[idx].far_val);
+         } else
+            glDepthRangeIndexed(idx, ctx->sub->vps[idx].near_val, ctx->sub->vps[idx].far_val);
+      else
+         if (vrend_state.use_gles)
+            glDepthRangefOES(ctx->sub->vps[idx].near_val, ctx->sub->vps[idx].far_val);
+         else
+            glDepthRange(ctx->sub->vps[idx].near_val, ctx->sub->vps[idx].far_val);
    }
 
    ctx->sub->viewport_state_dirty = 0;
