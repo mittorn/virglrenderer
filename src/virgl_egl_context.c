@@ -236,11 +236,6 @@ struct virgl_egl *virgl_egl_init(int fd, bool surfaceless, bool gles)
    if (virgl_egl_has_extension_in_string(extension_list, "EGL_MESA_image_dma_buf_export"))
       d->have_mesa_dma_buf_img_export = true;
 
-   if (d->have_mesa_drm_image == false && d->have_mesa_dma_buf_img_export == false) {
-      vrend_printf( "failed to find drm image extensions\n");
-      goto fail;
-   }
-
    d->have_egl_khr_gl_colorspace =
          virgl_egl_has_extension_in_string(extension_list, "EGL_KHR_gl_colorspace");
 
@@ -396,9 +391,7 @@ int virgl_egl_get_fd_for_texture(struct virgl_egl *ve, uint32_t tex_id, int *fd)
                                    &offset);
       if (!b)
          goto out_destroy;
-   } else  {
-      /* No need to check have_mesa_drm_image, because if we come here
-       * it is supported (imposed by virgl_egl_init) */
+   } else if (ve->have_mesa_drm_image) {
       EGLint handle;
       int r;
       b = eglExportDRMImageMESA(ve->egl_display,
@@ -414,6 +407,8 @@ int virgl_egl_get_fd_for_texture(struct virgl_egl *ve, uint32_t tex_id, int *fd)
       r = drmPrimeHandleToFD(ve->fd, handle, DRM_CLOEXEC, fd);
       if (r < 0)
 	 goto out_destroy;
+   } else {
+      goto out_destroy;
    }
    ret = 0;
  out_destroy:
