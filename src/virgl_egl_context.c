@@ -152,6 +152,19 @@ struct virgl_egl *virgl_egl_init(int fd, bool surfaceless, bool gles)
    if (gles)
       conf_att[3] = EGL_OPENGL_ES2_BIT;
 
+   /*
+    * The surfaceless flag (specified with VIRGL_RENDERER_USE_SURFACELESS)
+    * takes precedence and will attempt to get a display of type
+    * EGL_PLATFORM_SURFACELESS_MESA.
+    * If surfaceless is not specified, an fd supplied with the get_drm_fd
+    * is used to open a GBM device.
+    * If not provided, /dev/dri rendernodes are scanned and used to open
+    * a GBM device.
+    * If none of the above results in a valid display, a fallback will be
+    * done to use the default display, as long as an fd hasn't been explicitly
+    * provided.
+    */
+
    if (surfaceless) {
       conf_att[1] = EGL_PBUFFER_BIT;
       d->fd = -1;
@@ -201,8 +214,24 @@ struct virgl_egl *virgl_egl_init(int fd, bool surfaceless, bool gles)
       d->egl_display = eglGetDisplay((EGLNativeDisplayType)d->gbm_dev);
    }
 
-   if (!d->egl_display)
-      goto fail;
+   if (!d->egl_display) {
+      if (d->gbm_dev) {
+	 gbm_device_destroy(d->gbm_dev);
+	 d->gbm_dev = NULL;
+      }
+
+      if (d->fd >= 0) {
+	 close(d->fd);
+	 d->fd = -1;
+      }
+
+      /* Fallback to using the default display unless an fd was specified. */
+      if (fd < 0)
+	 d->egl_display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+
+      if (!d->egl_display)
+	 goto fail;
+   }
 
    b = eglInitialize(d->egl_display, &major, &minor);
    if (!b)
@@ -264,7 +293,16 @@ struct virgl_egl *virgl_egl_init(int fd, bool surfaceless, bool gles)
    eglMakeCurrent(d->egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE,
                   d->egl_ctx);
    return d;
+
  fail:
+   if (d->gbm_dev) {
+      gbm_device_destroy(d->gbm_dev);
+   }
+
+   if (d->fd >= 0) {
+      close(d->fd);
+   }
+
    free(d);
    return NULL;
 }
