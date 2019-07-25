@@ -27,6 +27,7 @@
 
 #include <gbm.h>
 #include "vrend_iov.h"
+#include "virglrenderer.h"
 
 /*
  * If fd >= 0, virglrenderer owns the fd since it was opened via a rendernode
@@ -48,5 +49,7 @@ int virgl_gbm_transfer(struct gbm_bo *bo, uint32_t direction, struct iovec *iove
                        uint32_t num_iovecs, const struct vrend_transfer_info *info);
 
 uint32_t virgl_gbm_convert_flags(uint32_t virgl_bind_flags);
+
+int virgl_gbm_export_query(struct gbm_bo *bo, struct virgl_renderer_export_query *query);
 
 #endif

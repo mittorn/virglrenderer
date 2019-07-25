@@ -50,6 +50,7 @@
 #include "vrend_debug.h"
 
 #include "virgl_hw.h"
+#include "virglrenderer.h"
 
 #include "tgsi/tgsi_text.h"
 
@@ -9625,6 +9626,7 @@ void *vrend_renderer_get_cursor_contents(uint32_t res_handle, uint32_t *width, u
    return data2;
 }
 
+
 void vrend_renderer_force_ctx_0(void)
 {
    struct vrend_context *ctx0 = vrend_lookup_renderer_ctx(0);
@@ -9921,4 +9923,40 @@ int vrend_renderer_get_poll_fd(void)
       return -1;
 
    return vrend_state.eventfd;
+}
+
+int vrend_renderer_execute(void *execute_args, uint32_t execute_size)
+{
+   /*
+    * This function only supports VIRGL_RENDERER_STRUCTURE_TYPE_RESOURCE_QUERY currently.
+    */
+   struct vrend_resource *res;
+   struct virgl_renderer_export_query *export_query = execute_args;
+   if (execute_size != sizeof(struct virgl_renderer_export_query))
+      return -EINVAL;
+
+   if (export_query->hdr.stype != VIRGL_RENDERER_STRUCTURE_TYPE_EXPORT_QUERY ||
+       export_query->hdr.stype_version != 0 ||
+       export_query->hdr.size != sizeof(struct virgl_renderer_export_query))
+      return -EINVAL;
+
+   res = vrend_resource_lookup(export_query->in_resource_id, 0);
+   if (!res)
+      return -EINVAL;
+
+#ifdef ENABLE_GBM_ALLOCATION
+   if (res->gbm_bo)
+      return virgl_gbm_export_query(res->gbm_bo, export_query);
+#endif
+
+   /*
+    * Implementations that support eglExportDMABUFImageMESA can also export certain resources.
+    * This is omitted currently since virgl_renderer_get_fd_for_texture supports that use case.
+    */
+   export_query->out_num_fds = 0;
+   export_query->out_fourcc = 0;
+   if (export_query->in_export_fds)
+      return -EINVAL;
+
+   return 0;
 }

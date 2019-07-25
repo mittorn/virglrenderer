@@ -98,6 +98,11 @@ VIRGL_EXPORT int virgl_renderer_get_fd_for_texture2(uint32_t tex_id, int *fd, in
 #define VIRGL_RES_BIND_SCANOUT       (1 << 18)
 #define VIRGL_RES_BIND_SHARED        (1 << 20)
 
+enum virgl_renderer_structure_type_v0 {
+   VIRGL_RENDERER_STRUCTURE_TYPE_NONE = 0x00000000,
+   VIRGL_RENDERER_STRUCTURE_TYPE_EXPORT_QUERY = 0x00000001,
+};
+
 struct virgl_renderer_resource_create_args {
    uint32_t handle;
    uint32_t target;
@@ -110,6 +115,33 @@ struct virgl_renderer_resource_create_args {
    uint32_t last_level;
    uint32_t nr_samples;
    uint32_t flags;
+};
+
+struct virgl_renderer_hdr {
+   uint32_t stype;
+   uint32_t stype_version;
+   uint32_t size;
+};
+
+/*
+ * "out_num_fds" represents the number of distinct kernel buffers backing an
+ * allocation. If this number or 'out_fourcc' is zero, the resource is not
+ * exportable. The "out_fds" field will be populated with "out_num_fds" file
+ * descriptors if "in_export_fds" is non-zero.
+ */
+struct virgl_renderer_export_query {
+   struct virgl_renderer_hdr hdr;
+   uint32_t in_resource_id;
+
+   uint32_t out_num_fds;
+   uint32_t in_export_fds;
+   uint32_t out_fourcc;
+   uint32_t pad;
+
+   int32_t out_fds[4];
+   uint32_t out_strides[4];
+   uint32_t out_offsets[4];
+   uint64_t out_modifier;
 };
 
 /* new API */
@@ -189,5 +221,7 @@ VIRGL_EXPORT void virgl_renderer_cleanup(void *cookie);
 VIRGL_EXPORT void virgl_renderer_reset(void);
 
 VIRGL_EXPORT int virgl_renderer_get_poll_fd(void);
+
+VIRGL_EXPORT int virgl_renderer_execute(void *execute_args, uint32_t execute_size);
 
 #endif

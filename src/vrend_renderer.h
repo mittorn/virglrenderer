@@ -452,4 +452,7 @@ static const struct gl_version gl_versions[] = { {4,5}, {4,4}, {4,3}, {4,2}, {4,
                                                  {3,3}, {3,2}, {3,1}, {3,0} };
 
 extern struct vrend_if_cbs *vrend_clicbs;
+
+int vrend_renderer_execute(void *execute_args, uint32_t execute_size);
+
 #endif

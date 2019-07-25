@@ -422,3 +422,8 @@ virgl_debug_callback_type virgl_set_debug_callback(virgl_debug_callback_type cb)
 {
    return vrend_set_debug_callback(cb);
 }
+
+int virgl_renderer_execute(void *execute_args, uint32_t execute_size)
+{
+   return vrend_renderer_execute(execute_args, execute_size);
+}

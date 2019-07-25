@@ -368,3 +368,62 @@ uint32_t virgl_gbm_convert_flags(uint32_t virgl_bind_flags)
       flags |= GBM_BO_USE_CURSOR;
    return flags;
 }
+
+int virgl_gbm_export_query(struct gbm_bo *bo, struct virgl_renderer_export_query *query)
+{
+   int ret = -1;
+   uint32_t handles[4] = {0, 0, 0, 0};
+   struct gbm_device *gbm = gbm_bo_get_device(bo);
+   int num_planes = gbm_bo_get_plane_count(bo);
+   if (num_planes < 0 || num_planes > 4)
+      return ret;
+
+   query->out_num_fds = 0;
+   query->out_fourcc = 0;
+   query->out_modifier = 0;
+   for (int plane = 0; plane < 4; plane++) {
+      query->out_fds[plane] = -1;
+      query->out_strides[plane] = 0;
+      query->out_offsets[plane] = 0;
+   }
+
+   for (int plane = 0; plane < num_planes; plane++) {
+      uint32_t i, handle;
+      query->out_strides[plane] = gbm_bo_get_stride_for_plane(bo, plane);
+      query->out_offsets[plane] = gbm_bo_get_offset(bo, plane);
+      handle = gbm_bo_get_handle_for_plane(bo, plane).u32;
+
+      for (i = 0; i < query->out_num_fds; i++) {
+         if (handles[query->out_num_fds] == handle)
+            break;
+      }
+
+      if (i == query->out_num_fds) {
+         if (query->in_export_fds) {
+            ret = drmPrimeHandleToFD(gbm_device_get_fd(gbm), handle, DRM_CLOEXEC,
+                                     &query->out_fds[query->out_num_fds]);
+            if (ret)
+               goto err_close;
+         }
+         query->out_num_fds++;
+      }
+   }
+
+   query->out_modifier = gbm_bo_get_modifier(bo);
+   query->out_fourcc = gbm_bo_get_format(bo);
+   return 0;
+
+err_close:
+   for (int plane = 0; plane < 4; plane++) {
+      if (query->out_fds[plane] >= 0) {
+         close(query->out_fds[plane]);
+         query->out_fds[plane] = -1;
+      }
+
+      query->out_strides[plane] = 0;
+      query->out_offsets[plane] = 0;
+   }
+
+   query->out_num_fds = 0;
+   return ret;
+}
