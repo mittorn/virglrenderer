@@ -35,6 +35,7 @@
 #include <unistd.h>
 
 #include "util/u_math.h"
+#include "util/u_memory.h"
 #include "pipe/p_state.h"
 
 #include "virgl_gbm.h"
@@ -86,9 +87,13 @@ static const struct planar_layout triplanar_yuv_420_layout = {
 static int rendernode_open(void)
 {
    DIR *dir;
-   struct dirent *dir_ent;
    int ret, fd;
+   bool undesired_found;
+   drmVersionPtr version;
    char *rendernode_name;
+   struct dirent *dir_ent;
+   const char *undesired[3] = { "vgem", "pvr", NULL };
+
    dir = opendir("/dev/dri");
    if (!dir)
       return -1;
@@ -103,21 +108,39 @@ static int rendernode_open(void)
 
       ret = asprintf(&rendernode_name, "/dev/dri/%s", dir_ent->d_name);
       if (ret < 0)
-         return -1;
+         goto out;
 
       fd = open(rendernode_name, O_RDWR | O_CLOEXEC | O_NOCTTY | O_NONBLOCK);
-      if (fd < 0){
-         free(rendernode_name);
+      free(rendernode_name);
+
+      if (fd < 0)
+         continue;
+
+      version = drmGetVersion(fd);
+      if (!version) {
+         close(fd);
+         fd = -1;
          continue;
       }
 
-      free(rendernode_name);
+      undesired_found = false;
+      for (uint32_t i = 0; i < ARRAY_SIZE(undesired); i++) {
+         if (undesired[i] && !strcmp(version->name, undesired[i]))
+            undesired_found = true;
+      }
+
+      drmFreeVersion(version);
+      if (undesired_found) {
+         close(fd);
+         fd = -1;
+         continue;
+      }
+
       break;
    }
 
+out:
    closedir(dir);
-   if (fd < 0)
-      return -1;
    return fd;
 }
 
