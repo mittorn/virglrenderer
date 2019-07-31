@@ -686,6 +686,19 @@ static inline bool vrend_format_is_ds(enum virgl_formats format)
    return tex_conv_table[format].bindings & VIRGL_BIND_DEPTH_STENCIL;
 }
 
+static inline bool vrend_format_can_scanout(enum virgl_formats format)
+{
+#ifdef ENABLE_GBM_ALLOCATION
+   uint32_t gbm_format = virgl_gbm_convert_format(format);
+   if (!gbm_format)
+      return false;
+
+   return gbm_device_is_format_supported(gbm->device, gbm_format, GBM_BO_USE_SCANOUT);
+#else
+   return true;
+#endif
+}
+
 struct vrend_context_tweaks *vrend_get_context_tweaks(struct vrend_context *ctx)
 {
    return &ctx->sub->tweaks;
@@ -9461,14 +9474,17 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
       caps->v2.capability_bits |= VIRGL_CAP_INDIRECT_PARAMS;
 
    for (int i = 0; i < VIRGL_FORMAT_MAX; i++) {
+      enum virgl_formats fmt = (enum virgl_formats)i;
       if (tex_conv_table[i].internalformat != 0) {
-         enum virgl_formats fmt = (enum virgl_formats)i;
          if (vrend_format_can_readback(fmt)) {
             VREND_DEBUG(dbg_features, NULL, "Support readback of %s\n",
                         util_format_name(fmt));
             set_format_bit(&caps->v2.supported_readback_formats, fmt);
          }
       }
+
+      if (vrend_format_can_scanout(fmt))
+         set_format_bit(&caps->v2.scanout, fmt);
    }
 
    if (has_feature(feat_clip_control))
