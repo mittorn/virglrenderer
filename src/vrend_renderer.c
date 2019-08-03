@@ -6111,13 +6111,18 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
 {
    uint level;
    GLenum internalformat, glformat, gltype;
+   enum virgl_formats format = gr->base.format;
    struct vrend_texture *gt = (struct vrend_texture *)gr;
    struct pipe_resource *pr = &gr->base;
 
    if (pr->width0 == 0)
       return EINVAL;
 
-   enum virgl_formats format = vrend_format_replace_emulated(gr->base.bind, gr->base.format);
+   if (image_oes)
+      gr->base.bind &= ~VIRGL_BIND_PREFER_EMULATED_BGRA;
+   else
+      format = vrend_format_replace_emulated(gr->base.bind, gr->base.format);
+
    bool format_can_texture_storage = has_feature(feat_texture_storage) &&
          (tex_conv_table[format].flags & VIRGL_TEXTURE_CAN_TEXTURE_STORAGE);
 
