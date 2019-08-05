@@ -3492,6 +3492,8 @@ void vrend_clear(struct vrend_context *ctx,
 
    vrend_use_program(ctx, 0);
 
+   glDisable(GL_SCISSOR_TEST);
+
    if (buffers & PIPE_CLEAR_COLOR) {
       if (ctx->sub->nr_cbufs && ctx->sub->surf[0] && vrend_format_is_emulated_alpha(ctx->sub->surf[0]->format)) {
          glClearColor(color->f[3], 0.0, 0.0, 0.0);
@@ -3603,6 +3605,10 @@ void vrend_clear(struct vrend_context *ctx,
                      ctx->sub->hw_blend_state.rt[0].colormask & PIPE_MASK_A ? GL_TRUE : GL_FALSE);
       }
    }
+   if (ctx->sub->hw_rs_state.scissor)
+      glEnable(GL_SCISSOR_TEST);
+   else
+      glDisable(GL_SCISSOR_TEST);
 }
 
 static void vrend_update_scissor_state(struct vrend_context *ctx)
@@ -5247,6 +5253,7 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
       glEnable(GL_SCISSOR_TEST);
    else
       glDisable(GL_SCISSOR_TEST);
+   ctx->sub->hw_rs_state.scissor = state->scissor;
 
 }
 
