@@ -6330,12 +6330,12 @@ vrend_renderer_resource_copy_args(struct vrend_renderer_resource_create_args *ar
  * When GBM allocation is enabled, this function creates a GBM buffer and
  * EGL image given certain flags.
  */
-static void vrend_resource_gbm_init(struct vrend_resource *gr)
+static void vrend_resource_gbm_init(struct vrend_resource *gr, uint32_t format)
 {
 #ifdef ENABLE_GBM_ALLOCATION
    uint32_t gbm_flags = virgl_gbm_convert_flags(gr->base.bind);
    uint32_t gbm_format = 0;
-   if (virgl_gbm_convert_format(&gr->base.format, &gbm_format))
+   if (virgl_gbm_convert_format(&format, &gbm_format))
       return;
 
    if (gr->base.depth0 != 1 || gr->base.last_level != 0 || gr->base.nr_samples != 0)
@@ -6370,6 +6370,7 @@ static void vrend_resource_gbm_init(struct vrend_resource *gr)
    gr->storage_bits |= VREND_STORAGE_EGL_IMAGE;
 
 #else
+   (void)format;
    (void)gr;
 #endif
 }
@@ -6386,32 +6387,40 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
    if (pr->width0 == 0)
       return EINVAL;
 
+   bool format_can_texture_storage = has_feature(feat_texture_storage) &&
+         (tex_conv_table[format].flags & VIRGL_TEXTURE_CAN_TEXTURE_STORAGE);
+
+   /* On GLES there is no support for glTexImage*DMultisample and
+    * BGRA surfaces are also unlikely to support glTexStorage2DMultisample
+    * so we try to emulate here
+    */
+   if (vrend_state.use_gles && pr->nr_samples > 0 && !format_can_texture_storage) {
+      VREND_DEBUG(dbg_tex, NULL, "Apply VIRGL_BIND_PREFER_EMULATED_BGRA because GLES+MS+noTS\n");
+      gr->base.bind |= VIRGL_BIND_PREFER_EMULATED_BGRA;
+   }
+
+   if (image_oes && !has_feature(feat_egl_image_storage))
+      gr->base.bind &= ~VIRGL_BIND_PREFER_EMULATED_BGRA;
+
+#ifdef ENABLE_GBM_ALLOCATION
+   if (virgl_gbm_external_allocation_preferred(gr->base.bind) &&
+       !has_feature(feat_egl_image_storage))
+      gr->base.bind &= ~VIRGL_BIND_PREFER_EMULATED_BGRA;
+#endif
+
+   format = vrend_format_replace_emulated(gr->base.bind, gr->base.format);
+   format_can_texture_storage = has_feature(feat_texture_storage) &&
+        (tex_conv_table[format].flags & VIRGL_TEXTURE_CAN_TEXTURE_STORAGE);
+
+   if (format_can_texture_storage)
+      gr->storage_bits |= VREND_STORAGE_GL_IMMUTABLE;
+
    if (!image_oes) {
-      vrend_resource_gbm_init(gr);
+      vrend_resource_gbm_init(gr, format);
       if (gr->gbm_bo && !has_bit(gr->storage_bits, VREND_STORAGE_EGL_IMAGE))
          return 0;
 
       image_oes = gr->egl_image;
-   }
-
-   bool format_can_texture_storage = has_feature(feat_texture_storage) &&
-         (tex_conv_table[format].flags & VIRGL_TEXTURE_CAN_TEXTURE_STORAGE);
-
-   if (image_oes)
-      gr->base.bind &= ~VIRGL_BIND_PREFER_EMULATED_BGRA;
-   else {
-      /* On GLES there is no support for glTexImage*DMultisample and
-       * BGRA surfaces are also unlikely to support glTexStorage2DMultisample
-       * so we try to emulate here */
-      if (vrend_state.use_gles && pr->nr_samples > 0 && !format_can_texture_storage) {
-         VREND_DEBUG(dbg_tex, NULL, "Apply VIRGL_BIND_PREFER_EMULATED_BGRA because GLES+MS+noTS\n");
-         gr->base.bind |= VIRGL_BIND_PREFER_EMULATED_BGRA;
-      }
-      format = vrend_format_replace_emulated(gr->base.bind, gr->base.format);
-      format_can_texture_storage = has_feature(feat_texture_storage) &&
-            (tex_conv_table[format].flags & VIRGL_TEXTURE_CAN_TEXTURE_STORAGE);
-      if (format_can_texture_storage)
-         gr->storage_bits |= VREND_STORAGE_GL_IMMUTABLE;
    }
 
    gr->target = tgsitargettogltarget(pr->target, pr->nr_samples);
