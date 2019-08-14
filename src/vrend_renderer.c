@@ -696,6 +696,7 @@ static inline bool vrend_format_can_scanout(enum virgl_formats format)
 
    return gbm_device_is_format_supported(gbm->device, gbm_format, GBM_BO_USE_SCANOUT);
 #else
+   (void)format;
    return true;
 #endif
 }
@@ -6187,6 +6188,7 @@ static void *vrend_allocate_using_gbm(struct vrend_resource *gr)
    gr->gbm_bo = bo;
    return image;
 #else
+   (void)gr;
    return NULL;
 #endif
 }
