@@ -6,8 +6,8 @@ ENV PATH=$PATH:/usr/local/go/bin
 ENV LD_LIBRARY_PATH=/usr/local/lib64:/usr/local/lib:/usr/local/lib/x86_64-linux-gnu
 ENV PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig:/usr/local/share/pkgconfig:/usr/local/lib/x86_64-linux-gnu/pkgconfig
 ENV LDFLAGS="-L/usr/local/lib64 -L/usr/local/lib/ -L/usr/local/lib/x86_64-linux-gnu"
-ENV CC="gcc-7"
-ENV CXX="g++-7"
+ENV CC="gcc-9"
+ENV CXX="g++-9"
 ENV CFLAGS="-g3"
 ENV CXXFLAGS="-g3"
 ENV GIT_DATE="`date +%Y-%m-%d -d \"15 months ago\"`"
@@ -28,14 +28,14 @@ RUN apt-get update && \
       busybox \
       ccache \
       check \
-      clang-6.0 \
+      clang-8 \
       cmake \
       dbus \
       libepoxy-dev \
-      g++-7 \
-      gcc-7 \
+      g++-9 \
+      gcc-9 \
       gdb \
-      gdc \
+      gdc-9 \
       git \
       golang-go \
       kbd \
@@ -49,7 +49,7 @@ RUN apt-get update && \
       libwayland-dev \
       libwayland-egl-backend-dev \
       linux-image-amd64 \
-      lld-6.0 \
+      lld-8 \
       mesa-utils \
       nasm \
       ninja-build \
