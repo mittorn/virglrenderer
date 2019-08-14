@@ -120,9 +120,9 @@ RUN git clone --shallow-since="$GIT_DATE" https://gitlab.freedesktop.org/mesa/pi
 WORKDIR /
 
 WORKDIR /battery
-RUN wget https://github.com/VoltLang/Battery/releases/download/v0.1.18/battery-0.1.18-x86_64-linux.tar.gz && \
-    tar xzvf battery-0.1.18-x86_64-linux.tar.gz && \
-    rm battery-0.1.18-x86_64-linux.tar.gz && \
+RUN wget https://github.com/VoltLang/Battery/releases/download/v0.1.21/battery-0.1.21-x86_64-linux.tar.gz && \
+    tar xzvf battery-0.1.21-x86_64-linux.tar.gz && \
+    rm battery-0.1.21-x86_64-linux.tar.gz && \
     mv battery /usr/local/bin
 WORKDIR /
 
