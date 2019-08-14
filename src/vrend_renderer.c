@@ -3036,9 +3036,11 @@ static inline bool can_emulate_logicop(enum pipe_logicop op)
 
 
 static inline void vrend_fill_shader_key(struct vrend_context *ctx,
-                                         unsigned type,
+                                         struct vrend_shader_selector *sel,
                                          struct vrend_shader_key *key)
 {
+   unsigned type = sel->type;
+
    if (vrend_state.use_core_profile == true) {
       int i;
       bool add_alpha_test = true;
@@ -3090,33 +3092,40 @@ static inline void vrend_fill_shader_key(struct vrend_context *ctx,
 
    int prev_type = -1;
 
-   switch (type) {
-   case PIPE_SHADER_GEOMETRY:
-      if (key->tcs_present || key->tes_present)
-	 prev_type = PIPE_SHADER_TESS_EVAL;
-      else
-	 prev_type = PIPE_SHADER_VERTEX;
-      break;
-   case PIPE_SHADER_FRAGMENT:
-      if (key->gs_present)
-	 prev_type = PIPE_SHADER_GEOMETRY;
-      else if (key->tcs_present || key->tes_present)
-	 prev_type = PIPE_SHADER_TESS_EVAL;
-      else
-	 prev_type = PIPE_SHADER_VERTEX;
-      break;
-   case PIPE_SHADER_TESS_EVAL:
-      if (key->tcs_present)
-         prev_type = PIPE_SHADER_TESS_CTRL;
-      else
+   /* Gallium sends and binds the shaders in the reverse order, so if an
+    * old shader is still bound we should ignore the "previous" (as in
+    * execution order) shader when the key is evaluated, unless the currently
+    * bound shader selector is actually refers to the current shader. */
+   if (ctx->sub->shaders[type] == sel) {
+      switch (type) {
+      case PIPE_SHADER_GEOMETRY:
+         if (key->tcs_present || key->tes_present)
+            prev_type = PIPE_SHADER_TESS_EVAL;
+         else
+            prev_type = PIPE_SHADER_VERTEX;
+         break;
+      case PIPE_SHADER_FRAGMENT:
+         if (key->gs_present)
+            prev_type = PIPE_SHADER_GEOMETRY;
+         else if (key->tcs_present || key->tes_present)
+            prev_type = PIPE_SHADER_TESS_EVAL;
+         else
+            prev_type = PIPE_SHADER_VERTEX;
+         break;
+      case PIPE_SHADER_TESS_EVAL:
+         if (key->tcs_present)
+            prev_type = PIPE_SHADER_TESS_CTRL;
+         else
+            prev_type = PIPE_SHADER_VERTEX;
+         break;
+      case PIPE_SHADER_TESS_CTRL:
          prev_type = PIPE_SHADER_VERTEX;
-      break;
-   case PIPE_SHADER_TESS_CTRL:
-      prev_type = PIPE_SHADER_VERTEX;
-      break;
-   default:
-      break;
+         break;
+      default:
+         break;
+      }
    }
+
    if (prev_type != -1 && ctx->sub->shaders[prev_type]) {
       key->prev_stage_pervertex_out = ctx->sub->shaders[prev_type]->sinfo.has_pervertex_out;
       key->prev_stage_num_clip_out = ctx->sub->shaders[prev_type]->sinfo.num_clip_out;
@@ -3227,7 +3236,7 @@ static int vrend_shader_select(struct vrend_context *ctx,
    int r;
 
    memset(&key, 0, sizeof(key));
-   vrend_fill_shader_key(ctx, sel->type, &key);
+   vrend_fill_shader_key(ctx, sel, &key);
 
    if (sel->current && !memcmp(&sel->current->key, &key, sizeof(key)))
       return 0;
@@ -4151,7 +4160,7 @@ void vrend_inject_tcs(struct vrend_context *ctx, int vertices_per_patch)
                                                                  false, PIPE_SHADER_TESS_CTRL);
    struct vrend_shader *shader;
    shader = CALLOC_STRUCT(vrend_shader);
-   vrend_fill_shader_key(ctx, sel->type, &shader->key);
+   vrend_fill_shader_key(ctx, sel, &shader->key);
 
    shader->sel = sel;
    list_inithead(&shader->programs);
