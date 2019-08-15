@@ -56,7 +56,7 @@ endif
 lib_LTLIBRARIES = libvirglrenderer.la
 noinst_LTLIBRARIES = libvrend.la
 
-GM_LDFLAGS = -Wl,-Bsymbolic -version-number 0:3 -no-undefined
+GM_LDFLAGS = -Wl,-Bsymbolic -version-number 1:4:0 -no-undefined
 
 libvirglrenderer_la_SOURCES = virglrenderer.c
 libvirglrenderer_ladir = $(libdir)
