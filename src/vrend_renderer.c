@@ -6442,10 +6442,13 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
    debug_texture(__func__, gr);
 
    if (image_oes) {
-      if (has_feature(feat_egl_image_external)) {
+      if (has_bit(gr->storage_bits, VREND_STORAGE_GL_IMMUTABLE) &&
+          has_feature(feat_egl_image_storage)) {
+         glEGLImageTargetTexStorageEXT(gr->target, (GLeglImageOES) image_oes, NULL);
+      } else if (has_feature(feat_egl_image_external)) {
          glEGLImageTargetTexture2DOES(gr->target, (GLeglImageOES) image_oes);
       } else {
-         vrend_printf( "missing GL_OES_EGL_image_external extension\n");
+         vrend_printf( "missing GL_OES_EGL_image_external extensions\n");
          glBindTexture(gr->target, 0);
          FREE(gr);
          return EINVAL;
