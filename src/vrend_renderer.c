@@ -120,8 +120,10 @@ enum features_id
    feat_depth_clamp,
    feat_draw_instance,
    feat_dual_src_blend,
-   feat_fb_no_attach,
+   feat_egl_image_external,
+   feat_egl_image_storage,
    feat_enhanced_layouts,
+   feat_fb_no_attach,
    feat_framebuffer_fetch,
    feat_framebuffer_fetch_non_coherent,
    feat_geometry_shader,
@@ -209,6 +211,8 @@ static const  struct {
    FEAT(dual_src_blend, 33, UNAVAIL,  "GL_ARB_blend_func_extended", "GL_EXT_blend_func_extended" ),
    FEAT(depth_clamp, 32, UNAVAIL, "GL_ARB_depth_clamp", "GL_EXT_depth_clamp", "GL_NV_depth_clamp"),
    FEAT(enhanced_layouts, 44, UNAVAIL, "GL_ARB_enhanced_layouts"),
+   FEAT(egl_image_external, UNAVAIL, UNAVAIL, "GL_OES_EGL_image_external"),
+   FEAT(egl_image_storage, UNAVAIL, UNAVAIL, "GL_EXT_EGL_image_storage"),
    FEAT(fb_no_attach, 43, 31,  "GL_ARB_framebuffer_no_attachments" ),
    FEAT(framebuffer_fetch, UNAVAIL, UNAVAIL,  "GL_EXT_shader_framebuffer_fetch" ),
    FEAT(framebuffer_fetch_non_coherent, UNAVAIL, UNAVAIL,  "GL_EXT_shader_framebuffer_fetch_non_coherent" ),
@@ -6438,7 +6442,7 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
    debug_texture(__func__, gr);
 
    if (image_oes) {
-      if (epoxy_has_gl_extension("GL_OES_EGL_image_external")) {
+      if (has_feature(feat_egl_image_external)) {
          glEGLImageTargetTexture2DOES(gr->target, (GLeglImageOES) image_oes);
       } else {
          vrend_printf( "missing GL_OES_EGL_image_external extension\n");
