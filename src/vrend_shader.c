@@ -5112,6 +5112,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
       } else {
          if ((val & all_val) == all_val) {
             emit_buf(ctx, "memoryBarrier();\n");
+            ctx->shader_req_bits |= SHADER_REQ_IMAGE_LOAD_STORE;
          } else {
             if (val & TGSI_MEMBAR_SHADER_BUFFER) {
                emit_buf(ctx, "memoryBarrierBuffer();\n");
