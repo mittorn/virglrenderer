@@ -35,7 +35,8 @@ run_setup()
       meson configure build/ -Dprefix=/usr/local -Dplatforms=drm,x11,wayland,surfaceless -Ddri-drivers=i965 -Dgallium-drivers=swrast,virgl,radeonsi,r600 -Dbuildtype=debugoptimized -Dllvm=true -Dglx=dri -Dgallium-vdpau=false -Dgallium-va=false -Dvulkan-drivers=[] -Dlibdir=lib && \
       ninja -C build/ install -j $NUM_THREADS
       if [ $? -ne 0 ]; then
-        exit 1
+        meson setup --wipe build/
+        ninja -C build/ install -j $NUM_THREADS || exit 1
       fi
    fi
 
