@@ -90,6 +90,7 @@ struct vrend_shader_info {
 
    struct vrend_interp_info *interpinfo;
    char **so_names;
+   uint64_t invariant_outputs;
 };
 
 struct vrend_shader_key {
@@ -125,6 +126,7 @@ struct vrend_shader_key {
    uint8_t num_indirect_patch_inputs;
    uint32_t generic_outputs_expected_mask;
    uint8_t fs_swizzle_output_rgb_to_bgr;
+   uint64_t force_invariant_inputs;
 };
 
 struct vrend_shader_cfg {

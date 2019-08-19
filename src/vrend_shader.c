@@ -4644,6 +4644,15 @@ iter_instruction(struct tgsi_iterate_context *iter,
       }
       if (ctx->so)
          prepare_so_movs(ctx);
+
+      /* GLES doesn't allow invariant specifiers on inputs, but on GL with
+       * GLSL < 4.30 it is required to match the output of the previous stage */
+      if (!ctx->cfg->use_gles) {
+         for (unsigned i = 0; i < ctx->num_inputs; ++i) {
+            if (ctx->key->force_invariant_inputs & (1ull << i))
+               ctx->inputs[i].invariant = 1;
+         }
+      }
    }
 
    if (!get_destination_info(ctx, inst, &dinfo, dsts, fp64_dsts, writemask))
@@ -6567,6 +6576,11 @@ static void fill_sinfo(struct dump_ctx *ctx, struct vrend_shader_info *sinfo)
    sinfo->image_arrays = ctx->image_arrays;
    sinfo->num_image_arrays = ctx->num_image_arrays;
    sinfo->generic_inputs_emitted_mask = ctx->generic_inputs_emitted_mask;
+
+   for (unsigned i = 0; i < ctx->num_outputs; ++i) {
+      if (ctx->outputs[i].invariant)
+         sinfo->invariant_outputs |= 1ull << i;
+   }
 }
 
 static bool allocate_strbuffers(struct dump_ctx* ctx)
