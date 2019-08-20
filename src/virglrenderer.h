@@ -99,8 +99,9 @@ VIRGL_EXPORT int virgl_renderer_get_fd_for_texture2(uint32_t tex_id, int *fd, in
 #define VIRGL_RES_BIND_SHARED        (1 << 20)
 
 enum virgl_renderer_structure_type_v0 {
-   VIRGL_RENDERER_STRUCTURE_TYPE_NONE = 0x00000000,
-   VIRGL_RENDERER_STRUCTURE_TYPE_EXPORT_QUERY = 0x00000001,
+   VIRGL_RENDERER_STRUCTURE_TYPE_NONE = 0,
+   VIRGL_RENDERER_STRUCTURE_TYPE_EXPORT_QUERY = (1 << 0),
+   VIRGL_RENDERER_STRUCTURE_TYPE_SUPPORTED_STRUCTURES = (1 << 1),
 };
 
 struct virgl_renderer_resource_create_args {
@@ -142,6 +143,17 @@ struct virgl_renderer_export_query {
    uint32_t out_strides[4];
    uint32_t out_offsets[4];
    uint64_t out_modifier;
+};
+
+/*
+ * "out_supported_structures_mask" is a bitmask representing the structures that
+ * virglrenderer knows how to handle for a given "in_stype_version".
+ */
+
+struct virgl_renderer_supported_structures {
+   struct virgl_renderer_hdr hdr;
+   uint32_t in_stype_version;
+   uint32_t out_supported_structures_mask;
 };
 
 /* new API */
