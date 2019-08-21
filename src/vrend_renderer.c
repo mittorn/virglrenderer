@@ -8255,6 +8255,19 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
                         dst_y2,
                         glmask, filter);
    }
+
+   glBindFramebuffer(GL_FRAMEBUFFER, ctx->sub->blit_fb_ids[1]);
+   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                          GL_TEXTURE_2D, 0, 0);
+   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
+                          GL_TEXTURE_2D, 0, 0);
+
+   glBindFramebuffer(GL_FRAMEBUFFER, ctx->sub->blit_fb_ids[0]);
+   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                          GL_TEXTURE_2D, 0, 0);
+   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
+                          GL_TEXTURE_2D, 0, 0);
+
    glBindFramebuffer(GL_FRAMEBUFFER, ctx->sub->fb_id);
 
    if (make_intermediate_copy) {
