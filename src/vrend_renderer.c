@@ -2096,6 +2096,7 @@ int vrend_create_sampler_view(struct vrend_context *ctx,
            glTexParameteri(view->texture->target, GL_TEXTURE_SRGB_DECODE_EXT,
                             view->srgb_decode);
         }
+        glBindTexture(view->texture->target, 0);
      }
    }
 
