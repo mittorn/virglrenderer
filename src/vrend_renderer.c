@@ -7974,6 +7974,14 @@ void vrend_renderer_resource_copy_region(struct vrend_context *ctx,
                      dstx + src_box->width,
                      dy2,
                      glmask, GL_NEAREST);
+
+   glBindFramebuffer(GL_READ_FRAMEBUFFER, ctx->sub->blit_fb_ids[0]);
+   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                          GL_TEXTURE_2D, 0, 0);
+   glBindFramebuffer(GL_READ_FRAMEBUFFER, ctx->sub->blit_fb_ids[1]);
+   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                          GL_TEXTURE_2D, 0, 0);
+
    glBindFramebuffer(GL_FRAMEBUFFER, ctx->sub->fb_id);
 
    if (ctx->sub->rs_state.scissor)
