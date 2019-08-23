@@ -75,6 +75,9 @@
 #define SHADER_REQ_CONSERVATIVE_DEPTH  (1 << 30)
 #define SHADER_REQ_SAMPLER_BUF        (1 << 31)
 
+#define FRONT_COLOR_EMITTED (1 << 0)
+#define BACK_COLOR_EMITTED  (1 << 1);
+
 struct vrend_shader_io {
    unsigned                name;
    unsigned                gpr;
@@ -158,6 +161,7 @@ struct dump_ctx {
    struct vrend_shader_io inputs[64];
    uint32_t num_outputs;
    struct vrend_shader_io outputs[64];
+   uint8_t front_back_color_emitted_flags[64];
    uint32_t num_system_values;
    struct vrend_shader_io system_values[32];
 
@@ -5923,6 +5927,13 @@ emit_ios_generic_outputs(struct dump_ctx *ctx,
             prefix = INTERP_PREFIX;
          }
 
+         if (ctx->outputs[i].name == TGSI_SEMANTIC_COLOR)
+            ctx->front_back_color_emitted_flags[ctx->outputs[i].sid] |= FRONT_COLOR_EMITTED;
+
+         if (ctx->outputs[i].name == TGSI_SEMANTIC_BCOLOR) {
+            ctx->front_back_color_emitted_flags[ctx->outputs[i].sid] |= BACK_COLOR_EMITTED;
+         }
+
          emit_ios_generic(ctx, io_out, prefix, &ctx->outputs[i],
                           ctx->outputs[i].fbfetch_used ? "inout" : "out", "");
       } else if (ctx->outputs[i].invariant || ctx->outputs[i].precise) {
@@ -5984,6 +5995,8 @@ static void emit_ios_vs(struct dump_ctx *ctx)
 
    emit_ios_indirect_generics_output(ctx, "");
 
+   emit_ios_generic_outputs(ctx, can_emit_generic_default);
+
    if (ctx->key->color_two_side) {
       bool fcolor_emitted, bcolor_emitted;
 
@@ -5993,19 +6006,19 @@ static void emit_ios_vs(struct dump_ctx *ctx)
 
          fcolor_emitted = bcolor_emitted = false;
 
-         if (ctx->outputs[i].name == TGSI_SEMANTIC_COLOR)
-            fcolor_emitted = true;
-         if (ctx->outputs[i].name == TGSI_SEMANTIC_BCOLOR)
-            bcolor_emitted = true;
+         fcolor_emitted = ctx->front_back_color_emitted_flags[ctx->outputs[i].sid] & FRONT_COLOR_EMITTED;
+         bcolor_emitted = ctx->front_back_color_emitted_flags[ctx->outputs[i].sid] & BACK_COLOR_EMITTED;
 
-         if (fcolor_emitted && !bcolor_emitted)
+         if (fcolor_emitted && !bcolor_emitted) {
             emit_hdrf(ctx, "%sout vec4 ex_bc%d;\n", INTERP_PREFIX, ctx->outputs[i].sid);
-         if (bcolor_emitted && !fcolor_emitted)
+            ctx->front_back_color_emitted_flags[ctx->outputs[i].sid] |= BACK_COLOR_EMITTED;
+         }
+         if (bcolor_emitted && !fcolor_emitted) {
             emit_hdrf(ctx, "%sout vec4 ex_c%d;\n", INTERP_PREFIX, ctx->outputs[i].sid);
+            ctx->front_back_color_emitted_flags[ctx->outputs[i].sid] |= FRONT_COLOR_EMITTED;
+         }
       }
    }
-
-   emit_ios_generic_outputs(ctx, can_emit_generic_default);
 
    emit_winsys_correction(ctx);
 
