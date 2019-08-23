@@ -7393,11 +7393,6 @@ int vrend_renderer_transfer_iov(const struct vrend_transfer_info *info,
       ctx = NULL;
    }
 
-#ifdef ENABLE_GBM_ALLOCATION
-   if (res->gbm_bo)
-      return virgl_gbm_transfer(res->gbm_bo, transfer_mode, iov, num_iovs, info);
-#endif
-
    switch (transfer_mode) {
    case VIRGL_TRANSFER_TO_HOST:
       return vrend_renderer_transfer_write_iov(ctx, res, iov, num_iovs, info);
