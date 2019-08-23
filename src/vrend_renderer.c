@@ -691,7 +691,7 @@ static inline bool vrend_format_can_scanout(enum virgl_formats format)
 {
 #ifdef ENABLE_GBM_ALLOCATION
    uint32_t gbm_format = virgl_gbm_convert_format(format);
-   if (!gbm_format)
+   if (!gbm || !gbm->device || !gbm_format)
       return false;
 
    return gbm_device_is_format_supported(gbm->device, gbm_format, GBM_BO_USE_SCANOUT);
@@ -6153,10 +6153,7 @@ static void *vrend_allocate_using_gbm(struct vrend_resource *gr)
    if (gr->base.depth0 != 1 || gr->base.last_level != 0 || gr->base.nr_samples != 0)
       return NULL;
 
-   if (!gbm_format)
-      return NULL;
-
-   if (!gbm_flags)
+   if (!gbm || !gbm->device || !gbm_format || !gbm_flags)
       return NULL;
 
    if ((gr->base.bind & (VIRGL_RES_BIND_SCANOUT | VIRGL_RES_BIND_SHARED)) == 0)
