@@ -6165,15 +6165,6 @@ static void *vrend_allocate_using_gbm(struct vrend_resource *gr)
    if (!gbm_device_is_format_supported(gbm->device, gbm_format, gbm_flags))
       return NULL;
 
-   /*
-    * loader_dri3_get_buffers requests 1x1 textures with the following flags:
-    *  *_BIND_SCANOUT | *_BIND_SHARED | *_SAMPLER_VIEW | *_RENDER_TARGET.
-    * 32 x 32 buffers are also requested with the same flags and never sent to the
-    * display. TODO(gsingh): figure out how to optimize this.
-    */
-   if (gr->base.width0 == 1 && gr->base.height0 == 1)
-      return NULL;
-
    struct gbm_bo *bo = gbm_bo_create(gbm->device, gr->base.width0, gr->base.height0,
                                      gbm_format, gbm_flags);
    if (!bo)
