@@ -5931,6 +5931,9 @@ emit_ios_generic_outputs(struct dump_ctx *ctx,
             ctx->front_back_color_emitted_flags[ctx->outputs[i].sid] |= FRONT_COLOR_EMITTED;
 
          if (ctx->outputs[i].name == TGSI_SEMANTIC_BCOLOR) {
+            // We have a back color so we must force the output emission to declare
+            // two sides
+            ctx->key->color_two_side = 1;
             ctx->front_back_color_emitted_flags[ctx->outputs[i].sid] |= BACK_COLOR_EMITTED;
          }
 
