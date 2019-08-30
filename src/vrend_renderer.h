@@ -26,6 +26,7 @@
 #define VREND_RENDERER_H
 
 #include "pipe/p_state.h"
+#include "util/u_double_list.h"
 #include "util/u_inlines.h"
 #include "virgl_protocol.h"
 #include "vrend_debug.h"
@@ -98,6 +99,9 @@ struct vrend_resource {
    uint64_t mipmap_offsets[VR_MAX_TEXTURE_2D_LEVELS];
    void *gbm_bo, *egl_image;
    void *aux_plane_egl_image[VIRGL_GBM_MAX_PLANES];
+
+   uint32_t blob_id;
+   struct list_head head;
 };
 
 #define VIRGL_TEXTURE_NEED_SWIZZLE        (1 << 0)
@@ -487,4 +491,7 @@ int vrend_renderer_export_query(struct pipe_resource *pres,
 
 void vrend_sync_make_current(virgl_gl_context);
 
+int
+vrend_renderer_pipe_resource_create(struct vrend_context *ctx, uint32_t blob_id,
+                                    struct vrend_renderer_resource_create_args *args);
 #endif

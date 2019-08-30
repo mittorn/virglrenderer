@@ -1415,6 +1415,29 @@ static int vrend_decode_copy_transfer3d(struct vrend_decode_ctx *ctx, int length
                                          &info);
 }
 
+static int vrend_decode_pipe_resource_create(struct vrend_decode_ctx *ctx, int length)
+{
+   struct vrend_renderer_resource_create_args args = { 0 };
+   uint32_t blob_id;
+
+   if (length != VIRGL_PIPE_RES_CREATE_SIZE)
+      return EINVAL;
+
+   args.target = get_buf_entry(ctx, VIRGL_PIPE_RES_CREATE_TARGET);
+   args.format = get_buf_entry(ctx, VIRGL_PIPE_RES_CREATE_FORMAT);
+   args.bind = get_buf_entry(ctx, VIRGL_PIPE_RES_CREATE_BIND);
+   args.width = get_buf_entry(ctx, VIRGL_PIPE_RES_CREATE_WIDTH);
+   args.height = get_buf_entry(ctx, VIRGL_PIPE_RES_CREATE_HEIGHT);
+   args.depth = get_buf_entry(ctx, VIRGL_PIPE_RES_CREATE_DEPTH);
+   args.array_size = get_buf_entry(ctx, VIRGL_PIPE_RES_CREATE_ARRAY_SIZE);
+   args.last_level = get_buf_entry(ctx, VIRGL_PIPE_RES_CREATE_LAST_LEVEL);
+   args.nr_samples = get_buf_entry(ctx, VIRGL_PIPE_RES_CREATE_NR_SAMPLES);
+   args.flags = get_buf_entry(ctx, VIRGL_PIPE_RES_CREATE_FLAGS);
+   blob_id = get_buf_entry(ctx, VIRGL_PIPE_RES_CREATE_BLOB_ID);
+
+   return vrend_renderer_pipe_resource_create(ctx->grctx, blob_id, &args);
+}
+
 static void vrend_decode_ctx_init_base(struct vrend_decode_ctx *dctx,
                                        uint32_t ctx_id);
 
@@ -1651,6 +1674,9 @@ static int vrend_decode_ctx_submit_cmd(struct virgl_context *ctx,
       case VIRGL_CCMD_SET_TWEAKS:
          ret = vrend_decode_set_tweaks(gdctx, len);
          break;
+      case VIRGL_CCMD_PIPE_RESOURCE_CREATE:
+         ret = vrend_decode_pipe_resource_create(gdctx, len);
+	 break;
       default:
          ret = EINVAL;
       }

@@ -39,7 +39,6 @@
 #include "util/u_dual_blend.h"
 
 #include "os/os_thread.h"
-#include "util/u_double_list.h"
 #include "util/u_format.h"
 #include "tgsi/tgsi_parse.h"
 
@@ -637,6 +636,7 @@ struct vrend_context {
    char debug_name[64];
 
    struct list_head sub_ctxs;
+   struct list_head vrend_resources;
 
    struct vrend_sub_context *sub;
    struct vrend_sub_context *sub0;
@@ -6130,6 +6130,7 @@ struct vrend_context *vrend_create_context(int id, uint32_t nlen, const char *de
    grctx->ctx_id = id;
 
    list_inithead(&grctx->sub_ctxs);
+   list_inithead(&grctx->vrend_resources);
    list_inithead(&grctx->active_nontimer_query_list);
 
    grctx->res_hash = vrend_ctx_resource_init_table();
@@ -9649,7 +9650,7 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
     * this value to avoid regressions when a guest with a new mesa version is
     * run on an old virgl host. Use it also to indicate non-cap fixes on the
     * host that help enable features in the guest. */
-   caps->v2.host_feature_check_version = 3;
+   caps->v2.host_feature_check_version = 4;
 
    glGetFloatv(GL_ALIASED_POINT_SIZE_RANGE, range);
    caps->v2.min_aliased_point_size = range[0];
@@ -10333,5 +10334,18 @@ int vrend_renderer_export_query(struct pipe_resource *pres,
    if (export_query->in_export_fds)
       return -EINVAL;
 
+   return 0;
+}
+
+int vrend_renderer_pipe_resource_create(struct vrend_context *ctx, uint32_t blob_id,
+                                        struct vrend_renderer_resource_create_args *args)
+{
+   struct vrend_resource *res;
+   res = (struct vrend_resource *)vrend_renderer_resource_create(args, NULL);
+   if (!res)
+      return EINVAL;
+
+   res->blob_id = blob_id;
+   list_addtail(&res->head, &ctx->vrend_resources);
    return 0;
 }
