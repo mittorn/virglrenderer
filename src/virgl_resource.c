@@ -24,6 +24,7 @@
 
 #include "virgl_resource.h"
 
+#include <assert.h>
 #include <errno.h>
 #include <string.h>
 
@@ -106,6 +107,26 @@ virgl_resource_create_from_pipe(uint32_t res_id, struct pipe_resource *pres)
 
    /* take ownership */
    res->pipe_resource = pres;
+
+   return 0;
+}
+
+int
+virgl_resource_create_from_iov(uint32_t res_id,
+                               const struct iovec *iov,
+                               int iov_count)
+{
+   struct virgl_resource *res;
+
+   if (iov_count)
+      assert(iov);
+
+   res = virgl_resource_create(res_id);
+   if (!res)
+      return ENOMEM;
+
+   res->iov = iov;
+   res->iov_count = iov_count;
 
    return 0;
 }

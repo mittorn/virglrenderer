@@ -1694,6 +1694,13 @@ static int vrend_decode_ctx_submit_cmd(struct virgl_context *ctx,
    return ret;
 }
 
+static struct pipe_resource *vrend_decode_get_blob_pipe(struct virgl_context *ctx,
+                                                        uint64_t blob_id)
+{
+   struct vrend_decode_ctx *dctx = (struct vrend_decode_ctx *)ctx;
+   return vrend_get_blob_pipe(dctx->grctx, blob_id);
+}
+
 static void vrend_decode_ctx_init_base(struct vrend_decode_ctx *dctx,
                                        uint32_t ctx_id)
 {
@@ -1705,6 +1712,7 @@ static void vrend_decode_ctx_init_base(struct vrend_decode_ctx *dctx,
    ctx->detach_resource = vrend_decode_ctx_detach_resource;
    ctx->transfer_3d = vrend_decode_ctx_transfer_3d;
    ctx->submit_cmd = vrend_decode_ctx_submit_cmd;
+   ctx->get_blob_pipe = vrend_decode_get_blob_pipe;
 }
 
 void vrend_decode_reset(void)

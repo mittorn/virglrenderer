@@ -10349,3 +10349,21 @@ int vrend_renderer_pipe_resource_create(struct vrend_context *ctx, uint32_t blob
    list_addtail(&res->head, &ctx->vrend_resources);
    return 0;
 }
+
+struct pipe_resource *vrend_get_blob_pipe(struct vrend_context *ctx, uint64_t blob_id)
+{
+   uint32_t id = (uint32_t)blob_id;
+   struct vrend_resource *res, *stor;
+
+   LIST_FOR_EACH_ENTRY_SAFE(res, stor, &ctx->vrend_resources, head) {
+      if (res->blob_id != id)
+         continue;
+
+      list_del(&res->head);
+      /* Set the blob id to zero, since it won't be used anymore */
+      res->blob_id = 0;
+      return &res->base;
+   }
+
+   return NULL;
+}

@@ -31,6 +31,7 @@
 
 struct virgl_resource;
 struct vrend_transfer_info;
+struct pipe_resource;
 
 /**
  * Base class for renderer contexts.  For example, vrend_decode_ctx is a
@@ -54,6 +55,9 @@ struct virgl_context {
    int (*submit_cmd)(struct virgl_context *ctx,
                      const void *buffer,
                      size_t size);
+
+   struct pipe_resource *(*get_blob_pipe)(struct virgl_context *ctx,
+                                          uint64_t blob_id);
 };
 
 struct virgl_context_foreach_args {

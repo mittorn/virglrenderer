@@ -236,4 +236,26 @@ VIRGL_EXPORT int virgl_renderer_get_poll_fd(void);
 
 VIRGL_EXPORT int virgl_renderer_execute(void *execute_args, uint32_t execute_size);
 
+#define VIRGL_RENDERER_BLOB_MEM_GUEST             0x0001
+#define VIRGL_RENDERER_BLOB_MEM_HOST3D            0x0002
+#define VIRGL_RENDERER_BLOB_MEM_HOST3D_GUEST      0x0003
+
+#define VIRGL_RENDERER_BLOB_FLAG_USE_MAPPABLE     0x0001
+#define VIRGL_RENDERER_BLOB_FLAG_USE_SHAREABLE    0x0002
+#define VIRGL_RENDERER_BLOB_FLAG_USE_CROSS_DEVICE 0x0004
+
+struct virgl_renderer_resource_create_blob_args
+{
+   uint32_t res_handle;
+   uint32_t ctx_id;
+   uint32_t blob_mem;
+   uint32_t blob_flags;
+   uint64_t blob_id;
+   uint64_t size;
+   const struct iovec *iovecs;
+   uint32_t num_iovs;
+};
+
+VIRGL_EXPORT int
+virgl_renderer_resource_create_blob(const struct virgl_renderer_resource_create_blob_args *args);
 #endif

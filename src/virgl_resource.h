@@ -73,6 +73,11 @@ virgl_resource_table_reset(void);
 int
 virgl_resource_create_from_pipe(uint32_t res_id, struct pipe_resource *pres);
 
+int
+virgl_resource_create_from_iov(uint32_t res_id,
+                               const struct iovec *iov,
+                               int iov_count);
+
 void
 virgl_resource_remove(uint32_t res_id);
 

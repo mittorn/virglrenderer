@@ -633,3 +633,46 @@ int virgl_renderer_execute(void *execute_args, uint32_t execute_size)
          return -EINVAL;
    }
 }
+
+int virgl_renderer_resource_create_blob(const struct virgl_renderer_resource_create_blob_args *args)
+{
+   int ret;
+   uint32_t blob_mem = args->blob_mem;
+   uint64_t blob_id = args->blob_id;
+   uint32_t res_handle = args->res_handle;
+   struct pipe_resource *pipe_res;
+
+   if (blob_mem == VIRGL_RENDERER_BLOB_MEM_HOST3D ||
+       blob_mem == VIRGL_RENDERER_BLOB_MEM_HOST3D_GUEST) {
+      struct virgl_context *ctx = virgl_context_lookup(args->ctx_id);
+      if (!ctx)
+         return -EINVAL;
+
+      pipe_res = ctx->get_blob_pipe(ctx, blob_id);
+      if (!pipe_res)
+         return -EINVAL;
+
+      ret = virgl_resource_create_from_pipe(res_handle, pipe_res);
+      if (ret) {
+         vrend_renderer_resource_destroy((struct vrend_resource *)pipe_res);
+         return ret;
+      }
+
+      if (blob_mem == VIRGL_RENDERER_BLOB_MEM_HOST3D_GUEST) {
+         ret = virgl_renderer_resource_attach_iov(res_handle, args->iovecs, args->num_iovs);
+         if (ret) {
+            virgl_resource_remove(res_handle);
+            return ret;
+         }
+      }
+   } else if (blob_mem == VIRGL_RENDERER_BLOB_MEM_GUEST) {
+      ret = virgl_resource_create_from_iov(res_handle, args->iovecs, args->num_iovs);
+      if (ret)
+         return -EINVAL;
+   } else {
+      return -EINVAL;
+   }
+
+
+   return 0;
+}
