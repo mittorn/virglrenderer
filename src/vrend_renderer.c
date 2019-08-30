@@ -583,6 +583,7 @@ struct vrend_sub_context {
    bool depth_test_enabled;
    bool alpha_test_enabled;
    bool stencil_test_enabled;
+   bool framebuffer_srgb_enabled;
 
    GLuint program_id;
    int last_shader_idx;
@@ -2273,6 +2274,7 @@ static void vrend_hw_emit_framebuffer_state(struct vrend_context *ctx)
       glReadBuffer(GL_NONE);
       if (has_feature(feat_srgb_write_control)) {
          glDisable(GL_FRAMEBUFFER_SRGB_EXT);
+         ctx->sub->framebuffer_srgb_enabled = false;
       }
    } else if (has_feature(feat_srgb_write_control)) {
       struct vrend_surface *surf = NULL;
@@ -2291,6 +2293,7 @@ static void vrend_hw_emit_framebuffer_state(struct vrend_context *ctx)
       } else {
          glDisable(GL_FRAMEBUFFER_SRGB_EXT);
       }
+      ctx->sub->framebuffer_srgb_enabled = use_srgb;
    }
 
    if (vrend_state.use_gles &&
@@ -8278,6 +8281,13 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
                           GL_TEXTURE_2D, 0, 0);
 
    glBindFramebuffer(GL_FRAMEBUFFER, ctx->sub->fb_id);
+
+   if (has_feature(feat_srgb_write_control)) {
+      if (ctx->sub->framebuffer_srgb_enabled)
+         glEnable(GL_FRAMEBUFFER_SRGB);
+      else
+         glDisable(GL_FRAMEBUFFER_SRGB);
+   }
 
    if (make_intermediate_copy) {
       vrend_renderer_resource_destroy(intermediate_copy);
