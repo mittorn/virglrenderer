@@ -94,6 +94,10 @@ AC_ARG_ENABLE(tests,
 	      [build_tests="$enableval"],
 	      [build_tests="auto"])
 
+AC_ARG_ENABLE(valgrind,
+	      AS_HELP_STRING([--enable-valgrind], [Run the test suite also in valgind]),
+	      [test_valgrind="$enableval"], [test_valgrind="no"])
+
 AC_ARG_ENABLE([egl], AS_HELP_STRING([--disable-egl], [Disable EGL]))
 AC_ARG_ENABLE([glx], AS_HELP_STRING([--disable-glx], [Disable GLX]))
 
@@ -102,12 +106,22 @@ PKG_CHECK_MODULES(CHECK, [check >= 0.9.4], [HAVE_CHECK="yes"], [HAVE_CHECK="no"]
 if test "x$build_tests" = "xauto" && test "x$os_win32" = "xno"; then
 	build_tests="$HAVE_CHECK"
 fi
+
 if test "x$build_tests" = "xyes"; then
 	if test "x$HAVE_CHECK" = "xno"; then
 		AC_MSG_ERROR([Cannot build tests, check is missing])
 	fi
 
-	AC_PATH_PROG(VALGRIND, [valgrind])
+	if test "x$test_valgrind" = "xyes"; then
+		AC_PATH_PROG(VALGRIND, [valgrind])
+                if test "x$VALGRIND" = "x"; then
+                        enable_valgrind="no"
+                        AC_MSG_ERROR([Cannot run test with valgrind])
+                else
+                        enable_valgrind="yes"
+                fi
+
+	fi
 fi
 
 AC_ARG_ENABLE(fuzzer,
@@ -198,6 +212,7 @@ AC_MSG_NOTICE([
       gbm_allocation:           $enable_gbm_allocation
       debug:                    $enable_debug
       tests:                    $build_tests
+      valgrind:                 $enable_valgrind
       fuzzer:                   $enable_fuzzer
 
 ])
