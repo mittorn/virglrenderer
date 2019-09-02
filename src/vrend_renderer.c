@@ -2065,38 +2065,38 @@ int vrend_create_sampler_view(struct vrend_context *ctx,
                       base_level, (max_level - base_level) + 1,
                       base_layer, max_layer - base_layer + 1);
 
-        glBindTexture(view->texture->target, view->id);
+        glBindTexture(view->target, view->id);
 
         if (util_format_is_depth_or_stencil(view->format)) {
            if (vrend_state.use_core_profile == false) {
               /* setting depth texture mode is deprecated in core profile */
               if (view->depth_texture_mode != GL_RED) {
-                 glTexParameteri(view->texture->target, GL_DEPTH_TEXTURE_MODE, GL_RED);
+                 glTexParameteri(view->target, GL_DEPTH_TEXTURE_MODE, GL_RED);
                  view->depth_texture_mode = GL_RED;
               }
            }
            if (has_feature(feat_stencil_texturing)) {
               const struct util_format_description *desc = util_format_description(view->format);
               if (!util_format_has_depth(desc)) {
-                 glTexParameteri(view->texture->target, GL_DEPTH_STENCIL_TEXTURE_MODE, GL_STENCIL_INDEX);
+                 glTexParameteri(view->target, GL_DEPTH_STENCIL_TEXTURE_MODE, GL_STENCIL_INDEX);
               } else {
-                 glTexParameteri(view->texture->target, GL_DEPTH_STENCIL_TEXTURE_MODE, GL_DEPTH_COMPONENT);
+                 glTexParameteri(view->target, GL_DEPTH_STENCIL_TEXTURE_MODE, GL_DEPTH_COMPONENT);
               }
            }
         }
 
-        glTexParameteri(view->texture->target, GL_TEXTURE_BASE_LEVEL, base_level);
-        glTexParameteri(view->texture->target, GL_TEXTURE_MAX_LEVEL, max_level);
-        glTexParameteri(view->texture->target, GL_TEXTURE_SWIZZLE_R, view->gl_swizzle_r);
-        glTexParameteri(view->texture->target, GL_TEXTURE_SWIZZLE_G, view->gl_swizzle_g);
-        glTexParameteri(view->texture->target, GL_TEXTURE_SWIZZLE_B, view->gl_swizzle_b);
-        glTexParameteri(view->texture->target, GL_TEXTURE_SWIZZLE_A, view->gl_swizzle_a);
-        if (util_format_is_srgb(view->texture->base.format) &&
+        glTexParameteri(view->target, GL_TEXTURE_BASE_LEVEL, base_level);
+        glTexParameteri(view->target, GL_TEXTURE_MAX_LEVEL, max_level);
+        glTexParameteri(view->target, GL_TEXTURE_SWIZZLE_R, view->gl_swizzle_r);
+        glTexParameteri(view->target, GL_TEXTURE_SWIZZLE_G, view->gl_swizzle_g);
+        glTexParameteri(view->target, GL_TEXTURE_SWIZZLE_B, view->gl_swizzle_b);
+        glTexParameteri(view->target, GL_TEXTURE_SWIZZLE_A, view->gl_swizzle_a);
+        if (util_format_is_srgb(view->format) &&
             has_feature(feat_texture_srgb_decode)) {
-           glTexParameteri(view->texture->target, GL_TEXTURE_SRGB_DECODE_EXT,
+           glTexParameteri(view->target, GL_TEXTURE_SRGB_DECODE_EXT,
                             view->srgb_decode);
         }
-        glBindTexture(view->texture->target, 0);
+        glBindTexture(view->target, 0);
      }
    }
 
