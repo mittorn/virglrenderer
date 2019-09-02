@@ -89,6 +89,26 @@ ARG KNOWN_GOOD_FAKEMACHINE=c4752ddf3343
 RUN go get -v github.com/tomeuv/fakemachine/cmd/fakemachine
 RUN go install -x github.com/tomeuv/fakemachine/cmd/fakemachine
 
+ENV BATTERY_VERSION=0.1.23
+WORKDIR /battery
+RUN wget "https://github.com/VoltLang/Battery/releases/download/v${BATTERY_VERSION}/battery-${BATTERY_VERSION}-x86_64-linux.tar.gz" && \
+    tar xzvf battery-${BATTERY_VERSION}-x86_64-linux.tar.gz && \
+    rm battery-${BATTERY_VERSION}-x86_64-linux.tar.gz && \
+    mv battery /usr/local/bin
+WORKDIR /
+
+WORKDIR /volt
+RUN git clone --depth=1 https://github.com/VoltLang/Watt.git && \
+    git clone --depth=1 https://github.com/VoltLang/Volta.git && \
+    git clone --depth=1 https://github.com/Wallbraker/dEQP.git && \
+    battery config --release --lto Volta Watt && \
+    battery build && \
+    battery config --cmd-volta Volta/volta Volta/rt Watt dEQP && \
+    battery build && \
+    cp dEQP/deqp /usr/local/bin && \
+    rm -rf /volt
+WORKDIR /
+
 # To avoid this error:
 # error: RPC failed; curl 56 GnuTLS recv error (-54): Error in the pull function.
 RUN git config --global http.postBuffer 1048576000
@@ -117,25 +137,6 @@ RUN git clone --shallow-since="$GIT_DATE" https://gitlab.freedesktop.org/mesa/pi
     rm -rf /usr/local/lib/piglit/generated_tests/spec/arb_vertex_attrib_64bit && \
     rm -rf /usr/local/lib/piglit/generated_tests/spec/glsl-4.20 && \
     rm -rf /piglit
-WORKDIR /
-
-WORKDIR /battery
-RUN wget https://github.com/VoltLang/Battery/releases/download/v0.1.21/battery-0.1.21-x86_64-linux.tar.gz && \
-    tar xzvf battery-0.1.21-x86_64-linux.tar.gz && \
-    rm battery-0.1.21-x86_64-linux.tar.gz && \
-    mv battery /usr/local/bin
-WORKDIR /
-
-WORKDIR /volt
-RUN git clone --depth=1 https://github.com/VoltLang/Watt.git && \
-    git clone --depth=1 https://github.com/VoltLang/Volta.git && \
-    git clone --depth=1 https://github.com/Wallbraker/dEQP.git && \
-    battery config --release --lto Volta Watt && \
-    battery build && \
-    battery config --cmd-volta Volta/volta Volta/rt Watt dEQP && \
-    battery build && \
-    cp dEQP/deqp /usr/local/bin && \
-    rm -rf /volt
 WORKDIR /
 
 ARG KNOWN_GOOD_DRM=libdrm-2.4.99
