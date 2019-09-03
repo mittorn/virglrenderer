@@ -400,10 +400,16 @@ int virgl_gbm_export_query(struct gbm_bo *bo, struct virgl_renderer_export_query
 
       if (i == query->out_num_fds) {
          if (query->in_export_fds) {
-            ret = drmPrimeHandleToFD(gbm_device_get_fd(gbm), handle, DRM_CLOEXEC,
+            ret = drmPrimeHandleToFD(gbm_device_get_fd(gbm), handle, DRM_CLOEXEC | DRM_RDWR,
                                      &query->out_fds[query->out_num_fds]);
-            if (ret)
-               goto err_close;
+            // Kernels with older DRM core versions block DRM_RDWR but give a
+            // read/write mapping anyway.
+            if (ret) {
+               ret = drmPrimeHandleToFD(gbm_device_get_fd(gbm), handle, DRM_CLOEXEC,
+                                        &query->out_fds[query->out_num_fds]);
+               if (ret)
+                 goto err_close;
+            }
          }
          query->out_num_fds++;
       }
