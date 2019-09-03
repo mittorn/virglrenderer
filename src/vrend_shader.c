@@ -4653,8 +4653,10 @@ iter_instruction(struct tgsi_iterate_context *iter,
        * GLSL < 4.30 it is required to match the output of the previous stage */
       if (!ctx->cfg->use_gles) {
          for (unsigned i = 0; i < ctx->num_inputs; ++i) {
-            if (ctx->key->force_invariant_inputs & (1ull << i))
+            if (ctx->key->force_invariant_inputs & (1ull << ctx->inputs[i].sid))
                ctx->inputs[i].invariant = 1;
+            else
+               ctx->inputs[i].invariant = 0;
          }
       }
    }
@@ -6596,7 +6598,7 @@ static void fill_sinfo(struct dump_ctx *ctx, struct vrend_shader_info *sinfo)
 
    for (unsigned i = 0; i < ctx->num_outputs; ++i) {
       if (ctx->outputs[i].invariant)
-         sinfo->invariant_outputs |= 1ull << i;
+         sinfo->invariant_outputs |= 1ull << ctx->outputs[i].sid;
    }
 }
 
