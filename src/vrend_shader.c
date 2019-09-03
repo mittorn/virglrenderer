@@ -5852,10 +5852,10 @@ emit_ios_generic(struct dump_ctx *ctx, enum io_type iot,  const char *prefix,
    if (io->first == io->last) {
       emit_hdr(ctx, layout);
       /* ugly leave spaces to patch interp in later */
-      emit_hdrf(ctx, "%s%s%s  %s %s %s%s;\n",
+      emit_hdrf(ctx, "%s%s\n%s  %s %s %s%s;\n",
+                io->precise ? "precise" : "",
+                io->invariant ? "invariant" : "",
                 prefix,
-                io->precise ? "precise " : "",
-                io->invariant ? "invariant " : "",
                 inout,
                 t,
                 io->glsl_name,
@@ -5881,20 +5881,20 @@ emit_ios_generic(struct dump_ctx *ctx, enum io_type iot,  const char *prefix,
 
          emit_hdrf(ctx, "%s %s {\n", inout, blockname);
          emit_hdr(ctx, layout);
-         emit_hdrf(ctx, "%s%s%s     %s %s[%d]; \n} %s;\n",
+         emit_hdrf(ctx, "%s%s\n%s     %s %s[%d]; \n} %s;\n",
+                   io->precise ? "precise" : "",
+                   io->invariant ? "invariant" : "",
                    prefix,
-                   io->precise ? "precise " : "",
-                   io->invariant ? "invariant " : "",
                    t,
                    io->glsl_name,
                    io->last - io->first +1,
                    blockvarame);
       } else {
          emit_hdr(ctx, layout);
-         emit_hdrf(ctx, "%s%s%s       %s %s %s%s[%d];\n",
+         emit_hdrf(ctx, "%s%s\n%s       %s %s %s%s[%d];\n",
+                   io->precise ? "precise" : "",
+                   io->invariant ? "invariant" : "",
                    prefix,
-                   io->precise ? "precise " : "",
-                   io->invariant ? "invariant " : "",
                    inout,
                    t,
                    io->glsl_name,
