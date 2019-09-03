@@ -58,6 +58,7 @@ enum vrend_resource_storage_type {
    /* The resource contents are stored in shared guest memory if it's
     * attached, otherwise in host system memory. */
    VREND_RESOURCE_STORAGE_GUEST_ELSE_SYSTEM,
+   VREND_RESOURCE_STORAGE_GBM_ONLY,
 };
 
 struct vrend_resource {

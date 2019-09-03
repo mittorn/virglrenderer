@@ -370,6 +370,9 @@ uint32_t virgl_gbm_convert_flags(uint32_t virgl_bind_flags)
       flags |= GBM_BO_USE_SCANOUT;
    if (virgl_bind_flags & VIRGL_BIND_CURSOR)
       flags |= GBM_BO_USE_CURSOR;
+   if (virgl_bind_flags & VIRGL_BIND_LINEAR)
+      flags |= GBM_BO_USE_LINEAR;
+
    return flags;
 }
 
