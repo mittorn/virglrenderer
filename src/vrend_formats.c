@@ -435,12 +435,12 @@ static void vrend_add_formats(struct vrend_format_table *table, int num_entries)
       binding = VIRGL_BIND_SAMPLER_VIEW | VIRGL_BIND_RENDER_TARGET;
 
       switch (table[i].format) {
-      case PIPE_FORMAT_A8_UNORM:
+      case VIRGL_FORMAT_A8_UNORM:
         entry = &rg_base_formats[0];
         swizzle[0] = swizzle[1] = swizzle[2] = PIPE_SWIZZLE_ZERO;
         swizzle[3] = PIPE_SWIZZLE_RED;
         break;
-      case PIPE_FORMAT_A16_UNORM:
+      case VIRGL_FORMAT_A16_UNORM:
         entry = &rg_base_formats[2];
         swizzle[0] = swizzle[1] = swizzle[2] = PIPE_SWIZZLE_ZERO;
         swizzle[3] = PIPE_SWIZZLE_RED;
@@ -697,43 +697,43 @@ static int format_uncompressed_compressed_copy_compatible(enum pipe_format src,
                                                           enum pipe_format dst)
 {
    switch (src) {
-   case PIPE_FORMAT_R32G32B32A32_UINT:
-   case PIPE_FORMAT_R32G32B32A32_SINT:
-   case PIPE_FORMAT_R32G32B32A32_FLOAT:
-   case PIPE_FORMAT_R32G32B32A32_SNORM:
-   case PIPE_FORMAT_R32G32B32A32_UNORM:
+   case VIRGL_FORMAT_R32G32B32A32_UINT:
+   case VIRGL_FORMAT_R32G32B32A32_SINT:
+   case VIRGL_FORMAT_R32G32B32A32_FLOAT:
+   case VIRGL_FORMAT_R32G32B32A32_SNORM:
+   case VIRGL_FORMAT_R32G32B32A32_UNORM:
       switch (dst) {
-      case PIPE_FORMAT_DXT3_RGBA:
-      case PIPE_FORMAT_DXT3_SRGBA:
-      case PIPE_FORMAT_DXT5_RGBA:
-      case PIPE_FORMAT_DXT5_SRGBA:
-      case PIPE_FORMAT_RGTC2_UNORM:
-      case PIPE_FORMAT_RGTC2_SNORM:
-      case PIPE_FORMAT_BPTC_RGBA_UNORM:
-      case PIPE_FORMAT_BPTC_SRGBA:
-      case PIPE_FORMAT_BPTC_RGB_FLOAT:
-      case PIPE_FORMAT_BPTC_RGB_UFLOAT:
+      case VIRGL_FORMAT_DXT3_RGBA:
+      case VIRGL_FORMAT_DXT3_SRGBA:
+      case VIRGL_FORMAT_DXT5_RGBA:
+      case VIRGL_FORMAT_DXT5_SRGBA:
+      case VIRGL_FORMAT_RGTC2_UNORM:
+      case VIRGL_FORMAT_RGTC2_SNORM:
+      case VIRGL_FORMAT_BPTC_RGBA_UNORM:
+      case VIRGL_FORMAT_BPTC_SRGBA:
+      case VIRGL_FORMAT_BPTC_RGB_FLOAT:
+      case VIRGL_FORMAT_BPTC_RGB_UFLOAT:
          return 1;
       default:
          return -1;
       }
-   case PIPE_FORMAT_R16G16B16A16_UINT:
-   case PIPE_FORMAT_R16G16B16A16_SINT:
-   case PIPE_FORMAT_R16G16B16A16_FLOAT:
-   case PIPE_FORMAT_R16G16B16A16_SNORM:
-   case PIPE_FORMAT_R16G16B16A16_UNORM:
-   case PIPE_FORMAT_R32G32_UINT:
-   case PIPE_FORMAT_R32G32_SINT:
-   case PIPE_FORMAT_R32G32_FLOAT:
-   case PIPE_FORMAT_R32G32_UNORM:
-   case PIPE_FORMAT_R32G32_SNORM:
+   case VIRGL_FORMAT_R16G16B16A16_UINT:
+   case VIRGL_FORMAT_R16G16B16A16_SINT:
+   case VIRGL_FORMAT_R16G16B16A16_FLOAT:
+   case VIRGL_FORMAT_R16G16B16A16_SNORM:
+   case VIRGL_FORMAT_R16G16B16A16_UNORM:
+   case VIRGL_FORMAT_R32G32_UINT:
+   case VIRGL_FORMAT_R32G32_SINT:
+   case VIRGL_FORMAT_R32G32_FLOAT:
+   case VIRGL_FORMAT_R32G32_UNORM:
+   case VIRGL_FORMAT_R32G32_SNORM:
       switch (dst) {
-      case PIPE_FORMAT_DXT1_RGBA:
-      case PIPE_FORMAT_DXT1_SRGBA:
-      case PIPE_FORMAT_DXT1_RGB:
-      case PIPE_FORMAT_DXT1_SRGB:
-      case PIPE_FORMAT_RGTC1_UNORM:
-      case PIPE_FORMAT_RGTC1_SNORM:
+      case VIRGL_FORMAT_DXT1_RGBA:
+      case VIRGL_FORMAT_DXT1_SRGBA:
+      case VIRGL_FORMAT_DXT1_RGB:
+      case VIRGL_FORMAT_DXT1_SRGB:
+      case VIRGL_FORMAT_RGTC1_UNORM:
+      case VIRGL_FORMAT_RGTC1_SNORM:
          return 1;
       default:
          return -1;
@@ -743,12 +743,12 @@ static int format_uncompressed_compressed_copy_compatible(enum pipe_format src,
    }
 }
 
-static boolean format_compressed_compressed_copy_compatible(enum pipe_format src, enum pipe_format dst)
+static boolean format_compressed_compressed_copy_compatible(enum virgl_formats src, enum virgl_formats dst)
 {
-   if ((src == PIPE_FORMAT_RGTC1_UNORM && dst == PIPE_FORMAT_RGTC1_SNORM) ||
-       (src == PIPE_FORMAT_RGTC2_UNORM && dst == PIPE_FORMAT_RGTC2_SNORM) ||
-       (src == PIPE_FORMAT_BPTC_RGBA_UNORM && dst == PIPE_FORMAT_BPTC_SRGBA) ||
-       (src == PIPE_FORMAT_BPTC_RGB_FLOAT && dst == PIPE_FORMAT_BPTC_RGB_UFLOAT))
+   if ((src == VIRGL_FORMAT_RGTC1_UNORM && dst == VIRGL_FORMAT_RGTC1_SNORM) ||
+       (src == VIRGL_FORMAT_RGTC2_UNORM && dst == VIRGL_FORMAT_RGTC2_SNORM) ||
+       (src == VIRGL_FORMAT_BPTC_RGBA_UNORM && dst == VIRGL_FORMAT_BPTC_SRGBA) ||
+       (src == VIRGL_FORMAT_BPTC_RGB_FLOAT && dst == VIRGL_FORMAT_BPTC_RGB_UFLOAT))
       return true;
    return false;
 }

@@ -1048,9 +1048,9 @@ vrend_format_replace_emulated(uint32_t bind, enum pipe_format format)
          vrend_check_texture_storage(tex_conv_table);
          vrend_state.bgra_srgb_emulation_loaded = true;
       }
-      if (format == PIPE_FORMAT_B8G8R8A8_UNORM)
+      if (format == VIRGL_FORMAT_B8G8R8A8_UNORM)
          retval = VIRGL_FORMAT_B8G8R8A8_UNORM_EMULATED;
-      else if (format == PIPE_FORMAT_B8G8R8X8_UNORM)
+      else if (format == VIRGL_FORMAT_B8G8R8X8_UNORM)
          retval = VIRGL_FORMAT_B8G8R8X8_UNORM_EMULATED;
 
       VREND_DEBUG_NOCTX(dbg_tweak, vrend_state.current_ctx,
