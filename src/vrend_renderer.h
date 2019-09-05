@@ -434,7 +434,7 @@ void vrend_fb_bind_texture(struct vrend_resource *res,
                            int idx,
                            uint32_t level, uint32_t layer);
 bool vrend_format_is_emulated_alpha(enum virgl_formats format);
-boolean format_is_copy_compatible(enum pipe_format src, enum pipe_format dst,
+boolean format_is_copy_compatible(enum virgl_formats src, enum virgl_formats dst,
                                   boolean allow_compressed);
 
 /* blitter interface */

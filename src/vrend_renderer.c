@@ -417,7 +417,7 @@ struct vrend_so_target {
 struct vrend_sampler_view {
    struct pipe_reference reference;
    GLuint id;
-   enum pipe_format format;
+   enum virgl_formats format;
    GLenum target;
    GLuint val0, val1;
    GLuint gl_swizzle_r;
@@ -1033,9 +1033,9 @@ vrend_insert_format_swizzle(int override_format, struct vrend_format_table *entr
 }
 
 static inline enum virgl_formats
-vrend_format_replace_emulated(uint32_t bind, enum pipe_format format)
+vrend_format_replace_emulated(uint32_t bind, enum virgl_formats format)
 {
-   enum virgl_formats retval = (enum virgl_formats)format;
+   enum virgl_formats retval = format;
 
    if (vrend_state.use_gles && (bind & VIRGL_BIND_PREFER_EMULATED_BGRA)) {
       VREND_DEBUG(dbg_tweak, vrend_state.current_ctx, "Check tweak for format %s", util_format_name(format));
@@ -1054,7 +1054,7 @@ vrend_format_replace_emulated(uint32_t bind, enum pipe_format format)
          retval = VIRGL_FORMAT_B8G8R8X8_UNORM_EMULATED;
 
       VREND_DEBUG_NOCTX(dbg_tweak, vrend_state.current_ctx,
-                        "%s\n", (retval != (enum virgl_formats)format ? "... replace" : ""));
+                        "%s\n", (retval != format ? "... replace" : ""));
    }
    return retval;
 }
@@ -1065,7 +1065,8 @@ vrend_get_format_table_entry(enum virgl_formats format)
    return &tex_conv_table[format];
 }
 
-const struct vrend_format_table *vrend_get_format_table_entry_with_emulation(uint32_t bind, enum virgl_formats format)
+const struct vrend_format_table *
+      vrend_get_format_table_entry_with_emulation(uint32_t bind, enum virgl_formats format)
 {
    return vrend_get_format_table_entry(vrend_format_replace_emulated(bind, format));
 }
@@ -1980,7 +1981,7 @@ int vrend_create_sampler_view(struct vrend_context *ctx,
    pipe_reference_init(&view->reference, 1);
    view->format = format & 0xffffff;
 
-   if (!view->format || (enum virgl_formats)view->format >= VIRGL_FORMAT_MAX) {
+   if (!view->format || view->format >= VIRGL_FORMAT_MAX) {
       report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_FORMAT, view->format);
       FREE(view);
       return EINVAL;
@@ -2055,7 +2056,7 @@ int vrend_create_sampler_view(struct vrend_context *ctx,
 
    if (has_feature(feat_texture_view) &&
        view->texture->storage != VREND_RESOURCE_STORAGE_BUFFER) {
-      enum pipe_format format;
+      enum virgl_formats format;
       bool needs_view = false;
 
       /*
@@ -5383,7 +5384,7 @@ void vrend_bind_sampler_states(struct vrend_context *ctx,
    ctx->sub->sampler_views_dirty[shader_type] |= dirty;
 }
 
-static bool get_swizzled_border_color(enum pipe_format fmt,
+static bool get_swizzled_border_color(enum virgl_formats fmt,
                                       union pipe_color_union *in_border_color,
                                       union pipe_color_union *out_border_color)
 {
@@ -6739,7 +6740,7 @@ static void vrend_scale_depth(void *ptr, int size, float scale_val)
 static void read_transfer_data(struct iovec *iov,
                                unsigned int num_iovs,
                                char *data,
-                               enum pipe_format format,
+                               enum virgl_formats format,
                                uint64_t offset,
                                uint32_t src_stride,
                                uint32_t src_layer_stride,
@@ -7029,7 +7030,8 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
          need_temp = true;
       }
 
-      if (vrend_state.use_core_profile == true && (res->y_0_top || (res->base.format == (enum pipe_format)VIRGL_FORMAT_Z24X8_UNORM))) {
+      if (vrend_state.use_core_profile == true &&
+          (res->y_0_top || (res->base.format == VIRGL_FORMAT_Z24X8_UNORM))) {
          need_temp = true;
          if (res->y_0_top)
             invert = true;
@@ -7147,7 +7149,7 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
                                                ((info->box->z * level_height + y) * stride + x * elsize);
          }
 
-         if (res->base.format == (enum pipe_format)VIRGL_FORMAT_Z24X8_UNORM) {
+         if (res->base.format == VIRGL_FORMAT_Z24X8_UNORM) {
             /* we get values from the guest as 24-bit scaled integers
                but we give them to the host GL and it interprets them
                as 32-bit scaled integers, so we need to scale them here */
@@ -7201,7 +7203,7 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
                                glformat, gltype, data);
             }
          }
-         if (res->base.format == (enum pipe_format)VIRGL_FORMAT_Z24X8_UNORM) {
+         if (res->base.format == VIRGL_FORMAT_Z24X8_UNORM) {
             if (!vrend_state.use_core_profile)
                glPixelTransferf(GL_DEPTH_SCALE, 1.0);
          }
@@ -7417,7 +7419,7 @@ static int vrend_transfer_send_readpixels(struct vrend_resource *res,
       break;
    }
 
-   if (res->base.format == (enum pipe_format)VIRGL_FORMAT_Z24X8_UNORM) {
+   if (res->base.format == VIRGL_FORMAT_Z24X8_UNORM) {
       /* we get values from the guest as 24-bit scaled integers
          but we give them to the host GL and it interprets them
          as 32-bit scaled integers, so we need to scale them here */
@@ -7457,7 +7459,7 @@ static int vrend_transfer_send_readpixels(struct vrend_resource *res,
 
    do_readpixels(info->box->x, y1, info->box->width, info->box->height, format, type, send_size, data);
 
-   if (res->base.format == (enum pipe_format)VIRGL_FORMAT_Z24X8_UNORM) {
+   if (res->base.format == VIRGL_FORMAT_Z24X8_UNORM) {
       if (!vrend_state.use_core_profile)
          glPixelTransferf(GL_DEPTH_SCALE, 1.0);
       else
@@ -7972,7 +7974,7 @@ static void vrend_resource_copy_fallback(struct vrend_resource *src_res,
       /* we get values from the guest as 24-bit scaled integers
          but we give them to the host GL and it interprets them
          as 32-bit scaled integers, so we need to scale them here */
-      if (dst_res->base.format == (enum pipe_format)VIRGL_FORMAT_Z24X8_UNORM) {
+      if (dst_res->base.format == VIRGL_FORMAT_Z24X8_UNORM) {
          float depth_scale = 256.0;
          vrend_scale_depth(tptr, total_size, depth_scale);
       }
@@ -8221,7 +8223,7 @@ void vrend_renderer_resource_copy_region(struct vrend_context *ctx,
       glEnable(GL_SCISSOR_TEST);
 }
 
-static GLuint vrend_make_view(struct vrend_resource *res, enum pipe_format format)
+static GLuint vrend_make_view(struct vrend_resource *res, enum virgl_formats format)
 {
    GLuint view_id;
    glGenTextures(1, &view_id);
@@ -8237,9 +8239,9 @@ static GLuint vrend_make_view(struct vrend_resource *res, enum pipe_format forma
 
    VREND_DEBUG(dbg_blit, NULL, "Create texture view from %s%s as %s%s\n",
                util_format_name(res->base.format),
-               (enum virgl_formats)res->base.format != src_fmt ? "(emulated)" : "",
+               res->base.format != src_fmt ? "(emulated)" : "",
                util_format_name(format),
-               (enum virgl_formats)format != dst_fmt ? "(emulated)" : "");
+               format != dst_fmt ? "(emulated)" : "");
 
    unsigned layers_factor = 1;
    if (res->target == GL_TEXTURE_CUBE_MAP || res->target == GL_TEXTURE_CUBE_MAP_ARRAY)
@@ -8558,12 +8560,12 @@ void vrend_renderer_blit(struct vrend_context *ctx,
    if (ctx->in_error)
       return;
 
-   if (!info->src.format || (enum virgl_formats)info->src.format >= VIRGL_FORMAT_MAX) {
+   if (!info->src.format || info->src.format >= VIRGL_FORMAT_MAX) {
       report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_FORMAT, info->src.format);
       return;
    }
 
-   if (!info->dst.format || (enum virgl_formats)info->dst.format >= VIRGL_FORMAT_MAX) {
+   if (!info->dst.format || info->dst.format >= VIRGL_FORMAT_MAX) {
       report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_FORMAT, info->dst.format);
       return;
    }

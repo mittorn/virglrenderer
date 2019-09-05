@@ -693,8 +693,8 @@ unsigned vrend_renderer_query_multisample_caps(unsigned max_samples, struct virg
 }
 
 /* returns: 1 = compatible, -1 = not compatible, 0 = undecided */
-static int format_uncompressed_compressed_copy_compatible(enum pipe_format src,
-                                                          enum pipe_format dst)
+static int format_uncompressed_compressed_copy_compatible(enum virgl_formats src,
+                                                          enum virgl_formats dst)
 {
    switch (src) {
    case VIRGL_FORMAT_R32G32B32A32_UINT:
@@ -753,7 +753,7 @@ static boolean format_compressed_compressed_copy_compatible(enum virgl_formats s
    return false;
 }
 
-boolean format_is_copy_compatible(enum pipe_format src, enum pipe_format dst,
+boolean format_is_copy_compatible(enum virgl_formats src, enum virgl_formats dst,
                                   boolean allow_compressed)
 {
    int r;
