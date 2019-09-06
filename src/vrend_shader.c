@@ -247,6 +247,7 @@ struct dump_ctx {
    bool has_sample_input;
    bool early_depth_stencil;
    bool has_file_memory;
+   bool force_color_two_side;
 
    int tcs_vertices_out;
    int tes_prim_mode;
@@ -5912,6 +5913,8 @@ emit_ios_generic_outputs(struct dump_ctx *ctx,
                          const can_emit_generic_callback can_emit_generic)
 {
    uint32_t i;
+   uint64_t fc_emitted = 0;
+   uint64_t bc_emitted = 0;
 
    for (i = 0; i < ctx->num_outputs; i++) {
 
@@ -5929,14 +5932,14 @@ emit_ios_generic_outputs(struct dump_ctx *ctx,
             prefix = INTERP_PREFIX;
          }
 
-         if (ctx->outputs[i].name == TGSI_SEMANTIC_COLOR)
+         if (ctx->outputs[i].name == TGSI_SEMANTIC_COLOR) {
             ctx->front_back_color_emitted_flags[ctx->outputs[i].sid] |= FRONT_COLOR_EMITTED;
+            fc_emitted |= 1ull << ctx->outputs[i].sid;
+         }
 
          if (ctx->outputs[i].name == TGSI_SEMANTIC_BCOLOR) {
-            // We have a back color so we must force the output emission to declare
-            // two sides
-            ctx->key->color_two_side = 1;
             ctx->front_back_color_emitted_flags[ctx->outputs[i].sid] |= BACK_COLOR_EMITTED;
+            bc_emitted |= 1ull << ctx->outputs[i].sid;
          }
 
          emit_ios_generic(ctx, io_out, prefix, &ctx->outputs[i],
@@ -5948,6 +5951,12 @@ emit_ios_generic_outputs(struct dump_ctx *ctx,
                    ctx->outputs[i].glsl_name);
       }
    }
+
+   /* If a back color emitted without a corresponding front color, then
+    * we have to force two side coloring, because the FS shader might expect
+    * a front color too. */
+   if (bc_emitted & ~fc_emitted)
+      ctx->force_color_two_side = 1;
 }
 
 static void
@@ -6002,7 +6011,7 @@ static void emit_ios_vs(struct dump_ctx *ctx)
 
    emit_ios_generic_outputs(ctx, can_emit_generic_default);
 
-   if (ctx->key->color_two_side) {
+   if (ctx->key->color_two_side || ctx->force_color_two_side) {
       bool fcolor_emitted, bcolor_emitted;
 
       for (i = 0; i < ctx->num_outputs; i++) {
