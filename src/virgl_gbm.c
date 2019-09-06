@@ -336,8 +336,12 @@ int virgl_gbm_transfer(struct gbm_bo *bo, uint32_t direction, struct iovec *iove
       uint32_t subsampled_width = info->box->width / layout->horizontal_subsampling[plane];
       uint32_t subsampled_height = info->box->height / layout->vertical_subsampling[plane];
       uint32_t plane_height = height / layout->vertical_subsampling[plane];
-      uint32_t guest_plane_stride = guest_stride0 / layout->horizontal_subsampling[plane];
-      uint32_t host_plane_stride = host_map_stride0 / layout->horizontal_subsampling[plane];
+
+      uint32_t plane_byte_ratio = layout->bytes_per_pixel[plane] / layout->bytes_per_pixel[0];
+      uint32_t guest_plane_stride = (guest_stride0 * plane_byte_ratio)
+            / layout->horizontal_subsampling[plane];
+      uint32_t host_plane_stride = (host_map_stride0 * plane_byte_ratio)
+            / layout->horizontal_subsampling[plane];
 
       uint32_t guest_resource_offset = guest_plane_offset + (subsampled_y * guest_plane_stride)
                                        + subsampled_x * layout->bytes_per_pixel[plane];
