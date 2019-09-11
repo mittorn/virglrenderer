@@ -5805,7 +5805,9 @@ static void emit_ios_indirect_generics_input(struct dump_ctx *ctx, const char *p
       int size = ctx->generic_input_range.io.last - ctx->generic_input_range.io.sid + 1;
       assert(size < 256 && size >= 0);
       if (size < ctx->key->num_indirect_generic_inputs)
-         ctx->key->num_indirect_generic_inputs = (unsigned char)size;  // This is wrong but needed for debugging
+         VREND_DEBUG(dbg_shader, NULL, "WARNING: shader key indicates less indirect inputs"
+                                       " (%d) then are actually used (%d)\n",
+                     ctx->key->num_indirect_generic_inputs, size);
 
       if (prefer_generic_io_block(ctx, io_in)) {
 
