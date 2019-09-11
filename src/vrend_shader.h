@@ -95,7 +95,6 @@ struct vrend_shader_info {
 
 struct vrend_shader_key {
    uint32_t coord_replace;
-   bool winsys_adjust_y_emitted;
    bool invert_fs_origin;
    bool pstipple_tex;
    bool add_alpha_test;

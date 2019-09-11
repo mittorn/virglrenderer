@@ -3083,7 +3083,6 @@ static inline void vrend_fill_shader_key(struct vrend_context *ctx,
 
    key->invert_fs_origin = !ctx->sub->inverted_fbo_content;
    key->coord_replace = ctx->sub->rs_state.point_quad_rasterization ? ctx->sub->rs_state.sprite_coord_enable : 0;
-   key->winsys_adjust_y_emitted = false;
 
    if (type == PIPE_SHADER_FRAGMENT)
       key->fs_swizzle_output_rgb_to_bgr = ctx->sub->swizzle_output_rgb_to_bgr;

@@ -248,6 +248,7 @@ struct dump_ctx {
    bool early_depth_stencil;
    bool has_file_memory;
    bool force_color_two_side;
+   bool winsys_adjust_y_emitted;
 
    int tcs_vertices_out;
    int tes_prim_mode;
@@ -6123,9 +6124,9 @@ static void emit_ios_fs(struct dump_ctx *ctx)
          emit_ios_generic(ctx, io_in, prefixes, &ctx->inputs[i], "in", "");
       }
 
-      if (ctx->cfg->use_gles && !ctx->key->winsys_adjust_y_emitted &&
+      if (ctx->cfg->use_gles && !ctx->winsys_adjust_y_emitted &&
           (ctx->key->coord_replace & (1 << ctx->inputs[i].sid))) {
-         ctx->key->winsys_adjust_y_emitted = true;
+         ctx->winsys_adjust_y_emitted = true;
          emit_hdr(ctx, "uniform float winsys_adjust_y;\n");
       }
    }
