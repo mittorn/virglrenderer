@@ -154,6 +154,9 @@ interpret_results()
 
          1)
          echo "Fail - diff against previous results: $RESULTS_DIR/regression_diff.txt"
+         echo -n "Changes detected: "
+         grep ^+ $RESULTS_DIR/regression_diff.txt | wc -l 
+         head -n20 $RESULTS_DIR/regression_diff.txt
          return 1
          ;;
 
