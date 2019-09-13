@@ -113,7 +113,8 @@ WORKDIR /
 # error: RPC failed; curl 56 GnuTLS recv error (-54): Error in the pull function.
 RUN git config --global http.postBuffer 1048576000
 
-ARG KNOWN_GOOD_CTS=6c709dc9a99b70572aceb0f7698ab044383ff948
+ARG KNOWN_GOOD_CTS
+ENV KNOWN_GOOD_CTS ${KNOWN_GOOD_CTS:-6c709dc9a99b70572aceb0f7698ab044383ff948}
 WORKDIR /VK-GL-CTS
 RUN git clone --shallow-since="$GIT_DATE" https://github.com/KhronosGroup/VK-GL-CTS.git . && \
     git checkout ${KNOWN_GOOD_CTS} && \
@@ -127,7 +128,8 @@ RUN git clone --shallow-since="$GIT_DATE" https://github.com/KhronosGroup/VK-GL-
     find . -name lib\*.a | xargs rm -rf
 WORKDIR /
 
-ARG KNOWN_GOOD_PIGLIT=213a01051a907e6e50cc70d141427aab96884c22
+ARG KNOWN_GOOD_PIGLIT
+ENV KNOWN_GOOD_PIGLIT ${KNOWN_GOOD_PIGLIT:-213a01051a907e6e50cc70d141427aab96884c22}
 WORKDIR /piglit
 RUN git clone --shallow-since="$GIT_DATE" https://gitlab.freedesktop.org/mesa/piglit.git . && \
     git checkout ${KNOWN_GOOD_PIGLIT} && \
