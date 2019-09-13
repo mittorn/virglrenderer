@@ -127,7 +127,7 @@ RUN git clone --shallow-since="$GIT_DATE" https://github.com/KhronosGroup/VK-GL-
     find . -name lib\*.a | xargs rm -rf
 WORKDIR /
 
-ARG KNOWN_GOOD_PIGLIT=1a2f49f17fb45
+ARG KNOWN_GOOD_PIGLIT=213a01051a907e6e50cc70d141427aab96884c22
 WORKDIR /piglit
 RUN git clone --shallow-since="$GIT_DATE" https://gitlab.freedesktop.org/mesa/piglit.git . && \
     git checkout ${KNOWN_GOOD_PIGLIT} && \
