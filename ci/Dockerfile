@@ -133,7 +133,7 @@ RUN git clone --shallow-since="$GIT_DATE" https://gitlab.freedesktop.org/mesa/pi
     git checkout ${KNOWN_GOOD_PIGLIT} && \
     git log --oneline -n 1 && \
     cmake -DCMAKE_INSTALL_PREFIX=/usr/local -DCMAKE_BUILD_TYPE=Release . && \
-    make -j$(nproc) install && \
+    make -j$(nproc) install >/dev/null && \
     rm -rf /usr/local/lib/piglit/generated_tests/spec/arb_vertex_attrib_64bit && \
     rm -rf /usr/local/lib/piglit/generated_tests/spec/glsl-4.20 && \
     rm -rf /piglit
@@ -147,7 +147,7 @@ RUN git clone --shallow-since="$GIT_DATE" https://gitlab.freedesktop.org/mesa/dr
     mkdir -p build && \
     meson build/ && \
     meson configure build/ -Dprefix=/usr/local -Dlibdir=lib && \
-    ninja -C build/ install && \
+    ninja -C build/ install >/dev/null && \
     rm -rf /drm
 WORKDIR /
 
@@ -164,7 +164,7 @@ RUN git clone --shallow-since="$GIT_DATE" ${MESA_REPO} . && \
     mkdir -p build && \
     meson build/ && \
     meson configure build/ -Dprefix=/usr/local -Dplatforms=drm,x11,wayland,surfaceless -Ddri-drivers=i965 -Dgallium-drivers=swrast,virgl,radeonsi -Dbuildtype=debugoptimized -Dllvm=true -Dglx=dri -Dgallium-vdpau=false -Dgallium-va=false -Dvulkan-drivers=[] -Dlibdir=lib && \
-    ninja -C build/ install && \
+    ninja -C build/ install >/dev/null && \
     rm -rf /mesa
 WORKDIR /
 
