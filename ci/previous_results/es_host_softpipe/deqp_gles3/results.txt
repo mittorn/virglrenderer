@@ -8460,10 +8460,10 @@ dEQP-GLES3.functional.negative_api.shader.link_program Pass
 dEQP-GLES3.functional.negative_api.shader.pause_transform_feedback Pass
 dEQP-GLES3.functional.negative_api.shader.program_binary Pass
 dEQP-GLES3.functional.negative_api.shader.resume_transform_feedback Pass
-dEQP-GLES3.functional.negative_api.shader.sampler_parameterfv Incomplete
-dEQP-GLES3.functional.negative_api.shader.sampler_parameterf Incomplete
-dEQP-GLES3.functional.negative_api.shader.sampler_parameteriv Incomplete
-dEQP-GLES3.functional.negative_api.shader.sampler_parameteri Incomplete
+dEQP-GLES3.functional.negative_api.shader.sampler_parameterfv Pass
+dEQP-GLES3.functional.negative_api.shader.sampler_parameterf Pass
+dEQP-GLES3.functional.negative_api.shader.sampler_parameteriv Pass
+dEQP-GLES3.functional.negative_api.shader.sampler_parameteri Pass
 dEQP-GLES3.functional.negative_api.shader.shader_binary Pass
 dEQP-GLES3.functional.negative_api.shader.shader_source Pass
 dEQP-GLES3.functional.negative_api.shader.transform_feedback_varyings Pass
@@ -8526,7 +8526,7 @@ dEQP-GLES3.functional.negative_api.state.get_shader_precision_format Pass
 dEQP-GLES3.functional.negative_api.state.get_shader_source Pass
 dEQP-GLES3.functional.negative_api.state.get_stringi Pass
 dEQP-GLES3.functional.negative_api.state.get_string Pass
-dEQP-GLES3.functional.negative_api.state.get_synciv Incomplete
+dEQP-GLES3.functional.negative_api.state.get_synciv Pass
 dEQP-GLES3.functional.negative_api.state.get_tex_parameterfv Pass
 dEQP-GLES3.functional.negative_api.state.get_tex_parameteriv Pass
 dEQP-GLES3.functional.negative_api.state.get_uniformfv Pass
@@ -18813,9 +18813,9 @@ dEQP-GLES3.functional.shaders.matrix.unary_addition.mediump_mat4_float_fragment 
 dEQP-GLES3.functional.shaders.matrix.unary_addition.mediump_mat4_float_vertex Pass
 dEQP-GLES3.functional.shaders.metamorphic.bubblesort_flag.variant_1 BadTerminate
 dEQP-GLES3.functional.shaders.metamorphic.bubblesort_flag.variant_2 BadTerminate
-dEQP-GLES3.functional.shaders.metamorphic.synthetic.variant_1 Pass
+dEQP-GLES3.functional.shaders.metamorphic.synthetic.variant_1 BadTerminate
 dEQP-GLES3.functional.shaders.metamorphic.synthetic.variant_2 Pass
-dEQP-GLES3.functional.shaders.metamorphic.synthetic.variant_3 Pass
+dEQP-GLES3.functional.shaders.metamorphic.synthetic.variant_3 BadTerminate
 dEQP-GLES3.functional.shaders.metamorphic.synthetic.variant_4 Pass
 dEQP-GLES3.functional.shaders.negative.c_cast.bool_fragment Pass
 dEQP-GLES3.functional.shaders.negative.c_cast.bool_vertex Pass
