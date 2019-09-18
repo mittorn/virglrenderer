@@ -201,6 +201,7 @@ run_test_suite()
    local TEST_NAME="$2"
    local UNRELIABLE="$3"
    local LOCAL_TEST_FILE="$4"
+   local RES_FILE=$RESULTS_FILE
    
 #   echo "run_test_suite() OUTPUT_PATH: $OUTPUT_PATH"
 #   echo "run_test_suite() LOG_FILE: $LOG_FILE"
@@ -209,6 +210,7 @@ run_test_suite()
    UNRELIABLE_STRING=""
    if [ $UNRELIABLE -eq 1 ]; then
       UNRELIABLE_STRING="unreliable "
+      RES_FILE="$RES_FILE.unreliable"
    fi
 
    if [[ $BACKEND == *"vtest"* ]]; then
@@ -246,33 +248,27 @@ run_test_suite()
          gpu \
          /tmp/  &> $LOG_FILE
 
-      piglit summary console /tmp/ | grep -B 999999 "summary:" | grep -v "summary:" > $RESULTS_FILE
+      piglit summary console /tmp/ | grep -B 999999 "summary:" | grep -v "summary:" > "$RES_FILE"
 
-      TOTAL_TESTS=$(cat $RESULTS_FILE | wc -l)
-      PASSED_TESTS=$(grep " pass" $RESULTS_FILE | wc -l)
+      TOTAL_TESTS=$(cat $RES_FILE | wc -l)
+      PASSED_TESTS=$(grep " pass" $RES_FILE | wc -l)
       ;;
 
    deqp)
       deqp  \
          --cts-build-dir $CTS_PATH/build \
          --test-names-file "$LOCAL_TEST_FILE" \
-         --results-file "$RESULTS_FILE" \
+         --results-file "$RES_FILE" \
          --threads $NUM_THREADS &> $LOG_FILE
 
-#      echo "$(which dEQP): Returned $?"
-#      echo "ls -la CTS_PATH/build: $CTS_PATH/build - $(ls -la $CTS_PATH/build)"
-#      echo "ls -la TEST_FILE: $TEST_FILE - $(ls -la $TEST_FILE)"
-#      echo "ls -la RESULTS_FILE: $RESULTS_FILE - $(ls -la $RESULTS_FILE)"
-#      echo "LOG_FILE: $LOG_FILE - $(ls -la $LOG_FILE)"
-
       # Remove header
-      sed -i "/#/d" $RESULTS_FILE
+      sed -i "/#/d" $RES_FILE
 
       # Sort results file to make diffs easier to read
-      sort -V $RESULTS_FILE -o $RESULTS_FILE
+      sort -V $RES_FILE -o $RES_FILE
 
-      TOTAL_TESTS=$(cat $RESULTS_FILE | wc -l)
-      PASSED_TESTS=$(grep " Pass" $RESULTS_FILE | wc -l)
+      TOTAL_TESTS=$(cat $RES_FILE | wc -l)
+      PASSED_TESTS=$(grep " Pass" $RES_FILE | wc -l)
       ;;
    esac
 
