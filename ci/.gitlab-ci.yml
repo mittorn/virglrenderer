@@ -5,7 +5,7 @@ cache:
     - ccache
 
 variables:
-  DOCKER_DRIVER: overlay2
+  DOCKER_DRIVER: overlay
 # When running CI jobs, don't allow
 # HW backed renderes, due to the
 # variability it introduces.
