@@ -85,6 +85,32 @@ make check:
     paths:
       - results/
 
+make check meson:
+  stage: sanity test
+  services:
+    - docker:dind
+  before_script:
+    *docker-setup
+  script:
+    - docker run
+             --ulimit core=99999999999:99999999999
+             $RD_CONFIG
+             -v $PWD:/virglrenderer
+             $CI_REGISTRY_IMAGE@$DOCKER_IMAGE_DIGEST
+             bash -c "/virglrenderer/ci/run_tests.sh --make-check-meson"
+    - echo -e "\nThat's all folks\n"
+  only:
+    - branches
+    - tags
+    - merge_requests
+    - schedules
+
+  artifacts:
+    when: always
+    paths:
+      - results/
+
+
 .tests:
   stage: test
   services:

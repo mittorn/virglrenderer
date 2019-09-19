@@ -4,6 +4,8 @@ run_setup()
 {
    set -x
 
+   use_meson=$1
+
    # Let .gitlab-ci or local ci runner set
    # desired thread count
    NUM_THREADS=${NUM_THREADS:-$(expr $(expr $(nproc) / 8) + 1)}
@@ -44,10 +46,19 @@ run_setup()
    rm -rf $VIRGL_PATH/results/
    mkdir -p $VIRGL_PATH/results/
 
-   if [ -d "$VIRGL_PATH" ]; then
-       cd $VIRGL_PATH
-       ./autogen.sh --prefix=/usr/local --enable-debug --enable-tests
-       make -j$NUM_THREADS install
+   if [ "x$use_meson" = "x" ]; then
+      if [ -d "$VIRGL_PATH" ]; then
+          cd $VIRGL_PATH
+          ./autogen.sh --prefix=/usr/local --enable-debug --enable-tests
+          make -j$NUM_THREADS install
+      fi
+   else
+      if [ -d "$VIRGL_PATH" ]; then
+          cd $VIRGL_PATH
+          mkdir build
+          meson build/ -Dprefix=/usr/local -Ddebug=true -Dtests=true --fatal-meson-warnings
+          ninja -C build -j$NUM_THREADS install
+      fi
    fi
 
    CI_DIR=$(dirname $(readlink -f "$0"))
@@ -56,6 +67,7 @@ run_setup()
 
 run_make_check()
 {
+   run_setup
    (
       cd /virglrenderer
       mkdir -p /virglrenderer/results/make_check
@@ -66,8 +78,22 @@ run_make_check()
    )
 }
 
+run_make_check_meson()
+{
+   run_setup meson
+   (
+      cd /virglrenderer/build
+      mkdir -p /virglrenderer/results/make_check_meson
+      VRENDTEST_USE_EGL_SURFACELESS=1 ninja -j$NUM_THREADS test
+      RET=$?
+      cp /virglrenderer/build/meson-logs/testlog.txt /virglrenderer/results/make_check_meson/
+      return $RET
+   )
+}
+
 run_deqp()
 {
+   run_setup
    OGL_BACKEND="$1"
    SUITE="$2"
 
@@ -109,6 +135,8 @@ run_deqp()
 
 run_piglit()
 {
+   run_setup
+
    OGL_BACKEND="$1"
 
    BACKENDS=""
@@ -136,6 +164,10 @@ parse_input()
       case $1 in
          --make-check)
          run_make_check
+         ;;
+
+         --make-check-meson)
+         run_make_check_meson
          ;;
 
          --deqp-gl-gl-tests)
@@ -201,5 +233,4 @@ parse_input()
    exit $RET
 }
 
-run_setup
 parse_input $@
