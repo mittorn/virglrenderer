@@ -49,6 +49,11 @@ struct planar_layout {
     int bytes_per_pixel[4];
 };
 
+struct format_conversion {
+    uint32_t gbm_format;
+    uint32_t virgl_format;
+};
+
 static const struct planar_layout packed_1bpp_layout = {
     .num_planes = 1,
     .horizontal_subsampling = { 1 },
@@ -82,6 +87,17 @@ static const struct planar_layout triplanar_yuv_420_layout = {
     .horizontal_subsampling = { 1, 2, 2 },
     .vertical_subsampling = { 1, 2, 2 },
     .bytes_per_pixel = { 1, 1, 1 }
+};
+
+static const struct format_conversion conversions[] = {
+    { GBM_FORMAT_RGB565, VIRGL_FORMAT_B5G6R5_UNORM },
+    { GBM_FORMAT_ARGB8888, VIRGL_FORMAT_B8G8R8A8_UNORM },
+    { GBM_FORMAT_XRGB8888, VIRGL_FORMAT_B8G8R8X8_UNORM },
+    { GBM_FORMAT_NV12, VIRGL_FORMAT_NV12 },
+    { GBM_FORMAT_ABGR8888, VIRGL_FORMAT_R8G8B8A8_UNORM},
+    { GBM_FORMAT_XBGR8888, VIRGL_FORMAT_R8G8B8X8_UNORM},
+    { GBM_FORMAT_R8, VIRGL_FORMAT_R8_UNORM},
+    { GBM_FORMAT_YVU420, VIRGL_FORMAT_YV12}
 };
 
 static int rendernode_open(void)
@@ -267,28 +283,25 @@ void virgl_gbm_fini(struct virgl_gbm *gbm)
    free(gbm);
 }
 
-uint32_t virgl_gbm_convert_format(uint32_t virgl_format)
+int virgl_gbm_convert_format(uint32_t *virgl_format, uint32_t *gbm_format)
 {
-   switch (virgl_format) {
-   case VIRGL_FORMAT_B5G6R5_UNORM:
-      return GBM_FORMAT_RGB565;
-   case VIRGL_FORMAT_B8G8R8A8_UNORM:
-      return GBM_FORMAT_ARGB8888;
-   case VIRGL_FORMAT_B8G8R8X8_UNORM:
-      return GBM_FORMAT_XRGB8888;
-   case VIRGL_FORMAT_NV12:
-      return GBM_FORMAT_NV12;
-   case VIRGL_FORMAT_R8G8B8A8_UNORM:
-      return GBM_FORMAT_ABGR8888;
-   case VIRGL_FORMAT_R8G8B8X8_UNORM:
-      return GBM_FORMAT_XBGR8888;
-   case VIRGL_FORMAT_R8_UNORM:
-      return GBM_FORMAT_R8;
-   case VIRGL_FORMAT_YV12:
-      return GBM_FORMAT_YVU420;
-   default:
-      return 0;
-   }
+
+    if (!virgl_format || !gbm_format)
+      return -1;
+
+    if (*virgl_format != 0 && *gbm_format != 0)
+      return -1;
+
+    for (uint32_t i = 0; i < ARRAY_SIZE(conversions); i++) {
+      if (conversions[i].gbm_format == *gbm_format ||
+          conversions[i].virgl_format == *virgl_format) {
+         *gbm_format = conversions[i].gbm_format;
+         *virgl_format = conversions[i].virgl_format;
+         return 0;
+      }
+    }
+
+    return -1;
 }
 
 int virgl_gbm_transfer(struct gbm_bo *bo, uint32_t direction, struct iovec *iovecs,

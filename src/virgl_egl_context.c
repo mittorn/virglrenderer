@@ -276,6 +276,7 @@ virgl_renderer_gl_context virgl_egl_get_current_context(UNUSED struct virgl_egl 
 int virgl_egl_get_fourcc_for_texture(struct virgl_egl *egl, uint32_t tex_id, uint32_t format, int *fourcc)
 {
    int ret = EINVAL;
+   uint32_t gbm_format = 0;
 
    EGLImageKHR image;
    EGLBoolean success;
@@ -300,7 +301,8 @@ int virgl_egl_get_fourcc_for_texture(struct virgl_egl *egl, uint32_t tex_id, uin
    return ret;
 
  fallback:
-   *fourcc = virgl_gbm_convert_format(format);
+   ret = virgl_gbm_convert_format(&format, &gbm_format);
+   *fourcc = (int)gbm_format;
    return ret;
 }
 
