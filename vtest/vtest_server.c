@@ -51,6 +51,8 @@ struct vtest_program
    int out_fd;
    struct vtest_input input;
 
+   const char *render_device;
+
    bool do_fork;
    bool loop;
 
@@ -68,6 +70,7 @@ struct vtest_program prog = {
    .in_fd = -1,
    .out_fd = -1,
    .input = { { -1 }, NULL },
+   .render_device = 0,
    .do_fork = true,
    .loop = true,
 };
@@ -78,8 +81,8 @@ static void vtest_main_set_signal_child(void);
 static void vtest_main_set_signal_segv(void);
 static void vtest_main_open_read_file(void);
 static void vtest_main_open_socket(void);
-static void vtest_main_run_renderer(int in_fd, int out_fd,
-                                    struct vtest_input *input, int ctx_flags);
+static void vtest_main_run_renderer(int in_fd, int out_fd, struct vtest_input *input,
+                                    int ctx_flags, const char *render_device);
 static void vtest_main_wait_for_socket_accept(void);
 static void vtest_main_tidy_fds(void);
 static void vtest_main_close_socket(void);
@@ -126,12 +129,14 @@ start:
       /* fork a renderer process */
       if (fork() == 0) {
          vtest_main_set_signal_segv();
-         vtest_main_run_renderer(prog.in_fd, prog.out_fd, &prog.input, ctx_flags);
+         vtest_main_run_renderer(prog.in_fd, prog.out_fd, &prog.input,
+                                 ctx_flags, prog.render_device);
          exit(0);
       }
    } else {
       vtest_main_set_signal_segv();
-       vtest_main_run_renderer(prog.in_fd, prog.out_fd, &prog.input, ctx_flags);
+       vtest_main_run_renderer(prog.in_fd, prog.out_fd, &prog.input,
+                               ctx_flags, prog.render_device);
    }
 
    vtest_main_tidy_fds();
@@ -152,6 +157,7 @@ start:
 #define OPT_USE_GLX 'x'
 #define OPT_USE_EGL_SURFACELESS 's'
 #define OPT_USE_GLES 'e'
+#define OPT_RENDERNODE 'r'
 
 static void vtest_main_parse_args(int argc, char **argv)
 {
@@ -163,6 +169,7 @@ static void vtest_main_parse_args(int argc, char **argv)
       {"use-glx",             no_argument, NULL, OPT_USE_GLX},
       {"use-egl-surfaceless", no_argument, NULL, OPT_USE_EGL_SURFACELESS},
       {"use-gles",            no_argument, NULL, OPT_USE_GLES},
+      {"rendernode",          required_argument, NULL, OPT_RENDERNODE},
       {0, 0, 0, 0}
    };
 
@@ -191,9 +198,13 @@ static void vtest_main_parse_args(int argc, char **argv)
       case OPT_USE_GLES:
          prog.use_gles = true;
          break;
+      case OPT_RENDERNODE:
+         prog.render_device = optarg;
+         break;
       default:
          printf("Usage: %s [--no-fork] [--no-loop-or-fork] [--use-glx] "
-                "[--use-egl-surfaceless] [--use-gles] [file]\n", argv[0]);
+                "[--use-egl-surfaceless] [--use-gles] [--rendernode <dev>]"
+                " [file]\n", argv[0]);
          exit(EXIT_FAILURE);
          break;
       }
@@ -212,6 +223,7 @@ static void vtest_main_getenv(void)
    prog.use_glx = getenv("VTEST_USE_GLX") != NULL;
    prog.use_egl_surfaceless = getenv("VTEST_USE_EGL_SURFACELESS") != NULL;
    prog.use_gles = getenv("VTEST_USE_GLES") != NULL;
+   prog.render_device = getenv("VTEST_RENDERNODE");
 }
 
 static void handler(int sig, siginfo_t *si, void *unused)
@@ -360,7 +372,8 @@ static const vtest_cmd_fptr_t vtest_commands[] = {
 };
 
 static void vtest_main_run_renderer(int in_fd, int out_fd,
-                                    struct vtest_input *input, int ctx_flags)
+                                    struct vtest_input *input, int ctx_flags,
+                                    const char *render_device)
 {
    int err, ret;
    uint32_t header[VTEST_HDR_SIZE];
@@ -386,7 +399,7 @@ static void vtest_main_run_renderer(int in_fd, int out_fd,
             break;
          }
 
-         ret = vtest_create_renderer(input, out_fd, header[0], ctx_flags);
+         ret = vtest_create_renderer(input, out_fd, header[0], ctx_flags, render_device);
          if (ret < 0) {
             err = 4;
             break;

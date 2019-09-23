@@ -51,23 +51,41 @@ static int ctx_id = 1;
 static int fence_id = 1;
 static uint32_t max_length = UINT_MAX;
 
-static int last_fence;
-static void vtest_write_fence(UNUSED void *cookie, uint32_t fence_id_in)
-{
-   last_fence = fence_id_in;
-}
-
-struct virgl_renderer_callbacks vtest_cbs = {
-   .version = 1,
-   .write_fence = vtest_write_fence,
-};
 
 struct vtest_renderer {
    struct vtest_input *input;
    int out_fd;
    unsigned protocol_version;
    struct util_hash_table *iovec_hash;
+   const char *rendernode_name;
 };
+
+static int last_fence;
+static void vtest_write_fence(UNUSED void *cookie, uint32_t fence_id_in)
+{
+   last_fence = fence_id_in;
+}
+
+static int last_fence;
+static int vtest_get_drm_fd(void *cookie)
+{
+   int fd = -1;
+   struct vtest_renderer *renderer = (struct vtest_renderer*)cookie;
+   if (!renderer->rendernode_name)
+      return -1;
+   fd = open(renderer->rendernode_name, O_RDWR | O_CLOEXEC | O_NOCTTY | O_NONBLOCK);
+   if (fd == -1)
+      fprintf(stderr, "Unable to open rendernode '%s' falling back to default search\n",
+              renderer->rendernode_name);
+   return fd;
+}
+
+struct virgl_renderer_callbacks vtest_cbs = {
+   .version = 2,
+   .write_fence = vtest_write_fence,
+   .get_drm_fd = vtest_get_drm_fd
+};
+
 
 struct vtest_renderer renderer;
 
@@ -203,7 +221,7 @@ int vtest_buf_read(struct vtest_input *input, void *buf, int size)
 }
 
 int vtest_create_renderer(struct vtest_input *input, int out_fd, uint32_t length,
-                          int ctx_flags)
+                          int ctx_flags, const char * render_device)
 {
    char *vtestname;
    int ret;
@@ -211,6 +229,7 @@ int vtest_create_renderer(struct vtest_input *input, int out_fd, uint32_t length
    renderer.iovec_hash = util_hash_table_create(hash_func, compare_iovecs, free_iovec);
    renderer.input = input;
    renderer.out_fd = out_fd;
+   renderer.rendernode_name = render_device;
 
    /* By default we support version 0 unless VCMD_PROTOCOL_VERSION is sent */
    renderer.protocol_version = 0;

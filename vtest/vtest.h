@@ -41,7 +41,7 @@ struct vtest_input {
 };
 
 int vtest_create_renderer(struct vtest_input *input, int out_fd, uint32_t length,
-                          int ctx_flags);
+                          int ctx_flags, const char *render_device);
 
 int vtest_send_caps(uint32_t length_dw);
 int vtest_send_caps2(uint32_t length_dw);
