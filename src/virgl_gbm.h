@@ -50,6 +50,8 @@ int virgl_gbm_transfer(struct gbm_bo *bo, uint32_t direction, struct iovec *iove
 
 uint32_t virgl_gbm_convert_flags(uint32_t virgl_bind_flags);
 
+int virgl_gbm_export_fd(struct gbm_device *gbm, uint32_t handle, int32_t *out_fd);
+
 int virgl_gbm_export_query(struct gbm_bo *bo, struct virgl_renderer_export_query *query);
 
 #endif

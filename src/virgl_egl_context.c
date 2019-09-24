@@ -359,7 +359,7 @@ int virgl_egl_get_fd_for_texture(struct virgl_egl *egl, uint32_t tex_id, int *fd
       if (!egl->gbm)
          goto out_destroy;
 
-      ret = drmPrimeHandleToFD(gbm_device_get_fd(egl->gbm->device), handle, DRM_CLOEXEC, fd);
+      ret = virgl_gbm_export_fd(egl->gbm->device, handle, fd);
       if (ret < 0)
          goto out_destroy;
    } else {
@@ -399,8 +399,7 @@ void *virgl_egl_image_from_dmabuf(struct virgl_egl *egl, struct gbm_bo *bo)
 
    for (int plane = 0; plane < num_planes; plane++) {
       uint32_t handle = gbm_bo_get_handle_for_plane(bo, plane).u32;
-      ret = drmPrimeHandleToFD(gbm_device_get_fd(egl->gbm->device), handle, DRM_CLOEXEC,
-                               &fds[plane]);
+      ret = virgl_gbm_export_fd(egl->gbm->device, handle, &fds[plane]);
       if (ret < 0) {
          vrend_printf( "failed to export plane handle\n");
          image = (void *)EGL_NO_IMAGE_KHR;

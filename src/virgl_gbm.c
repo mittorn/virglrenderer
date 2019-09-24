@@ -389,6 +389,18 @@ uint32_t virgl_gbm_convert_flags(uint32_t virgl_bind_flags)
    return flags;
 }
 
+int virgl_gbm_export_fd(struct gbm_device *gbm, uint32_t handle, int32_t *out_fd)
+{
+   int ret;
+   ret = drmPrimeHandleToFD(gbm_device_get_fd(gbm), handle, DRM_CLOEXEC | DRM_RDWR, out_fd);
+   // Kernels with older DRM core versions block DRM_RDWR but give a
+   // read/write mapping anyway.
+   if (ret)
+      ret = drmPrimeHandleToFD(gbm_device_get_fd(gbm), handle, DRM_CLOEXEC, out_fd);
+
+   return ret;
+}
+
 int virgl_gbm_export_query(struct gbm_bo *bo, struct virgl_renderer_export_query *query)
 {
    int ret = -1;
@@ -420,16 +432,9 @@ int virgl_gbm_export_query(struct gbm_bo *bo, struct virgl_renderer_export_query
 
       if (i == query->out_num_fds) {
          if (query->in_export_fds) {
-            ret = drmPrimeHandleToFD(gbm_device_get_fd(gbm), handle, DRM_CLOEXEC | DRM_RDWR,
-                                     &query->out_fds[query->out_num_fds]);
-            // Kernels with older DRM core versions block DRM_RDWR but give a
-            // read/write mapping anyway.
-            if (ret) {
-               ret = drmPrimeHandleToFD(gbm_device_get_fd(gbm), handle, DRM_CLOEXEC,
-                                        &query->out_fds[query->out_num_fds]);
-               if (ret)
-                 goto err_close;
-            }
+            ret = virgl_gbm_export_fd(gbm, handle, &query->out_fds[query->out_num_fds]);
+            if (ret)
+               goto err_close;
          }
          query->out_num_fds++;
       }
