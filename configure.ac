@@ -163,7 +163,7 @@ fi
 if test "x$os_win32" = xno; then
 	AS_IF([test "x$epoxy_has_egl" = "x1"], [
 		PKG_CHECK_MODULES([LIBDRM], [libdrm >= $LIBDRM_REQUIRED])
-		PKG_CHECK_MODULES([GBM], [gbm])
+		PKG_CHECK_MODULES([GBM], [gbm  >= 18.0.0 ])
 	])
 fi
 
