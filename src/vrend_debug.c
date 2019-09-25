@@ -120,6 +120,7 @@ static const struct debug_named_value vrend_debug_options[] = {
    {"caller", dbg_caller, "Log who is creating the context"},
    {"tweak", dbg_tweak, "Log tweaks"},
    {"query", dbg_query, "Log queries"},
+   {"gles", dbg_gles, "GLES host specific debug"},
    {"all", dbg_all, "Enable all debugging output"},
    {"guestallow", dbg_allow_guest_override, "Allow the guest to override the debug flags"},
    DEBUG_NAMED_VALUE_END

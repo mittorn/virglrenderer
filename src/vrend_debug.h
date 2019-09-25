@@ -45,7 +45,8 @@ enum virgl_debug_flags {
    dbg_caller = 1 << 9,
    dbg_tweak =  1 << 10,
    dbg_query =  1 << 11,
-   dbg_all = (1 << 12) - 1,
+   dbg_gles =  1 << 12,
+   dbg_all = (1 << 13) - 1,
    dbg_allow_guest_override = 1 << 16,
    dbg_feature_use = 1 << 17,
 };
