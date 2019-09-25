@@ -837,21 +837,16 @@ static const char *vrend_gles_warn_strings[] = {
 static void __report_gles_warn(const char *fname, struct vrend_context *ctx,
                                enum virgl_ctx_errors error)
 {
-   int id = ctx ? ctx->ctx_id : -1;
-   const char *name = ctx ? ctx->debug_name : "NO_CONTEXT";
-   vrend_printf("%s: gles violation reported %d \"%s\" %s\n", fname, id,
-                name, vrend_gles_warn_strings[error]);
+   VREND_DEBUG(dbg_gles, ctx, "%s: GLES violation - %s\n", fname, vrend_gles_warn_strings[error]);
 }
 #define report_gles_warn(ctx, error) __report_gles_warn(__func__, ctx, error)
 
 static void __report_gles_missing_func(const char *fname,
                                        struct vrend_context *ctx, const char *missf)
 {
-   int id = ctx ? ctx->ctx_id : -1;
-   const char *name = ctx ? ctx->debug_name : "NO_CONTEXT";
-   vrend_printf("%s: gles violation reported %d \"%s\" %s is missing\n", fname,
-                id, name, missf);
+   VREND_DEBUG(dbg_gles, ctx, "%s: GLES function %s is missing\n", fname, missf);
 }
+
 #define report_gles_missing_func(ctx, missf) __report_gles_missing_func(__func__, ctx, missf)
 
 static void init_features(int gl_ver, int gles_ver)
