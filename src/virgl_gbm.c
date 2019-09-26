@@ -308,7 +308,7 @@ int virgl_gbm_transfer(struct gbm_bo *bo, uint32_t direction, struct iovec *iove
                        uint32_t num_iovecs, const struct vrend_transfer_info *info)
 {
    void *map_data;
-   uint32_t host_plane_offset, guest_plane_offset, guest_stride0, calc_stride0, host_map_stride0;
+   uint32_t guest_plane_offset, guest_stride0, calc_stride0, host_map_stride0;
 
    uint32_t width = gbm_bo_get_width(bo);
    uint32_t height = gbm_bo_get_height(bo);
@@ -318,7 +318,7 @@ int virgl_gbm_transfer(struct gbm_bo *bo, uint32_t direction, struct iovec *iove
    if (!layout)
       return -1;
 
-   host_plane_offset = guest_plane_offset = host_map_stride0 = guest_stride0 = 0;
+   guest_plane_offset = host_map_stride0 = guest_stride0 = 0;
    uint32_t map_flags = (direction == VIRGL_TRANSFER_TO_HOST) ? GBM_BO_TRANSFER_WRITE :
                                                                 GBM_BO_TRANSFER_READ;
    void *addr = gbm_bo_map(bo, 0, 0, width, height, map_flags, &host_map_stride0, &map_data);
@@ -342,7 +342,7 @@ int virgl_gbm_transfer(struct gbm_bo *bo, uint32_t direction, struct iovec *iove
       return -1;
 
    for (int plane = 0; plane < plane_count; plane++) {
-      host_plane_offset += gbm_bo_get_offset(bo, plane);
+      uint32_t host_plane_offset = gbm_bo_get_offset(bo, plane);
 
       uint32_t subsampled_x = info->box->x / layout->horizontal_subsampling[plane];
       uint32_t subsampled_y = info->box->y / layout->vertical_subsampling[plane];
@@ -353,8 +353,8 @@ int virgl_gbm_transfer(struct gbm_bo *bo, uint32_t direction, struct iovec *iove
       uint32_t plane_byte_ratio = layout->bytes_per_pixel[plane] / layout->bytes_per_pixel[0];
       uint32_t guest_plane_stride = (guest_stride0 * plane_byte_ratio)
             / layout->horizontal_subsampling[plane];
-      uint32_t host_plane_stride = (host_map_stride0 * plane_byte_ratio)
-            / layout->horizontal_subsampling[plane];
+      uint32_t host_plane_stride = plane == 0
+            ? host_map_stride0 : gbm_bo_get_stride_for_plane(bo, plane);
 
       uint32_t guest_resource_offset = guest_plane_offset + (subsampled_y * guest_plane_stride)
                                        + subsampled_x * layout->bytes_per_pixel[plane];
