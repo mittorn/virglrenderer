@@ -118,7 +118,7 @@ struct virgl_egl *virgl_egl_init(struct virgl_gbm *gbm, bool surfaceless, bool g
    egl->gbm = gbm;
    const char *client_extensions = eglQueryString (NULL, EGL_EXTENSIONS);
 
-   if (strstr (client_extensions, "EGL_KHR_platform_base")) {
+   if (client_extensions && strstr(client_extensions, "EGL_KHR_platform_base")) {
       PFNEGLGETPLATFORMDISPLAYEXTPROC get_platform_display =
          (PFNEGLGETPLATFORMDISPLAYEXTPROC) eglGetProcAddress ("eglGetPlatformDisplay");
 
@@ -131,7 +131,7 @@ struct virgl_egl *virgl_egl_init(struct virgl_gbm *gbm, bool surfaceless, bool g
       } else
          egl->egl_display = get_platform_display (EGL_PLATFORM_GBM_KHR,
                                                   (EGLNativeDisplayType)egl->gbm->device, NULL);
-   } else if (strstr (client_extensions, "EGL_EXT_platform_base")) {
+   } else if (client_extensions && strstr(client_extensions, "EGL_EXT_platform_base")) {
       PFNEGLGETPLATFORMDISPLAYEXTPROC get_platform_display =
          (PFNEGLGETPLATFORMDISPLAYEXTPROC) eglGetProcAddress ("eglGetPlatformDisplayEXT");
 
