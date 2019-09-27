@@ -4109,7 +4109,11 @@ get_source_info(struct dump_ctx *ctx,
                } else if (ctx->system_values[j].name == TGSI_SEMANTIC_GRID_SIZE ||
                           ctx->system_values[j].name == TGSI_SEMANTIC_THREAD_ID ||
                           ctx->system_values[j].name == TGSI_SEMANTIC_BLOCK_ID) {
-                  strbuf_fmt(src_buf, "uvec4(%s.%c, %s.%c, %s.%c, %s.%c)",
+                  enum vrend_type_qualifier mov_conv = TYPE_CONVERSION_NONE;
+                  if (inst->Instruction.Opcode == TGSI_OPCODE_MOV &&
+                      inst->Dst[0].Register.File == TGSI_FILE_TEMPORARY)
+                    mov_conv = UINT_BITS_TO_FLOAT;
+                  strbuf_fmt(src_buf, "%s(uvec4(%s.%c, %s.%c, %s.%c, %s.%c))", get_string(mov_conv),
                              ctx->system_values[j].glsl_name, get_swiz_char(src->Register.SwizzleX),
                              ctx->system_values[j].glsl_name, get_swiz_char(src->Register.SwizzleY),
                              ctx->system_values[j].glsl_name, get_swiz_char(src->Register.SwizzleZ),
