@@ -6405,10 +6405,10 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
       gr->target = GL_TEXTURE_2D_ARRAY;
    }
 
-   debug_texture(__func__, gr);
-
    glGenTextures(1, &gr->id);
    glBindTexture(gr->target, gr->id);
+
+   debug_texture(__func__, gr);
 
    if (image_oes) {
       if (epoxy_has_gl_extension("GL_OES_EGL_image_external")) {
