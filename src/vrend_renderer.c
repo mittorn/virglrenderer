@@ -6381,6 +6381,8 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
       format = vrend_format_replace_emulated(gr->base.bind, gr->base.format);
       format_can_texture_storage = has_feature(feat_texture_storage) &&
             (tex_conv_table[format].flags & VIRGL_TEXTURE_CAN_TEXTURE_STORAGE);
+      if (format_can_texture_storage)
+         gr->base.bind |= VIRGL_BIND_IMMUTABLE_STORAGE;
    }
 
    gr->target = tgsitargettogltarget(pr->target, pr->nr_samples);
@@ -8202,7 +8204,7 @@ static GLuint vrend_make_view(struct vrend_resource *res, enum pipe_format forma
    GLenum fmt = tex_conv_table[dst_fmt].internalformat;
 
    /* If the format doesn't support TextureStorage it is not immutable, so no TextureView*/
-   if (!(tex_conv_table[src_fmt].flags & VIRGL_TEXTURE_CAN_TEXTURE_STORAGE))
+   if (!(res->base.bind & VIRGL_BIND_IMMUTABLE_STORAGE))
       return res->id;
 
    VREND_DEBUG(dbg_blit, NULL, "Create texture view from %s%s as %s%s\n",
