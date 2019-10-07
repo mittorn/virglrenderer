@@ -7435,6 +7435,7 @@ int vrend_renderer_transfer_iov(const struct vrend_transfer_info *info,
    default:
       assert(0);
    }
+   return 0;
 }
 
 int vrend_transfer_inline_write(struct vrend_context *ctx,

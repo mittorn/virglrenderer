@@ -1788,6 +1788,7 @@ static const struct vrend_shader_io *get_io_slot(const struct vrend_shader_io *s
          return result;
    }
    assert(0 && "Output not found");
+   return NULL;
 }
 
 static inline void
@@ -5809,10 +5810,11 @@ static void emit_ios_indirect_generics_input(struct dump_ctx *ctx, const char *p
    if (ctx->generic_input_range.used) {
       int size = ctx->generic_input_range.io.last - ctx->generic_input_range.io.sid + 1;
       assert(size < 256 && size >= 0);
-      if (size < ctx->key->num_indirect_generic_inputs)
+      if (size < ctx->key->num_indirect_generic_inputs) {
          VREND_DEBUG(dbg_shader, NULL, "WARNING: shader key indicates less indirect inputs"
                                        " (%d) then are actually used (%d)\n",
                      ctx->key->num_indirect_generic_inputs, size);
+      }
 
       if (prefer_generic_io_block(ctx, io_in)) {
 
