@@ -278,6 +278,9 @@ struct global_renderer_state {
    /* these appeared broken on at least one driver */
    bool use_explicit_locations;
    uint32_t max_draw_buffers;
+   uint32_t max_texture_2d_size;
+   uint32_t max_texture_3d_size;
+   uint32_t max_texture_cube_size;
    struct list_head active_ctx_list;
 
    /* threaded sync */
@@ -5690,6 +5693,10 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
       vrend_state.inited = true;
       vrend_object_init_resource_table();
       vrend_clicbs = cbs;
+      /* Give some defaults to be able to run the tests */
+      vrend_state.max_texture_2d_size =
+            vrend_state.max_texture_3d_size =
+            vrend_state.max_texture_cube_size = 16384;
    }
 
 #ifndef NDEBUG
@@ -9341,6 +9348,12 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
    glGetIntegerv(GL_MAX_TEXTURE_SIZE, (GLint*)&caps->v2.max_texture_2d_size);
    glGetIntegerv(GL_MAX_3D_TEXTURE_SIZE, (GLint*)&caps->v2.max_texture_3d_size);
    glGetIntegerv(GL_MAX_CUBE_MAP_TEXTURE_SIZE, (GLint*)&caps->v2.max_texture_cube_size);
+   vrend_state.max_texture_2d_size = caps->v2.max_texture_2d_size;
+   vrend_state.max_texture_3d_size = caps->v2.max_texture_3d_size;
+   vrend_state.max_texture_cube_size = caps->v2.max_texture_cube_size;
+   VREND_DEBUG(dbg_features, NULL, "Texture limits: 2D:%u 3D:%u Cube:%u\n",
+               vrend_state.max_texture_2d_size, vrend_state.max_texture_3d_size,
+               vrend_state.max_texture_cube_size);
 
    if (has_feature(feat_geometry_shader)) {
       glGetIntegerv(GL_MAX_GEOMETRY_OUTPUT_VERTICES, (GLint*)&caps->v2.max_geom_output_vertices);
