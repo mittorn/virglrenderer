@@ -8385,7 +8385,8 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
       args.array_size = src_res->base.array_size;
       intermediate_copy = (struct vrend_resource *)CALLOC_STRUCT(vrend_texture);
       vrend_renderer_resource_copy_args(&args, intermediate_copy);
-      vrend_renderer_resource_allocate_texture(intermediate_copy, NULL);
+      MAYBE_UNUSED int r = vrend_renderer_resource_allocate_texture(intermediate_copy, NULL);
+      assert(!r);
 
       glGenFramebuffers(1, &intermediate_fbo);
    } else {
