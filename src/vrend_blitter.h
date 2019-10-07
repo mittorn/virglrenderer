@@ -101,7 +101,7 @@
 #define FS_TEXFETCH_COL_MSAA_ARRAY_GLES HEADER_GLES_MS_ARRAY FS_TEXFETCH_COL_MSAA_BODY
 
 #define FS_TEXFETCH_DS_BODY                             \
-   "uniform sampler%s samp;\n"                          \
+   "uniform mediump sampler%s samp;\n"                          \
    "in vec4 tc;\n"                                      \
    "void main() {\n"                                    \
    "   gl_FragDepth = float(texture(samp, tc%s).x);\n"  \
@@ -109,7 +109,6 @@
 
 #define FS_TEXFETCH_DS_GL HEADER_GL FS_TEXFETCH_DS_BODY
 #define FS_TEXFETCH_DS_GLES HEADER_GLES FS_TEXFETCH_DS_BODY
-
 
 #define FS_TEXFETCH_DS_MSAA_BODY                                         \
    "#extension GL_ARB_texture_multisample : enable\n"                    \
