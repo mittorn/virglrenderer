@@ -815,6 +815,7 @@ static void __report_core_warn(const char *fname, struct vrend_context *ctx,
 #define GLES_WARN_LOGIC_OP 15
 #define GLES_WARN_TIMESTAMP 16
 
+MAYBE_UNUSED
 static const char *vrend_gles_warn_strings[] = {
    [GLES_WARN_NONE]             = "None",
    [GLES_WARN_STIPPLE]          = "Stipple",
@@ -834,15 +835,17 @@ static const char *vrend_gles_warn_strings[] = {
    [GLES_WARN_TIMESTAMP]        = "GL_TIMESTAMP",
 };
 
-static void __report_gles_warn(const char *fname, struct vrend_context *ctx,
-                               enum virgl_ctx_errors error)
+static void __report_gles_warn(MAYBE_UNUSED const char *fname,
+                               MAYBE_UNUSED struct vrend_context *ctx,
+                               MAYBE_UNUSED enum virgl_ctx_errors error)
 {
    VREND_DEBUG(dbg_gles, ctx, "%s: GLES violation - %s\n", fname, vrend_gles_warn_strings[error]);
 }
 #define report_gles_warn(ctx, error) __report_gles_warn(__func__, ctx, error)
 
-static void __report_gles_missing_func(const char *fname,
-                                       struct vrend_context *ctx, const char *missf)
+static void __report_gles_missing_func(MAYBE_UNUSED const char *fname,
+                                       MAYBE_UNUSED struct vrend_context *ctx,
+                                       MAYBE_UNUSED const char *missf)
 {
    VREND_DEBUG(dbg_gles, ctx, "%s: GLES function %s is missing\n", fname, missf);
 }
@@ -1123,6 +1126,7 @@ static void vrend_stencil_test_enable(struct vrend_context *ctx, bool stencil_te
    }
 }
 
+MAYBE_UNUSED
 static void dump_stream_out(struct pipe_stream_output_info *so)
 {
    unsigned i;
@@ -1170,7 +1174,8 @@ static char *get_skip_str(int *skip_val)
    return start_skip;
 }
 
-static void set_stream_out_varyings(struct vrend_context *ctx, int prog_id,
+static void set_stream_out_varyings(MAYBE_UNUSED struct vrend_context *ctx,
+                                    int prog_id,
                                     struct vrend_shader_info *sinfo)
 {
    struct pipe_stream_output_info *so = &sinfo->so_info;
@@ -2108,9 +2113,9 @@ int vrend_create_sampler_view(struct vrend_context *ctx,
 }
 
 static
-void debug_texture(const char *f, const struct vrend_resource *gt)
+void debug_texture(MAYBE_UNUSED const char *f, const struct vrend_resource *gt)
 {
-   const struct pipe_resource *pr = &gt->base;
+   MAYBE_UNUSED const struct pipe_resource *pr = &gt->base;
 #define PRINT_TARGET(X) case X: vrend_printf( #X); break
    VREND_DEBUG_EXT(dbg_tex, NULL,
                vrend_printf("%s: ", f);
