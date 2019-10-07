@@ -6536,41 +6536,41 @@ int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *a
 
    pipe_reference_init(&gr->base.reference, 1);
 
-   if (args->bind == VIRGL_BIND_CUSTOM) {
-      assert(args->target == PIPE_BUFFER);
-      /* use iovec directly when attached */
-      gr->storage = VREND_RESOURCE_STORAGE_GUEST_ELSE_SYSTEM;
-      gr->ptr = malloc(args->width);
-      if (!gr->ptr) {
-         FREE(gr);
-         return ENOMEM;
-      }
-   } else if (args->bind == VIRGL_BIND_STAGING) {
-      /* Staging buffers use only guest memory. */
-      gr->storage = VREND_RESOURCE_STORAGE_GUEST;
-   } else if (args->bind == VIRGL_BIND_INDEX_BUFFER) {
-      gr->target = GL_ELEMENT_ARRAY_BUFFER_ARB;
-      vrend_create_buffer(gr, args->width);
-   } else if (args->bind == VIRGL_BIND_STREAM_OUTPUT) {
-      gr->target = GL_TRANSFORM_FEEDBACK_BUFFER;
-      vrend_create_buffer(gr, args->width);
-   } else if (args->bind == VIRGL_BIND_VERTEX_BUFFER) {
-      gr->target = GL_ARRAY_BUFFER_ARB;
-      vrend_create_buffer(gr, args->width);
-   } else if (args->bind == VIRGL_BIND_CONSTANT_BUFFER) {
-      gr->target = GL_UNIFORM_BUFFER;
-      vrend_create_buffer(gr, args->width);
-   } else if (args->bind == VIRGL_BIND_QUERY_BUFFER) {
-      gr->target = GL_QUERY_BUFFER;
-      vrend_create_buffer(gr, args->width);
-   } else if (args->bind == VIRGL_BIND_COMMAND_ARGS) {
-      gr->target = GL_DRAW_INDIRECT_BUFFER;
-      vrend_create_buffer(gr, args->width);
-   } else if (args->target == PIPE_BUFFER && (args->bind == 0 || args->bind == VIRGL_BIND_SHADER_BUFFER)) {
-      gr->target = GL_ARRAY_BUFFER_ARB;
-      vrend_create_buffer(gr, args->width);
-   } else if (args->target == PIPE_BUFFER && (args->bind & VIRGL_BIND_SAMPLER_VIEW)) {
-      /*
+   if (args->target == PIPE_BUFFER) {
+      if (args->bind == VIRGL_BIND_CUSTOM) {
+         /* use iovec directly when attached */
+         gr->storage = VREND_RESOURCE_STORAGE_GUEST_ELSE_SYSTEM;
+         gr->ptr = malloc(args->width);
+         if (!gr->ptr) {
+            FREE(gr);
+            return ENOMEM;
+         }
+      } else if (args->bind == VIRGL_BIND_STAGING) {
+         /* Staging buffers use only guest memory. */
+         gr->storage = VREND_RESOURCE_STORAGE_GUEST;
+      } else if (args->bind == VIRGL_BIND_INDEX_BUFFER) {
+         gr->target = GL_ELEMENT_ARRAY_BUFFER_ARB;
+         vrend_create_buffer(gr, args->width);
+      } else if (args->bind == VIRGL_BIND_STREAM_OUTPUT) {
+         gr->target = GL_TRANSFORM_FEEDBACK_BUFFER;
+         vrend_create_buffer(gr, args->width);
+      } else if (args->bind == VIRGL_BIND_VERTEX_BUFFER) {
+         gr->target = GL_ARRAY_BUFFER_ARB;
+         vrend_create_buffer(gr, args->width);
+      } else if (args->bind == VIRGL_BIND_CONSTANT_BUFFER) {
+         gr->target = GL_UNIFORM_BUFFER;
+         vrend_create_buffer(gr, args->width);
+      } else if (args->bind == VIRGL_BIND_QUERY_BUFFER) {
+         gr->target = GL_QUERY_BUFFER;
+         vrend_create_buffer(gr, args->width);
+      } else if (args->bind == VIRGL_BIND_COMMAND_ARGS) {
+         gr->target = GL_DRAW_INDIRECT_BUFFER;
+         vrend_create_buffer(gr, args->width);
+      } else if (args->bind == 0 || args->bind == VIRGL_BIND_SHADER_BUFFER) {
+         gr->target = GL_ARRAY_BUFFER_ARB;
+         vrend_create_buffer(gr, args->width);
+      } else if (args->bind & VIRGL_BIND_SAMPLER_VIEW) {
+         /*
        * On Desktop we use GL_ARB_texture_buffer_object on GLES we use
        * GL_EXT_texture_buffer (it is in the ANDRIOD extension pack).
        */
@@ -6579,12 +6579,17 @@ int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *a
 #endif
 
       /* need to check GL version here */
-      if (has_feature(feat_arb_or_gles_ext_texture_buffer)) {
-         gr->target = GL_TEXTURE_BUFFER;
+         if (has_feature(feat_arb_or_gles_ext_texture_buffer)) {
+            gr->target = GL_TEXTURE_BUFFER;
+         } else {
+            gr->target = GL_PIXEL_PACK_BUFFER_ARB;
+         }
+         vrend_create_buffer(gr, args->width);
       } else {
-         gr->target = GL_PIXEL_PACK_BUFFER_ARB;
+         vrend_printf("%s: Illegal buffer binding flags 0x%x\n", __func__, args->bind);
+         FREE(gr);
+         return EINVAL;
       }
-      vrend_create_buffer(gr, args->width);
    } else {
       int r = vrend_renderer_resource_allocate_texture(gr, image_oes);
       if (r) {
