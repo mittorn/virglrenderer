@@ -426,7 +426,7 @@ int virgl_gbm_export_query(struct gbm_bo *bo, struct virgl_renderer_export_query
       handle = gbm_bo_get_handle_for_plane(bo, plane).u32;
 
       for (i = 0; i < query->out_num_fds; i++) {
-         if (handles[query->out_num_fds] == handle)
+         if (handles[i] == handle)
             break;
       }
 
@@ -436,6 +436,7 @@ int virgl_gbm_export_query(struct gbm_bo *bo, struct virgl_renderer_export_query
             if (ret)
                goto err_close;
          }
+         handles[query->out_num_fds] = handle;
          query->out_num_fds++;
       }
    }
