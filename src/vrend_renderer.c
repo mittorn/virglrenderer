@@ -759,6 +759,7 @@ static const char *vrend_ctx_error_strings[] = {
    [VIRGL_ERROR_CTX_GLES_HAVE_TES_BUT_MISS_TCS] = "On GLES context and shader program has tesselation evaluation shader but no tesselation control shader",
    [VIRGL_ERROR_GL_ANY_SAMPLES_PASSED] = "Query for ANY_SAMPLES_PASSED not supported",
    [VIRGL_ERROR_CTX_ILLEGAL_FORMAT]        = "Illegal format ID",
+   [VIRGL_ERROR_CTX_ILLEGAL_SAMPLER_VIEW_TARGET] = "Illegat target for sampler view",
 };
 
 static void __report_context_error(const char *fname, struct vrend_context *ctx,
@@ -1977,7 +1978,23 @@ int vrend_create_sampler_view(struct vrend_context *ctx,
 
    pipe_reference_init(&view->reference, 1);
    view->format = format & 0xffffff;
-   view->target = tgsitargettogltarget((format >> 24) & 0xff, res->base.nr_samples);
+
+   if (!view->format || (enum virgl_formats)view->format >= VIRGL_FORMAT_MAX) {
+      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_FORMAT, view->format);
+      FREE(view);
+      return EINVAL;
+   }
+
+   uint32_t pipe_target = (format >> 24) & 0xff;
+   if (pipe_target >= PIPE_MAX_TEXTURE_TYPES) {
+      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SAMPLER_VIEW_TARGET,
+                           view->format);
+      FREE(view);
+      return EINVAL;
+   }
+
+   view->target = tgsitargettogltarget(pipe_target, res->base.nr_samples);
+
    /* Work around TEXTURE_RECTANGLE and TEXTURE_1D missing on GLES */
    if (vrend_state.use_gles) {
       if (view->target == GL_TEXTURE_RECTANGLE_NV ||
