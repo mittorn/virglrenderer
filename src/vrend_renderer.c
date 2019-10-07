@@ -758,6 +758,7 @@ static const char *vrend_ctx_error_strings[] = {
    [VIRGL_ERROR_CTX_ILLEGAL_CMD_BUFFER]    = "Illegal command buffer",
    [VIRGL_ERROR_CTX_GLES_HAVE_TES_BUT_MISS_TCS] = "On GLES context and shader program has tesselation evaluation shader but no tesselation control shader",
    [VIRGL_ERROR_GL_ANY_SAMPLES_PASSED] = "Query for ANY_SAMPLES_PASSED not supported",
+   [VIRGL_ERROR_CTX_ILLEGAL_FORMAT]        = "Illegal format ID",
 };
 
 static void __report_context_error(const char *fname, struct vrend_context *ctx,
@@ -8491,6 +8492,16 @@ void vrend_renderer_blit(struct vrend_context *ctx,
 
    if (ctx->in_error)
       return;
+
+   if (!info->src.format || (enum virgl_formats)info->src.format >= VIRGL_FORMAT_MAX) {
+      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_FORMAT, info->src.format);
+      return;
+   }
+
+   if (!info->dst.format || (enum virgl_formats)info->dst.format >= VIRGL_FORMAT_MAX) {
+      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_FORMAT, info->dst.format);
+      return;
+   }
 
    if (info->render_condition_enable == false)
       vrend_pause_render_condition(ctx, true);
