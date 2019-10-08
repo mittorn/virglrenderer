@@ -7005,15 +7005,22 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
             invert = true;
       }
 
+      send_size = util_format_get_nblocks(res->base.format, info->box->width,
+                                          info->box->height) * elsize;
+      if (res->target == GL_TEXTURE_3D ||
+          res->target == GL_TEXTURE_2D_ARRAY ||
+          res->target == GL_TEXTURE_CUBE_MAP_ARRAY)
+          send_size *= info->box->depth;
+
       if (need_temp) {
-         send_size = util_format_get_nblocks(res->base.format, info->box->width,
-                                             info->box->height) * elsize * info->box->depth;
          data = malloc(send_size);
          if (!data)
             return ENOMEM;
          read_transfer_data(iov, num_iovs, data, res->base.format, info->offset,
                             stride, layer_stride, info->box, invert);
       } else {
+         if (send_size > iov[0].iov_len - info->offset)
+            return EINVAL;
          data = (char*)iov[0].iov_base + info->offset;
       }
 
