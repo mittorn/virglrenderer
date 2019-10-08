@@ -1,0 +1,597 @@
+/**************************************************************************
+ *
+ * Copyright (C) 2019 Collabora Ltd
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included
+ * in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+ * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+ * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
+ *
+ **************************************************************************/
+
+/* 
+  This file contains tests that triggered bugs revealed by fuzzying
+  Thanks Matthew Shao for reporting these.
+*/
+
+#include <stdint.h>
+#include <stddef.h>
+#include <sys/uio.h>
+#include <assert.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "virgl_hw.h"
+#include "virgl_egl.h"
+#include "virglrenderer.h"
+#include "virgl_protocol.h"
+#include "os/os_misc.h"
+#include <epoxy/egl.h>
+
+
+struct fuzzer_cookie
+{
+   int dummy;
+};
+
+static struct fuzzer_cookie cookie;
+static const uint32_t ctx_id = 1;
+static struct virgl_egl *test_egl;
+
+static void fuzzer_write_fence(UNUSED void *opaque, UNUSED uint32_t fence) {}
+
+static virgl_renderer_gl_context
+fuzzer_create_gl_context(UNUSED void *cookie, UNUSED int scanout_idx,
+                         struct virgl_renderer_gl_ctx_param *param)
+{
+   struct virgl_gl_ctx_param vparams;
+   vparams.shared = false;
+   vparams.major_ver = param->major_ver;
+   vparams.minor_ver = param->minor_ver;
+   return virgl_egl_create_context(test_egl, &vparams);
+}
+
+static void fuzzer_destory_gl_context(UNUSED void *cookie, virgl_renderer_gl_context ctx)
+{
+   virgl_egl_destroy_context(test_egl, ctx);
+}
+
+static int fuzzer_make_current(UNUSED void *cookie, UNUSED int scanout_idx,
+                               virgl_renderer_gl_context ctx)
+{
+   return virgl_egl_make_context_current(test_egl, ctx);
+}
+
+
+static struct virgl_renderer_callbacks fuzzer_cbs = {
+   .version = 1,
+   .write_fence = fuzzer_write_fence,
+   .create_gl_context = fuzzer_create_gl_context,
+   .destroy_gl_context = fuzzer_destory_gl_context,
+   .make_current = fuzzer_make_current,
+};
+
+static void initialize_environment()
+{
+   setenv("LIBGL_ALWAYS_SOFTWARE", "true", 0);
+   setenv("GALLIUM_DRIVER", "softpipe", 0);
+   test_egl = virgl_egl_init(NULL, true, true);
+   assert(test_egl);
+
+   virgl_renderer_init(&cookie, VIRGL_RENDERER_USE_GLES|
+                       VIRGL_RENDERER_USE_SURFACELESS, &fuzzer_cbs);
+
+   const char *name = "fuzzctx";
+   virgl_renderer_context_create(ctx_id, (unsigned)strlen(name), name);
+}
+
+static void test_format_wrong_size()
+{
+   struct virgl_renderer_resource_create_args args;
+   args.handle = 10;
+   args.target = 3;
+   args.format = 10;
+   args.bind = 10;
+   args.width = 2;
+   args.height = 0;
+   args.depth = 0;
+   args.array_size = 0;
+   args.last_level = 0;
+   args.nr_samples = 0;
+   args.flags = 0;
+
+   virgl_renderer_resource_create(&args, NULL, 0);
+   virgl_renderer_ctx_attach_resource(ctx_id, args.handle);
+
+   uint32_t cmd[VIRGL_CMD_BLIT_SIZE + 1];
+
+   int i = 0;
+   cmd[i++] = VIRGL_CMD_BLIT_SIZE << 16 | 0 << 8 | VIRGL_CCMD_BLIT;
+   cmd[i++] = 0x8000001; // s0
+   cmd[i++] = 0; // minxy
+   cmd[i++] = 0; // maxxy
+   cmd[i++] = 10; //dhandle
+   cmd[i++] = 0; // dlevel
+   cmd[i++] = 0x1000029; //dformat
+   cmd[i++] = 0; //dx
+   cmd[i++] = 0; // dy
+   cmd[i++] = 0; // dz
+   cmd[i++] = 0; //dw
+   cmd[i++] = 0; // dh
+   cmd[i++] = 0; // dd
+   cmd[i++] = 10; //shandle
+   cmd[i++] = 0; //slevel
+   cmd[i++] = 0; //sformat
+   cmd[i++] = 0; //sx
+   cmd[i++] = 0; // sy
+   cmd[i++] = 0; // sz
+   cmd[i++] = 0; // sw
+   cmd[i++] = 0; // sh
+   cmd[i++] = 0; // sd
+
+   virgl_renderer_submit_cmd((void *) cmd, ctx_id, VIRGL_CMD_BLIT_SIZE + 1);
+}
+
+
+/* Issue #141 */
+static void test_blit_info_format_check()
+{
+   struct virgl_renderer_resource_create_args args;
+   args.handle = 10;
+   args.target = 3;
+   args.format = 10;
+   args.bind = 10;
+   args.width = 2;
+   args.height = 1;
+   args.depth = 1;
+   args.array_size = 0;
+   args.last_level = 0;
+   args.nr_samples = 0;
+   args.flags = 0;
+
+   virgl_renderer_resource_create(&args, NULL, 0);
+   virgl_renderer_ctx_attach_resource(ctx_id, args.handle);
+
+   uint32_t cmd[VIRGL_CMD_BLIT_SIZE + 1];
+
+   int i = 0;
+   cmd[i++] = VIRGL_CMD_BLIT_SIZE << 16 | 0 << 8 | VIRGL_CCMD_BLIT;
+   cmd[i++] = 0x8000001; // s0
+   cmd[i++] = 0; // minxy
+   cmd[i++] = 0; // maxxy
+   cmd[i++] = 10; //dhandle
+   cmd[i++] = 0; // dlevel
+   cmd[i++] = 0x1000029; //dformat
+   cmd[i++] = 0; //dx
+   cmd[i++] = 0; // dy
+   cmd[i++] = 0; // dz
+   cmd[i++] = 0; //dw
+   cmd[i++] = 0; // dh
+   cmd[i++] = 0; // dd
+   cmd[i++] = 10; //shandle
+   cmd[i++] = 0; //slevel
+   cmd[i++] = 10; //sformat
+   cmd[i++] = 0; //sx
+   cmd[i++] = 0; // sy
+   cmd[i++] = 0; // sz
+   cmd[i++] = 0; // sw
+   cmd[i++] = 0; // sh
+   cmd[i++] = 0; // sd
+
+   virgl_renderer_submit_cmd((void *) cmd, ctx_id, VIRGL_CMD_BLIT_SIZE + 1);
+}
+
+static void test_blit_info_format_check_null_format()
+{
+   struct virgl_renderer_resource_create_args args;
+   args.handle = 10;
+   args.target = 3;
+   args.format = 10;
+   args.bind = 10;
+   args.width = 2;
+   args.height = 1;
+   args.depth = 1;
+   args.array_size = 0;
+   args.last_level = 0;
+   args.nr_samples = 0;
+   args.flags = 0;
+
+   virgl_renderer_resource_create(&args, NULL, 0);
+   virgl_renderer_ctx_attach_resource(ctx_id, args.handle);
+
+   uint32_t cmd[VIRGL_CMD_BLIT_SIZE + 1];
+
+   int i = 0;
+   cmd[i++] = VIRGL_CMD_BLIT_SIZE << 16 | 0 << 8 | VIRGL_CCMD_BLIT;
+   cmd[i++] = 0x8000001; // s0
+   cmd[i++] = 0; // minxy
+   cmd[i++] = 0; // maxxy
+   cmd[i++] = 10; //dhandle
+   cmd[i++] = 0; // dlevel
+   cmd[i++] = 1; //dformat
+   cmd[i++] = 0; //dx
+   cmd[i++] = 0; // dy
+   cmd[i++] = 0; // dz
+   cmd[i++] = 0; //dw
+   cmd[i++] = 0; // dh
+   cmd[i++] = 0; // dd
+   cmd[i++] = 10; //shandle
+   cmd[i++] = 0; //slevel
+   cmd[i++] = 0; //sformat
+   cmd[i++] = 0; //sx
+   cmd[i++] = 0; // sy
+   cmd[i++] = 0; // sz
+   cmd[i++] = 0; // sw
+   cmd[i++] = 0; // sh
+   cmd[i++] = 0; // sd
+
+   virgl_renderer_submit_cmd((void *) cmd, ctx_id, VIRGL_CMD_BLIT_SIZE + 1);
+}
+
+/* #142 */
+static void  test_format_is_plain_nullptr_deref_trigger()
+{
+   struct virgl_renderer_resource_create_args args;
+   args.handle = 10;
+   args.target = 0;
+   args.format = 126;
+   args.bind = 2;
+   args.width = 10;
+   args.height = 10;
+   args.depth = 10;
+   args.array_size = 0;
+   args.last_level = 0;
+   args.nr_samples = 0;
+   args.flags = 0;
+
+   virgl_renderer_resource_create(&args, NULL, 0);
+   virgl_renderer_ctx_attach_resource(ctx_id, args.handle);
+
+   uint32_t cmd[VIRGL_CMD_BLIT_SIZE + 1];
+
+   int i = 0;
+   cmd[i++] = VIRGL_CMD_BLIT_SIZE << 16 | 0 << 8 | VIRGL_CCMD_BLIT;
+   cmd[i++] = 0; // s0
+   cmd[i++] = 0; // minxy
+   cmd[i++] = 0; // maxxy
+   cmd[i++] = 10; //dhandle
+   cmd[i++] = 0; // dlevel
+   cmd[i++] = 445382656; //dformat
+   cmd[i++] = 3; //dx
+   cmd[i++] = 0; // dy
+   cmd[i++] = 0; // dz
+   cmd[i++] = 0; //dw
+   cmd[i++] = 0; // dh
+   cmd[i++] = 0; // dd
+   cmd[i++] = 10; //shandle
+   cmd[i++] = 0; //slevel
+   cmd[i++] = 126; //sformat
+   cmd[i++] = 0; //sx
+   cmd[i++] = 0; // sy
+   cmd[i++] = 0; // sz
+   cmd[i++] = 0; // sw
+   cmd[i++] = 3; // sh
+   cmd[i++] = 0; // sd
+
+   virgl_renderer_submit_cmd((void *) cmd, ctx_id, VIRGL_CMD_BLIT_SIZE + 1);
+}
+
+/* Issue #143 */
+static void test_format_util_format_is_rgb_nullptr_deref_trigger_illegal_resource()
+{
+   struct virgl_renderer_resource_create_args args;
+   args.handle = 8;
+   args.target = 0;
+   args.format = 109;
+   args.bind = 8;
+   args.width = 2;
+   args.height = 0;
+   args.depth = 0;
+   args.array_size = 0;
+   args.last_level = 0;
+   args.nr_samples = 0;
+   args.flags = 0;
+
+   virgl_renderer_resource_create(&args, NULL, 0);
+   virgl_renderer_ctx_attach_resource(ctx_id, args.handle);
+
+   uint32_t cmd[VIRGL_OBJ_SAMPLER_VIEW_SIZE + 1];
+
+   int i = 0;
+   cmd[i++] = VIRGL_OBJ_SAMPLER_VIEW_SIZE << 16 | VIRGL_OBJECT_SAMPLER_VIEW << 8 | VIRGL_CCMD_CREATE_OBJECT;
+   cmd[i++] = 35; // handle
+   cmd[i++] = 8; // res_handle
+   cmd[i++] = 3107; //format
+   cmd[i++] = 0; //first element
+   cmd[i++] = 0; // last element
+   cmd[i++] = 0; //swizzle
+
+   virgl_renderer_submit_cmd((void *) cmd, ctx_id, VIRGL_OBJ_SAMPLER_VIEW_SIZE + 1);
+}
+
+static void test_format_util_format_is_rgb_nullptr_deref_trigger()
+{
+   struct virgl_renderer_resource_create_args args;
+   args.handle = 8;
+   args.target = 1;
+   args.format = 109;
+   args.bind = 8;
+   args.width = 2;
+   args.height = 2;
+   args.depth = 0;
+   args.array_size = 0;
+   args.last_level = 0;
+   args.nr_samples = 0;
+   args.flags = 0;
+
+   virgl_renderer_resource_create(&args, NULL, 0);
+   virgl_renderer_ctx_attach_resource(ctx_id, args.handle);
+
+   uint32_t cmd[VIRGL_OBJ_SAMPLER_VIEW_SIZE + 1];
+
+   int i = 0;
+   cmd[i++] = VIRGL_OBJ_SAMPLER_VIEW_SIZE << 16 | VIRGL_OBJECT_SAMPLER_VIEW << 8 | VIRGL_CCMD_CREATE_OBJECT;
+   cmd[i++] = 35; // handle
+   cmd[i++] = 8; // res_handle
+   cmd[i++] = 3107; //format
+   cmd[i++] = 0; //first element
+   cmd[i++] = 0; // last element
+   cmd[i++] = 0; //swizzle
+
+   virgl_renderer_submit_cmd((void *) cmd, ctx_id, VIRGL_OBJ_SAMPLER_VIEW_SIZE + 1);
+}
+
+/* Test as reported in #139 */
+static void test_double_free_in_vrend_renderer_blit_int_trigger_invalid_formats()
+{
+   struct virgl_renderer_resource_create_args args;
+   args.handle = 1;
+   args.target = 0;
+   args.format = 262144;
+   args.bind = 131072;
+   args.width = 1;
+   args.height = 1;
+   args.depth = 1;
+   args.array_size = 0;
+   args.last_level = 0;
+   args.nr_samples = 0;
+   args.flags = 0;
+
+   virgl_renderer_resource_create(&args, NULL, 0);
+   virgl_renderer_ctx_attach_resource(ctx_id, args.handle);
+
+   args.handle = 6;
+   args.target = 4;
+   args.format = 1;
+   args.bind = 2;
+   args.width = 2;
+   args.height = 0;
+   args.depth = 1;
+   args.array_size = 6;
+   args.last_level = 2;
+   args.nr_samples = 0;
+   args.flags = 0;
+
+   virgl_renderer_resource_create(&args, NULL, 0);
+   virgl_renderer_ctx_attach_resource(ctx_id, args.handle);
+
+   args.handle = 1;
+   args.target = 7;
+   args.format = 237;
+   args.bind = 1;
+   args.width = 6;
+   args.height = 0;
+   args.depth = 1;
+   args.array_size = 0;
+   args.last_level = 0;
+   args.nr_samples = 6;
+   args.flags = 0;
+
+   virgl_renderer_resource_create(&args, NULL, 0);
+   virgl_renderer_ctx_attach_resource(ctx_id, args.handle);
+
+   uint32_t cmd[VIRGL_CMD_BLIT_SIZE + 1];
+
+   int i = 0;
+   cmd[i++] = VIRGL_CMD_BLIT_SIZE << 16 | 0 << 8 | VIRGL_CCMD_BLIT;
+   cmd[i++] = 17113104; // s0
+   cmd[i++] = 1; // minxy
+   cmd[i++] = 36; // maxxy
+   cmd[i++] = 6; //dhandle
+   cmd[i++] = 0; // dlevel
+   cmd[i++] = 0; //dformat
+   cmd[i++] = 0; //dx
+   cmd[i++] = 0; // dy
+   cmd[i++] = 0; // dz
+   cmd[i++] = 6; //dw
+   cmd[i++] = 0; // dh
+   cmd[i++] = 0; // dd
+   cmd[i++] = 1; //shandle
+   cmd[i++] = 0; //slevel
+   cmd[i++] = 0; //sformat
+   cmd[i++] = 0; //sx
+   cmd[i++] = 0; // sy
+   cmd[i++] = 268435456; // sz
+   cmd[i++] = 0; // sw
+   cmd[i++] = 0; // sh
+   cmd[i++] = 0; // sd
+
+   virgl_renderer_submit_cmd((void *) cmd, ctx_id, VIRGL_CMD_BLIT_SIZE + 1);
+}
+
+static void test_double_free_in_vrend_renderer_blit_int_trigger()
+{
+   struct virgl_renderer_resource_create_args args;
+   args.handle = 1;
+   args.target = 2;
+   args.format = VIRGL_FORMAT_Z32_UNORM;
+   args.bind = VIRGL_BIND_SAMPLER_VIEW;
+   args.width = 2;
+   args.height = 2;
+   args.depth = 1;
+   args.array_size = 0;
+   args.last_level = 0;
+   args.nr_samples = 1;
+   args.flags = 0;
+
+   virgl_renderer_resource_create(&args, NULL, 0);
+   virgl_renderer_ctx_attach_resource(ctx_id, args.handle);
+
+   args.handle = 6;
+   args.target = 2;
+   args.format = VIRGL_FORMAT_Z32_UNORM;
+   args.bind = VIRGL_BIND_SAMPLER_VIEW;
+   args.width = 2;
+   args.height = 2;
+   args.depth = 1;
+   args.array_size = 0;
+   args.last_level = 0;
+   args.nr_samples = 0;
+   args.flags = 0;
+
+   virgl_renderer_resource_create(&args, NULL, 0);
+   virgl_renderer_ctx_attach_resource(ctx_id, args.handle);
+
+   args.handle = 1;
+   args.target = 7;
+   args.format = VIRGL_FORMAT_Z32_UNORM;
+   args.bind = 1;
+   args.width = 6;
+   args.height = 1;
+   args.depth = 1;
+   args.array_size = 2;
+   args.last_level = 0;
+   args.nr_samples = 0;
+   args.flags = 0;
+
+   virgl_renderer_resource_create(&args, NULL, 0);
+   virgl_renderer_ctx_attach_resource(ctx_id, args.handle);
+
+   uint32_t cmd[VIRGL_CMD_BLIT_SIZE + 1];
+
+   int i = 0;
+   cmd[i++] = VIRGL_CMD_BLIT_SIZE << 16 | 0 << 8 | VIRGL_CCMD_BLIT;
+   cmd[i++] = 0x30 ; // s0
+   cmd[i++] = 1; // minxy
+   cmd[i++] = 36; // maxxy
+   cmd[i++] = 6; //dhandle
+   cmd[i++] = 0; // dlevel
+   cmd[i++] = VIRGL_FORMAT_Z32_UNORM; //dformat
+   cmd[i++] = 0; //dx
+   cmd[i++] = 0; // dy
+   cmd[i++] = 0; // dz
+   cmd[i++] = 6; //dw
+   cmd[i++] = 1; // dh
+   cmd[i++] = 1; // dd
+   cmd[i++] = 1; //shandle
+   cmd[i++] = 0; //slevel
+   cmd[i++] = VIRGL_FORMAT_Z32_UNORM; //sformat
+   cmd[i++] = 0; //sx
+   cmd[i++] = 0; // sy
+   cmd[i++] = 0; // sz
+   cmd[i++] = 1; // sw
+   cmd[i++] = 2; // sh
+   cmd[i++] = 1; // sd
+
+   virgl_renderer_submit_cmd((void *) cmd, ctx_id, VIRGL_CMD_BLIT_SIZE + 1);
+}
+
+
+static void test_format_is_has_alpha_nullptr_deref_trigger_original()
+{
+   struct virgl_renderer_resource_create_args args;
+   args.handle = 8;
+   args.target = 0;
+   args.format = 10;
+   args.bind = 8;
+   args.width = 0;
+   args.height = 45;
+   args.depth = 35;
+   args.array_size = 0;
+   args.last_level = 0;
+   args.nr_samples = 0;
+   args.flags = 0;
+   virgl_renderer_resource_create(&args, NULL, 0);
+   virgl_renderer_ctx_attach_resource(ctx_id, args.handle);
+
+   uint32_t cmd[VIRGL_OBJ_SAMPLER_VIEW_SIZE + 1];
+
+   int i = 0;
+   cmd[i++] = VIRGL_OBJ_SAMPLER_VIEW_SIZE << 16 | VIRGL_OBJECT_SAMPLER_VIEW << 8 | VIRGL_CCMD_CREATE_OBJECT;
+   cmd[i++] = 35; //handle
+   cmd[i++] = 8; // res_handle
+   cmd[i++] = 524288; //format
+   cmd[i++] = 0; //first_ele
+   cmd[i++] = 0; //last_ele
+   cmd[i++] = 10; //swizzle
+
+   virgl_renderer_submit_cmd((void *) cmd, ctx_id, VIRGL_OBJ_SAMPLER_VIEW_SIZE + 1);
+}
+
+
+static void test_format_is_has_alpha_nullptr_deref_trigger_legal_resource()
+{
+   struct virgl_renderer_resource_create_args args;
+   args.handle = 8;
+   args.target = 2;
+   args.format = 10;
+   args.bind = 8;
+   args.width = 10;
+   args.height = 45;
+   args.depth = 1;
+   args.array_size = 0;
+   args.last_level = 0;
+   args.nr_samples = 0;
+   args.flags = 0;
+   virgl_renderer_resource_create(&args, NULL, 0);
+   virgl_renderer_ctx_attach_resource(ctx_id, args.handle);
+
+   uint32_t cmd[VIRGL_OBJ_SAMPLER_VIEW_SIZE + 1];
+
+   int i = 0;
+   cmd[i++] = VIRGL_OBJ_SAMPLER_VIEW_SIZE << 16 | VIRGL_OBJECT_SAMPLER_VIEW << 8 | VIRGL_CCMD_CREATE_OBJECT;
+   cmd[i++] = 35; //handle
+   cmd[i++] = 8; // res_handle
+   cmd[i++] = 524288; //format
+   cmd[i++] = 0; //first_ele
+   cmd[i++] = 0; //last_ele
+   cmd[i++] = 10; //swizzle
+
+   virgl_renderer_submit_cmd((void *) cmd, ctx_id, VIRGL_OBJ_SAMPLER_VIEW_SIZE + 1);
+}
+
+int main()
+{
+   initialize_environment();
+
+   test_format_wrong_size();
+   test_blit_info_format_check();
+   test_blit_info_format_check_null_format();
+   test_format_is_plain_nullptr_deref_trigger();
+   test_format_util_format_is_rgb_nullptr_deref_trigger_illegal_resource();
+   test_format_util_format_is_rgb_nullptr_deref_trigger();
+   test_double_free_in_vrend_renderer_blit_int_trigger_invalid_formats();
+   test_double_free_in_vrend_renderer_blit_int_trigger();
+   test_format_is_has_alpha_nullptr_deref_trigger_original();
+   test_format_is_has_alpha_nullptr_deref_trigger_legal_resource();
+
+   virgl_renderer_context_destroy(ctx_id);
+   virgl_renderer_cleanup(&cookie);
+   virgl_egl_destroy(test_egl);
+
+   return 0;
+}

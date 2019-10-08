@@ -48,11 +48,22 @@ tests = [
    ['test_virgl_strbuf', 'test_virgl_strbuf.c']
 ]
 
+fuzzy_tests = [
+   ['test_fuzzer_formats', 'test_fuzzer_formats.c'],
+]
+
 foreach t : tests
    test_virgl = executable(t[0], t[1], link_with: libvrtest,
                            dependencies : [libvirglrenderer_dep, check_dep])
    test(t[0], test_virgl)
 endforeach
+
+foreach t : fuzzy_tests
+   test_virgl_fuzzy = executable(t[0], t[1], link_with: libvrtest,
+                                 dependencies : [libvirglrenderer_dep, epoxy_dep])
+   test(t[0], test_virgl)
+endforeach
+
 
 if with_valgrind
    valgrind = find_program('valgrind')
