@@ -760,6 +760,7 @@ static const char *vrend_ctx_error_strings[] = {
    [VIRGL_ERROR_GL_ANY_SAMPLES_PASSED] = "Query for ANY_SAMPLES_PASSED not supported",
    [VIRGL_ERROR_CTX_ILLEGAL_FORMAT]        = "Illegal format ID",
    [VIRGL_ERROR_CTX_ILLEGAL_SAMPLER_VIEW_TARGET] = "Illegat target for sampler view",
+   [VIRGL_ERROR_CTX_TRANSFER_IOV_BOUNDS]   = "IOV data size exceeds resource capacity",
 };
 
 static void __report_context_error(const char *fname, struct vrend_context *ctx,
@@ -6802,7 +6803,7 @@ static bool check_transfer_bounds(struct vrend_resource *res,
       return false;
    /* these will catch bad y/z/w/d with 1D textures etc */
    lwidth = u_minify(res->base.width0, info->level);
-   if (info->box->width > lwidth)
+   if (info->box->width > lwidth || info->box->width < 0)
       return false;
    if (info->box->x > lwidth)
       return false;
@@ -6810,7 +6811,7 @@ static bool check_transfer_bounds(struct vrend_resource *res,
       return false;
 
    lheight = u_minify(res->base.height0, info->level);
-   if (info->box->height > lheight)
+   if (info->box->height > lheight || info->box->height < 0)
       return false;
    if (info->box->y > lheight)
       return false;
@@ -6819,7 +6820,7 @@ static bool check_transfer_bounds(struct vrend_resource *res,
 
    if (res->base.target == PIPE_TEXTURE_3D) {
       int ldepth = u_minify(res->base.depth0, info->level);
-      if (info->box->depth > ldepth)
+      if (info->box->depth > ldepth || info->box->depth < 0)
          return false;
       if (info->box->z > ldepth)
          return false;
@@ -7570,11 +7571,15 @@ int vrend_renderer_transfer_iov(const struct vrend_transfer_info *info,
       return virgl_gbm_transfer(res->gbm_bo, transfer_mode, iov, num_iovs, info);
 #endif
 
-   if (!check_transfer_bounds(res, info))
+   if (!check_transfer_bounds(res, info)) {
+      report_context_error(ctx, VIRGL_ERROR_CTX_TRANSFER_IOV_BOUNDS, res->id);
       return EINVAL;
+   }
 
-   if (!check_iov_bounds(res, info, iov, num_iovs))
+   if (!check_iov_bounds(res, info, iov, num_iovs)) {
+      report_context_error(ctx, VIRGL_ERROR_CTX_TRANSFER_IOV_BOUNDS, res->id);
       return EINVAL;
+   }
 
    if (info->context0) {
       vrend_renderer_force_ctx_0();
