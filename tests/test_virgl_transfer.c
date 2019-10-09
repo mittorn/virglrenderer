@@ -547,7 +547,12 @@ static void get_resource_args(enum pipe_texture_target target, bool invalid,
   args->flags = 0;
 
   if (large_flags & LARGE_FLAG_WIDTH)
-    args->width = 65536*2;
+     if (args->target == PIPE_BUFFER)
+        args->width = 65536*2;
+     else if (args->target == PIPE_TEXTURE_3D)
+        args->width = 1024;
+     else
+        args->width = 4096;
   else
     args->width = 50;
   args->height = args->depth = args->array_size = 1;
@@ -555,6 +560,7 @@ static void get_resource_args(enum pipe_texture_target target, bool invalid,
   switch (target) {
   case PIPE_TEXTURE_CUBE_ARRAY:
     args->array_size = 12;
+    args->height = args->width;
     break;
   case PIPE_TEXTURE_1D_ARRAY:
   case PIPE_TEXTURE_2D_ARRAY:
@@ -565,6 +571,7 @@ static void get_resource_args(enum pipe_texture_target target, bool invalid,
     break;
   case PIPE_TEXTURE_CUBE:
     args->array_size = 6;
+    args->height = args->width;
     break;
   default:
     break;
@@ -574,11 +581,18 @@ static void get_resource_args(enum pipe_texture_target target, bool invalid,
   case PIPE_BUFFER:
   case PIPE_TEXTURE_1D:
   case PIPE_TEXTURE_1D_ARRAY:
-    break;
+  case PIPE_TEXTURE_CUBE:
+  case PIPE_TEXTURE_CUBE_ARRAY:
+     break;
   default:
-    if (large_flags & LARGE_FLAG_HEIGHT)
-      args->height = 64000;
-    else
+    if (large_flags & LARGE_FLAG_HEIGHT) {
+       if (args->target == PIPE_BUFFER)
+          args->height = 64000;
+       else if (args->target == PIPE_TEXTURE_3D)
+          args->height = 1024;
+       else
+          args->height = 4096;
+    } else
       args->height = 50;
     break;
   }
