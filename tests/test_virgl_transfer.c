@@ -1027,7 +1027,7 @@ int main(void)
   s = virgl_init_suite();
   sr = srunner_create(s);
 
-  srunner_run_all(sr, CK_NORMAL);
+  srunner_run_all(sr, CK_ENV);
   number_failed = srunner_ntests_failed(sr);
   srunner_free(sr);
 
