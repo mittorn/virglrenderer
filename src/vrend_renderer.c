@@ -68,6 +68,8 @@ extern struct virgl_egl *egl;
 /* debugging via KHR_debug extension */
 int vrend_use_debug_cb = 0;
 
+int use_context = CONTEXT_NONE;
+
 static const uint32_t fake_occlusion_query_samples_passed_default = 1024;
 
 struct vrend_if_cbs *vrend_clicbs;
@@ -9912,6 +9914,23 @@ void vrend_print_context_name(struct vrend_context *ctx)
    else
       vrend_printf("HOST: ");
 }
+
+#ifdef HAVE_EPOXY_EGL_H
+struct virgl_egl *egl = NULL;
+#endif
+
+int virgl_has_gl_colorspace(void)
+{
+   bool egl_colorspace = false;
+#ifdef HAVE_EPOXY_EGL_H
+   if (egl)
+      egl_colorspace = virgl_has_egl_khr_gl_colorspace(egl);
+#endif
+   return use_context == CONTEXT_NONE ||
+         use_context == CONTEXT_GLX ||
+         (use_context == CONTEXT_EGL && egl_colorspace);
+}
+
 
 void vrend_renderer_destroy_sub_ctx(struct vrend_context *ctx, int sub_ctx_id)
 {

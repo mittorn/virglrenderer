@@ -42,21 +42,12 @@
 #include "virgl_gbm.h"
 #include "virgl_egl.h"
 struct virgl_gbm *gbm = NULL;
-struct virgl_egl *egl = NULL;
 #endif
 
 #ifdef HAVE_EPOXY_GLX_H
 #include "virgl_glx.h"
 static struct virgl_glx *glx_info;
 #endif
-
-enum {
-   CONTEXT_NONE,
-   CONTEXT_EGL,
-   CONTEXT_GLX
-};
-
-static int use_context = CONTEXT_NONE;
 
 /* new API - just wrap internal API for now */
 
@@ -205,18 +196,6 @@ int virgl_renderer_resource_get_info(int res_handle,
 #endif
 
    return ret;
-}
-
-int virgl_has_gl_colorspace(void)
-{
-   bool egl_colorspace = false;
-#ifdef HAVE_EPOXY_EGL_H
-   if (egl)
-      egl_colorspace = virgl_has_egl_khr_gl_colorspace(egl);
-#endif
-   return use_context == CONTEXT_NONE ||
-         use_context == CONTEXT_GLX ||
-         (use_context == CONTEXT_EGL && egl_colorspace);
 }
 
 void virgl_renderer_get_cap_set(uint32_t cap_set, uint32_t *max_ver,

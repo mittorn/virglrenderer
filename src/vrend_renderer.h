@@ -61,6 +61,18 @@ enum vrend_resource_storage_type {
    VREND_RESOURCE_STORAGE_GBM_ONLY,
 };
 
+enum {
+   CONTEXT_NONE,
+   CONTEXT_EGL,
+   CONTEXT_GLX
+};
+
+extern int use_context;
+#ifdef HAVE_EPOXY_EGL_H
+extern struct virgl_egl *egl;
+#endif
+
+
 struct vrend_resource {
    struct pipe_resource base;
    GLuint id;
