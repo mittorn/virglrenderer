@@ -31,6 +31,7 @@
 #include "vrend_debug.h"
 #include "vrend_tweaks.h"
 #include "vrend_iov.h"
+#include "virgl_gbm.h"
 #include "virgl_hw.h"
 #include <epoxy/gl.h>
 
@@ -98,6 +99,7 @@ struct vrend_resource {
    uint32_t num_iovs;
    uint64_t mipmap_offsets[VR_MAX_TEXTURE_2D_LEVELS];
    void *gbm_bo, *egl_image;
+   void *aux_plane_egl_image[VIRGL_GBM_MAX_PLANES - 1];
 };
 
 #define VIRGL_TEXTURE_NEED_SWIZZLE        (1 << 0)

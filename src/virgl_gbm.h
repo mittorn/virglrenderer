@@ -29,6 +29,12 @@
 #include "vrend_iov.h"
 #include "virglrenderer.h"
 
+#ifdef GBM_MAX_PLANES
+#define VIRGL_GBM_MAX_PLANES GBM_MAX_PLANES
+#else
+#define VIRGL_GBM_MAX_PLANES 4
+#endif
+
 /*
  * If fd >= 0, virglrenderer owns the fd since it was opened via a rendernode
  * query. If fd < 0, the gbm device was opened with the fd provided by the
@@ -53,5 +59,9 @@ uint32_t virgl_gbm_convert_flags(uint32_t virgl_bind_flags);
 int virgl_gbm_export_fd(struct gbm_device *gbm, uint32_t handle, int32_t *out_fd);
 
 int virgl_gbm_export_query(struct gbm_bo *bo, struct virgl_renderer_export_query *query);
+
+int virgl_gbm_get_plane_width(struct gbm_bo *bo, int plane);
+int virgl_gbm_get_plane_height(struct gbm_bo *bo, int plane);
+int virgl_gbm_get_plane_bytes_per_pixel(struct gbm_bo *bo, int plane);
 
 #endif

@@ -381,7 +381,7 @@ void *virgl_egl_image_from_dmabuf(struct virgl_egl *egl, struct gbm_bo *bo)
 {
    int ret;
    EGLImageKHR image;
-   int fds[4] = {-1, -1, -1, -1};
+   int fds[VIRGL_GBM_MAX_PLANES] = {-1, -1, -1, -1};
    int num_planes = gbm_bo_get_plane_count(bo);
    // When the bo has 3 planes with modifier support, it requires 37 components.
    EGLint khr_image_attrs[37] = {
@@ -394,7 +394,7 @@ void *virgl_egl_image_from_dmabuf(struct virgl_egl *egl, struct gbm_bo *bo)
       EGL_NONE,
    };
 
-   if (num_planes < 0 || num_planes > 4)
+   if (num_planes < 0 || num_planes > VIRGL_GBM_MAX_PLANES)
       return (void *)EGL_NO_IMAGE_KHR;
 
    for (int plane = 0; plane < num_planes; plane++) {
@@ -434,6 +434,55 @@ out_close:
    for (int plane = 0; plane < num_planes; plane++)
       close(fds[plane]);
 
+   return (void*)image;
+}
+
+void *virgl_egl_aux_plane_image_from_dmabuf(struct virgl_egl *egl, struct gbm_bo *bo, int plane)
+{
+   int ret;
+   EGLImageKHR image = EGL_NO_IMAGE_KHR;
+   int fd = -1;
+
+   int bytes_per_pixel = virgl_gbm_get_plane_bytes_per_pixel(bo, plane);
+   if (bytes_per_pixel != 1 && bytes_per_pixel != 2)
+      return (void *)EGL_NO_IMAGE_KHR;
+
+   uint32_t handle = gbm_bo_get_handle_for_plane(bo, plane).u32;
+   ret = drmPrimeHandleToFD(gbm_device_get_fd(egl->gbm->device), handle, DRM_CLOEXEC, &fd);
+   if (ret < 0) {
+      vrend_printf("failed to export plane handle %d\n", errno);
+      return (void *)EGL_NO_IMAGE_KHR;
+   }
+
+   EGLint khr_image_attrs[17] = {
+      EGL_WIDTH,
+      virgl_gbm_get_plane_width(bo, plane),
+      EGL_HEIGHT,
+      virgl_gbm_get_plane_height(bo, plane),
+      EGL_LINUX_DRM_FOURCC_EXT,
+      (int) (bytes_per_pixel == 1 ? GBM_FORMAT_R8 : GBM_FORMAT_GR88),
+      EGL_DMA_BUF_PLANE0_FD_EXT,
+      fd,
+      EGL_DMA_BUF_PLANE0_OFFSET_EXT,
+      gbm_bo_get_offset(bo, plane),
+      EGL_DMA_BUF_PLANE0_PITCH_EXT,
+      gbm_bo_get_stride_for_plane(bo, plane),
+   };
+
+   if (egl->have_ext_image_dma_buf_import_modifiers) {
+      const uint64_t modifier = gbm_bo_get_modifier(bo);
+      khr_image_attrs[12] = EGL_DMA_BUF_PLANE0_MODIFIER_LO_EXT;
+      khr_image_attrs[13] = modifier & 0xfffffffful;
+      khr_image_attrs[14] = EGL_DMA_BUF_PLANE0_MODIFIER_HI_EXT;
+      khr_image_attrs[15] = modifier >> 32;
+      khr_image_attrs[16] = EGL_NONE;
+   } else {
+      khr_image_attrs[12] = EGL_NONE;
+   }
+
+   image = eglCreateImageKHR(egl->egl_display, EGL_NO_CONTEXT, EGL_LINUX_DMA_BUF_EXT, NULL, khr_image_attrs);
+
+   close(fd);
    return (void*)image;
 }
 

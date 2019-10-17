@@ -44,9 +44,9 @@
 
 struct planar_layout {
     size_t num_planes;
-    int horizontal_subsampling[4];
-    int vertical_subsampling[4];
-    int bytes_per_pixel[4];
+    int horizontal_subsampling[VIRGL_GBM_MAX_PLANES];
+    int vertical_subsampling[VIRGL_GBM_MAX_PLANES];
+    int bytes_per_pixel[VIRGL_GBM_MAX_PLANES];
 };
 
 struct format_conversion {
@@ -404,16 +404,16 @@ int virgl_gbm_export_fd(struct gbm_device *gbm, uint32_t handle, int32_t *out_fd
 int virgl_gbm_export_query(struct gbm_bo *bo, struct virgl_renderer_export_query *query)
 {
    int ret = -1;
-   uint32_t handles[4] = {0, 0, 0, 0};
+   uint32_t handles[VIRGL_GBM_MAX_PLANES] = { 0 };
    struct gbm_device *gbm = gbm_bo_get_device(bo);
    int num_planes = gbm_bo_get_plane_count(bo);
-   if (num_planes < 0 || num_planes > 4)
+   if (num_planes < 0 || num_planes > VIRGL_GBM_MAX_PLANES)
       return ret;
 
    query->out_num_fds = 0;
    query->out_fourcc = 0;
    query->out_modifier = 0;
-   for (int plane = 0; plane < 4; plane++) {
+   for (int plane = 0; plane < VIRGL_GBM_MAX_PLANES; plane++) {
       query->out_fds[plane] = -1;
       query->out_strides[plane] = 0;
       query->out_offsets[plane] = 0;
@@ -446,7 +446,7 @@ int virgl_gbm_export_query(struct gbm_bo *bo, struct virgl_renderer_export_query
    return 0;
 
 err_close:
-   for (int plane = 0; plane < 4; plane++) {
+   for (int plane = 0; plane < VIRGL_GBM_MAX_PLANES; plane++) {
       if (query->out_fds[plane] >= 0) {
          close(query->out_fds[plane]);
          query->out_fds[plane] = -1;
@@ -458,4 +458,28 @@ err_close:
 
    query->out_num_fds = 0;
    return ret;
+}
+
+int virgl_gbm_get_plane_width(struct gbm_bo *bo, int plane) {
+   uint32_t format = gbm_bo_get_format(bo);
+   const struct planar_layout *layout = layout_from_format(format);
+   if (!layout)
+      return -1;
+   return gbm_bo_get_width(bo) / layout->horizontal_subsampling[plane];
+}
+
+int virgl_gbm_get_plane_height(struct gbm_bo *bo, int plane) {
+   uint32_t format = gbm_bo_get_format(bo);
+   const struct planar_layout *layout = layout_from_format(format);
+   if (!layout)
+      return -1;
+   return gbm_bo_get_height(bo) / layout->vertical_subsampling[plane];
+}
+
+int virgl_gbm_get_plane_bytes_per_pixel(struct gbm_bo *bo, int plane) {
+   uint32_t format = gbm_bo_get_format(bo);
+   const struct planar_layout *layout = layout_from_format(format);
+   if (!layout)
+      return -1;
+   return layout->bytes_per_pixel[plane];
 }

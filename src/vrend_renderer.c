@@ -2125,6 +2125,13 @@ int vrend_create_sampler_view(struct vrend_context *ctx,
                             view->srgb_decode);
         }
         glBindTexture(view->target, 0);
+     } else if (needs_view && view->val0 && view->val0 <= ARRAY_SIZE(res->aux_plane_egl_image) &&
+                res->aux_plane_egl_image[view->val0 - 1]) {
+        void *image = res->aux_plane_egl_image[view->val0 - 1];
+        glGenTextures(1, &view->id);
+        glBindTexture(view->target, view->id);
+        glEGLImageTargetTexture2DOES(view->target, (GLeglImageOES) image);
+        glBindTexture(view->target, 0);
      }
    }
 
@@ -6523,6 +6530,15 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
 
    glBindTexture(gr->target, 0);
 
+   if (image_oes && gr->gbm_bo) {
+#ifdef ENABLE_GBM_ALLOCATION
+      for (int i = 0; i < gbm_bo_get_plane_count(gr->gbm_bo) - 1; i++) {
+         gr->aux_plane_egl_image[i] =
+               virgl_egl_aux_plane_image_from_dmabuf(egl, gr->gbm_bo, i + 1);
+      }
+#endif
+   }
+
    gt->state.max_lod = -1;
    gt->cur_swizzle_r = gt->cur_swizzle_g = gt->cur_swizzle_b = gt->cur_swizzle_a = -1;
    gt->cur_base = -1;
@@ -6648,8 +6664,14 @@ void vrend_renderer_resource_destroy(struct vrend_resource *res)
    }
 
 #ifdef ENABLE_GBM_ALLOCATION
-   if (res->egl_image)
+   if (res->egl_image) {
       virgl_egl_image_destroy(egl, res->egl_image);
+      for (unsigned i = 0; i < ARRAY_SIZE(res->aux_plane_egl_image); i++) {
+         if (res->aux_plane_egl_image[i]) {
+            virgl_egl_image_destroy(egl, res->aux_plane_egl_image[i]);
+         }
+      }
+   }
    if (res->gbm_bo)
       gbm_bo_destroy(res->gbm_bo);
 #endif
