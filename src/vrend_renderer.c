@@ -6313,36 +6313,48 @@ vrend_renderer_resource_copy_args(struct vrend_renderer_resource_create_args *ar
    gr->base.array_size = args->array_size;
 }
 
-static void *vrend_allocate_using_gbm(struct vrend_resource *gr)
+/* Does gbm related initialization of gr. If this function fully initializes
+ * the resource, then it sets gr->storage to VREND_RESOURCE_STORAGE_GBM_ONLY.
+ */
+static void vrend_resource_gbm_init(struct vrend_resource *gr)
 {
 #ifdef ENABLE_GBM_ALLOCATION
    uint32_t gbm_flags = virgl_gbm_convert_flags(gr->base.bind);
    uint32_t gbm_format = 0;
    if (virgl_gbm_convert_format(&gr->base.format, &gbm_format))
-      return false;
+      return;
 
    if (gr->base.depth0 != 1 || gr->base.last_level != 0 || gr->base.nr_samples != 0)
-      return NULL;
+      return;
 
    if (!gbm || !gbm->device || !gbm_format || !gbm_flags)
-      return NULL;
+      return;
 
    if ((gr->base.bind & (VIRGL_RES_BIND_SCANOUT | VIRGL_RES_BIND_SHARED)) == 0)
-      return NULL;
+      return;
 
    if (!gbm_device_is_format_supported(gbm->device, gbm_format, gbm_flags))
-      return NULL;
+      return;
 
    struct gbm_bo *bo = gbm_bo_create(gbm->device, gr->base.width0, gr->base.height0,
                                      gbm_format, gbm_flags);
    if (!bo)
-      return NULL;
-
+      return;
    gr->gbm_bo = bo;
-   return bo;
+
+   if ((gr->base.bind & (VIRGL_BIND_RENDER_TARGET | VIRGL_BIND_SAMPLER_VIEW)) == 0) {
+      gr->storage = VREND_RESOURCE_STORAGE_GBM_ONLY;
+      return;
+   }
+
+   gr->egl_image = virgl_egl_image_from_dmabuf(egl, bo);
+   if (!gr->egl_image) {
+      gr->gbm_bo = NULL;
+      gbm_bo_destroy(bo);
+   }
+
 #else
    (void)gr;
-   return NULL;
 #endif
 }
 
@@ -6358,18 +6370,12 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
    if (pr->width0 == 0)
       return EINVAL;
 
-   if (!image_oes && vrend_allocate_using_gbm(gr)) {
-      if ((gr->base.bind & (VIRGL_BIND_RENDER_TARGET | VIRGL_BIND_SAMPLER_VIEW)) == 0) {
-         gr->storage = VREND_RESOURCE_STORAGE_GBM_ONLY;
+   if (!image_oes) {
+      vrend_resource_gbm_init(gr);
+      if (gr->storage == VREND_RESOURCE_STORAGE_GBM_ONLY) {
          return 0;
       }
-      image_oes = virgl_egl_image_from_dmabuf(egl, gr->gbm_bo);
-      if (!image_oes) {
-         gbm_bo_destroy(gr->gbm_bo);
-         gr->gbm_bo = NULL;
-      } else {
-         gr->egl_image = image_oes;
-      }
+      image_oes = gr->egl_image;
    }
 
    bool format_can_texture_storage = has_feature(feat_texture_storage) &&

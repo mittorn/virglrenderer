@@ -52,6 +52,8 @@ struct vrend_context;
 #define VR_MAX_TEXTURE_2D_LEVELS 15
 
 enum vrend_resource_storage_type {
+   /* A default value for zero-initalized struct vrend_resources */
+   VREND_RESOURCE_STORAGE_INIT = 0,
    VREND_RESOURCE_STORAGE_TEXTURE,
    VREND_RESOURCE_STORAGE_BUFFER,
    /* The resource contents are stored in shared guest memory. */
