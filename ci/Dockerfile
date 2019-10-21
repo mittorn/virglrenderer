@@ -50,6 +50,7 @@ RUN apt-get update && \
       libwayland-egl-backend-dev \
       linux-image-amd64 \
       lld-8 \
+      llvm-8-dev \
       mesa-utils \
       nasm \
       ninja-build \
