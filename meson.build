@@ -26,7 +26,8 @@ project(
    version: '0.8.1',
    license : 'MIT',
    meson_version : '>= 0.46',
-   default_options : ['buildtype=release', 'b_ndebug=if-release', 'c_std=gnu11']
+   default_options : ['buildtype=release', 'b_ndebug=if-release',
+                      'warning_level=3', 'c_std=gnu11']
 )
 
 binary_age    = 1
@@ -37,9 +38,6 @@ cc = meson.get_compiler('c')
 
 add_project_arguments('-DHAVE_CONFIG_H=1', language : 'c')
 add_project_arguments('-D_GNU_SOURCE=1', language : 'c')
-
-add_project_arguments('-Wall', language : 'c')
-add_project_arguments('-Wextra', language : 'c')
 
 warnings = [
    '-Werror=implicit-function-declaration',
