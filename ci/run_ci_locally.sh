@@ -19,9 +19,9 @@ fi
 RENDER_DEVICE=/dev/dri/renderD128
 
 if test $NUM_THREADS -gt 0; then THREAD_CONFIG="-e NUM_THREADS=$NUM_THREADS"; fi
-if test -e $RENDER_DEVICE; then RD_CONFIG="--device=$RENDER_DEVICE -e RENDER_DEVICE=$RENDER_DEVICE"; fi
-if test -e $MESA_PATH; then LOCAL_MESA="-v $MESA_PATH:/local_mesa -e LOCAL_MESA=/local_mesa"; fi
-if test -e $VIRGL_PATH; then LOCAL_VIRGL="-v $VIRGL_PATH:/virglrenderer -e LOCAL_VIRGL=/virglrenderer"; fi
+if test -e "$RENDER_DEVICE"; then RD_CONFIG="--device=$RENDER_DEVICE -e RENDER_DEVICE=$RENDER_DEVICE"; fi
+if test -e "$MESA_PATH"; then LOCAL_MESA="-v $MESA_PATH:/local_mesa -e LOCAL_MESA=/local_mesa"; fi
+if test -e "$VIRGL_PATH"; then LOCAL_VIRGL="-v $VIRGL_PATH:/virglrenderer -e LOCAL_VIRGL=/virglrenderer"; fi
 
 echo THREAD_CONFIG=$THREAD_CONFIG
 echo RD_CONFIG=$RD_CONFIG
