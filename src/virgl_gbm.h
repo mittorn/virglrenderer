@@ -64,4 +64,7 @@ int virgl_gbm_get_plane_width(struct gbm_bo *bo, int plane);
 int virgl_gbm_get_plane_height(struct gbm_bo *bo, int plane);
 int virgl_gbm_get_plane_bytes_per_pixel(struct gbm_bo *bo, int plane);
 
+bool virgl_gbm_external_allocation_preferred(uint32_t flags);
+bool virgl_gbm_gpu_import_required(uint32_t flags);
+
 #endif

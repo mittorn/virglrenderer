@@ -483,3 +483,12 @@ int virgl_gbm_get_plane_bytes_per_pixel(struct gbm_bo *bo, int plane) {
       return -1;
    return layout->bytes_per_pixel[plane];
 }
+
+bool virgl_gbm_external_allocation_preferred(uint32_t flags) {
+   return (flags & (VIRGL_RES_BIND_SCANOUT | VIRGL_RES_BIND_SHARED)) != 0;
+}
+
+bool virgl_gbm_gpu_import_required(uint32_t flags) {
+   return !virgl_gbm_external_allocation_preferred(flags) ||
+          (flags & (VIRGL_BIND_RENDER_TARGET | VIRGL_BIND_SAMPLER_VIEW)) != 0;
+}

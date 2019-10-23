@@ -6203,6 +6203,12 @@ static int check_resource_valid(struct vrend_renderer_resource_create_args *args
          return -1;
       }
 
+#ifdef ENABLE_GBM_ALLOCATION
+      if (!virgl_gbm_gpu_import_required(args->bind)) {
+         return 0;
+      }
+#endif
+
       if (args->target == PIPE_TEXTURE_2D ||
           args->target == PIPE_TEXTURE_RECT ||
           args->target == PIPE_TEXTURE_CUBE ||
@@ -6331,7 +6337,7 @@ static void vrend_resource_gbm_init(struct vrend_resource *gr)
    if (!gbm || !gbm->device || !gbm_format || !gbm_flags)
       return;
 
-   if ((gr->base.bind & (VIRGL_RES_BIND_SCANOUT | VIRGL_RES_BIND_SHARED)) == 0)
+   if (!virgl_gbm_external_allocation_preferred(gr->base.bind))
       return;
 
    if (!gbm_device_is_format_supported(gbm->device, gbm_format, gbm_flags))
@@ -6343,7 +6349,7 @@ static void vrend_resource_gbm_init(struct vrend_resource *gr)
       return;
    gr->gbm_bo = bo;
 
-   if ((gr->base.bind & (VIRGL_BIND_RENDER_TARGET | VIRGL_BIND_SAMPLER_VIEW)) == 0) {
+   if (!virgl_gbm_gpu_import_required(gr->base.bind)) {
       gr->storage = VREND_RESOURCE_STORAGE_GBM_ONLY;
       return;
    }
