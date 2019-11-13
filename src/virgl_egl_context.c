@@ -51,6 +51,8 @@ struct virgl_egl {
    bool have_khr_gl_colorspace;
    bool have_ext_image_dma_buf_import;
    bool have_ext_image_dma_buf_import_modifiers;
+   bool have_khr_fence_sync;
+   bool need_fence_and_wait_external;
 };
 
 static bool virgl_egl_has_extension_in_string(const char *haystack, const char *needle)
@@ -201,6 +203,13 @@ struct virgl_egl *virgl_egl_init(struct virgl_gbm *gbm, bool surfaceless, bool g
 
    egl->have_khr_gl_colorspace =
          virgl_egl_has_extension_in_string(extension_list, "EGL_KHR_gl_colorspace");
+
+   egl->have_khr_fence_sync =
+         virgl_egl_has_extension_in_string(extension_list, "EGL_KHR_fence_sync");
+
+   // ARM Mali platforms need explicit synchronization prior to mapping.
+   if (!strcmp(eglQueryString(egl->egl_display, EGL_VENDOR), "ARM"))
+      egl->need_fence_and_wait_external = true;
 
    if (gles)
       api = EGL_OPENGL_ES_API;
@@ -489,4 +498,28 @@ void *virgl_egl_aux_plane_image_from_dmabuf(struct virgl_egl *egl, struct gbm_bo
 void virgl_egl_image_destroy(struct virgl_egl *egl, void *image)
 {
    eglDestroyImageKHR(egl->egl_display, image);
+}
+
+bool virgl_egl_need_fence_and_wait_external(struct virgl_egl *egl)
+{
+   return (egl && egl->need_fence_and_wait_external);
+}
+
+void virgl_egl_fence_and_wait_external(struct virgl_egl *egl)
+{
+   const EGLint attrib_list[] = {EGL_SYNC_CONDITION_KHR,
+                                 EGL_SYNC_PRIOR_COMMANDS_COMPLETE_KHR,
+                                 EGL_NONE};
+   EGLSyncKHR fence;
+
+   if (!egl || !egl->have_khr_fence_sync) {
+      return;
+   }
+
+   fence = eglCreateSyncKHR(egl->egl_display, EGL_SYNC_FENCE_KHR, attrib_list);
+   if (fence != EGL_NO_SYNC_KHR) {
+      eglClientWaitSyncKHR(egl->egl_display, fence,
+                           EGL_SYNC_FLUSH_COMMANDS_BIT_KHR, EGL_FOREVER_KHR);
+      eglDestroySyncKHR(egl->egl_display, fence);
+   }
 }
