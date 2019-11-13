@@ -7597,6 +7597,16 @@ int vrend_renderer_transfer_iov(const struct vrend_transfer_info *info,
       return EINVAL;
    }
 
+#ifdef HAVE_EPOXY_EGL_H
+   // Some platforms require extra synchronization before transferring.
+   if (transfer_mode == VIRGL_TRANSFER_FROM_HOST) {
+      if (virgl_egl_need_fence_and_wait_external(egl)) {
+         vrend_hw_switch_context(ctx, true);
+         virgl_egl_fence_and_wait_external(egl);
+      }
+   }
+#endif
+
    iov = info->iovec;
    num_iovs = info->iovec_cnt;
 
