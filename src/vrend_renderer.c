@@ -9797,6 +9797,7 @@ void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
                               union virgl_caps *caps)
 {
    int gl_ver, gles_ver;
+   GLenum err;
    bool fill_capset2 = false;
 
    if (!caps)
@@ -9815,6 +9816,12 @@ void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
       caps->max_version = 2;
       fill_capset2 = true;
    }
+
+   /* We don't want to deal with stale error states that the caller might not
+    * have cleaned up propperly, so read the error state until we are okay.
+    */
+   while ((err = glGetError()) != GL_NO_ERROR)
+      vrend_printf("%s: Entering with stale GL error: %d\n", __func__, err);
 
    if (vrend_state.use_gles) {
       gles_ver = epoxy_gl_version();
