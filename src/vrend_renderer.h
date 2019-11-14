@@ -51,18 +51,12 @@ struct vrend_context;
  */
 #define VR_MAX_TEXTURE_2D_LEVELS 15
 
-enum vrend_resource_storage_type {
-   /* A default value for zero-initalized struct vrend_resources */
-   VREND_RESOURCE_STORAGE_INIT = 0,
-   VREND_RESOURCE_STORAGE_TEXTURE,
-   VREND_RESOURCE_STORAGE_BUFFER,
-   /* The resource contents are stored in shared guest memory. */
-   VREND_RESOURCE_STORAGE_GUEST,
-   /* The resource contents are stored in shared guest memory if it's
-    * attached, otherwise in host system memory. */
-   VREND_RESOURCE_STORAGE_GUEST_ELSE_SYSTEM,
-   VREND_RESOURCE_STORAGE_GBM_ONLY,
-};
+#define VREND_STORAGE_GUEST_MEMORY       BIT(0)
+#define VREND_STORAGE_GL_TEXTURE         BIT(1)
+#define VREND_STORAGE_GL_BUFFER          BIT(2)
+#define VREND_STORAGE_EGL_IMAGE          BIT(3)
+#define VREND_STORAGE_GBM_BUFFER         BIT(4)
+#define VREND_STORAGE_HOST_SYSTEM_MEMORY BIT(5)
 
 enum {
    CONTEXT_NONE,
@@ -78,9 +72,11 @@ extern struct virgl_egl *egl;
 
 struct vrend_resource {
    struct pipe_resource base;
+   uint32_t storage_bits;
+
    GLuint id;
    GLenum target;
-   enum vrend_resource_storage_type storage;
+
    /* fb id if we need to readback this resource */
    GLuint readback_fb_id;
    GLuint readback_fb_level;

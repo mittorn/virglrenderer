@@ -49,6 +49,8 @@
 #include "vrend_renderer.h"
 #include "vrend_debug.h"
 
+#include "vrend_util.h"
+
 #include "virgl_hw.h"
 #include "virglrenderer.h"
 
@@ -1730,7 +1732,7 @@ int vrend_create_surface(struct vrend_context *ctx,
    surf->id = res->id;
 
    if (has_feature(feat_texture_view) &&
-       res->storage != VREND_RESOURCE_STORAGE_BUFFER &&
+       !has_bit(res->storage_bits, VREND_STORAGE_GL_BUFFER) &&
        (tex_conv_table[format].flags & VIRGL_TEXTURE_CAN_TEXTURE_STORAGE)) {
       /* We don't need texture views for buffer objects.
        * Otherwise we only need a texture view if the
@@ -2055,7 +2057,7 @@ int vrend_create_sampler_view(struct vrend_context *ctx,
    view->gl_swizzle_a = to_gl_swizzle(swizzle[3]);
 
    if (has_feature(feat_texture_view) &&
-       view->texture->storage != VREND_RESOURCE_STORAGE_BUFFER) {
+       !has_bit(view->texture->storage_bits, VREND_STORAGE_GL_BUFFER)) {
       enum virgl_formats format;
       bool needs_view = false;
 
@@ -2811,7 +2813,7 @@ void vrend_set_single_sampler_view(struct vrend_context *ctx,
 
       ctx->sub->sampler_views_dirty[shader_type] |= 1u << index;
 
-      if (view->texture->storage != VREND_RESOURCE_STORAGE_BUFFER) {
+      if (!has_bit(view->texture->storage_bits, VREND_STORAGE_GL_BUFFER)) {
          if (view->texture->id == view->id) {
             glBindTexture(view->target, view->id);
 
@@ -3967,7 +3969,7 @@ static int vrend_draw_bind_samplers_shader(struct vrend_context *ctx,
 
             debug_texture(__func__, tview->texture);
 
-            if (texture->storage == VREND_RESOURCE_STORAGE_BUFFER) {
+            if (has_bit(tview->texture->storage_bits, VREND_STORAGE_GL_BUFFER)) {
                id = texture->tbo_tex_id;
                target = GL_TEXTURE_BUFFER;
             } else
@@ -4123,7 +4125,7 @@ static void vrend_draw_bind_images_shader(struct vrend_context *ctx, int shader_
           continue;
       iview = &ctx->sub->image_views[shader_type][i];
       tex_id = iview->texture->id;
-      if (iview->texture->storage == VREND_RESOURCE_STORAGE_BUFFER) {
+      if (has_bit(iview->texture->storage_bits, VREND_STORAGE_GL_BUFFER)) {
          if (!iview->texture->tbo_tex_id)
             glGenTextures(1, &iview->texture->tbo_tex_id);
 
@@ -5430,7 +5432,7 @@ static void vrend_apply_sampler_state(struct vrend_context *ctx,
       return;
    }
 
-   if (tex->base.storage == VREND_RESOURCE_STORAGE_BUFFER) {
+   if (has_bit(tex->base.storage_bits, VREND_STORAGE_GL_BUFFER)) {
       tex->state = *state;
       return;
    }
@@ -6028,7 +6030,7 @@ int vrend_renderer_resource_attach_iov(int res_handle, struct iovec *iov,
    res->iov = iov;
    res->num_iovs = num_iovs;
 
-   if (res->storage == VREND_RESOURCE_STORAGE_GUEST_ELSE_SYSTEM) {
+   if (has_bit(res->storage_bits, VREND_STORAGE_HOST_SYSTEM_MEMORY)) {
       vrend_write_to_iovec(res->iov, res->num_iovs, 0,
             res->ptr, res->base.width0);
    }
@@ -6050,7 +6052,7 @@ void vrend_renderer_resource_detach_iov(int res_handle,
    if (num_iovs_p)
       *num_iovs_p = res->num_iovs;
 
-   if (res->storage == VREND_RESOURCE_STORAGE_GUEST_ELSE_SYSTEM) {
+   if (has_bit(res->storage_bits, VREND_STORAGE_HOST_SYSTEM_MEMORY)) {
       vrend_read_from_iovec(res->iov, res->num_iovs, 0,
             res->ptr, res->base.width0);
    }
@@ -6293,7 +6295,7 @@ static int check_resource_valid(struct vrend_renderer_resource_create_args *args
 
 static void vrend_create_buffer(struct vrend_resource *gr, uint32_t width)
 {
-   gr->storage = VREND_RESOURCE_STORAGE_BUFFER;
+   gr->storage_bits |= VREND_STORAGE_GL_BUFFER;
 
    glGenBuffersARB(1, &gr->id);
    glBindBufferARB(gr->target, gr->id);
@@ -6320,8 +6322,9 @@ vrend_renderer_resource_copy_args(struct vrend_renderer_resource_create_args *ar
    gr->base.array_size = args->array_size;
 }
 
-/* Does gbm related initialization of gr. If this function fully initializes
- * the resource, then it sets gr->storage to VREND_RESOURCE_STORAGE_GBM_ONLY.
+/*
+ * When GBM allocation is enabled, this function creates a GBM buffer and
+ * EGL image given certain flags.
  */
 static void vrend_resource_gbm_init(struct vrend_resource *gr)
 {
@@ -6347,18 +6350,20 @@ static void vrend_resource_gbm_init(struct vrend_resource *gr)
                                      gbm_format, gbm_flags);
    if (!bo)
       return;
-   gr->gbm_bo = bo;
 
-   if (!virgl_gbm_gpu_import_required(gr->base.bind)) {
-      gr->storage = VREND_RESOURCE_STORAGE_GBM_ONLY;
+   gr->gbm_bo = bo;
+   gr->storage_bits |= VREND_STORAGE_GBM_BUFFER;
+
+   if (!virgl_gbm_gpu_import_required(gr->base.bind))
       return;
-   }
 
    gr->egl_image = virgl_egl_image_from_dmabuf(egl, bo);
    if (!gr->egl_image) {
       gr->gbm_bo = NULL;
       gbm_bo_destroy(bo);
    }
+
+   gr->storage_bits |= VREND_STORAGE_EGL_IMAGE;
 
 #else
    (void)gr;
@@ -6379,9 +6384,9 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
 
    if (!image_oes) {
       vrend_resource_gbm_init(gr);
-      if (gr->storage == VREND_RESOURCE_STORAGE_GBM_ONLY) {
+      if (gr->gbm_bo && !has_bit(gr->storage_bits, VREND_STORAGE_EGL_IMAGE))
          return 0;
-      }
+
       image_oes = gr->egl_image;
    }
 
@@ -6406,7 +6411,7 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
    }
 
    gr->target = tgsitargettogltarget(pr->target, pr->nr_samples);
-   gr->storage = VREND_RESOURCE_STORAGE_TEXTURE;
+   gr->storage_bits |= VREND_STORAGE_GL_TEXTURE;
 
    /* ugly workaround for texture rectangle missing on GLES */
    if (vrend_state.use_gles && gr->target == GL_TEXTURE_RECTANGLE_NV) {
@@ -6579,6 +6584,7 @@ int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *a
    vrend_renderer_resource_copy_args(args, gr);
    gr->iov = iov;
    gr->num_iovs = num_iovs;
+   gr->storage_bits = VREND_STORAGE_GUEST_MEMORY;
 
    if (args->flags & VIRGL_RESOURCE_Y_0_TOP)
       gr->y_0_top = true;
@@ -6588,15 +6594,14 @@ int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *a
    if (args->target == PIPE_BUFFER) {
       if (args->bind == VIRGL_BIND_CUSTOM) {
          /* use iovec directly when attached */
-         gr->storage = VREND_RESOURCE_STORAGE_GUEST_ELSE_SYSTEM;
+         gr->storage_bits |= VREND_STORAGE_HOST_SYSTEM_MEMORY;
          gr->ptr = malloc(args->width);
          if (!gr->ptr) {
             FREE(gr);
             return ENOMEM;
          }
       } else if (args->bind == VIRGL_BIND_STAGING) {
-         /* Staging buffers use only guest memory. */
-         gr->storage = VREND_RESOURCE_STORAGE_GUEST;
+        /* staging buffers only use guest memory -- nothing to do. */
       } else if (args->bind == VIRGL_BIND_INDEX_BUFFER) {
          gr->target = GL_ELEMENT_ARRAY_BUFFER_ARB;
          vrend_create_buffer(gr, args->width);
@@ -6660,20 +6665,14 @@ void vrend_renderer_resource_destroy(struct vrend_resource *res)
    if (res->readback_fb_id)
       glDeleteFramebuffers(1, &res->readback_fb_id);
 
-   switch (res->storage) {
-   case VREND_RESOURCE_STORAGE_TEXTURE:
+   if (has_bit(res->storage_bits, VREND_STORAGE_GL_TEXTURE)) {
       glDeleteTextures(1, &res->id);
-      break;
-   case VREND_RESOURCE_STORAGE_BUFFER:
+   } else if (has_bit(res->storage_bits, VREND_STORAGE_GL_BUFFER)) {
       glDeleteBuffers(1, &res->id);
       if (res->tbo_tex_id)
          glDeleteTextures(1, &res->tbo_tex_id);
-      break;
-   case VREND_RESOURCE_STORAGE_GUEST_ELSE_SYSTEM:
+   } else if (has_bit(res->storage_bits, VREND_STORAGE_HOST_SYSTEM_MEMORY)) {
       free(res->ptr);
-      break;
-   default:
-      break;
    }
 
 #ifdef ENABLE_GBM_ALLOCATION
@@ -6973,21 +6972,21 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
 {
    void *data;
 
-   if (res->storage == VREND_RESOURCE_STORAGE_GUEST ||
-       (res->storage == VREND_RESOURCE_STORAGE_GUEST_ELSE_SYSTEM && res->iov)) {
+   if (is_only_bit(res->storage_bits, VREND_STORAGE_GUEST_MEMORY) ||
+       (has_bit(res->storage_bits, VREND_STORAGE_HOST_SYSTEM_MEMORY) && res->iov)) {
       return vrend_copy_iovec(iov, num_iovs, info->offset,
                               res->iov, res->num_iovs, info->box->x,
                               info->box->width, res->ptr);
    }
 
-   if (res->storage == VREND_RESOURCE_STORAGE_GUEST_ELSE_SYSTEM) {
+   if (has_bit(res->storage_bits, VREND_STORAGE_HOST_SYSTEM_MEMORY)) {
       assert(!res->iov);
       vrend_read_from_iovec(iov, num_iovs, info->offset,
                             res->ptr + info->box->x, info->box->width);
       return 0;
    }
 
-   if (res->storage == VREND_RESOURCE_STORAGE_BUFFER) {
+   if (has_bit(res->storage_bits, VREND_STORAGE_GL_BUFFER)) {
       GLuint map_flags = GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_WRITE_BIT;
       struct virgl_sub_upload_data d;
       d.box = info->box;
@@ -7523,21 +7522,21 @@ static int vrend_renderer_transfer_send_iov(struct vrend_resource *res,
                                             struct iovec *iov, int num_iovs,
                                             const struct vrend_transfer_info *info)
 {
-   if (res->storage == VREND_RESOURCE_STORAGE_GUEST ||
-       (res->storage == VREND_RESOURCE_STORAGE_GUEST_ELSE_SYSTEM && res->iov)) {
+   if (is_only_bit(res->storage_bits, VREND_STORAGE_GUEST_MEMORY) ||
+       (has_bit(res->storage_bits, VREND_STORAGE_HOST_SYSTEM_MEMORY) && res->iov)) {
       return vrend_copy_iovec(res->iov, res->num_iovs, info->box->x,
                               iov, num_iovs, info->offset,
                               info->box->width, res->ptr);
    }
 
-   if (res->storage == VREND_RESOURCE_STORAGE_GUEST_ELSE_SYSTEM) {
+   if (has_bit(res->storage_bits, VREND_STORAGE_HOST_SYSTEM_MEMORY)) {
       assert(!res->iov);
       vrend_write_to_iovec(iov, num_iovs, info->offset,
                            res->ptr + info->box->x, info->box->width);
       return 0;
    }
 
-   if (res->storage == VREND_RESOURCE_STORAGE_BUFFER) {
+   if (has_bit(res->storage_bits, VREND_STORAGE_GL_BUFFER)) {
       uint32_t send_size = info->box->width * util_format_get_blocksize(res->base.format);
       void *data;
 
@@ -7622,9 +7621,8 @@ int vrend_renderer_transfer_iov(const struct vrend_transfer_info *info,
    }
 
 #ifdef ENABLE_GBM_ALLOCATION
-   if (res->gbm_bo &&
-       (transfer_mode == VIRGL_TRANSFER_TO_HOST ||
-        res->storage == VREND_RESOURCE_STORAGE_GBM_ONLY))
+   if (res->gbm_bo && (transfer_mode == VIRGL_TRANSFER_TO_HOST ||
+                       !has_bit(res->storage_bits, VREND_STORAGE_EGL_IMAGE)))
       return virgl_gbm_transfer(res->gbm_bo, transfer_mode, iov, num_iovs, info);
 #endif
 
@@ -8860,7 +8858,7 @@ int vrend_create_query(struct vrend_context *ctx, uint32_t handle,
    uint32_t ret_handle;
    bool fake_samples_passed = false;
    res = vrend_renderer_ctx_res_lookup(ctx, res_handle);
-   if (!res || res->storage != VREND_RESOURCE_STORAGE_GUEST_ELSE_SYSTEM) {
+   if (!res || !has_bit(res->storage_bits, VREND_STORAGE_HOST_SYSTEM_MEMORY)) {
       report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, res_handle);
       return EINVAL;
    }
