@@ -37,6 +37,7 @@ libvrend_la_SOURCES = \
         vrend_strbuf.h \
         vrend_tweaks.c \
         vrend_tweaks.h \
+        vrend_util.h \
         iov.c
 
 if HAVE_EPOXY_EGL

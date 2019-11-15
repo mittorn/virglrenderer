@@ -44,7 +44,8 @@ virglrenderer_sources = [
    'vrend_shader.h',
    'vrend_strbuf.h',
    'vrend_tweaks.c',
-   'vrend_tweaks.h'
+   'vrend_tweaks.h',
+   'vrend_util.h',
 ]
 
 virglrenderer_egl_sources = [
