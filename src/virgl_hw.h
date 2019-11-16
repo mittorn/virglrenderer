@@ -417,8 +417,6 @@ enum virgl_formats {
 
 #define VIRGL_BIND_LINEAR (1 << 22)
 
-#define VIRGL_BIND_IMMUTABLE_STORAGE (1 << 23)
-
 struct virgl_caps_bool_set1 {
         unsigned indep_blend_enable:1;
         unsigned indep_blend_func:1;

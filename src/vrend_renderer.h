@@ -57,6 +57,7 @@ struct vrend_context;
 #define VREND_STORAGE_EGL_IMAGE          BIT(3)
 #define VREND_STORAGE_GBM_BUFFER         BIT(4)
 #define VREND_STORAGE_HOST_SYSTEM_MEMORY BIT(5)
+#define VREND_STORAGE_GL_IMMUTABLE       BIT(6)
 
 enum {
    CONTEXT_NONE,
