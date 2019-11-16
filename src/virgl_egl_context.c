@@ -36,22 +36,45 @@
 #include <stdbool.h>
 #include <epoxy/egl.h>
 #include <xf86drm.h>
+
+#include "util/u_memory.h"
+
 #include "virglrenderer.h"
 #include "virgl_egl.h"
 #include "virgl_hw.h"
 #include "virgl_gbm.h"
+#include "vrend_util.h"
+
+#define EGL_KHR_SURFACELESS_CONTEXT            BIT(0)
+#define EGL_KHR_CREATE_CONTEXT                 BIT(1)
+#define EGL_MESA_DRM_IMAGE                     BIT(2)
+#define EGL_MESA_IMAGE_DMA_BUF_EXPORT          BIT(3)
+#define EGL_MESA_DMA_BUF_IMAGE_IMPORT          BIT(4)
+#define EGL_KHR_GL_COLORSPACE                  BIT(5)
+#define EGL_EXT_IMAGE_DMA_BUF_IMPORT           BIT(6)
+#define EGL_EXT_IMAGE_DMA_BUF_IMPORT_MODIFIERS BIT(7)
+#define EGL_KHR_FENCE_SYNC                     BIT(8)
+
+static const struct {
+   uint32_t bit;
+   const char *string;
+} extensions_list[] = {
+   { EGL_KHR_SURFACELESS_CONTEXT, "EGL_KHR_surfaceless_context" },
+   { EGL_KHR_CREATE_CONTEXT, "EGL_KHR_create_context" },
+   { EGL_MESA_DRM_IMAGE, "EGL_MESA_drm_image" },
+   { EGL_MESA_IMAGE_DMA_BUF_EXPORT, "EGL_MESA_image_dma_buf_export" },
+   { EGL_KHR_GL_COLORSPACE, "EGL_KHR_gl_colorspace" },
+   { EGL_EXT_IMAGE_DMA_BUF_IMPORT, "EGL_EXT_image_dma_buf_import" },
+   { EGL_EXT_IMAGE_DMA_BUF_IMPORT_MODIFIERS, "EGL_EXT_image_dma_buf_import_modifiers" },
+   { EGL_KHR_FENCE_SYNC, "EGL_KHR_fence_sync"}
+};
 
 struct virgl_egl {
    struct virgl_gbm *gbm;
    EGLDisplay egl_display;
    EGLConfig egl_conf;
    EGLContext egl_ctx;
-   bool have_mesa_drm_image;
-   bool have_mesa_dma_buf_img_export;
-   bool have_khr_gl_colorspace;
-   bool have_ext_image_dma_buf_import;
-   bool have_ext_image_dma_buf_import_modifiers;
-   bool have_khr_fence_sync;
+   uint32_t extension_bits;
    bool need_fence_and_wait_external;
 };
 
@@ -84,6 +107,21 @@ static bool virgl_egl_has_extension_in_string(const char *haystack, const char *
    return false;
 }
 
+static int virgl_egl_init_extensions(struct virgl_egl *egl, const char *extensions)
+{
+   for (uint32_t i = 0; i < ARRAY_SIZE(extensions_list); i++) {
+      if (virgl_egl_has_extension_in_string(extensions, extensions_list[i].string))
+         egl->extension_bits |= extensions_list[i].bit;
+   }
+
+   if (!has_bits(egl->extension_bits, EGL_KHR_SURFACELESS_CONTEXT | EGL_KHR_CREATE_CONTEXT)) {
+      vrend_printf( "Missing EGL_KHR_surfaceless_context or EGL_KHR_create_context\n");
+      return -1;
+   }
+
+   return 0;
+}
+
 struct virgl_egl *virgl_egl_init(struct virgl_gbm *gbm, bool surfaceless, bool gles)
 {
    static EGLint conf_att[] = {
@@ -102,7 +140,7 @@ struct virgl_egl *virgl_egl_init(struct virgl_gbm *gbm, bool surfaceless, bool g
    EGLBoolean success;
    EGLenum api;
    EGLint major, minor, num_configs;
-   const char *extension_list;
+   const char *extensions;
    struct virgl_egl *egl;
 
    egl = calloc(1, sizeof(struct virgl_egl));
@@ -167,45 +205,18 @@ struct virgl_egl *virgl_egl_init(struct virgl_gbm *gbm, bool surfaceless, bool g
    if (!success)
       goto fail;
 
-   extension_list = eglQueryString(egl->egl_display, EGL_EXTENSIONS);
+   extensions = eglQueryString(egl->egl_display, EGL_EXTENSIONS);
 #ifdef VIRGL_EGL_DEBUG
    vrend_printf( "EGL major/minor: %d.%d\n", major, minor);
    vrend_printf( "EGL version: %s\n",
            eglQueryString(egl->egl_display, EGL_VERSION));
    vrend_printf( "EGL vendor: %s\n",
            eglQueryString(egl->egl_display, EGL_VENDOR));
-   vrend_printf( "EGL extensions: %s\n", extension_list);
+   vrend_printf( "EGL extensions: %s\n", extensions);
 #endif
-   /* require surfaceless context */
-   if (!virgl_egl_has_extension_in_string(extension_list, "EGL_KHR_surfaceless_context")) {
-      vrend_printf( "failed to find support for surfaceless context\n");
+
+   if (virgl_egl_init_extensions(egl, extensions))
       goto fail;
-   }
-
-   if (!virgl_egl_has_extension_in_string(extension_list, "EGL_KHR_create_context")) {
-      vrend_printf( "failed to find EGL_KHR_create_context extensions\n");
-      goto fail;
-   }
-
-   egl->have_mesa_drm_image = false;
-   egl->have_mesa_dma_buf_img_export = false;
-   if (virgl_egl_has_extension_in_string(extension_list, "EGL_MESA_drm_image"))
-      egl->have_mesa_drm_image = true;
-
-   if (virgl_egl_has_extension_in_string(extension_list, "EGL_MESA_image_dma_buf_export"))
-      egl->have_mesa_dma_buf_img_export = true;
-
-   if (virgl_egl_has_extension_in_string(extension_list, "EGL_EXT_image_dma_buf_import"))
-      egl->have_ext_image_dma_buf_import = true;
-
-   if (virgl_egl_has_extension_in_string(extension_list, "EGL_EXT_image_dma_buf_import_modifiers"))
-      egl->have_ext_image_dma_buf_import_modifiers = true;
-
-   egl->have_khr_gl_colorspace =
-         virgl_egl_has_extension_in_string(extension_list, "EGL_KHR_gl_colorspace");
-
-   egl->have_khr_fence_sync =
-         virgl_egl_has_extension_in_string(extension_list, "EGL_KHR_fence_sync");
 
    // ARM Mali platforms need explicit synchronization prior to mapping.
    if (!strcmp(eglQueryString(egl->egl_display, EGL_VENDOR), "ARM"))
@@ -290,7 +301,7 @@ int virgl_egl_get_fourcc_for_texture(struct virgl_egl *egl, uint32_t tex_id, uin
    EGLImageKHR image;
    EGLBoolean success;
 
-   if (!egl->have_mesa_dma_buf_img_export) {
+   if (!has_bit(egl->extension_bits, EGL_MESA_IMAGE_DMA_BUF_EXPORT)) {
       ret = 0;
       goto fallback;
    }
@@ -324,7 +335,7 @@ int virgl_egl_get_fd_for_texture2(struct virgl_egl *egl, uint32_t tex_id, int *f
                                          (EGLClientBuffer)(unsigned long)tex_id, NULL);
    if (!image)
       return EINVAL;
-   if (!egl->have_mesa_dma_buf_img_export)
+   if (!has_bit(egl->extension_bits, EGL_MESA_IMAGE_DMA_BUF_EXPORT))
       goto out_destroy;
 
    if (!eglExportDMABUFImageMESA(egl->egl_display, image, fd,
@@ -352,12 +363,12 @@ int virgl_egl_get_fd_for_texture(struct virgl_egl *egl, uint32_t tex_id, int *fd
       return EINVAL;
 
    ret = EINVAL;
-   if (egl->have_mesa_dma_buf_img_export) {
+   if (has_bit(egl->extension_bits, EGL_MESA_IMAGE_DMA_BUF_EXPORT)) {
       success = eglExportDMABUFImageMESA(egl->egl_display, image, fd, &stride,
                                          &offset);
       if (!success)
          goto out_destroy;
-   } else if (egl->have_mesa_drm_image) {
+   } else if (has_bit(egl->extension_bits, EGL_MESA_DRM_IMAGE)) {
       EGLint handle;
       success = eglExportDRMImageMESA(egl->egl_display, image, NULL, &handle,
                                       &stride);
@@ -383,7 +394,7 @@ int virgl_egl_get_fd_for_texture(struct virgl_egl *egl, uint32_t tex_id, int *fd
 
 bool virgl_has_egl_khr_gl_colorspace(struct virgl_egl *egl)
 {
-   return egl->have_khr_gl_colorspace;
+   return has_bit(egl->extension_bits, EGL_KHR_GL_COLORSPACE);
 }
 
 void *virgl_egl_image_from_dmabuf(struct virgl_egl *egl, struct gbm_bo *bo)
@@ -424,7 +435,7 @@ void *virgl_egl_image_from_dmabuf(struct virgl_egl *egl, struct gbm_bo *bo)
       khr_image_attrs[attrs_index++] = gbm_bo_get_offset(bo, plane);
       khr_image_attrs[attrs_index++] = EGL_DMA_BUF_PLANE0_PITCH_EXT + plane * 3;
       khr_image_attrs[attrs_index++] = gbm_bo_get_stride_for_plane(bo, plane);
-      if (egl->have_ext_image_dma_buf_import_modifiers) {
+      if (has_bit(egl->extension_bits, EGL_EXT_IMAGE_DMA_BUF_IMPORT_MODIFIERS)) {
          const uint64_t modifier = gbm_bo_get_modifier(bo);
          khr_image_attrs[attrs_index++] =
          EGL_DMA_BUF_PLANE0_MODIFIER_LO_EXT + plane * 2;
@@ -478,7 +489,7 @@ void *virgl_egl_aux_plane_image_from_dmabuf(struct virgl_egl *egl, struct gbm_bo
       gbm_bo_get_stride_for_plane(bo, plane),
    };
 
-   if (egl->have_ext_image_dma_buf_import_modifiers) {
+   if (has_bit(egl->extension_bits, EGL_EXT_IMAGE_DMA_BUF_IMPORT_MODIFIERS)) {
       const uint64_t modifier = gbm_bo_get_modifier(bo);
       khr_image_attrs[12] = EGL_DMA_BUF_PLANE0_MODIFIER_LO_EXT;
       khr_image_attrs[13] = modifier & 0xfffffffful;
@@ -512,7 +523,7 @@ void virgl_egl_fence_and_wait_external(struct virgl_egl *egl)
                                  EGL_NONE};
    EGLSyncKHR fence;
 
-   if (!egl || !egl->have_khr_fence_sync) {
+   if (!egl || !has_bit(egl->extension_bits, EGL_KHR_FENCE_SYNC)) {
       return;
    }
 
