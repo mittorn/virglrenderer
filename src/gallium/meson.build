@@ -123,7 +123,7 @@ libgallium = static_library(
    'gallium',
    [sources_libgallium, u_format_table_c],
    include_directories : [
-      inc_gallium, '..'
+      inc_gallium, include_directories('..')
    ],
 )
 

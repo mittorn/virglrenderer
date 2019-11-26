@@ -1,4 +1,4 @@
-FROM debian:testing-slim
+FROM debian:buster-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV GOPATH=/usr/local/go
@@ -6,8 +6,8 @@ ENV PATH=$PATH:/usr/local/go/bin
 ENV LD_LIBRARY_PATH=/usr/local/lib64:/usr/local/lib:/usr/local/lib/x86_64-linux-gnu
 ENV PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig:/usr/local/share/pkgconfig:/usr/local/lib/x86_64-linux-gnu/pkgconfig
 ENV LDFLAGS="-L/usr/local/lib64 -L/usr/local/lib/ -L/usr/local/lib/x86_64-linux-gnu"
-ENV CC="gcc-9"
-ENV CXX="g++-9"
+ENV CC="gcc-8"
+ENV CXX="g++-8"
 ENV CFLAGS="-g3"
 ENV CXXFLAGS="-g3"
 ENV GIT_DATE="`date +%Y-%m-%d -d \"15 months ago\"`"
@@ -20,7 +20,8 @@ RUN echo '#!/bin/sh' > /usr/sbin/policy-rc.d
 RUN echo 'exit 101' >> /usr/sbin/policy-rc.d
 RUN chmod +x /usr/sbin/policy-rc.d
 
-RUN echo deb-src http://deb.debian.org/debian testing main >> /etc/apt/sources.list
+RUN echo deb-src http://deb.debian.org/debian buster main >> /etc/apt/sources.list
+RUN echo deb http://deb.debian.org/debian buster-backports main >> /etc/apt/sources.list
 RUN apt-get update && \
     apt-get -y install ca-certificates && \
     apt-get -y install --no-install-recommends \
@@ -32,10 +33,10 @@ RUN apt-get update && \
       cmake \
       dbus \
       libepoxy-dev \
-      g++-9 \
-      gcc-9 \
+      g++-8 \
+      gcc-8 \
       gdb \
-      gdc-9 \
+      gdc-8 \
       git \
       golang-go \
       kbd \
