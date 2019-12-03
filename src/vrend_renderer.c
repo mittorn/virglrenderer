@@ -8243,8 +8243,9 @@ static GLuint vrend_make_view(struct vrend_resource *res, enum virgl_formats for
 {
    GLuint view_id;
    glGenTextures(1, &view_id);
-
+#ifndef NDEBUG
    enum virgl_formats src_fmt = vrend_format_replace_emulated(res->base.bind, res->base.format);
+#endif
    enum virgl_formats dst_fmt = vrend_format_replace_emulated(res->base.bind, format);
 
    GLenum fmt = tex_conv_table[dst_fmt].internalformat;
