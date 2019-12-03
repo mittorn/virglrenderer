@@ -161,7 +161,7 @@ int virgl_renderer_resource_attach_iov(int res_handle, struct iovec *iov,
 
 void virgl_renderer_resource_detach_iov(int res_handle, struct iovec **iov_p, int *num_iovs_p)
 {
-   return vrend_renderer_resource_detach_iov(res_handle, iov_p, num_iovs_p);
+   vrend_renderer_resource_detach_iov(res_handle, iov_p, num_iovs_p);
 }
 
 int virgl_renderer_create_fence(int client_fence_id, uint32_t ctx_id)
@@ -243,14 +243,18 @@ static virgl_renderer_gl_context create_gl_context(int scanout_idx, struct virgl
 static void destroy_gl_context(virgl_renderer_gl_context ctx)
 {
 #ifdef HAVE_EPOXY_EGL_H
-   if (use_context == CONTEXT_EGL)
-      return virgl_egl_destroy_context(egl, ctx);
+   if (use_context == CONTEXT_EGL) {
+      virgl_egl_destroy_context(egl, ctx);
+      return;
+   }
 #endif
 #ifdef HAVE_EPOXY_GLX_H
-   if (use_context == CONTEXT_GLX)
-      return virgl_glx_destroy_context(glx_info, ctx);
+   if (use_context == CONTEXT_GLX) {
+      virgl_glx_destroy_context(glx_info, ctx);
+      return;
+   }
 #endif
-   return rcbs->destroy_gl_context(dev_cookie, ctx);
+   rcbs->destroy_gl_context(dev_cookie, ctx);
 }
 
 static int make_current(virgl_renderer_gl_context ctx)
