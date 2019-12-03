@@ -28,7 +28,7 @@
 #include <errno.h>
 
 struct vtest_buffer {
-   const void *buffer;
+   const char *buffer;
    int size;
 };
 

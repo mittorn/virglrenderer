@@ -118,7 +118,7 @@ static void free_iovec(void *value)
 
 static int vtest_block_write(int fd, void *buf, int size)
 {
-   void *ptr = buf;
+   char *ptr = buf;
    int left;
    int ret;
    left = size;
@@ -139,7 +139,7 @@ static int vtest_block_write(int fd, void *buf, int size)
 int vtest_block_read(struct vtest_input *input, void *buf, int size)
 {
    int fd = input->data.fd;
-   void *ptr = buf;
+   char *ptr = buf;
    int left;
    int ret;
    static int savefd = -1;
