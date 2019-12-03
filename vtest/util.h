@@ -32,9 +32,9 @@ int __failed_call(const char* func, const char *called, int ret);
 int __failure(const char* func, const char *reason, int ret);
 
 #define report_failure(reason, ret) \
-   __failure(__FUNCTION__, reason, ret)
+   __failure(__func__, reason, ret)
 
 #define report_failed_call(called, ret) \
-   __failed_call(__FUNCTION__, called, ret)
+   __failed_call(__func__, called, ret)
 
 #endif /* VTEST_UTIL_H */
