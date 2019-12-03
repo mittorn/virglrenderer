@@ -2745,7 +2745,7 @@ create_swizzled_clipdist(struct dump_ctx *ctx,
                          const char *prefix,
                          const char *arrayname, int offset)
 {
-   char clipdistvec[4][64] = {};
+   char clipdistvec[4][64] = { 0, };
 
    char clip_indirect[32] = "";
 
