@@ -68,6 +68,7 @@ enum {
 extern int use_context;
 #ifdef HAVE_EPOXY_EGL_H
 extern struct virgl_egl *egl;
+extern struct virgl_gbm *gbm;
 #endif
 
 

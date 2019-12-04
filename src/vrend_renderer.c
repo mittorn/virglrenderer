@@ -10148,6 +10148,7 @@ void vrend_print_context_name(struct vrend_context *ctx)
 
 #ifdef HAVE_EPOXY_EGL_H
 struct virgl_egl *egl = NULL;
+struct virgl_gbm *gbm = NULL;
 #endif
 
 int virgl_has_gl_colorspace(void)
