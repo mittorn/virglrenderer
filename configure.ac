@@ -137,10 +137,11 @@ AM_CONDITIONAL(HAVE_VALGRIND, [test "x$VALGRIND" != "x"])
 AM_CONDITIONAL(BUILD_TESTS, [test "x$build_tests" = "xyes"])
 
 LIBDRM_REQUIRED=2.4.50
+LIBGBM_REQUIRED=18.0.0
 
 if test "x$os_win32" = xno && test "x$enable_egl" != "xno"; then
 	PKG_CHECK_MODULES([LIBDRM], [libdrm >= $LIBDRM_REQUIRED])
-	PKG_CHECK_MODULES([GBM], [gbm])
+	PKG_CHECK_MODULES([GBM], [gbm >= $LIBGBM_REQUIRED])
 fi
 
 PKG_CHECK_MODULES([EPOXY], [epoxy])
@@ -158,13 +159,6 @@ if test "x$enable_gbm_allocation" = xyes; then
 		AC_MSG_ERROR([GBM integration requires EGL support])
 	fi
 	AC_DEFINE([ENABLE_GBM_ALLOCATION], [1], [GBM will be used to allocate in some cases])
-fi
-
-if test "x$os_win32" = xno; then
-	AS_IF([test "x$epoxy_has_egl" = "x1"], [
-		PKG_CHECK_MODULES([LIBDRM], [libdrm >= $LIBDRM_REQUIRED])
-		PKG_CHECK_MODULES([GBM], [gbm  >= 18.0.0 ])
-	])
 fi
 
 epoxy_has_glx=`$PKG_CONFIG --variable=epoxy_has_glx epoxy`
