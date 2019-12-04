@@ -32,7 +32,6 @@ RUN apt-get update && \
       clang-8 \
       cmake \
       dbus \
-      libepoxy-dev \
       g++-8 \
       gcc-8 \
       gdb \
@@ -78,6 +77,7 @@ RUN apt-get update && \
       xvfb \
       zlib1g-dev && \
     apt-get -y build-dep --no-install-recommends \
+      libepoxy-dev \
       libdrm \
       mesa \
       piglit \
@@ -141,6 +141,19 @@ RUN git clone --shallow-since="$GIT_DATE" https://gitlab.freedesktop.org/mesa/pi
     rm -rf /usr/local/lib/piglit/generated_tests/spec/arb_vertex_attrib_64bit && \
     rm -rf /usr/local/lib/piglit/generated_tests/spec/glsl-4.20 && \
     rm -rf /piglit
+WORKDIR /
+
+ARG KNOWN_GOOD_EPOXY
+ENV KNOWN_GOOD_EPOXY ${KNOWN_GOOD_EPOXY:-5d818164dd2ab87b0054641f1446bc552a602320}
+WORKDIR /epoxy
+RUN git clone --shallow-since="$GIT_DATE" https://github.com/anholt/libepoxy.git . && \
+    git checkout ${KNOWN_GOOD_EPOXY} && \
+    git log --oneline -n 1 && \
+    mkdir -p build && \
+    meson build/ && \
+    meson configure build/ -Dprefix=/usr/local -Dlibdir=lib && \
+    ninja -C build/ install >/dev/null && \
+    rm -rf /epoxy
 WORKDIR /
 
 ARG KNOWN_GOOD_DRM=libdrm-2.4.99

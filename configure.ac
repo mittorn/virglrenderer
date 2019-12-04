@@ -144,7 +144,8 @@ if test "x$os_win32" = xno && test "x$enable_egl" != "xno"; then
 	PKG_CHECK_MODULES([GBM], [gbm >= $LIBGBM_REQUIRED])
 fi
 
-PKG_CHECK_MODULES([EPOXY], [epoxy])
+LIBEPOXY_REQURED=1.5.4
+PKG_CHECK_MODULES([EPOXY], [epoxy >= $LIBEPOXY_REQURED])
 epoxy_has_egl=`$PKG_CONFIG --variable=epoxy_has_egl epoxy`
 AS_IF([test "x$epoxy_has_egl" = "x1" && test "x$enable_egl" != "xno"], [
   epoxy_has_egl=yes

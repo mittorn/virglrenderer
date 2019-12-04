@@ -56,7 +56,7 @@ prog_python = import('python').find_installation('python3')
 
 libdrm_dep = dependency('libdrm', version : '>=2.4.50')
 thread_dep = dependency('threads')
-epoxy_dep = dependency('epoxy')
+epoxy_dep = dependency('epoxy', version: '>= 1.5.4')
 m_dep = cc.find_library('m')
 
 conf_data = configuration_data()
