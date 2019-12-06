@@ -49,7 +49,7 @@ run_setup()
    if [ "x$use_meson" = "x" ]; then
       if [ -d "$VIRGL_PATH" ]; then
           cd $VIRGL_PATH
-          ./autogen.sh --prefix=/usr/local --enable-debug --enable-tests
+          ./autogen.sh --prefix=/usr/local --enable-debug --enable-tests --enable-autotools
           make -j$NUM_THREADS install
       fi
    else
@@ -93,7 +93,7 @@ run_make_check_meson()
 
 run_deqp()
 {
-   run_setup
+   run_setup meson
    OGL_BACKEND="$1"
    SUITE="$2"
 
@@ -135,7 +135,7 @@ run_deqp()
 
 run_piglit()
 {
-   run_setup
+   run_setup meson
 
    OGL_BACKEND="$1"
 

@@ -4,6 +4,19 @@ AC_PREREQ([2.60])
 
 AC_INIT([virglrenderer], [0.8.0],
     [virglrenderer-devel@lists.freedesktop.org])
+
+AC_ARG_ENABLE(autotools,
+	      AS_HELP_STRING([--enable-autotools],
+              [Enable the use of the now deprecated autotools build]),
+	      [force_autotools=$enableval])
+
+if test "x$force_autotools" != "xyes"; then
+  AC_MSG_ERROR([The autotools build system is deprecated, please try the
+  new meson build system.
+    > meson <src-dir> [<build-dir>]
+  To force the use of autotools run configure with --enable-autotools])
+fi
+
 AC_CONFIG_SRCDIR([Makefile.am])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_AUX_DIR([build-aux])
