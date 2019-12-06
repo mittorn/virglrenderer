@@ -84,8 +84,8 @@ libvirglrenderer = shared_library(
    include_directories: [inc_gallium, inc_configuration],
    dependencies : virglrenderer_depends,
    version : binary_age.to_string() + '.'
-             + revision.to_string() + '.'
-             + interface_age.to_string(),
+             + interface_age.to_string() + '.'
+             + revision.to_string(),
    install : true
 )
 

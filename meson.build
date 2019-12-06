@@ -30,9 +30,17 @@ project(
                       'warning_level=3', 'c_std=gnu11']
 )
 
+# To change only before doing a release:
+#
+# 1. Incrememnt the revision
+# 2. If the interface was changed in an compatible way increment the
+#    interface age
+# 3. If the ABI has changed in an incompatible way increment the binary_age
+#    and set revision and interface_age to zero
+
 binary_age    = 1
-revision      = 4
-interface_age = 0
+interface_age = 4
+revision      = 1
 
 cc = meson.get_compiler('c')
 
