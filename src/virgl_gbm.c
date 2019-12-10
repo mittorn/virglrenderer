@@ -306,6 +306,7 @@ int virgl_gbm_convert_format(uint32_t *virgl_format, uint32_t *gbm_format)
     return -1;
 }
 
+#ifdef ENABLE_GBM_ALLOCATION
 int virgl_gbm_transfer(struct gbm_bo *bo, uint32_t direction, struct iovec *iovecs,
                        uint32_t num_iovecs, const struct vrend_transfer_info *info)
 {
@@ -391,17 +392,6 @@ uint32_t virgl_gbm_convert_flags(uint32_t virgl_bind_flags)
    return flags;
 }
 
-int virgl_gbm_export_fd(struct gbm_device *gbm, uint32_t handle, int32_t *out_fd)
-{
-   int ret;
-   ret = drmPrimeHandleToFD(gbm_device_get_fd(gbm), handle, DRM_CLOEXEC | DRM_RDWR, out_fd);
-   // Kernels with older DRM core versions block DRM_RDWR but give a
-   // read/write mapping anyway.
-   if (ret)
-      ret = drmPrimeHandleToFD(gbm_device_get_fd(gbm), handle, DRM_CLOEXEC, out_fd);
-
-   return ret;
-}
 
 int virgl_gbm_export_query(struct gbm_bo *bo, struct virgl_renderer_export_query *query)
 {
@@ -459,6 +449,19 @@ err_close:
    }
 
    query->out_num_fds = 0;
+   return ret;
+}
+#endif
+
+int virgl_gbm_export_fd(struct gbm_device *gbm, uint32_t handle, int32_t *out_fd)
+{
+   int ret;
+   ret = drmPrimeHandleToFD(gbm_device_get_fd(gbm), handle, DRM_CLOEXEC | DRM_RDWR, out_fd);
+   // Kernels with older DRM core versions block DRM_RDWR but give a
+   // read/write mapping anyway.
+   if (ret)
+      ret = drmPrimeHandleToFD(gbm_device_get_fd(gbm), handle, DRM_CLOEXEC, out_fd);
+
    return ret;
 }
 

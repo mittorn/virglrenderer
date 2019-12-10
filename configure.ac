@@ -137,7 +137,12 @@ AM_CONDITIONAL(HAVE_VALGRIND, [test "x$VALGRIND" != "x"])
 AM_CONDITIONAL(BUILD_TESTS, [test "x$build_tests" = "xyes"])
 
 LIBDRM_REQUIRED=2.4.50
-LIBGBM_REQUIRED=18.0.0
+
+if test "x$enable_gbm_allocation" = xyes; then
+	LIBGBM_REQUIRED=18.0.0
+else
+	LIBGBM_REQUIRED=0.0.0
+fi
 
 if test "x$os_win32" = xno && test "x$enable_egl" != "xno"; then
 	PKG_CHECK_MODULES([LIBDRM], [libdrm >= $LIBDRM_REQUIRED])

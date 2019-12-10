@@ -397,6 +397,7 @@ bool virgl_has_egl_khr_gl_colorspace(struct virgl_egl *egl)
    return has_bit(egl->extension_bits, EGL_KHR_GL_COLORSPACE);
 }
 
+#ifdef ENABLE_GBM_ALLOCATION
 void *virgl_egl_image_from_dmabuf(struct virgl_egl *egl, struct gbm_bo *bo)
 {
    int ret;
@@ -510,6 +511,7 @@ void virgl_egl_image_destroy(struct virgl_egl *egl, void *image)
 {
    eglDestroyImageKHR(egl->egl_display, image);
 }
+#endif
 
 bool virgl_egl_need_fence_and_wait_external(struct virgl_egl *egl)
 {

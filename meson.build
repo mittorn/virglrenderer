@@ -96,9 +96,17 @@ with_glx = require_glx or auto_egl_glx
 have_egl = false
 have_glx = false
 
+with_gbm_allocation = get_option('gbm_allocation')
+if with_gbm_allocation
+   conf_data.set('ENABLE_GBM_ALLOCATION', 1)
+   _gbm_ver = '18.0.0'
+else
+   _gbm_ver = '0.0.0'
+endif
+
 if with_egl
    if cc.has_header('epoxy/egl.h') and epoxy_dep.get_pkgconfig_variable('epoxy_has_egl') == '1'
-      gbm_dep = dependency('gbm', version: '>= 18.0.0', required: require_egl)
+      gbm_dep = dependency('gbm', version: '>= ' + _gbm_ver, required: require_egl)
       have_egl = gbm_dep.found()
       conf_data.set('HAVE_EPOXY_EGL_H', 1)
    else
@@ -120,11 +128,6 @@ endif
 
 if cc.compiles('void __attribute__((hidden)) func() {}')
    conf_data.set('HAVE_FUNC_ATTRIBUTE_VISIBILITY', 1)
-endif
-
-with_gbm_allocation = get_option('gbm_allocation')
-if with_gbm_allocation
-   conf_data.set('ENABLE_GBM_ALLOCATION', 1)
 endif
 
 configure_file(input : 'config.h.meson',
