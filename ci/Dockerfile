@@ -156,7 +156,7 @@ RUN git clone --shallow-since="$GIT_DATE" https://github.com/anholt/libepoxy.git
     rm -rf /epoxy
 WORKDIR /
 
-ARG KNOWN_GOOD_DRM=libdrm-2.4.99
+ARG KNOWN_GOOD_DRM=libdrm-2.4.100
 WORKDIR /drm
 RUN git clone --shallow-since="$GIT_DATE" https://gitlab.freedesktop.org/mesa/drm.git . && \
     git checkout ${KNOWN_GOOD_DRM} && \
@@ -169,7 +169,7 @@ RUN git clone --shallow-since="$GIT_DATE" https://gitlab.freedesktop.org/mesa/dr
 WORKDIR /
 
 ARG KNOWN_GOOD_MESA
-ENV KNOWN_GOOD_MESA ${KNOWN_GOOD_MESA:-966a455bb912cc9fd22580c6cf9b74e27faa4491}
+ENV KNOWN_GOOD_MESA ${KNOWN_GOOD_MESA:-2c5eb1df681e28c23e24219eab803b6d4da5aa38}
 RUN echo $KNOWN_GOOD_MESA
 ARG MESA_REPO
 ENV MESA_REPO ${MESA_REPO:-https://gitlab.freedesktop.org/mesa/mesa.git}
