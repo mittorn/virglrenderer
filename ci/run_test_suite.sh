@@ -241,6 +241,7 @@ run_test_suite()
 
       fi
 
+      EGL_PLATFORM=x11 \
       piglit run --platform x11_egl \
          -l verbose \
          --jobs $NUM_THREADS \
@@ -249,6 +250,8 @@ run_test_suite()
          /tmp/  &> $LOG_FILE
 
       piglit summary console /tmp/ | grep -B 999999 "summary:" | grep -v "summary:" > "$RES_FILE"
+
+      piglit summary html  $(dirname "$RES_FILE")/summary /tmp
 
       TOTAL_TESTS=$(cat $RES_FILE | wc -l)
       PASSED_TESTS=$(grep " pass" $RES_FILE | wc -l)
