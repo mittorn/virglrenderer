@@ -8276,10 +8276,6 @@ static GLuint vrend_make_view(struct vrend_resource *res, enum virgl_formats for
                util_format_name(format),
                format != dst_fmt ? "(emulated)" : "");
 
-   unsigned layers_factor = 1;
-   if (res->target == GL_TEXTURE_CUBE_MAP || res->target == GL_TEXTURE_CUBE_MAP_ARRAY)
-      layers_factor = 6;
-
    if (vrend_state.use_gles) {
       assert(res->target != GL_TEXTURE_RECTANGLE_NV);
       assert(res->target != GL_TEXTURE_1D);
@@ -8287,7 +8283,7 @@ static GLuint vrend_make_view(struct vrend_resource *res, enum virgl_formats for
    }
 
    glTextureView(view_id, res->target, res->id, fmt, 0, res->base.last_level + 1,
-                 0, layers_factor * res->base.depth0);
+                 0, res->base.array_size);
    return view_id;
 }
 
