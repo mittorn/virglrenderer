@@ -36,7 +36,7 @@ virgl_test_server_sources = [
 virgl_test_server = executable(
    'virgl_test_server',
    virgl_test_server_sources,
-   dependencies : libvirglrenderer_dep,
+   dependencies : [libvirglrenderer_dep, gallium_dep],
    install : true
 )
 
@@ -55,6 +55,6 @@ if with_fuzzer
       c_args : [ '-fsanitize=address', '-fsanitize=fuzzer' ],
       link_args : [ '-fsanitize=address', '-fsanitize=fuzzer' ],
       objects : vtest_obj,
-      dependencies : libvirglrenderer_dep
+      dependencies : libvirgl_dep
    )
 endif

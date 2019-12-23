@@ -60,6 +60,16 @@ foreach w : warnings
    endif
 endforeach
 
+flags = [
+   '-fvisibility=hidden',
+]
+
+foreach f : flags
+   if cc.has_argument(f)
+      add_project_arguments(f, language : 'c')
+   endif
+endforeach
+
 prog_python = import('python').find_installation('python3')
 
 libdrm_dep = dependency('libdrm', version : '>=2.4.50')

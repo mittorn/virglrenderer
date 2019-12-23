@@ -23,12 +23,10 @@
 
 subdir('gallium')
 
-virglrenderer_sources = [
+virgl_sources = [
    'iov.c',
    'virgl_hw.h',
    'virgl_protocol.h',
-   'virglrenderer.c',
-   'virglrenderer.h',
    'vrend_blitter.c',
    'vrend_blitter.h',
    'vrend_debug.c',
@@ -48,19 +46,25 @@ virglrenderer_sources = [
    'vrend_util.h',
 ]
 
-virglrenderer_egl_sources = [
+virglrenderer_sources = [
+   'virglrenderer.c',
+   'virglrenderer.h',
+]
+
+
+virgl_egl_sources = [
    'virgl_gbm.c',
    'virgl_gbm.h',
    'virgl_egl_context.c',
    'virgl_egl.h',
 ]
 
-virglrenderer_glx_sources = [
+virgl_glx_sources = [
    'virgl_glx_context.c',
    'virgl_glx.h',
 ]
 
-virglrenderer_depends = [
+virgl_depends = [
    gallium_dep,
    epoxy_dep,
    libdrm_dep,
@@ -69,35 +73,48 @@ virglrenderer_depends = [
 ]
 
 if have_egl
-   virglrenderer_sources += virglrenderer_egl_sources
-   virglrenderer_depends += [gbm_dep]
+   virgl_sources += virgl_egl_sources
+   virgl_depends += [gbm_dep]
 endif
 
 if have_glx
-   virglrenderer_sources += virglrenderer_glx_sources
-   virglrenderer_depends += [glx_dep]
+   virgl_sources += virgl_glx_sources
+   virgl_depends += [glx_dep]
 endif
+
+libvirgl = static_library(
+   'virgl',
+   virgl_sources,
+   include_directories: [inc_gallium, inc_configuration],
+   dependencies : virgl_depends,
+)
+
+libvirgl_inc = [
+   inc_gallium,
+   inc_configuration,
+   include_directories('.')
+]
+
+libvirgl_dep = declare_dependency(
+   link_with: libvirgl,
+   include_directories: libvirgl_inc
+)
 
 libvirglrenderer = shared_library(
    'virglrenderer',
    virglrenderer_sources,
    include_directories: [inc_gallium, inc_configuration],
-   dependencies : virglrenderer_depends,
+   dependencies : [virgl_depends, libvirgl_dep],
    version : binary_age.to_string() + '.'
              + interface_age.to_string() + '.'
              + revision.to_string(),
    install : true
 )
 
-libvirglrenderer_inc = [
-   inc_gallium,
-   inc_configuration,
-   include_directories('.')
-]
-
 libvirglrenderer_dep = declare_dependency(
    link_with: libvirglrenderer,
-   include_directories: libvirglrenderer_inc
+   include_directories: libvirgl_inc,
+   dependencies : [libvirgl_dep, gallium_dep]
 )
 
 install_headers('virglrenderer.h', subdir : 'virgl')

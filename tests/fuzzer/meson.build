@@ -29,5 +29,5 @@ virgl_fuzzer = executable(
    'virgl_fuzzer.c',
    c_args : [ '-fsanitize=address', '-fsanitize=fuzzer' ],
    link_args : [ '-fsanitize=address', '-fsanitize=fuzzer' ],
-   dependencies : [libvirglrenderer_dep, epoxy_dep]
+   dependencies : [libvirgl_dep, gallium_dep, epoxy_dep]
 )

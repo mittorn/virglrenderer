@@ -30,11 +30,11 @@ libvrtest_sources = [
    'testvirgl_encode.h',
 ]
 
-libvrtest = library(
+libvrtest = static_library(
    'vrtest',
    libvrtest_sources,
    dependencies : [
-      libvirglrenderer_dep,
+      libvirgl_dep,
       gallium_dep,
       check_dep
    ]
