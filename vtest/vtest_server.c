@@ -39,7 +39,9 @@
 #include "vtest.h"
 #include "vtest_protocol.h"
 #include "virglrenderer.h"
-
+#ifdef HAVE_SYS_SELECT_H
+#include <sys/select.h>
+#endif
 
 
 struct vtest_program

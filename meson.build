@@ -96,6 +96,10 @@ if cc.has_header('sys/eventfd.h')
    conf_data.set('HAVE_EVENTFD_H', 1)
 endif
 
+if cc.has_header('sys/select.h')
+  conf_data.set('HAVE_SYS_SELECT_H', 1)
+endif
+
 debug_enabled = get_option('debug')
 
 if debug_enabled
