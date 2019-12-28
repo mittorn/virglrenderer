@@ -127,7 +127,7 @@ else
 endif
 
 if with_egl
-   if cc.has_header('epoxy/egl.h') and epoxy_dep.get_pkgconfig_variable('epoxy_has_egl') == '1'
+   if cc.has_header('epoxy/egl.h', dependencies: epoxy_dep) and epoxy_dep.get_pkgconfig_variable('epoxy_has_egl') == '1'
       gbm_dep = dependency('gbm', version: '>= ' + _gbm_ver, required: require_egl)
       have_egl = gbm_dep.found()
       conf_data.set('HAVE_EPOXY_EGL_H', 1)
@@ -138,7 +138,7 @@ if with_egl
 endif
 
 if with_glx
-   if cc.has_header('epoxy/glx.h') and epoxy_dep.get_pkgconfig_variable('epoxy_has_glx') == '1'
+   if cc.has_header('epoxy/glx.h', dependencies: epoxy_dep) and epoxy_dep.get_pkgconfig_variable('epoxy_has_glx') == '1'
       glx_dep = dependency('x11', required: require_glx)
       have_glx = glx_dep.found()
       conf_data.set('HAVE_EPOXY_GLX_H', 1)
