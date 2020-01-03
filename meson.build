@@ -100,9 +100,7 @@ if cc.has_header('sys/select.h')
   conf_data.set('HAVE_SYS_SELECT_H', 1)
 endif
 
-debug_enabled = get_option('debug')
-
-if debug_enabled
+if get_option('buildtype') == 'debug'
    add_global_arguments('-DDEBUG=1', language : 'c')
 endif
 
@@ -197,7 +195,6 @@ lines += 'glx:       ' + (have_glx ? 'yes' : 'no')
 lines += ''
 lines += 'gbm_alloc: ' + (with_gbm_allocation ? 'yes' : 'no' )
 lines += ''
-lines += 'debug:     ' + (debug_enabled ? 'yes' : 'no' )
 lines += 'tests:     ' + (with_tests ? 'yes' : 'no' )
 lines += 'fuzzer:    ' + (with_fuzzer ? 'yes' : 'no' )
 
