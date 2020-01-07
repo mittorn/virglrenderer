@@ -362,9 +362,6 @@ void vrend_render_condition(struct vrend_context *ctx,
                             bool condtion,
                             uint mode);
 void *vrend_renderer_get_cursor_contents(uint32_t res_handle, uint32_t *width, uint32_t *height);
-void vrend_bind_va(GLuint vaoid);
-int vrend_renderer_flush_buffer_res(struct vrend_resource *res,
-                                    struct pipe_box *box);
 
 void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
                               union virgl_caps *caps);
