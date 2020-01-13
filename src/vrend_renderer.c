@@ -7378,6 +7378,10 @@ static int vrend_transfer_send_readpixels(struct vrend_resource *res,
    if (actually_invert && !has_feature(feat_mesa_invert))
       separate_invert = true;
 
+#ifdef PIPE_ARCH_BIG_ENDIAN
+   glPixelStorei(GL_PACK_SWAP_BYTES, 1);
+#endif
+
    if (num_iovs > 1 || separate_invert)
       need_temp = 1;
 
@@ -7492,6 +7496,11 @@ static int vrend_transfer_send_readpixels(struct vrend_resource *res,
    if (!need_temp && row_stride)
       glPixelStorei(GL_PACK_ROW_LENGTH, 0);
    glPixelStorei(GL_PACK_ALIGNMENT, 4);
+
+#ifdef PIPE_ARCH_BIG_ENDIAN
+   glPixelStorei(GL_PACK_SWAP_BYTES, 0);
+#endif
+
    if (need_temp) {
       write_transfer_data(&res->base, iov, num_iovs, data,
                           info->stride, info->box, info->level, info->offset,
