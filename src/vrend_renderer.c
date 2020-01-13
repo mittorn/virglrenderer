@@ -6460,7 +6460,6 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
       } else {
          vrend_printf( "missing GL_OES_EGL_image_external extensions\n");
          glBindTexture(gr->target, 0);
-         FREE(gr);
          return EINVAL;
       }
    } else {
@@ -6471,7 +6470,6 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
       if (internalformat == 0) {
          vrend_printf("unknown format is %d\n", pr->format);
          glBindTexture(gr->target, 0);
-         FREE(gt);
          return EINVAL;
       }
 
