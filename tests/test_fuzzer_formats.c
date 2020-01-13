@@ -146,6 +146,28 @@ static void test_format_wrong_size()
    virgl_renderer_submit_cmd((void *) cmd, ctx_id, VIRGL_CMD_BLIT_SIZE + 1);
 }
 
+static void test_format_fail_and_double_free()
+{
+   struct virgl_renderer_resource_create_args args;
+
+   args.handle = 1;
+   args.target = 3;
+   args.format = 191;
+   args.bind = 10;
+   args.width = 49;
+   args.height = 0;
+   args.depth = 0;
+   args.array_size = 0;
+   args.last_level = 0;
+   args.nr_samples = 0;
+   args.flags = 0;
+
+   virgl_renderer_resource_create(&args, NULL, 0);
+   virgl_renderer_ctx_attach_resource(ctx_id, args.handle);
+}
+
+
+
 
 /* Issue #141 */
 static void test_blit_info_format_check()
@@ -659,6 +681,7 @@ int main()
    initialize_environment();
 
    test_format_wrong_size();
+   test_format_fail_and_double_free();
    test_blit_info_format_check();
    test_blit_info_format_check_null_format();
    test_format_is_plain_nullptr_deref_trigger();
