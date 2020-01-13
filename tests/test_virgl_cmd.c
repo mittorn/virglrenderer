@@ -67,6 +67,12 @@ START_TEST(virgl_test_overlap_obj_id)
 }
 END_TEST
 
+#ifdef PIPE_ARCH_LITTLE_ENDIAN
+static const uint32_t test_green = 0xff00ff00;
+#else
+static const uint32_t test_green = 0x00ff00ff;
+#endif
+
 /* create a resource - clear it to a color, do a transfer */
 START_TEST(virgl_test_clear)
 {
@@ -127,7 +133,7 @@ START_TEST(virgl_test_clear)
     /* check the returned values */
     for (i = 0; i < 5; i++) {
 	uint32_t *ptr = res.iovs[0].iov_base;
-	ck_assert_int_eq(ptr[i], 0xff00ff00);
+	ck_assert_int_eq(ptr[i], test_green);
     }
 
     /* cleanup */
@@ -216,7 +222,7 @@ START_TEST(virgl_test_blit_simple)
     /* check the returned values */
     for (i = 0; i < 5; i++) {
 	uint32_t *ptr = res2.iovs[0].iov_base;
-	ck_assert_int_eq(ptr[i], 0xff00ff00);
+	ck_assert_int_eq(ptr[i], test_green);
     }
 
     /* cleanup */
@@ -460,7 +466,7 @@ START_TEST(virgl_test_render_simple)
 	uint32_t *ptr = res.iovs[0].iov_base;
 	for (h = 0; h < th; h++) {
 	    for (w = 0; w < tw; w++) {
-		if (ptr[h * tw + w] != 0xff00ff00)
+		if (ptr[h * tw + w] != test_green)
 		    all_cleared = false;
 	    }
 	}
@@ -724,7 +730,7 @@ START_TEST(virgl_test_render_geom_simple)
 	uint32_t *ptr = res.iovs[0].iov_base;
 	for (h = 0; h < th; h++) {
 	    for (w = 0; w < tw; w++) {
-		if (ptr[h * tw + w] != 0xff00ff00)
+		if (ptr[h * tw + w] != test_green)
 		    all_cleared = false;
 	    }
 	}
@@ -969,7 +975,7 @@ START_TEST(virgl_test_render_xfb)
 	uint32_t *ptr = res.iovs[0].iov_base;
 	for (h = 0; h < th; h++) {
 	    for (w = 0; w < tw; w++) {
-		if (ptr[h * tw + w] != 0xff00ff00)
+		if (ptr[h * tw + w] != test_green)
 		    all_cleared = false;
 	    }
 	}
