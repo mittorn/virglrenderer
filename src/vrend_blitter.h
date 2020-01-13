@@ -27,17 +27,17 @@
 /* shaders for blitting */
 
 #define HEADER_GL                               \
-   "// Blitter\n"                               \
    "#version 130\n"                             \
+   "// Blitter\n"                               \
 
 #define HEADER_GLES                             \
-   "// Blitter\n"                               \
    "#version 310 es\n"                          \
+   "// Blitter\n"                               \
    "precision mediump float;\n"                 \
 
 #define HEADER_GLES_MS_ARRAY                             \
-   "// Blitter\n"                               \
    "#version 310 es\n"                          \
+   "// Blitter\n"                               \
    "#extension GL_OES_texture_storage_multisample_2d_array: require\n" \
    "precision mediump float;\n"                 \
 
