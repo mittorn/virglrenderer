@@ -55,6 +55,6 @@ if with_fuzzer
       c_args : [ '-fsanitize=address', '-fsanitize=fuzzer' ],
       link_args : [ '-fsanitize=address', '-fsanitize=fuzzer' ],
       objects : vtest_obj,
-      dependencies : libvirgl_dep
+      dependencies : libvirglrenderer_dep
    )
 endif
