@@ -4604,6 +4604,13 @@ void vrend_launch_grid(struct vrend_context *ctx,
       }
       ctx->sub->shader_dirty = true;
    }
+
+   if (!ctx->sub->prog) {
+      vrend_printf("%s: Skipping compute shader execution due to missing shaders: %s\n",
+                   __func__, ctx->debug_name);
+      return;
+   }
+
    vrend_use_program(ctx, ctx->sub->prog->id);
 
    vrend_draw_bind_ubo_shader(ctx, PIPE_SHADER_COMPUTE, 0);
