@@ -60,59 +60,8 @@ build docker image:
     paths:
       - results/
 
-make check:
-  stage: sanity test
-  services:
-    - docker:dind
-  before_script:
-    *docker-setup
-  script:
-    - docker run
-             --ulimit core=99999999999:99999999999
-             $RD_CONFIG
-             -v $PWD:/virglrenderer
-             $CI_REGISTRY_IMAGE@$DOCKER_IMAGE_DIGEST
-             bash -c "/virglrenderer/ci/run_tests.sh --make-check"
-    - echo -e "\nThat's all folks\n"
-  only:
-    - branches
-    - tags
-    - merge_requests
-    - schedules
 
-  artifacts:
-    when: always
-    paths:
-      - results/
-
-make check meson:
-  stage: sanity test
-  services:
-    - docker:dind
-  before_script:
-    *docker-setup
-  script:
-    - docker run
-             --ulimit core=99999999999:99999999999
-             $RD_CONFIG
-             -v $PWD:/virglrenderer
-             $CI_REGISTRY_IMAGE@$DOCKER_IMAGE_DIGEST
-             bash -c "/virglrenderer/ci/run_tests.sh --make-check-meson"
-    - echo -e "\nThat's all folks\n"
-  only:
-    - branches
-    - tags
-    - merge_requests
-    - schedules
-
-  artifacts:
-    when: always
-    paths:
-      - results/
-
-
-.tests:
-  stage: test
+.tests_base: 
   services:
     - docker:dind
   before_script:
@@ -126,6 +75,8 @@ make check meson:
              bash -c "/virglrenderer/ci/run_tests.sh $TEST_SUITE"
     - echo -e "\nThat's all folks\n"
   only:
+    - branches
+    - tags
     - merge_requests
     - schedules
 
@@ -133,6 +84,29 @@ make check meson:
     when: always
     paths:
       - results/
+
+.make_check_base:
+  stage: sanity test
+  extends: .tests_base
+
+make check:
+  variables:
+    TEST_SUITE: '--make-check'
+  extends: .make_check_base
+
+mesa check meson:
+  variables:
+    TEST_SUITE: '--make-check-meson'
+  extends: .make_check_base
+
+make check clang-fuzzer:
+  variables:
+    TEST_SUITE: '--make-check-clang-fuzzer'
+  extends: .make_check_base
+
+.tests:
+  stage: test
+  extends: .tests_base
 
 piglit - gl host:
   variables:

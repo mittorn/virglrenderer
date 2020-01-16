@@ -6,6 +6,10 @@ run_setup()
 
    use_meson=$1
 
+   if [ "x$2" = "xfuzzer" ]; then
+      use_clang_fuzzer=1
+   fi
+
    # Let .gitlab-ci or local ci runner set
    # desired thread count
    NUM_THREADS=${NUM_THREADS:-$(expr $(expr $(nproc) / 8) + 1)}
@@ -56,7 +60,12 @@ run_setup()
       if [ -d "$VIRGL_PATH" ]; then
           cd $VIRGL_PATH
           mkdir build
-          meson build/ -Dprefix=/usr/local -Ddebug=true -Dtests=true --fatal-meson-warnings
+          if [ "x$use_clang_fuzzer" = "x1" ]; then
+             CC=clang-8
+             FUZZER=-Dfuzzer=true
+          fi
+
+          meson build/ -Dprefix=/usr/local -Ddebug=true -Dtests=true --fatal-meson-warnings $FUZZER
           ninja -C build -j$NUM_THREADS install
       fi
    fi
@@ -87,6 +96,19 @@ run_make_check_meson()
       VRENDTEST_USE_EGL_SURFACELESS=1 ninja -j$NUM_THREADS test
       RET=$?
       cp /virglrenderer/build/meson-logs/testlog.txt /virglrenderer/results/make_check_meson/
+      return $RET
+   )
+}
+
+run_make_check_clang_fuzzer()
+{
+   run_setup meson fuzzer
+   (
+      cd /virglrenderer/build
+      mkdir -p /virglrenderer/results/make_check_clang_fuzzer
+      VRENDTEST_USE_EGL_SURFACELESS=1 ninja -j$NUM_THREADS test
+      RET=$?
+      cp /virglrenderer/build/meson-logs/testlog.txt /virglrenderer/results/make_check_clang_fuzzer/
       return $RET
    )
 }
@@ -168,6 +190,10 @@ parse_input()
 
          --make-check-meson)
          run_make_check_meson
+         ;;
+
+         --make-check-clang-fuzzer)
+         run_make_check_clang_fuzzer
          ;;
 
          --deqp-gl-gl-tests)
