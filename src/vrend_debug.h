@@ -49,6 +49,7 @@ enum virgl_debug_flags {
    dbg_all = (1 << 13) - 1,
    dbg_allow_guest_override = 1 << 16,
    dbg_feature_use = 1 << 17,
+   dbg_khr = 1 << 18,
 };
 
 const char *vrend_get_comand_name(enum virgl_context_cmd cmd);

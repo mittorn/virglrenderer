@@ -123,6 +123,7 @@ static const struct debug_named_value vrend_debug_options[] = {
    {"gles", dbg_gles, "GLES host specific debug"},
    {"all", dbg_all, "Enable all debugging output"},
    {"guestallow", dbg_allow_guest_override, "Allow the guest to override the debug flags"},
+   {"khr", dbg_khr, "Enable debug via KHR_debug extension"},
    DEBUG_NAMED_VALUE_END
 };
 

@@ -67,9 +67,6 @@ extern struct virgl_gbm *gbm;
 extern struct virgl_egl *egl;
 #endif
 
-/* debugging via KHR_debug extension */
-int vrend_use_debug_cb = 0;
-
 int use_context = CONTEXT_NONE;
 
 static const uint32_t fake_occlusion_query_samples_passed_default = 1024;
@@ -5759,7 +5756,7 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
    gl_ver = epoxy_gl_version();
 
    /* enable error output as early as possible */
-   if (vrend_use_debug_cb && epoxy_has_gl_extension("GL_KHR_debug")) {
+   if (vrend_debug(NULL, dbg_khr) && epoxy_has_gl_extension("GL_KHR_debug")) {
       glDebugMessageCallback(vrend_debug_cb, NULL);
       glEnable(GL_DEBUG_OUTPUT);
       glDisable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
