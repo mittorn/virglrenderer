@@ -5873,6 +5873,8 @@ static void vrend_destroy_sub_context(struct vrend_sub_context *sub)
    int i, j;
    struct vrend_streamout_object *obj, *tmp;
 
+   vrend_clicbs->make_current(sub->gl_context);
+
    if (sub->fb_id)
       glDeleteFramebuffers(1, &sub->fb_id);
 
@@ -5968,9 +5970,9 @@ bool vrend_destroy_context(struct vrend_context *ctx)
 
    vrend_set_index_buffer(ctx, 0, 0, 0);
 
-   vrend_renderer_force_ctx_0();
    LIST_FOR_EACH_ENTRY_SAFE(sub, tmp, &ctx->sub_ctxs, head)
       vrend_destroy_sub_context(sub);
+   vrend_renderer_force_ctx_0();
 
    vrend_object_fini_ctx_table(ctx->res_hash);
 
@@ -10209,9 +10211,9 @@ void vrend_renderer_destroy_sub_ctx(struct vrend_context *ctx, int sub_ctx_id)
    if (tofree) {
       if (ctx->sub == tofree) {
          ctx->sub = ctx->sub0;
-         vrend_clicbs->make_current(ctx->sub->gl_context);
       }
       vrend_destroy_sub_context(tofree);
+      vrend_clicbs->make_current(ctx->sub->gl_context);
    }
 }
 
