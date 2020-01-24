@@ -467,4 +467,6 @@ extern struct vrend_if_cbs *vrend_clicbs;
 
 int vrend_renderer_execute(void *execute_args, uint32_t execute_size);
 
+void vrend_sync_make_current(virgl_gl_context);
+
 #endif

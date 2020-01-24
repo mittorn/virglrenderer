@@ -451,7 +451,7 @@ static void vrend_renderer_init_blit_ctx(struct vrend_blitter_ctx *blit_ctx)
    struct virgl_gl_ctx_param ctx_params;
    int i;
    if (blit_ctx->initialised) {
-      vrend_clicbs->make_current(blit_ctx->gl_context);
+      vrend_sync_make_current(blit_ctx->gl_context);
       return;
    }
 
@@ -467,7 +467,7 @@ static void vrend_renderer_init_blit_ctx(struct vrend_blitter_ctx *blit_ctx)
          break;
    }
 
-   vrend_clicbs->make_current(blit_ctx->gl_context);
+   vrend_sync_make_current(blit_ctx->gl_context);
    glGenVertexArrays(1, &blit_ctx->vaoid);
    glGenFramebuffers(1, &blit_ctx->fb_id);
 

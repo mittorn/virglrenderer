@@ -1701,6 +1701,13 @@ static void vrend_destroy_streamout_object(struct vrend_streamout_object *obj)
    FREE(obj);
 }
 
+void vrend_sync_make_current(virgl_gl_context gl_cxt) {
+   GLsync sync = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+   vrend_clicbs->make_current(gl_cxt);
+   glWaitSync(sync, 0, GL_TIMEOUT_IGNORED);
+   glDeleteSync(sync);
+}
+
 int vrend_create_surface(struct vrend_context *ctx,
                          uint32_t handle,
                          uint32_t res_handle, uint32_t format,
@@ -8419,7 +8426,7 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
                              has_feature(feat_texture_srgb_decode),
                              has_feature(feat_srgb_write_control),
                              skip_dest_swizzle);
-      vrend_clicbs->make_current(ctx->sub->gl_context);
+      vrend_sync_make_current(ctx->sub->gl_context);
       goto cleanup;
    }
 
