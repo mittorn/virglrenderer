@@ -518,21 +518,25 @@ bool virgl_egl_need_fence_and_wait_external(struct virgl_egl *egl)
    return (egl && egl->need_fence_and_wait_external);
 }
 
-void virgl_egl_fence_and_wait_external(struct virgl_egl *egl)
+void *virgl_egl_fence(struct virgl_egl *egl)
 {
    const EGLint attrib_list[] = {EGL_SYNC_CONDITION_KHR,
                                  EGL_SYNC_PRIOR_COMMANDS_COMPLETE_KHR,
                                  EGL_NONE};
-   EGLSyncKHR fence;
+   EGLSyncKHR fence = EGL_NO_SYNC_KHR;
 
    if (!egl || !has_bit(egl->extension_bits, EGL_KHR_FENCE_SYNC)) {
-      return;
+      return (void *)fence;
    }
 
-   fence = eglCreateSyncKHR(egl->egl_display, EGL_SYNC_FENCE_KHR, attrib_list);
-   if (fence != EGL_NO_SYNC_KHR) {
-      eglClientWaitSyncKHR(egl->egl_display, fence,
-                           EGL_SYNC_FLUSH_COMMANDS_BIT_KHR, EGL_FOREVER_KHR);
-      eglDestroySyncKHR(egl->egl_display, fence);
-   }
+   return (void *)eglCreateSyncKHR(egl->egl_display, EGL_SYNC_FENCE_KHR, attrib_list);
+}
+
+void virgl_egl_wait_fence(struct virgl_egl *egl, void* sync)
+{
+   EGLSyncKHR fence = (EGLSyncKHR) sync;
+   if (fence == EGL_NO_SYNC_KHR)
+      return;
+   eglWaitSyncKHR(egl->egl_display, fence, 0);
+   eglDestroySyncKHR(egl->egl_display, fence);
 }

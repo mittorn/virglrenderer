@@ -7633,12 +7633,13 @@ int vrend_renderer_transfer_iov(const struct vrend_transfer_info *info,
       return EINVAL;
    }
 
+   void* fence = NULL;
 #ifdef HAVE_EPOXY_EGL_H
    // Some platforms require extra synchronization before transferring.
    if (transfer_mode == VIRGL_TRANSFER_FROM_HOST) {
       if (virgl_egl_need_fence_and_wait_external(egl)) {
          vrend_hw_switch_context(ctx, true);
-         virgl_egl_fence_and_wait_external(egl);
+         fence = virgl_egl_fence(egl);
       }
    }
 #endif
@@ -7675,6 +7676,7 @@ int vrend_renderer_transfer_iov(const struct vrend_transfer_info *info,
 
    if (info->context0) {
       vrend_renderer_force_ctx_0();
+      virgl_egl_wait_fence(egl, fence);
       ctx = NULL;
    }
 
