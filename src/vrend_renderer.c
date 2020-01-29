@@ -5976,7 +5976,8 @@ bool vrend_destroy_context(struct vrend_context *ctx)
 
    LIST_FOR_EACH_ENTRY_SAFE(sub, tmp, &ctx->sub_ctxs, head)
       vrend_destroy_sub_context(sub);
-   vrend_renderer_force_ctx_0();
+   if(ctx->ctx_id)
+      vrend_renderer_force_ctx_0();
 
    vrend_object_fini_ctx_table(ctx->res_hash);
 
