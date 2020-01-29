@@ -4842,7 +4842,9 @@ static void vrend_hw_emit_blend(struct vrend_context *ctx, struct pipe_blend_sta
       else
          glDisable(GL_BLEND);
 
-      if (state->rt[0].colormask != ctx->sub->hw_blend_state.rt[0].colormask) {
+      if (state->rt[0].colormask != ctx->sub->hw_blend_state.rt[0].colormask ||
+          (ctx->sub->hw_blend_state.independent_blend_enable &&
+           !state->independent_blend_enable)) {
          int i;
          for (i = 0; i < PIPE_MAX_COLOR_BUFS; i++)
             ctx->sub->hw_blend_state.rt[i].colormask = state->rt[i].colormask;
