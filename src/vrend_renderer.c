@@ -678,7 +678,21 @@ static struct vrend_format_table tex_conv_table[VIRGL_FORMAT_MAX_EXTENDED];
 
 static inline bool vrend_format_can_sample(enum virgl_formats format)
 {
-   return tex_conv_table[format].bindings & VIRGL_BIND_SAMPLER_VIEW;
+   if (tex_conv_table[format].bindings & VIRGL_BIND_SAMPLER_VIEW)
+      return true;
+
+#ifdef ENABLE_GBM_ALLOCATION
+   uint32_t gbm_format = 0;
+   if (virgl_gbm_convert_format(&format, &gbm_format))
+      return false;
+
+   if (!gbm || !gbm->device || !gbm_format)
+      return false;
+
+   return gbm_device_is_format_supported(gbm->device, gbm_format, GBM_BO_USE_TEXTURING);
+#else
+   return false;
+#endif
 }
 
 static inline bool vrend_format_can_readback(enum virgl_formats format)
