@@ -27,7 +27,7 @@ assert(cc.has_argument('-fsanitize=fuzzer'),
 virgl_fuzzer = executable(
    'virgl_fuzzer',
    'virgl_fuzzer.c',
-   c_args : [ '-fsanitize=address', '-fsanitize=fuzzer' ],
-   link_args : [ '-fsanitize=address', '-fsanitize=fuzzer' ],
+   c_args : [ '-fsanitize=fuzzer' ],
+   link_args : [ '-fsanitize=fuzzer' ],
    dependencies : [libvirglrenderer_dep, gallium_dep, epoxy_dep]
 )

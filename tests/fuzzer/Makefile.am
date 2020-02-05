@@ -11,7 +11,6 @@ AM_CFLAGS = \
 	$(EPOXY_CFLAGS) \
 	$(VISIBILITY_CFLAGS) \
 	$(CODE_COVERAGE_CFLAGS) \
-	-fsanitize=address \
 	-fsanitize=fuzzer
 
 if FUZZER

@@ -50,7 +50,6 @@ vtest_fuzzer_CFLAGS = \
 	$(EPOXY_CFLAGS) \
 	$(VISIBILITY_CFLAGS) \
 	$(CODE_COVERAGE_CFLAGS) \
-	-fsanitize=address \
 	-fsanitize=fuzzer
 
 vtest_fuzzer_LDADD = $(top_builddir)/src/gallium/auxiliary/libgallium.la $(top_builddir)/src/libvirglrenderer.la

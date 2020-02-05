@@ -52,8 +52,8 @@ if with_fuzzer
    vtest_fuzzer = executable(
       'vtest_fuzzer',
       'vtest_fuzzer.c',
-      c_args : [ '-fsanitize=address', '-fsanitize=fuzzer' ],
-      link_args : [ '-fsanitize=address', '-fsanitize=fuzzer' ],
+      c_args : [ '-fsanitize=fuzzer' ],
+      link_args : [ '-fsanitize=fuzzer' ],
       objects : vtest_obj,
       dependencies : libvirglrenderer_dep
    )
