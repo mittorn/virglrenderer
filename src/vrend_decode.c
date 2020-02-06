@@ -1192,7 +1192,8 @@ static int vrend_decode_set_atomic_buffers(struct vrend_decode_ctx *ctx, uint16_
    if (num_abo < 1)
       return 0;
 
-   if (start_slot > PIPE_MAX_HW_ATOMIC_BUFFERS ||
+   if (num_abo > PIPE_MAX_HW_ATOMIC_BUFFERS ||
+       start_slot > PIPE_MAX_HW_ATOMIC_BUFFERS ||
        start_slot > PIPE_MAX_HW_ATOMIC_BUFFERS - num_abo)
       return EINVAL;
 
