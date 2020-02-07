@@ -2,7 +2,7 @@ dnl Process this file with autoconf to create configure.
 
 AC_PREREQ([2.60])
 
-AC_INIT([virglrenderer], [0.8.1],
+AC_INIT([virglrenderer], [0.8.2],
     [virglrenderer-devel@lists.freedesktop.org])
 
 AC_ARG_ENABLE(autotools,
