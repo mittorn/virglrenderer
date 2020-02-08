@@ -9563,8 +9563,9 @@ static void vrend_renderer_fill_caps_v1(int gl_ver, int gles_ver, union virgl_ca
 
    /* All of the formats are common. */
    for (i = 0; i < VIRGL_FORMAT_MAX; i++) {
-      if (tex_conv_table[i].internalformat != 0) {
-         enum virgl_formats fmt = (enum virgl_formats)i;
+      enum virgl_formats fmt = (enum virgl_formats)i;
+      if (tex_conv_table[i].internalformat != 0 || fmt == VIRGL_FORMAT_YV12 ||
+          fmt == VIRGL_FORMAT_NV12) {
          if (vrend_format_can_sample(fmt)) {
             set_format_bit(&caps->v1.sampler, fmt);
             if (vrend_format_can_render(fmt))
