@@ -1947,7 +1947,11 @@ int vrend_create_sampler_state(struct vrend_context *ctx,
          glSamplerParameterf(state->ids[i], GL_TEXTURE_MAX_LOD, templ->max_lod);
          glSamplerParameteri(state->ids[i], GL_TEXTURE_COMPARE_MODE, templ->compare_mode ? GL_COMPARE_R_TO_TEXTURE : GL_NONE);
          glSamplerParameteri(state->ids[i], GL_TEXTURE_COMPARE_FUNC, GL_NEVER + templ->compare_func);
-         glSamplerParameterf(state->ids[i], GL_TEXTURE_LOD_BIAS, templ->lod_bias);
+         if (vrend_state.use_gles) {
+            if (templ->lod_bias)
+               report_gles_warn(ctx, GLES_WARN_LOD_BIAS);
+         } else
+            glSamplerParameterf(state->ids[i], GL_TEXTURE_LOD_BIAS, templ->lod_bias);
 
          if (vrend_state.use_gles) {
             if (templ->seamless_cube_map != 0) {
