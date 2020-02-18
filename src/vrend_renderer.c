@@ -7703,9 +7703,9 @@ int vrend_renderer_transfer_iov(const struct vrend_transfer_info *info,
 
    if (info->context0) {
       vrend_renderer_force_ctx_0();
-      virgl_egl_wait_fence(egl, fence);
       ctx = NULL;
    }
+   virgl_egl_wait_fence(egl, fence);
 
    switch (transfer_mode) {
    case VIRGL_TRANSFER_TO_HOST:
