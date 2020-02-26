@@ -380,6 +380,8 @@ int virgl_gbm_transfer(struct gbm_bo *bo, uint32_t direction, struct iovec *iove
 uint32_t virgl_gbm_convert_flags(uint32_t virgl_bind_flags)
 {
    uint32_t flags = 0;
+   if (virgl_bind_flags & VIRGL_BIND_SAMPLER_VIEW)
+      flags |= GBM_BO_USE_TEXTURING;
    if (virgl_bind_flags & VIRGL_BIND_RENDER_TARGET)
       flags |= GBM_BO_USE_RENDERING;
    if (virgl_bind_flags & VIRGL_BIND_SCANOUT)
