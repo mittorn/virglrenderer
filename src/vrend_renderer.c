@@ -689,7 +689,13 @@ static inline bool vrend_format_can_sample(enum virgl_formats format)
    if (!gbm || !gbm->device || !gbm_format)
       return false;
 
-   return gbm_device_is_format_supported(gbm->device, gbm_format, GBM_BO_USE_TEXTURING);
+#ifdef MINIGBM
+   uint32_t gbm_usage = GBM_BO_USE_TEXTURING;
+#else
+   uint32_t gbm_usage = 0;
+#endif
+
+   return gbm_device_is_format_supported(gbm->device, gbm_format, gbm_usage);
 #else
    return false;
 #endif
