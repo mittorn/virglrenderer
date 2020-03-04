@@ -1,6 +1,6 @@
 /**************************************************************************
  *
- * Copyright (C) 2020 Chromium.
+ * Copyright (C) 2020 Chromium
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -22,47 +22,49 @@
  *
  **************************************************************************/
 
-#ifndef VIRGL_CONTEXT_H
-#define VIRGL_CONTEXT_H
+#ifndef VIRGL_RESOURCE_H
+#define VIRGL_RESOURCE_H
 
-#include <stddef.h>
 #include <stdint.h>
 
+struct pipe_resource;
+
 /**
- * Base class for renderer contexts.  For example, vrend_decode_ctx is a
- * subclass of virgl_context.
+ * A global cross-context resource.  A virgl_resource is not directly usable
+ * by renderer contexts, but must be attached and imported into renderer
+ * contexts to create context objects first.  For example, it can be attached
+ * and imported into a vrend_decode_ctx to create a vrend_resource.
+ *
+ * It is also possible to create a virgl_resource from a context object.
  */
-struct virgl_context {
-   uint32_t ctx_id;
+struct virgl_resource {
+   uint32_t res_id;
 
-   void (*destroy)(struct virgl_context *ctx);
+   struct pipe_resource *pipe_resource;
+};
 
-   void (*attach_resource)(struct virgl_context *ctx,
-                           uint32_t res_id);
-   void (*detach_resource)(struct virgl_context *ctx,
-                           uint32_t res_id);
+struct virgl_resource_pipe_callbacks {
+   void *data;
 
-   int (*submit_cmd)(struct virgl_context *ctx,
-                     const void *buffer,
-                     size_t size);
+   void (*unref)(struct pipe_resource *pres, void *data);
 };
 
 int
-virgl_context_table_init(void);
+virgl_resource_table_init(const struct virgl_resource_pipe_callbacks *callbacks);
 
 void
-virgl_context_table_cleanup(void);
+virgl_resource_table_cleanup(void);
 
 void
-virgl_context_table_reset(void);
+virgl_resource_table_reset(void);
 
 int
-virgl_context_add(struct virgl_context *ctx);
+virgl_resource_create_from_pipe(uint32_t res_id, struct pipe_resource *pres);
 
 void
-virgl_context_remove(uint32_t ctx_id);
+virgl_resource_remove(uint32_t res_id);
 
-struct virgl_context *
-virgl_context_lookup(uint32_t ctx_id);
+struct virgl_resource *
+virgl_resource_lookup(uint32_t res_id);
 
-#endif /* VIRGL_CONTEXT_H */
+#endif /* VIRGL_RESOURCE_H */
