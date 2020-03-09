@@ -43,15 +43,20 @@
 #include <sys/select.h>
 #endif
 
+struct vtest_client
+{
+   int in_fd;
+   int out_fd;
+   struct vtest_input input;
+
+   struct vtest_context *context;
+};
 
 struct vtest_server
 {
    const char *socket_name;
    int socket;
    const char *read_file;
-   int in_fd;
-   int out_fd;
-   struct vtest_input input;
 
    const char *render_device;
 
@@ -62,7 +67,7 @@ struct vtest_server
    bool use_egl_surfaceless;
    bool use_gles;
 
-   struct vtest_context *context;
+   struct vtest_client client;
 };
 
 struct vtest_server server = {
@@ -71,14 +76,16 @@ struct vtest_server server = {
 
    .read_file = NULL,
 
-   .in_fd = -1,
-   .out_fd = -1,
-   .input = { { -1 }, NULL },
    .render_device = 0,
    .do_fork = true,
    .loop = true,
 
-   .context = NULL,
+   .client = {
+      .in_fd = -1,
+      .out_fd = -1,
+      .input = { { -1 }, NULL },
+      .context = NULL,
+   },
 };
 
 static void vtest_server_getenv(void);
@@ -87,8 +94,7 @@ static void vtest_server_set_signal_child(void);
 static void vtest_server_set_signal_segv(void);
 static void vtest_server_open_read_file(void);
 static void vtest_server_open_socket(void);
-static void vtest_server_run_renderer(int in_fd, int out_fd,
-                                      struct vtest_input *input,
+static void vtest_server_run_renderer(struct vtest_client *client,
                                       int ctx_flags,
                                       const char *render_device);
 static void vtest_server_wait_for_socket_accept(void);
@@ -137,14 +143,14 @@ start:
       /* fork a renderer process */
       if (fork() == 0) {
          vtest_server_set_signal_segv();
-         vtest_server_run_renderer(server.in_fd, server.out_fd, &server.input,
-                                   ctx_flags, server.render_device);
+         vtest_server_run_renderer(&server.client, ctx_flags,
+                                   server.render_device);
          exit(0);
       }
    } else {
       vtest_server_set_signal_segv();
-      vtest_server_run_renderer(server.in_fd, server.out_fd, &server.input,
-                                ctx_flags, server.render_device);
+      vtest_server_run_renderer(&server.client, ctx_flags,
+                                server.render_device);
    }
 
    vtest_server_tidy_fds();
@@ -278,6 +284,7 @@ static void vtest_server_set_signal_segv(void)
 
 static void vtest_server_open_read_file(void)
 {
+   struct vtest_client *client = &server.client;
    int ret;
 
    ret = open(server.read_file, O_RDONLY);
@@ -285,16 +292,16 @@ static void vtest_server_open_read_file(void)
       perror(NULL);
       exit(1);
    }
-   server.in_fd = ret;
-   server.input.data.fd = server.in_fd;
-   server.input.read = vtest_block_read;
+   client->in_fd = ret;
+   client->input.data.fd = client->in_fd;
+   client->input.read = vtest_block_read;
 
    ret = open("/dev/null", O_WRONLY);
    if (ret == -1) {
       perror(NULL);
       exit(1);
    }
-   server.out_fd = ret;
+   client->out_fd = ret;
 }
 
 static void vtest_server_open_socket(void)
@@ -330,6 +337,7 @@ err:
 
 static void vtest_server_wait_for_socket_accept(void)
 {
+   struct vtest_client *client = &server.client;
    fd_set read_fds;
    int new_fd;
    int ret;
@@ -353,10 +361,10 @@ static void vtest_server_wait_for_socket_accept(void)
       exit(1);
    }
 
-   server.in_fd = new_fd;
-   server.out_fd = new_fd;
-   server.input.data.fd = server.in_fd;
-   server.input.read = vtest_block_read;
+   client->in_fd = new_fd;
+   client->out_fd = new_fd;
+   client->input.data.fd = client->in_fd;
+   client->input.read = vtest_block_read;
 }
 
 typedef int (*vtest_cmd_fptr_t)(uint32_t);
@@ -379,8 +387,7 @@ static const vtest_cmd_fptr_t vtest_commands[] = {
    vtest_transfer_put2,
 };
 
-static void vtest_server_run_renderer(int in_fd, int out_fd,
-                                      struct vtest_input *input,
+static void vtest_server_run_renderer(struct vtest_client *client,
                                       int ctx_flags,
                                       const char *render_device)
 {
@@ -388,19 +395,19 @@ static void vtest_server_run_renderer(int in_fd, int out_fd,
    uint32_t header[VTEST_HDR_SIZE];
 
    do {
-      ret = vtest_wait_for_fd_read(in_fd);
+      ret = vtest_wait_for_fd_read(client->in_fd);
       if (ret < 0) {
          err = 1;
          break;
       }
 
-      ret = input->read(input, &header, sizeof(header));
+      ret = client->input.read(&client->input, &header, sizeof(header));
       if (ret < 0 || (size_t)ret < sizeof(header)) {
          err = 2;
          break;
       }
 
-      if (!server.context) {
+      if (!client->context) {
          /* The first command MUST be VCMD_CREATE_RENDERER */
          if (header[1] != VCMD_CREATE_RENDERER) {
             err = 3;
@@ -409,14 +416,15 @@ static void vtest_server_run_renderer(int in_fd, int out_fd,
 
          ret = vtest_init_renderer(ctx_flags, render_device);
          if (ret >= 0) {
-            ret = vtest_create_context(input, out_fd, header[0], &server.context);
+            ret = vtest_create_context(&client->input, client->out_fd,
+                                       header[0], &client->context);
          }
          if (ret < 0) {
             err = 4;
             break;
          }
          printf("%s: vtest initialized.\n", __func__);
-         vtest_set_current_context(server.context);
+         vtest_set_current_context(client->context);
          vtest_poll();
          continue;
       }
@@ -447,9 +455,9 @@ static void vtest_server_run_renderer(int in_fd, int out_fd,
 
    fprintf(stderr, "socket failed (%d) - closing renderer\n", err);
 
-   if (server.context) {
-      vtest_destroy_context(server.context);
-      server.context = NULL;
+   if (client->context) {
+      vtest_destroy_context(client->context);
+      client->context = NULL;
    }
 
    vtest_cleanup_renderer();
@@ -457,20 +465,22 @@ static void vtest_server_run_renderer(int in_fd, int out_fd,
 
 static void vtest_server_tidy_fds(void)
 {
+   struct vtest_client *client = &server.client;
+
    // out_fd will be closed by the in_fd clause if they are the same.
-   if (server.out_fd == server.in_fd) {
-      server.out_fd = -1;
+   if (client->out_fd == client->in_fd) {
+      client->out_fd = -1;
    }
 
-   if (server.in_fd != -1) {
-      close(server.in_fd);
-      server.in_fd = -1;
-      server.input.read = NULL;
+   if (client->in_fd != -1) {
+      close(client->in_fd);
+      client->in_fd = -1;
+      client->input.read = NULL;
    }
 
-   if (server.out_fd != -1) {
-      close(server.out_fd);
-      server.out_fd = -1;
+   if (client->out_fd != -1) {
+      close(client->out_fd);
+      client->out_fd = -1;
    }
 }
 
