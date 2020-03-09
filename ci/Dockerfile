@@ -169,7 +169,7 @@ RUN git clone --shallow-since="$GIT_DATE" https://gitlab.freedesktop.org/mesa/dr
 WORKDIR /
 
 ARG KNOWN_GOOD_MESA
-ENV KNOWN_GOOD_MESA ${KNOWN_GOOD_MESA:-2c5eb1df681e28c23e24219eab803b6d4da5aa38}
+ENV KNOWN_GOOD_MESA ${KNOWN_GOOD_MESA:-e924181ea89e5e261f8aa24564c32ed22941e752}
 RUN echo $KNOWN_GOOD_MESA
 ARG MESA_REPO
 ENV MESA_REPO ${MESA_REPO:-https://gitlab.freedesktop.org/mesa/mesa.git}
