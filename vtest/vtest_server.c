@@ -67,6 +67,8 @@ struct vtest_server
    bool use_egl_surfaceless;
    bool use_gles;
 
+   int ctx_flags;
+
    struct vtest_client client;
 };
 
@@ -79,6 +81,8 @@ struct vtest_server server = {
    .render_device = 0,
    .do_fork = true,
    .loop = true,
+
+   .ctx_flags = 0,
 
    .client = {
       .in_fd = -1,
@@ -94,9 +98,7 @@ static void vtest_server_set_signal_child(void);
 static void vtest_server_set_signal_segv(void);
 static void vtest_server_open_read_file(void);
 static void vtest_server_open_socket(void);
-static void vtest_server_run_renderer(struct vtest_client *client,
-                                      int ctx_flags,
-                                      const char *render_device);
+static void vtest_server_run_renderer(struct vtest_client *client);
 static void vtest_server_wait_for_socket_accept(void);
 static void vtest_server_tidy_fds(void);
 static void vtest_server_close_socket(void);
@@ -110,20 +112,6 @@ while (__AFL_LOOP(1000)) {
 
    vtest_server_getenv();
    vtest_server_parse_args(argc, argv);
-
-   int ctx_flags = VIRGL_RENDERER_USE_EGL;
-   if (server.use_glx) {
-      if (server.use_egl_surfaceless || server.use_gles) {
-         fprintf(stderr, "Cannot use surfaceless or GLES with GLX.\n");
-         exit(EXIT_FAILURE);
-      }
-      ctx_flags = VIRGL_RENDERER_USE_GLX;
-   } else {
-      if (server.use_egl_surfaceless)
-         ctx_flags |= VIRGL_RENDERER_USE_SURFACELESS;
-      if (server.use_gles)
-         ctx_flags |= VIRGL_RENDERER_USE_GLES;
-   }
 
    if (server.read_file != NULL) {
       vtest_server_open_read_file();
@@ -143,14 +131,12 @@ start:
       /* fork a renderer process */
       if (fork() == 0) {
          vtest_server_set_signal_segv();
-         vtest_server_run_renderer(&server.client, ctx_flags,
-                                   server.render_device);
+         vtest_server_run_renderer(&server.client);
          exit(0);
       }
    } else {
       vtest_server_set_signal_segv();
-      vtest_server_run_renderer(&server.client, ctx_flags,
-                                server.render_device);
+      vtest_server_run_renderer(&server.client);
    }
 
    vtest_server_tidy_fds();
@@ -229,6 +215,20 @@ static void vtest_server_parse_args(int argc, char **argv)
       server.read_file = argv[optind];
       server.loop = false;
       server.do_fork = false;
+   }
+
+   server.ctx_flags = VIRGL_RENDERER_USE_EGL;
+   if (server.use_glx) {
+      if (server.use_egl_surfaceless || server.use_gles) {
+         fprintf(stderr, "Cannot use surfaceless or GLES with GLX.\n");
+         exit(EXIT_FAILURE);
+      }
+      server.ctx_flags = VIRGL_RENDERER_USE_GLX;
+   } else {
+      if (server.use_egl_surfaceless)
+         server.ctx_flags |= VIRGL_RENDERER_USE_SURFACELESS;
+      if (server.use_gles)
+         server.ctx_flags |= VIRGL_RENDERER_USE_GLES;
    }
 }
 
@@ -387,9 +387,7 @@ static const vtest_cmd_fptr_t vtest_commands[] = {
    vtest_transfer_put2,
 };
 
-static void vtest_server_run_renderer(struct vtest_client *client,
-                                      int ctx_flags,
-                                      const char *render_device)
+static void vtest_server_run_renderer(struct vtest_client *client)
 {
    int err, ret;
    uint32_t header[VTEST_HDR_SIZE];
@@ -414,7 +412,7 @@ static void vtest_server_run_renderer(struct vtest_client *client,
             break;
          }
 
-         ret = vtest_init_renderer(ctx_flags, render_device);
+         ret = vtest_init_renderer(server.ctx_flags, server.render_device);
          if (ret >= 0) {
             ret = vtest_create_context(&client->input, client->out_fd,
                                        header[0], &client->context);
