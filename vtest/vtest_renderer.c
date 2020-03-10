@@ -48,7 +48,6 @@
 
 
 static int ctx_id = 1;
-static int fence_id = 1;
 
 
 struct vtest_renderer {
@@ -59,15 +58,17 @@ struct vtest_renderer {
    const char *rendernode_name;
 
    uint32_t max_length;
+
+   int fence_id;
+   int last_fence;
 };
 
-static int last_fence;
 static void vtest_write_fence(UNUSED void *cookie, uint32_t fence_id_in)
 {
-   last_fence = fence_id_in;
+   struct vtest_renderer *renderer = (struct vtest_renderer*)cookie;
+   renderer->last_fence = fence_id_in;
 }
 
-static int last_fence;
 static int vtest_get_drm_fd(void *cookie)
 {
    int fd = -1;
@@ -90,6 +91,7 @@ struct virgl_renderer_callbacks vtest_cbs = {
 
 struct vtest_renderer renderer = {
    .max_length = UINT_MAX,
+   .fence_id = 1,
 };
 
 static unsigned
@@ -922,7 +924,7 @@ int vtest_resource_busy_wait(UNUSED uint32_t length_dw)
 
    if (flags == VCMD_BUSY_WAIT_FLAG_WAIT) {
       do {
-         if (last_fence == (fence_id - 1)) {
+         if (renderer.last_fence == (renderer.fence_id - 1)) {
             break;
          }
 
@@ -936,7 +938,7 @@ int vtest_resource_busy_wait(UNUSED uint32_t length_dw)
 
       busy = false;
    } else {
-      busy = last_fence != (fence_id - 1);
+      busy = renderer.last_fence != (renderer.fence_id - 1);
    }
 
    hdr_buf[VTEST_CMD_LEN] = 1;
@@ -958,7 +960,7 @@ int vtest_resource_busy_wait(UNUSED uint32_t length_dw)
 
 int vtest_renderer_create_fence(void)
 {
-   virgl_renderer_create_fence(fence_id++, ctx_id);
+   virgl_renderer_create_fence(renderer.fence_id++, ctx_id);
    return 0;
 }
 
