@@ -82,14 +82,14 @@ static int vtest_get_drm_fd(void *cookie)
    return fd;
 }
 
-struct virgl_renderer_callbacks vtest_cbs = {
+static struct virgl_renderer_callbacks renderer_cbs = {
    .version = 2,
    .write_fence = vtest_write_fence,
    .get_drm_fd = vtest_get_drm_fd
 };
 
 
-struct vtest_renderer renderer = {
+static struct vtest_renderer renderer = {
    .max_length = UINT_MAX,
    .fence_id = 1,
 };
@@ -240,7 +240,7 @@ int vtest_create_renderer(struct vtest_input *input, int out_fd, uint32_t length
    renderer.protocol_version = 0;
 
    ret = virgl_renderer_init(&renderer,
-         ctx_flags | VIRGL_RENDERER_THREAD_SYNC, &vtest_cbs);
+         ctx_flags | VIRGL_RENDERER_THREAD_SYNC, &renderer_cbs);
    if (ret) {
       fprintf(stderr, "failed to initialise renderer.\n");
       return -1;
