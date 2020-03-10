@@ -77,7 +77,7 @@ static const vtest_cmd_fptr_t vtest_commands[] = {
    vtest_transfer_put_nop,
    vtest_submit_cmd,
    vtest_resource_busy_wait,
-   NULL, /* vtest_create_renderer is a specific case */
+   NULL, /* VCMD_CREATE_RENDERER is a specific case */
    vtest_send_caps2,
    vtest_ping_protocol_version,
    vtest_protocol_version,
@@ -89,9 +89,9 @@ static const vtest_cmd_fptr_t vtest_commands[] = {
 static void vtest_fuzzer_run_renderer(int out_fd, struct vtest_input *input,
                                       int ctx_flags, bool create_fences)
 {
+   struct vtest_context *context = NULL;
    int ret;
    uint32_t header[VTEST_HDR_SIZE];
-   int initialized = 0;
 
    do {
       ret = input->read(input, &header, sizeof(header));
@@ -99,17 +99,20 @@ static void vtest_fuzzer_run_renderer(int out_fd, struct vtest_input *input,
          break;
       }
 
-      if (!initialized) {
+      if (!context) {
          /* The first command MUST be VCMD_CREATE_RENDERER */
          if (header[1] != VCMD_CREATE_RENDERER) {
             break;
          }
 
-         ret = vtest_create_renderer(input, out_fd, header[0], ctx_flags, NULL);
+         ret = vtest_init_renderer(input, out_fd, ctx_flags, NULL);
+         if (ret >= 0) {
+            ret = vtest_create_context(header[0], &context);
+         }
          if (ret < 0) {
             break;
          }
-         initialized = 1;
+         vtest_set_current_context(context);
          vtest_poll();
          continue;
       }
@@ -135,7 +138,10 @@ static void vtest_fuzzer_run_renderer(int out_fd, struct vtest_input *input,
          vtest_renderer_create_fence();
    } while (1);
 
-   vtest_destroy_renderer();
+   if (context) {
+      vtest_destroy_context(context);
+   }
+   vtest_cleanup_renderer();
 }
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)

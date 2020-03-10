@@ -61,6 +61,8 @@ struct vtest_program
    bool use_glx;
    bool use_egl_surfaceless;
    bool use_gles;
+
+   struct vtest_context *context;
 };
 
 struct vtest_program prog = {
@@ -75,6 +77,8 @@ struct vtest_program prog = {
    .render_device = 0,
    .do_fork = true,
    .loop = true,
+
+   .context = NULL,
 };
 
 static void vtest_main_getenv(void);
@@ -364,7 +368,7 @@ static const vtest_cmd_fptr_t vtest_commands[] = {
    vtest_transfer_put,
    vtest_submit_cmd,
    vtest_resource_busy_wait,
-   NULL, /* vtest_create_renderer is a specific case */
+   NULL, /* VCMD_CREATE_RENDERER is a specific case */
    vtest_send_caps2,
    vtest_ping_protocol_version,
    vtest_protocol_version,
@@ -379,7 +383,6 @@ static void vtest_main_run_renderer(int in_fd, int out_fd,
 {
    int err, ret;
    uint32_t header[VTEST_HDR_SIZE];
-   int initialized = 0;
 
    do {
       ret = vtest_wait_for_fd_read(in_fd);
@@ -394,20 +397,23 @@ static void vtest_main_run_renderer(int in_fd, int out_fd,
          break;
       }
 
-      if (!initialized) {
+      if (!prog.context) {
          /* The first command MUST be VCMD_CREATE_RENDERER */
          if (header[1] != VCMD_CREATE_RENDERER) {
             err = 3;
             break;
          }
 
-         ret = vtest_create_renderer(input, out_fd, header[0], ctx_flags, render_device);
+         ret = vtest_init_renderer(input, out_fd, ctx_flags, render_device);
+         if (ret >= 0) {
+            ret = vtest_create_context(header[0], &prog.context);
+         }
          if (ret < 0) {
             err = 4;
             break;
          }
-         initialized = 1;
          printf("%s: vtest initialized.\n", __func__);
+         vtest_set_current_context(prog.context);
          vtest_poll();
          continue;
       }
@@ -438,7 +444,12 @@ static void vtest_main_run_renderer(int in_fd, int out_fd,
 
    fprintf(stderr, "socket failed (%d) - closing renderer\n", err);
 
-   vtest_destroy_renderer();
+   if (prog.context) {
+      vtest_destroy_context(prog.context);
+      prog.context = NULL;
+   }
+
+   vtest_cleanup_renderer();
 }
 
 static void vtest_main_tidy_fds(void)
