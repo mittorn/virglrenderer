@@ -49,7 +49,6 @@
 
 static int ctx_id = 1;
 static int fence_id = 1;
-static uint32_t max_length = UINT_MAX;
 
 
 struct vtest_renderer {
@@ -58,6 +57,8 @@ struct vtest_renderer {
    unsigned protocol_version;
    struct util_hash_table *iovec_hash;
    const char *rendernode_name;
+
+   uint32_t max_length;
 };
 
 static int last_fence;
@@ -87,7 +88,9 @@ struct virgl_renderer_callbacks vtest_cbs = {
 };
 
 
-struct vtest_renderer renderer;
+struct vtest_renderer renderer = {
+   .max_length = UINT_MAX,
+};
 
 static unsigned
 hash_func(void *key)
@@ -544,7 +547,7 @@ int vtest_submit_cmd(uint32_t length_dw)
    uint32_t *cbuf;
    int ret;
 
-   if (length_dw > max_length / 4) {
+   if (length_dw > renderer.max_length / 4) {
       return -1;
    }
 
@@ -600,7 +603,7 @@ int vtest_transfer_get(UNUSED uint32_t length_dw)
 
    DECODE_TRANSFER;
 
-   if (data_size > max_length) {
+   if (data_size > renderer.max_length) {
       return -ENOMEM;
    }
 
@@ -647,7 +650,7 @@ int vtest_transfer_get_nop(UNUSED uint32_t length_dw)
 
    DECODE_TRANSFER;
 
-   if (data_size > max_length) {
+   if (data_size > renderer.max_length) {
       return -ENOMEM;
    }
 
@@ -683,7 +686,7 @@ int vtest_transfer_put(UNUSED uint32_t length_dw)
 
    DECODE_TRANSFER;
 
-   if (data_size > max_length) {
+   if (data_size > renderer.max_length) {
       return -ENOMEM;
    }
 
@@ -733,7 +736,7 @@ int vtest_transfer_put_nop(UNUSED uint32_t length_dw)
 
    DECODE_TRANSFER;
 
-   if (data_size > max_length) {
+   if (data_size > renderer.max_length) {
       return -ENOMEM;
    }
 
@@ -967,5 +970,5 @@ int vtest_poll(void)
 
 void vtest_set_max_length(uint32_t length)
 {
-   max_length = length;
+   renderer.max_length = length;
 }
