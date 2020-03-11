@@ -102,6 +102,7 @@ static void vtest_server_run_renderer(struct vtest_client *client);
 static void vtest_server_wait_for_socket_accept(void);
 static void vtest_server_tidy_fds(void);
 static void vtest_server_close_socket(void);
+static int vtest_client_dispatch_commands(struct vtest_client *client);
 
 
 int main(int argc, char **argv)
@@ -367,6 +368,33 @@ static void vtest_server_wait_for_socket_accept(void)
    client->input.read = vtest_block_read;
 }
 
+static void vtest_server_run_renderer(struct vtest_client *client)
+{
+   int err, ret;
+
+   do {
+      ret = vtest_wait_for_fd_read(client->in_fd);
+      if (ret < 0) {
+         err = 1;
+         break;
+      }
+
+      err = vtest_client_dispatch_commands(client);
+      if (err) {
+         break;
+      }
+   } while (1);
+
+   fprintf(stderr, "socket failed (%d) - closing renderer\n", err);
+
+   if (client->context) {
+      vtest_destroy_context(client->context);
+      client->context = NULL;
+   }
+
+   vtest_cleanup_renderer();
+}
+
 typedef int (*vtest_cmd_fptr_t)(uint32_t);
 
 static const vtest_cmd_fptr_t vtest_commands[] = {
@@ -387,78 +415,57 @@ static const vtest_cmd_fptr_t vtest_commands[] = {
    vtest_transfer_put2,
 };
 
-static void vtest_server_run_renderer(struct vtest_client *client)
+static int vtest_client_dispatch_commands(struct vtest_client *client)
 {
-   int err, ret;
+   int ret;
    uint32_t header[VTEST_HDR_SIZE];
 
-   do {
-      ret = vtest_wait_for_fd_read(client->in_fd);
-      if (ret < 0) {
-         err = 1;
-         break;
-      }
-
-      ret = client->input.read(&client->input, &header, sizeof(header));
-      if (ret < 0 || (size_t)ret < sizeof(header)) {
-         err = 2;
-         break;
-      }
-
-      if (!client->context) {
-         /* The first command MUST be VCMD_CREATE_RENDERER */
-         if (header[1] != VCMD_CREATE_RENDERER) {
-            err = 3;
-            break;
-         }
-
-         ret = vtest_init_renderer(server.ctx_flags, server.render_device);
-         if (ret >= 0) {
-            ret = vtest_create_context(&client->input, client->out_fd,
-                                       header[0], &client->context);
-         }
-         if (ret < 0) {
-            err = 4;
-            break;
-         }
-         printf("%s: vtest initialized.\n", __func__);
-         vtest_set_current_context(client->context);
-         vtest_poll();
-         continue;
-      }
-
-      vtest_poll();
-      if (header[1] <= 0 || header[1] >= ARRAY_SIZE(vtest_commands)) {
-         err = 5;
-         break;
-      }
-
-      if (vtest_commands[header[1]] == NULL) {
-         err = 6;
-         break;
-      }
-
-      ret = vtest_commands[header[1]](header[0]);
-      if (ret < 0) {
-         err = 7;
-         break;
-      }
-
-      /* GL draws are fenced, while possible fence creations are too */
-      if (header[1] == VCMD_SUBMIT_CMD || header[1] == VCMD_RESOURCE_CREATE ||
-          header[1] == VCMD_RESOURCE_CREATE2)
-         vtest_renderer_create_fence();
-
-   } while (1);
-
-   fprintf(stderr, "socket failed (%d) - closing renderer\n", err);
-
-   if (client->context) {
-      vtest_destroy_context(client->context);
-      client->context = NULL;
+   ret = client->input.read(&client->input, &header, sizeof(header));
+   if (ret < 0 || (size_t)ret < sizeof(header)) {
+      return 2;
    }
 
-   vtest_cleanup_renderer();
+   if (!client->context) {
+      /* The first command MUST be VCMD_CREATE_RENDERER */
+      if (header[1] != VCMD_CREATE_RENDERER) {
+         return 3;
+      }
+
+      ret = vtest_init_renderer(server.ctx_flags, server.render_device);
+      if (ret >= 0) {
+         ret = vtest_create_context(&client->input, client->out_fd,
+                                    header[0], &client->context);
+      }
+      if (ret < 0) {
+         return 4;
+      }
+      printf("%s: vtest initialized.\n", __func__);
+      vtest_set_current_context(client->context);
+      vtest_poll();
+
+      return 0;
+   }
+
+   vtest_poll();
+   if (header[1] <= 0 || header[1] >= ARRAY_SIZE(vtest_commands)) {
+      return 5;
+   }
+
+   if (vtest_commands[header[1]] == NULL) {
+      return 6;
+   }
+
+   ret = vtest_commands[header[1]](header[0]);
+   if (ret < 0) {
+      return 7;
+   }
+
+   /* GL draws are fenced, while possible fence creations are too */
+   if (header[1] == VCMD_SUBMIT_CMD || header[1] == VCMD_RESOURCE_CREATE ||
+       header[1] == VCMD_RESOURCE_CREATE2)
+      vtest_renderer_create_fence();
+
+   return 0;
 }
 
 static void vtest_server_tidy_fds(void)
