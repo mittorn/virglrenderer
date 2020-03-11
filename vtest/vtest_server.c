@@ -35,6 +35,7 @@
 #include <string.h>
 
 #include "util.h"
+#include "util/u_double_list.h"
 #include "util/u_memory.h"
 #include "vtest.h"
 #include "vtest_protocol.h"
@@ -48,6 +49,8 @@ struct vtest_client
    int in_fd;
    int out_fd;
    struct vtest_input input;
+
+   struct list_head head;
 
    struct vtest_context *context;
 };
@@ -70,7 +73,7 @@ struct vtest_server
 
    int ctx_flags;
 
-   struct vtest_client client;
+   struct list_head active_clients;
 };
 
 struct vtest_server server = {
@@ -86,13 +89,6 @@ struct vtest_server server = {
    .loop = true,
 
    .ctx_flags = 0,
-
-   .client = {
-      .in_fd = -1,
-      .out_fd = -1,
-      .input = { { -1 }, NULL },
-      .context = NULL,
-   },
 };
 
 static void vtest_server_getenv(void);
@@ -101,7 +97,7 @@ static void vtest_server_set_signal_child(void);
 static void vtest_server_set_signal_segv(void);
 static void vtest_server_open_read_file(void);
 static void vtest_server_open_socket(void);
-static void vtest_server_run_renderer(struct vtest_client *client);
+static void vtest_server_run_renderer(void);
 static void vtest_server_wait_for_socket_accept(void);
 static void vtest_server_tidy_fds(void);
 static void vtest_server_close_socket(void);
@@ -117,6 +113,8 @@ while (__AFL_LOOP(1000)) {
    vtest_server_getenv();
    vtest_server_parse_args(argc, argv);
 
+   list_inithead(&server.active_clients);
+
    if (server.do_fork) {
       vtest_server_set_signal_child();
    } else {
@@ -125,14 +123,14 @@ while (__AFL_LOOP(1000)) {
 
    if (server.read_file != NULL) {
       vtest_server_open_read_file();
-      vtest_server_run_renderer(&server.client);
+      vtest_server_run_renderer();
       vtest_server_tidy_fds();
    } else {
       vtest_server_open_socket();
 
       do {
          vtest_server_wait_for_socket_accept();
-         vtest_server_run_renderer(&server.client);
+         vtest_server_run_renderer();
          vtest_server_tidy_fds();
       } while (server.loop);
 
@@ -277,26 +275,46 @@ static void vtest_server_set_signal_segv(void)
    }
 }
 
-static void vtest_server_open_read_file(void)
+static int vtest_server_add_client(int in_fd, int out_fd)
 {
-   struct vtest_client *client = &server.client;
-   int ret;
+   struct vtest_client *client;
 
-   ret = open(server.read_file, O_RDONLY);
-   if (ret == -1) {
-      perror(NULL);
-      exit(1);
-   }
-   client->in_fd = ret;
-   client->input.data.fd = client->in_fd;
+   client = calloc(1, sizeof(*client));
+   if (!client)
+      return -1;
+
+   client->in_fd = in_fd;
+   client->out_fd = out_fd;
+
+   client->input.data.fd = in_fd;
    client->input.read = vtest_block_read;
 
-   ret = open("/dev/null", O_WRONLY);
-   if (ret == -1) {
+   list_addtail(&client->head, &server.active_clients);
+
+   return 0;
+}
+
+static void vtest_server_open_read_file(void)
+{
+   int in_fd;
+   int out_fd;
+
+   in_fd = open(server.read_file, O_RDONLY);
+   if (in_fd == -1) {
       perror(NULL);
       exit(1);
    }
-   client->out_fd = ret;
+
+   out_fd = open("/dev/null", O_WRONLY);
+   if (out_fd == -1) {
+      perror(NULL);
+      exit(1);
+   }
+
+   if (vtest_server_add_client(in_fd, out_fd)) {
+      perror(NULL);
+      exit(1);
+   }
 }
 
 static void vtest_server_open_socket(void)
@@ -332,7 +350,6 @@ err:
 
 static void vtest_server_wait_for_socket_accept(void)
 {
-   struct vtest_client *client = &server.client;
    fd_set read_fds;
    int new_fd;
    int ret;
@@ -356,10 +373,10 @@ static void vtest_server_wait_for_socket_accept(void)
       exit(1);
    }
 
-   client->in_fd = new_fd;
-   client->out_fd = new_fd;
-   client->input.data.fd = client->in_fd;
-   client->input.read = vtest_block_read;
+   if (vtest_server_add_client(new_fd, new_fd)) {
+      perror("Failed to add client.");
+      exit(1);
+   }
 }
 
 static pid_t vtest_server_fork(void)
@@ -377,8 +394,10 @@ static pid_t vtest_server_fork(void)
    return pid;
 }
 
-static void vtest_server_run_renderer(struct vtest_client *client)
+static void vtest_server_run_renderer(void)
 {
+   struct vtest_client *client =
+      LIST_ENTRY(struct vtest_client, server.active_clients.next, head);
    int err, ret;
 
    if (server.do_fork) {
@@ -488,7 +507,8 @@ static int vtest_client_dispatch_commands(struct vtest_client *client)
 
 static void vtest_server_tidy_fds(void)
 {
-   struct vtest_client *client = &server.client;
+   struct vtest_client *client =
+      LIST_ENTRY(struct vtest_client, server.active_clients.next, head);
 
    // out_fd will be closed by the in_fd clause if they are the same.
    if (client->out_fd == client->in_fd) {
@@ -505,6 +525,9 @@ static void vtest_server_tidy_fds(void)
       close(client->out_fd);
       client->out_fd = -1;
    }
+
+   list_del(&client->head);
+   free(client);
 }
 
 static void vtest_server_close_socket(void)
