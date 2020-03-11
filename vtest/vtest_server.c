@@ -60,6 +60,7 @@ struct vtest_server
 
    const char *render_device;
 
+   bool main_server;
    bool do_fork;
    bool loop;
 
@@ -79,6 +80,8 @@ struct vtest_server server = {
    .read_file = NULL,
 
    .render_device = 0,
+
+   .main_server = true,
    .do_fork = true,
    .loop = true,
 
@@ -121,6 +124,8 @@ while (__AFL_LOOP(1000)) {
 
    if (server.do_fork) {
       vtest_server_set_signal_child();
+   } else {
+      vtest_server_set_signal_segv();
    }
 
    vtest_server_open_socket();
@@ -128,17 +133,7 @@ restart:
    vtest_server_wait_for_socket_accept();
 
 start:
-   if (server.do_fork) {
-      /* fork a renderer process */
-      if (fork() == 0) {
-         vtest_server_set_signal_segv();
-         vtest_server_run_renderer(&server.client);
-         exit(0);
-      }
-   } else {
-      vtest_server_set_signal_segv();
-      vtest_server_run_renderer(&server.client);
-   }
+   vtest_server_run_renderer(&server.client);
 
    vtest_server_tidy_fds();
 
@@ -149,6 +144,9 @@ start:
    vtest_server_close_socket();
 
 #ifdef __AFL_LOOP
+   if (!server.main_server) {
+      exit(0);
+   }
 }
 #endif
 }
@@ -368,9 +366,31 @@ static void vtest_server_wait_for_socket_accept(void)
    client->input.read = vtest_block_read;
 }
 
+static pid_t vtest_server_fork(void)
+{
+   pid_t pid = fork();
+
+   if (pid == 0) {
+      /* child */
+      vtest_server_set_signal_segv();
+      server.main_server = false;
+      server.do_fork = false;
+      server.loop = false;
+   }
+
+   return pid;
+}
+
 static void vtest_server_run_renderer(struct vtest_client *client)
 {
    int err, ret;
+
+   if (server.do_fork) {
+      if (vtest_server_fork()) {
+         /* parent */
+         return;
+      }
+   }
 
    ret = vtest_init_renderer(server.ctx_flags, server.render_device);
    if (ret) {
