@@ -42,11 +42,11 @@ struct vtest_input {
    int (*read)(struct vtest_input *input, void *buf, int size);
 };
 
-int vtest_init_renderer(struct vtest_input *input, int out_fd,
-                        int ctx_flags, const char *render_device);
+int vtest_init_renderer(int ctx_flags, const char *render_device);
 void vtest_cleanup_renderer(void);
 
-int vtest_create_context(uint32_t length_dw, struct vtest_context **out_ctx);
+int vtest_create_context(struct vtest_input *input, int out_fd,
+                         uint32_t length_dw, struct vtest_context **out_ctx);
 void vtest_destroy_context(struct vtest_context *ctx);
 
 void vtest_set_current_context(struct vtest_context *ctx);

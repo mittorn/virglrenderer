@@ -52,12 +52,13 @@ struct vtest_context {
 
    int ctx_id;
 
+   struct vtest_input *input;
+   int out_fd;
+
    unsigned protocol_version;
 };
 
 struct vtest_renderer {
-   struct vtest_input *input;
-   int out_fd;
    struct util_hash_table *iovec_hash;
    const char *rendernode_name;
 
@@ -236,14 +237,11 @@ int vtest_buf_read(struct vtest_input *input, void *buf, int size)
    return size;
 }
 
-int vtest_init_renderer(struct vtest_input *input, int out_fd,
-                        int ctx_flags, const char *render_device)
+int vtest_init_renderer(int ctx_flags, const char *render_device)
 {
    int ret;
 
    renderer.iovec_hash = util_hash_table_create(hash_func, compare_iovecs, free_iovec);
-   renderer.input = input;
-   renderer.out_fd = out_fd;
    renderer.rendernode_name = render_device;
    list_inithead(&renderer.active_contexts);
    list_inithead(&renderer.free_contexts);
@@ -283,11 +281,10 @@ void vtest_cleanup_renderer(void)
 
    util_hash_table_destroy(renderer.iovec_hash);
    renderer.iovec_hash = NULL;
-   renderer.input = NULL;
-   renderer.out_fd = -1;
 }
 
-static struct vtest_context *vtest_new_context(void)
+static struct vtest_context *vtest_new_context(struct vtest_input *input,
+                                               int out_fd)
 {
    struct vtest_context *ctx;
 
@@ -301,6 +298,9 @@ static struct vtest_context *vtest_new_context(void)
       ctx = LIST_ENTRY(struct vtest_context, renderer.free_contexts.next, head);
       list_del(&ctx->head);
    }
+
+   ctx->input = input;
+   ctx->out_fd = out_fd;
 
    /* By default we support version 0 unless VCMD_PROTOCOL_VERSION is sent */
    ctx->protocol_version = 0;
@@ -317,7 +317,8 @@ static void vtest_free_context(struct vtest_context *ctx, bool cleanup)
    }
 }
 
-int vtest_create_context(uint32_t length, struct vtest_context **out_ctx)
+int vtest_create_context(struct vtest_input *input, int out_fd,
+                         uint32_t length, struct vtest_context **out_ctx)
 {
    struct vtest_context *ctx;
    char *vtestname;
@@ -327,7 +328,7 @@ int vtest_create_context(uint32_t length, struct vtest_context **out_ctx)
       return -1;
    }
 
-   ctx = vtest_new_context();
+   ctx = vtest_new_context(input, out_fd);
    if (!ctx) {
       return -1;
    }
@@ -338,7 +339,7 @@ int vtest_create_context(uint32_t length, struct vtest_context **out_ctx)
       goto end;
    }
 
-   ret = renderer.input->read(renderer.input, vtestname, length);
+   ret = ctx->input->read(ctx->input, vtestname, length);
    if (ret != (int)length) {
       ret = -1;
       goto end;
@@ -382,12 +383,13 @@ static struct vtest_context *vtest_get_current_context(void)
 
 int vtest_ping_protocol_version(UNUSED uint32_t length_dw)
 {
+   struct vtest_context *ctx = vtest_get_current_context();
    uint32_t hdr_buf[VTEST_HDR_SIZE];
    int ret;
 
    hdr_buf[VTEST_CMD_LEN] = VCMD_PING_PROTOCOL_VERSION_SIZE;
    hdr_buf[VTEST_CMD_ID] = VCMD_PING_PROTOCOL_VERSION;
-   ret = vtest_block_write(renderer.out_fd, hdr_buf, sizeof(hdr_buf));
+   ret = vtest_block_write(ctx->out_fd, hdr_buf, sizeof(hdr_buf));
    if (ret < 0) {
       return ret;
    }
@@ -403,7 +405,7 @@ int vtest_protocol_version(UNUSED uint32_t length_dw)
    unsigned version;
    int ret;
 
-   ret = renderer.input->read(renderer.input, &version_buf, sizeof(version_buf));
+   ret = ctx->input->read(ctx->input, &version_buf, sizeof(version_buf));
    if (ret != sizeof(version_buf))
       return -1;
 
@@ -433,12 +435,12 @@ int vtest_protocol_version(UNUSED uint32_t length_dw)
 
    version_buf[VCMD_PROTOCOL_VERSION_VERSION] = ctx->protocol_version;
 
-   ret = vtest_block_write(renderer.out_fd, hdr_buf, sizeof(hdr_buf));
+   ret = vtest_block_write(ctx->out_fd, hdr_buf, sizeof(hdr_buf));
    if (ret < 0) {
       return ret;
    }
 
-   ret = vtest_block_write(renderer.out_fd, version_buf, sizeof(version_buf));
+   ret = vtest_block_write(ctx->out_fd, version_buf, sizeof(version_buf));
    if (ret < 0) {
       return ret;
    }
@@ -448,6 +450,7 @@ int vtest_protocol_version(UNUSED uint32_t length_dw)
 
 int vtest_send_caps2(UNUSED uint32_t length_dw)
 {
+   struct vtest_context *ctx = vtest_get_current_context();
    uint32_t hdr_buf[2];
    void *caps_buf;
    int ret;
@@ -468,12 +471,12 @@ int vtest_send_caps2(UNUSED uint32_t length_dw)
 
    hdr_buf[0] = max_size + 1;
    hdr_buf[1] = 2;
-   ret = vtest_block_write(renderer.out_fd, hdr_buf, 8);
+   ret = vtest_block_write(ctx->out_fd, hdr_buf, 8);
    if (ret < 0) {
       goto end;
    }
 
-   vtest_block_write(renderer.out_fd, caps_buf, max_size);
+   vtest_block_write(ctx->out_fd, caps_buf, max_size);
    if (ret < 0) {
       goto end;
    }
@@ -485,6 +488,7 @@ end:
 
 int vtest_send_caps(UNUSED uint32_t length_dw)
 {
+   struct vtest_context *ctx = vtest_get_current_context();
    uint32_t  max_ver, max_size;
    void *caps_buf;
    uint32_t hdr_buf[2];
@@ -501,12 +505,12 @@ int vtest_send_caps(UNUSED uint32_t length_dw)
 
    hdr_buf[0] = max_size + 1;
    hdr_buf[1] = 1;
-   ret = vtest_block_write(renderer.out_fd, hdr_buf, 8);
+   ret = vtest_block_write(ctx->out_fd, hdr_buf, 8);
    if (ret < 0) {
       goto end;
    }
 
-   vtest_block_write(renderer.out_fd, caps_buf, max_size);
+   vtest_block_write(ctx->out_fd, caps_buf, max_size);
    if (ret < 0) {
       goto end;
    }
@@ -523,8 +527,8 @@ int vtest_create_resource(UNUSED uint32_t length_dw)
    struct virgl_renderer_resource_create_args args;
    int ret;
 
-   ret = renderer.input->read(renderer.input, &res_create_buf,
-                              sizeof(res_create_buf));
+   ret = ctx->input->read(ctx->input, &res_create_buf,
+                          sizeof(res_create_buf));
    if (ret != sizeof(res_create_buf)) {
       return -1;
    }
@@ -542,6 +546,7 @@ int vtest_create_resource(UNUSED uint32_t length_dw)
    args.nr_samples = res_create_buf[VCMD_RES_CREATE_NR_SAMPLES];
    args.flags = 0;
 
+   /* XXX check that args.handle does not already exist */
    ret = virgl_renderer_resource_create(&args, NULL, 0);
 
    virgl_renderer_ctx_attach_resource(ctx->ctx_id, args.handle);
@@ -556,8 +561,8 @@ int vtest_create_resource2(UNUSED uint32_t length_dw)
    struct iovec *iovec;
    int ret, fd;
 
-   ret = renderer.input->read(renderer.input, &res_create_buf,
-                              sizeof(res_create_buf));
+   ret = ctx->input->read(ctx->input, &res_create_buf,
+                          sizeof(res_create_buf));
    if (ret != sizeof(res_create_buf)) {
       return -1;
    }
@@ -614,7 +619,7 @@ int vtest_create_resource2(UNUSED uint32_t length_dw)
       return -ENOMEM;
    }
 
-   ret = vtest_send_fd(renderer.out_fd, fd);
+   ret = vtest_send_fd(ctx->out_fd, fd);
    if (ret < 0) {
       close(fd);
       munmap(iovec->iov_base, iovec->iov_len);
@@ -637,13 +642,14 @@ int vtest_resource_unref(UNUSED uint32_t length_dw)
    int ret;
    uint32_t handle;
 
-   ret = renderer.input->read(renderer.input, &res_unref_buf,
-                              sizeof(res_unref_buf));
+   ret = ctx->input->read(ctx->input, &res_unref_buf,
+                          sizeof(res_unref_buf));
    if (ret != sizeof(res_unref_buf)) {
       return -1;
    }
 
    handle = res_unref_buf[VCMD_RES_UNREF_RES_HANDLE];
+   /* XXX check that handle is owned by ctx */
    virgl_renderer_ctx_attach_resource(ctx->ctx_id, handle);
 
    virgl_renderer_resource_detach_iov(handle, NULL, NULL);
@@ -668,7 +674,7 @@ int vtest_submit_cmd(uint32_t length_dw)
       return -1;
    }
 
-   ret = renderer.input->read(renderer.input, cbuf, length_dw * 4);
+   ret = ctx->input->read(ctx->input, cbuf, length_dw * 4);
    if (ret != (int)length_dw * 4) {
       free(cbuf);
       return -1;
@@ -708,8 +714,8 @@ int vtest_transfer_get(UNUSED uint32_t length_dw)
    void *ptr;
    struct iovec iovec;
 
-   ret = renderer.input->read(renderer.input, thdr_buf,
-                              VCMD_TRANSFER_HDR_SIZE * 4);
+   ret = ctx->input->read(ctx->input, thdr_buf,
+                          VCMD_TRANSFER_HDR_SIZE * 4);
    if (ret != VCMD_TRANSFER_HDR_SIZE * 4) {
       return ret;
    }
@@ -739,7 +745,7 @@ int vtest_transfer_get(UNUSED uint32_t length_dw)
       fprintf(stderr," transfer read failed %d\n", ret);
    }
 
-   ret = vtest_block_write(renderer.out_fd, ptr, data_size);
+   ret = vtest_block_write(ctx->out_fd, ptr, data_size);
 
    free(ptr);
    return ret < 0 ? ret : 0;
@@ -747,6 +753,7 @@ int vtest_transfer_get(UNUSED uint32_t length_dw)
 
 int vtest_transfer_get_nop(UNUSED uint32_t length_dw)
 {
+   struct vtest_context *ctx = vtest_get_current_context();
    uint32_t thdr_buf[VCMD_TRANSFER_HDR_SIZE];
    int ret;
    UNUSED int level;
@@ -755,8 +762,8 @@ int vtest_transfer_get_nop(UNUSED uint32_t length_dw)
    uint32_t data_size;
    void *ptr;
 
-   ret = renderer.input->read(renderer.input, thdr_buf,
-                              VCMD_TRANSFER_HDR_SIZE * 4);
+   ret = ctx->input->read(ctx->input, thdr_buf,
+                          VCMD_TRANSFER_HDR_SIZE * 4);
    if (ret != VCMD_TRANSFER_HDR_SIZE * 4) {
       return ret;
    }
@@ -774,7 +781,7 @@ int vtest_transfer_get_nop(UNUSED uint32_t length_dw)
 
    memset(ptr, 0, data_size);
 
-   ret = vtest_block_write(renderer.out_fd, ptr, data_size);
+   ret = vtest_block_write(ctx->out_fd, ptr, data_size);
 
    free(ptr);
    return ret < 0 ? ret : 0;
@@ -792,8 +799,8 @@ int vtest_transfer_put(UNUSED uint32_t length_dw)
    void *ptr;
    struct iovec iovec;
 
-   ret = renderer.input->read(renderer.input, thdr_buf,
-                              VCMD_TRANSFER_HDR_SIZE * 4);
+   ret = ctx->input->read(ctx->input, thdr_buf,
+                          VCMD_TRANSFER_HDR_SIZE * 4);
    if (ret != VCMD_TRANSFER_HDR_SIZE * 4) {
       return ret;
    }
@@ -809,7 +816,7 @@ int vtest_transfer_put(UNUSED uint32_t length_dw)
       return -ENOMEM;
    }
 
-   ret = renderer.input->read(renderer.input, ptr, data_size);
+   ret = ctx->input->read(ctx->input, ptr, data_size);
    if (ret < 0) {
       return ret;
    }
@@ -834,6 +841,7 @@ int vtest_transfer_put(UNUSED uint32_t length_dw)
 
 int vtest_transfer_put_nop(UNUSED uint32_t length_dw)
 {
+   struct vtest_context *ctx = vtest_get_current_context();
    uint32_t thdr_buf[VCMD_TRANSFER_HDR_SIZE];
    int ret;
    UNUSED int level;
@@ -842,8 +850,8 @@ int vtest_transfer_put_nop(UNUSED uint32_t length_dw)
    uint32_t data_size;
    void *ptr;
 
-   ret = renderer.input->read(renderer.input, thdr_buf,
-                              VCMD_TRANSFER_HDR_SIZE * 4);
+   ret = ctx->input->read(ctx->input, thdr_buf,
+                          VCMD_TRANSFER_HDR_SIZE * 4);
    if (ret != VCMD_TRANSFER_HDR_SIZE * 4) {
       return ret;
    }
@@ -859,7 +867,7 @@ int vtest_transfer_put_nop(UNUSED uint32_t length_dw)
       return -ENOMEM;
    }
 
-   ret = renderer.input->read(renderer.input, ptr, data_size);
+   ret = ctx->input->read(ctx->input, ptr, data_size);
    if (ret < 0) {
       return ret;
    }
@@ -894,7 +902,7 @@ int vtest_transfer_get2(UNUSED uint32_t length_dw)
    uint32_t offset;
    struct iovec *iovec;
 
-   ret = renderer.input->read(renderer.input, thdr_buf, sizeof(thdr_buf));
+   ret = ctx->input->read(ctx->input, thdr_buf, sizeof(thdr_buf));
    if (ret != sizeof(thdr_buf)) {
       return ret;
    }
@@ -927,6 +935,7 @@ int vtest_transfer_get2(UNUSED uint32_t length_dw)
 
 int vtest_transfer_get2_nop(UNUSED uint32_t length_dw)
 {
+   struct vtest_context *ctx = vtest_get_current_context();
    uint32_t thdr_buf[VCMD_TRANSFER2_HDR_SIZE];
    int ret;
    UNUSED int level;
@@ -935,7 +944,7 @@ int vtest_transfer_get2_nop(UNUSED uint32_t length_dw)
    uint32_t offset;
    struct iovec *iovec;
 
-   ret = renderer.input->read(renderer.input, thdr_buf, sizeof(thdr_buf));
+   ret = ctx->input->read(ctx->input, thdr_buf, sizeof(thdr_buf));
    if (ret != sizeof(thdr_buf)) {
       return ret;
    }
@@ -966,7 +975,7 @@ int vtest_transfer_put2(UNUSED uint32_t length_dw)
    uint32_t offset;
    struct iovec *iovec;
 
-   ret = renderer.input->read(renderer.input, thdr_buf, sizeof(thdr_buf));
+   ret = ctx->input->read(ctx->input, thdr_buf, sizeof(thdr_buf));
    if (ret != sizeof(thdr_buf)) {
       return ret;
    }
@@ -995,6 +1004,7 @@ int vtest_transfer_put2(UNUSED uint32_t length_dw)
 
 int vtest_transfer_put2_nop(UNUSED uint32_t length_dw)
 {
+   struct vtest_context *ctx = vtest_get_current_context();
    uint32_t thdr_buf[VCMD_TRANSFER2_HDR_SIZE];
    int ret;
    UNUSED int level;
@@ -1004,7 +1014,7 @@ int vtest_transfer_put2_nop(UNUSED uint32_t length_dw)
    UNUSED uint32_t offset;
    struct iovec *iovec;
 
-   ret = renderer.input->read(renderer.input, thdr_buf, sizeof(thdr_buf));
+   ret = ctx->input->read(ctx->input, thdr_buf, sizeof(thdr_buf));
    if (ret != sizeof(thdr_buf)) {
       return ret;
    }
@@ -1021,6 +1031,7 @@ int vtest_transfer_put2_nop(UNUSED uint32_t length_dw)
 
 int vtest_resource_busy_wait(UNUSED uint32_t length_dw)
 {
+   struct vtest_context *ctx = vtest_get_current_context();
    uint32_t bw_buf[VCMD_BUSY_WAIT_SIZE];
    int ret, fd;
    int flags;
@@ -1028,7 +1039,7 @@ int vtest_resource_busy_wait(UNUSED uint32_t length_dw)
    uint32_t reply_buf[1];
    bool busy = false;
 
-   ret = renderer.input->read(renderer.input, &bw_buf, sizeof(bw_buf));
+   ret = ctx->input->read(ctx->input, &bw_buf, sizeof(bw_buf));
    if (ret != sizeof(bw_buf)) {
       return -1;
    }
@@ -1059,12 +1070,12 @@ int vtest_resource_busy_wait(UNUSED uint32_t length_dw)
    hdr_buf[VTEST_CMD_ID] = VCMD_RESOURCE_BUSY_WAIT;
    reply_buf[0] = busy ? 1 : 0;
 
-   ret = vtest_block_write(renderer.out_fd, hdr_buf, sizeof(hdr_buf));
+   ret = vtest_block_write(ctx->out_fd, hdr_buf, sizeof(hdr_buf));
    if (ret < 0) {
       return ret;
    }
 
-   ret = vtest_block_write(renderer.out_fd, reply_buf, sizeof(reply_buf));
+   ret = vtest_block_write(ctx->out_fd, reply_buf, sizeof(reply_buf));
    if (ret < 0) {
       return ret;
    }

@@ -404,9 +404,9 @@ static void vtest_main_run_renderer(int in_fd, int out_fd,
             break;
          }
 
-         ret = vtest_init_renderer(input, out_fd, ctx_flags, render_device);
+         ret = vtest_init_renderer(ctx_flags, render_device);
          if (ret >= 0) {
-            ret = vtest_create_context(header[0], &prog.context);
+            ret = vtest_create_context(input, out_fd, header[0], &prog.context);
          }
          if (ret < 0) {
             err = 4;

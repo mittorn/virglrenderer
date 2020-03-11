@@ -105,9 +105,9 @@ static void vtest_fuzzer_run_renderer(int out_fd, struct vtest_input *input,
             break;
          }
 
-         ret = vtest_init_renderer(input, out_fd, ctx_flags, NULL);
+         ret = vtest_init_renderer(ctx_flags, NULL);
          if (ret >= 0) {
-            ret = vtest_create_context(header[0], &context);
+            ret = vtest_create_context(input, out_fd, header[0], &context);
          }
          if (ret < 0) {
             break;
