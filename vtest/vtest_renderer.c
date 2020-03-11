@@ -51,12 +51,13 @@ struct vtest_context {
    struct list_head head;
 
    int ctx_id;
+
+   unsigned protocol_version;
 };
 
 struct vtest_renderer {
    struct vtest_input *input;
    int out_fd;
-   unsigned protocol_version;
    struct util_hash_table *iovec_hash;
    const char *rendernode_name;
 
@@ -247,9 +248,6 @@ int vtest_init_renderer(struct vtest_input *input, int out_fd,
    list_inithead(&renderer.active_contexts);
    list_inithead(&renderer.free_contexts);
 
-   /* By default we support version 0 unless VCMD_PROTOCOL_VERSION is sent */
-   renderer.protocol_version = 0;
-
    ret = virgl_renderer_init(&renderer,
          ctx_flags | VIRGL_RENDERER_THREAD_SYNC, &renderer_cbs);
    if (ret) {
@@ -303,6 +301,9 @@ static struct vtest_context *vtest_new_context(void)
       ctx = LIST_ENTRY(struct vtest_context, renderer.free_contexts.next, head);
       list_del(&ctx->head);
    }
+
+   /* By default we support version 0 unless VCMD_PROTOCOL_VERSION is sent */
+   ctx->protocol_version = 0;
 
    return ctx;
 }
@@ -396,37 +397,41 @@ int vtest_ping_protocol_version(UNUSED uint32_t length_dw)
 
 int vtest_protocol_version(UNUSED uint32_t length_dw)
 {
+   struct vtest_context *ctx = vtest_get_current_context();
    uint32_t hdr_buf[VTEST_HDR_SIZE];
    uint32_t version_buf[VCMD_PROTOCOL_VERSION_SIZE];
+   unsigned version;
    int ret;
 
    ret = renderer.input->read(renderer.input, &version_buf, sizeof(version_buf));
    if (ret != sizeof(version_buf))
       return -1;
 
-   renderer.protocol_version = MIN2(version_buf[VCMD_PROTOCOL_VERSION_VERSION],
-                                    VTEST_PROTOCOL_VERSION);
+   version = MIN2(version_buf[VCMD_PROTOCOL_VERSION_VERSION],
+                  VTEST_PROTOCOL_VERSION);
 
    /*
     * We've deprecated protocol version 1. All of it's called sites are being
     * moved protocol version 2. If the server supports version 2 and the guest
     * supports verison 1, fall back to version 0.
     */
-   if (renderer.protocol_version == 1) {
+   if (version == 1) {
       printf("Older guest Mesa detected, fallbacking to protocol version 0\n");
-      renderer.protocol_version = 0;
+      version = 0;
    }
 
    /* Protocol version 2 requires shm support. */
    if (!vtest_shm_check()) {
       printf("Shared memory not supported, fallbacking to protocol version 0\n");
-      renderer.protocol_version = 0;
+      version = 0;
    }
+
+   ctx->protocol_version = version;
 
    hdr_buf[VTEST_CMD_LEN] = VCMD_PROTOCOL_VERSION_SIZE;
    hdr_buf[VTEST_CMD_ID] = VCMD_PROTOCOL_VERSION;
 
-   version_buf[VCMD_PROTOCOL_VERSION_VERSION] = renderer.protocol_version;
+   version_buf[VCMD_PROTOCOL_VERSION_VERSION] = ctx->protocol_version;
 
    ret = vtest_block_write(renderer.out_fd, hdr_buf, sizeof(hdr_buf));
    if (ret < 0) {
