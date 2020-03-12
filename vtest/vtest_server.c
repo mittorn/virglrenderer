@@ -372,6 +372,11 @@ static void vtest_server_run_renderer(struct vtest_client *client)
 {
    int err, ret;
 
+   ret = vtest_init_renderer(server.ctx_flags, server.render_device);
+   if (ret) {
+      return;
+   }
+
    do {
       ret = vtest_wait_for_fd_read(client->in_fd);
       if (ret < 0) {
@@ -431,15 +436,12 @@ static int vtest_client_dispatch_commands(struct vtest_client *client)
          return 3;
       }
 
-      ret = vtest_init_renderer(server.ctx_flags, server.render_device);
-      if (ret >= 0) {
-         ret = vtest_create_context(&client->input, client->out_fd,
-                                    header[0], &client->context);
-      }
+      ret = vtest_create_context(&client->input, client->out_fd,
+                                 header[0], &client->context);
       if (ret < 0) {
          return 4;
       }
-      printf("%s: vtest initialized.\n", __func__);
+      printf("%s: client context created.\n", __func__);
       vtest_set_current_context(client->context);
       vtest_poll();
 
