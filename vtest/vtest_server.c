@@ -117,31 +117,27 @@ while (__AFL_LOOP(1000)) {
    vtest_server_getenv();
    vtest_server_parse_args(argc, argv);
 
-   if (server.read_file != NULL) {
-      vtest_server_open_read_file();
-      goto start;
-   }
-
    if (server.do_fork) {
       vtest_server_set_signal_child();
    } else {
       vtest_server_set_signal_segv();
    }
 
-   vtest_server_open_socket();
-restart:
-   vtest_server_wait_for_socket_accept();
+   if (server.read_file != NULL) {
+      vtest_server_open_read_file();
+      vtest_server_run_renderer(&server.client);
+      vtest_server_tidy_fds();
+   } else {
+      vtest_server_open_socket();
 
-start:
-   vtest_server_run_renderer(&server.client);
+      do {
+         vtest_server_wait_for_socket_accept();
+         vtest_server_run_renderer(&server.client);
+         vtest_server_tidy_fds();
+      } while (server.loop);
 
-   vtest_server_tidy_fds();
-
-   if (server.loop) {
-      goto restart;
+      vtest_server_close_socket();
    }
-
-   vtest_server_close_socket();
 
 #ifdef __AFL_LOOP
    if (!server.main_server) {
