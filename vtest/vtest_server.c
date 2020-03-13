@@ -36,6 +36,7 @@
 
 #include "util.h"
 #include "util/u_double_list.h"
+#include "util/u_math.h"
 #include "util/u_memory.h"
 #include "vtest.h"
 #include "vtest_protocol.h"
@@ -52,6 +53,7 @@ struct vtest_client
 
    struct list_head head;
 
+   bool in_fd_ready;
    struct vtest_context *context;
 };
 
@@ -73,7 +75,9 @@ struct vtest_server
 
    int ctx_flags;
 
+   struct list_head new_clients;
    struct list_head active_clients;
+   struct list_head inactive_clients;
 };
 
 struct vtest_server server = {
@@ -97,9 +101,7 @@ static void vtest_server_set_signal_child(void);
 static void vtest_server_set_signal_segv(void);
 static void vtest_server_open_read_file(void);
 static void vtest_server_open_socket(void);
-static void vtest_server_run_renderer(void);
-static void vtest_server_wait_for_socket_accept(void);
-static void vtest_server_tidy_fds(void);
+static void vtest_server_run(void);
 static void vtest_server_close_socket(void);
 static int vtest_client_dispatch_commands(struct vtest_client *client);
 
@@ -113,7 +115,9 @@ while (__AFL_LOOP(1000)) {
    vtest_server_getenv();
    vtest_server_parse_args(argc, argv);
 
+   list_inithead(&server.new_clients);
    list_inithead(&server.active_clients);
+   list_inithead(&server.inactive_clients);
 
    if (server.do_fork) {
       vtest_server_set_signal_child();
@@ -121,21 +125,7 @@ while (__AFL_LOOP(1000)) {
       vtest_server_set_signal_segv();
    }
 
-   if (server.read_file != NULL) {
-      vtest_server_open_read_file();
-      vtest_server_run_renderer();
-      vtest_server_tidy_fds();
-   } else {
-      vtest_server_open_socket();
-
-      do {
-         vtest_server_wait_for_socket_accept();
-         vtest_server_run_renderer();
-         vtest_server_tidy_fds();
-      } while (server.loop);
-
-      vtest_server_close_socket();
-   }
+   vtest_server_run();
 
 #ifdef __AFL_LOOP
    if (!server.main_server) {
@@ -289,7 +279,7 @@ static int vtest_server_add_client(int in_fd, int out_fd)
    client->input.data.fd = in_fd;
    client->input.read = vtest_block_read;
 
-   list_addtail(&client->head, &server.active_clients);
+   list_addtail(&client->head, &server.new_clients);
 
    return 0;
 }
@@ -348,34 +338,78 @@ err:
    exit(1);
 }
 
-static void vtest_server_wait_for_socket_accept(void)
+static void vtest_server_wait_clients(void)
 {
+   struct vtest_client *client;
    fd_set read_fds;
-   int new_fd;
+   int max_fd = -1;
    int ret;
-   FD_ZERO(&read_fds);
-   FD_SET(server.socket, &read_fds);
 
-   ret = select(server.socket + 1, &read_fds, NULL, NULL, NULL);
+   FD_ZERO(&read_fds);
+
+   LIST_FOR_EACH_ENTRY(client, &server.active_clients, head) {
+      FD_SET(client->in_fd, &read_fds);
+      max_fd = MAX2(client->in_fd, max_fd);
+   }
+
+   /* accept new clients when there is none */
+   if (server.socket >= 0 && max_fd < 0) {
+      FD_SET(server.socket, &read_fds);
+      max_fd = MAX2(server.socket, max_fd);
+   }
+
+   if (max_fd < 0) {
+      if (!LIST_IS_EMPTY(&server.new_clients)) {
+         return;
+      }
+
+      fprintf(stderr, "server has no fd to wait\n");
+      exit(1);
+   }
+
+   ret = select(max_fd + 1, &read_fds, NULL, NULL, NULL);
    if (ret < 0) {
       perror("Failed to select on socket!");
       exit(1);
    }
 
-   if (!FD_ISSET(server.socket, &read_fds)) {
-      perror("Odd state in fd_set.");
-      exit(1);
+   LIST_FOR_EACH_ENTRY(client, &server.active_clients, head) {
+      if (FD_ISSET(client->in_fd, &read_fds)) {
+         client->in_fd_ready = true;
+      }
    }
 
-   new_fd = accept(server.socket, NULL, NULL);
-   if (new_fd < 0) {
-      perror("Failed to accept socket.");
-      exit(1);
-   }
+   if (server.socket >= 0 && FD_ISSET(server.socket, &read_fds)) {
+      int new_fd = accept(server.socket, NULL, NULL);
+      if (new_fd < 0) {
+         perror("Failed to accept socket.");
+         exit(1);
+      }
 
-   if (vtest_server_add_client(new_fd, new_fd)) {
-      perror("Failed to add client.");
-      exit(1);
+      if (vtest_server_add_client(new_fd, new_fd)) {
+         perror("Failed to add client.");
+         exit(1);
+      }
+   }
+}
+
+static void vtest_server_dispatch_clients(void)
+{
+   struct vtest_client *client, *tmp;
+
+   LIST_FOR_EACH_ENTRY_SAFE(client, tmp, &server.active_clients, head) {
+      int err;
+
+      if (!client->in_fd_ready)
+         continue;
+      client->in_fd_ready = false;
+
+      err = vtest_client_dispatch_commands(client);
+      if (err) {
+         fprintf(stderr, "client failed: err %d\n", err);
+         list_del(&client->head);
+         list_addtail(&client->head, &server.inactive_clients);
+      }
    }
 }
 
@@ -386,6 +420,7 @@ static pid_t vtest_server_fork(void)
    if (pid == 0) {
       /* child */
       vtest_server_set_signal_segv();
+      vtest_server_close_socket();
       server.main_server = false;
       server.do_fork = false;
       server.loop = false;
@@ -394,45 +429,119 @@ static pid_t vtest_server_fork(void)
    return pid;
 }
 
-static void vtest_server_run_renderer(void)
+static void vtest_server_fork_clients(void)
 {
-   struct vtest_client *client =
-      LIST_ENTRY(struct vtest_client, server.active_clients.next, head);
-   int err, ret;
+   struct vtest_client *client, *tmp;
 
-   if (server.do_fork) {
+   LIST_FOR_EACH_ENTRY_SAFE(client, tmp, &server.new_clients, head) {
       if (vtest_server_fork()) {
-         /* parent */
-         return;
+         /* parent: move new clients to the inactive list */
+         list_del(&client->head);
+         list_addtail(&client->head, &server.inactive_clients);
+      } else {
+         /* child: move the first new client to the active list */
+         list_del(&client->head);
+         list_addtail(&client->head, &server.active_clients);
+
+         /* move the rest new clients to the inactive list */
+         LIST_FOR_EACH_ENTRY_SAFE(client, tmp, &server.new_clients, head) {
+            list_del(&client->head);
+            list_addtail(&client->head, &server.inactive_clients);
+         }
+      }
+   }
+}
+
+static void vtest_server_activate_clients(void)
+{
+   struct vtest_client *client, *tmp;
+
+   /* move new clients to the active list */
+   LIST_FOR_EACH_ENTRY_SAFE(client, tmp, &server.new_clients, head) {
+      list_addtail(&client->head, &server.active_clients);
+   }
+   list_inithead(&server.new_clients);
+}
+
+static void vtest_server_inactivate_clients(void)
+{
+   struct vtest_client *client, *tmp;
+
+   /* move active clients to the inactive list */
+   LIST_FOR_EACH_ENTRY_SAFE(client, tmp, &server.active_clients, head) {
+      list_addtail(&client->head, &server.inactive_clients);
+   }
+   list_inithead(&server.active_clients);
+}
+
+static void vtest_server_tidy_clients(void)
+{
+   struct vtest_client *client, *tmp;
+
+   LIST_FOR_EACH_ENTRY_SAFE(client, tmp, &server.inactive_clients, head) {
+      if (client->context) {
+         vtest_destroy_context(client->context);
+      }
+
+      if (client->in_fd >= 0) {
+         close(client->in_fd);
+      }
+
+      if (client->out_fd >= 0 && client->out_fd != client->in_fd) {
+         close(client->out_fd);
+      }
+
+      free(client);
+   }
+
+   list_inithead(&server.inactive_clients);
+}
+
+static void vtest_server_run(void)
+{
+   bool run = true;
+
+   if (server.read_file) {
+      vtest_server_open_read_file();
+   } else {
+      vtest_server_open_socket();
+   }
+
+   while (run) {
+      const bool was_empty = LIST_IS_EMPTY(&server.active_clients);
+      bool is_empty;
+
+      vtest_server_wait_clients();
+      vtest_server_dispatch_clients();
+
+      if (server.do_fork) {
+         vtest_server_fork_clients();
+      } else {
+         vtest_server_activate_clients();
+      }
+
+      /* init renderer after the first active client is added */
+      is_empty = LIST_IS_EMPTY(&server.active_clients);
+      if (was_empty && !is_empty) {
+         int ret = vtest_init_renderer(server.ctx_flags, server.render_device);
+         if (ret) {
+            vtest_server_inactivate_clients();
+            run = false;
+         }
+      }
+
+      vtest_server_tidy_clients();
+
+      /* clean up renderer after the last active client is removed */
+      if (!was_empty && is_empty) {
+         vtest_cleanup_renderer();
+         if (!server.loop) {
+            run = false;
+         }
       }
    }
 
-   ret = vtest_init_renderer(server.ctx_flags, server.render_device);
-   if (ret) {
-      return;
-   }
-
-   do {
-      ret = vtest_wait_for_fd_read(client->in_fd);
-      if (ret < 0) {
-         err = 1;
-         break;
-      }
-
-      err = vtest_client_dispatch_commands(client);
-      if (err) {
-         break;
-      }
-   } while (1);
-
-   fprintf(stderr, "socket failed (%d) - closing renderer\n", err);
-
-   if (client->context) {
-      vtest_destroy_context(client->context);
-      client->context = NULL;
-   }
-
-   vtest_cleanup_renderer();
+   vtest_server_close_socket();
 }
 
 typedef int (*vtest_cmd_fptr_t)(uint32_t);
@@ -477,7 +586,6 @@ static int vtest_client_dispatch_commands(struct vtest_client *client)
          return 4;
       }
       printf("%s: client context created.\n", __func__);
-      vtest_set_current_context(client->context);
       vtest_poll();
 
       return 0;
@@ -492,6 +600,8 @@ static int vtest_client_dispatch_commands(struct vtest_client *client)
       return 6;
    }
 
+   vtest_set_current_context(client->context);
+
    ret = vtest_commands[header[1]](header[0]);
    if (ret < 0) {
       return 7;
@@ -503,31 +613,6 @@ static int vtest_client_dispatch_commands(struct vtest_client *client)
       vtest_renderer_create_fence();
 
    return 0;
-}
-
-static void vtest_server_tidy_fds(void)
-{
-   struct vtest_client *client =
-      LIST_ENTRY(struct vtest_client, server.active_clients.next, head);
-
-   // out_fd will be closed by the in_fd clause if they are the same.
-   if (client->out_fd == client->in_fd) {
-      client->out_fd = -1;
-   }
-
-   if (client->in_fd != -1) {
-      close(client->in_fd);
-      client->in_fd = -1;
-      client->input.read = NULL;
-   }
-
-   if (client->out_fd != -1) {
-      close(client->out_fd);
-      client->out_fd = -1;
-   }
-
-   list_del(&client->head);
-   free(client);
 }
 
 static void vtest_server_close_socket(void)
