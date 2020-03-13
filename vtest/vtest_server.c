@@ -77,6 +77,7 @@ struct vtest_server
    bool main_server;
    bool do_fork;
    bool loop;
+   bool multi_clients;
 
    bool use_glx;
    bool use_egl_surfaceless;
@@ -100,6 +101,7 @@ struct vtest_server server = {
    .main_server = true,
    .do_fork = true,
    .loop = true,
+   .multi_clients = false,
 
    .ctx_flags = 0,
 };
@@ -146,6 +148,7 @@ while (__AFL_LOOP(1000)) {
 
 #define OPT_NO_FORK 'f'
 #define OPT_NO_LOOP_OR_FORK 'l'
+#define OPT_MULTI_CLIENTS 'm'
 #define OPT_USE_GLX 'x'
 #define OPT_USE_EGL_SURFACELESS 's'
 #define OPT_USE_GLES 'e'
@@ -158,6 +161,7 @@ static void vtest_server_parse_args(int argc, char **argv)
    static struct option long_options[] = {
       {"no-fork",             no_argument, NULL, OPT_NO_FORK},
       {"no-loop-or-fork",     no_argument, NULL, OPT_NO_LOOP_OR_FORK},
+      {"multi-clients",       no_argument, NULL, OPT_MULTI_CLIENTS},
       {"use-glx",             no_argument, NULL, OPT_USE_GLX},
       {"use-egl-surfaceless", no_argument, NULL, OPT_USE_EGL_SURFACELESS},
       {"use-gles",            no_argument, NULL, OPT_USE_GLES},
@@ -181,6 +185,10 @@ static void vtest_server_parse_args(int argc, char **argv)
          server.do_fork = false;
          server.loop = false;
          break;
+      case OPT_MULTI_CLIENTS:
+         printf("EXPERIMENTAL: clients must know and trust each other\n");
+         server.multi_clients = true;
+         break;
       case OPT_USE_GLX:
          server.use_glx = true;
          break;
@@ -194,8 +202,9 @@ static void vtest_server_parse_args(int argc, char **argv)
          server.render_device = optarg;
          break;
       default:
-         printf("Usage: %s [--no-fork] [--no-loop-or-fork] [--use-glx] "
-                "[--use-egl-surfaceless] [--use-gles] [--rendernode <dev>]"
+         printf("Usage: %s [--no-fork] [--no-loop-or-fork] [--multi-clients] "
+                "[--use-glx] [--use-egl-surfaceless] [--use-gles] "
+                "[--rendernode <dev>]"
                 " [file]\n", argv[0]);
          exit(EXIT_FAILURE);
          break;
@@ -207,6 +216,7 @@ static void vtest_server_parse_args(int argc, char **argv)
       server.read_file = argv[optind];
       server.loop = false;
       server.do_fork = false;
+      server.multi_clients = false;
    }
 
    server.ctx_flags = VIRGL_RENDERER_USE_EGL;
@@ -361,8 +371,8 @@ static void vtest_server_wait_clients(void)
       max_fd = MAX2(client->in_fd, max_fd);
    }
 
-   /* accept new clients when there is none */
-   if (server.socket >= 0 && max_fd < 0) {
+   /* accept new clients when there is none or when multi_clients is set */
+   if (server.socket >= 0 && (max_fd < 0 || server.multi_clients)) {
       FD_SET(server.socket, &read_fds);
       max_fd = MAX2(server.socket, max_fd);
    }
@@ -449,6 +459,7 @@ static pid_t vtest_server_fork(void)
       server.main_server = false;
       server.do_fork = false;
       server.loop = false;
+      server.multi_clients = false;
    }
 
    return pid;
