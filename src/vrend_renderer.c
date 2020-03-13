@@ -108,6 +108,7 @@ enum features_id
    feat_barrier,
    feat_bind_vertex_buffers,
    feat_bit_encoding,
+   feat_clear_texture,
    feat_clip_control,
    feat_compute_shader,
    feat_copy_image,
@@ -198,6 +199,7 @@ static const  struct {
    FEAT(barrier, 42, 31, NULL),
    FEAT(bind_vertex_buffers, 44, UNAVAIL, NULL),
    FEAT(bit_encoding, 33, UNAVAIL,  "GL_ARB_shader_bit_encoding" ),
+   FEAT(clear_texture, 44, UNAVAIL, "GL_ARB_clear_texture", "GL_EXT_clear_texture"),
    FEAT(clip_control, 45, UNAVAIL, "GL_ARB_clip_control", "GL_EXT_clip_control"),
    FEAT(compute_shader, 43, 31,  "GL_ARB_compute_shader" ),
    FEAT(copy_image, 43, 32,  "GL_ARB_copy_image", "GL_EXT_copy_image", "GL_OES_copy_image" ),
@@ -9906,6 +9908,9 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
       if (vrend_format_can_scanout(fmt))
          set_format_bit(&caps->v2.scanout, fmt);
    }
+
+   if (has_feature(feat_clear_texture))
+      caps->v2.capability_bits |= VIRGL_CAP_CLEAR_TEXTURE;
 
    if (has_feature(feat_clip_control))
       caps->v2.capability_bits |= VIRGL_CAP_CLIP_HALFZ;
