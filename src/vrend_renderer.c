@@ -733,6 +733,12 @@ static inline bool vrend_format_can_scanout(enum virgl_formats format)
 #endif
 }
 
+static inline bool vrend_format_can_texture_view(enum virgl_formats format)
+{
+   return has_feature(feat_texture_view) &&
+      tex_conv_table[format].flags & VIRGL_TEXTURE_CAN_TEXTURE_STORAGE;
+}
+
 struct vrend_context_tweaks *vrend_get_context_tweaks(struct vrend_context *ctx)
 {
    return &ctx->sub->tweaks;
@@ -1765,9 +1771,8 @@ int vrend_create_surface(struct vrend_context *ctx,
    surf->val1 = val1;
    surf->id = res->id;
 
-   if (has_feature(feat_texture_view) &&
-       !has_bit(res->storage_bits, VREND_STORAGE_GL_BUFFER) &&
-       (tex_conv_table[format].flags & VIRGL_TEXTURE_CAN_TEXTURE_STORAGE)) {
+   if (!has_bit(res->storage_bits, VREND_STORAGE_GL_BUFFER) &&
+         vrend_format_can_texture_view(format)) {
       /* We don't need texture views for buffer objects.
        * Otherwise we only need a texture view if the
        * a) formats differ between the surface and base texture
@@ -2094,8 +2099,7 @@ int vrend_create_sampler_view(struct vrend_context *ctx,
    view->gl_swizzle_b = to_gl_swizzle(swizzle[2]);
    view->gl_swizzle_a = to_gl_swizzle(swizzle[3]);
 
-   if (has_feature(feat_texture_view) &&
-       !has_bit(view->texture->storage_bits, VREND_STORAGE_GL_BUFFER)) {
+   if (!has_bit(view->texture->storage_bits, VREND_STORAGE_GL_BUFFER)) {
       enum virgl_formats format;
       bool needs_view = false;
 
@@ -2122,7 +2126,8 @@ int vrend_create_sampler_view(struct vrend_context *ctx,
          format = view->texture->base.format;
       else if (view->format != view->texture->base.format)
          needs_view = true;
-      if (needs_view && (tex_conv_table[view->texture->base.format].flags & VIRGL_TEXTURE_CAN_TEXTURE_STORAGE)) {
+
+      if (needs_view && vrend_format_can_texture_view(view->texture->base.format)) {
         glGenTextures(1, &view->id);
         GLenum internalformat = tex_conv_table[format].internalformat;
         unsigned base_layer = view->val0 & 0xffff;
@@ -2166,14 +2171,14 @@ int vrend_create_sampler_view(struct vrend_context *ctx,
                             view->srgb_decode);
         }
         glBindTexture(view->target, 0);
-     } else if (needs_view && view->val0 && view->val0 <= ARRAY_SIZE(res->aux_plane_egl_image) &&
-                res->aux_plane_egl_image[view->val0 - 1]) {
-        void *image = res->aux_plane_egl_image[view->val0 - 1];
+      } else if (needs_view && view->val0 < ARRAY_SIZE(res->aux_plane_egl_image) &&
+            res->aux_plane_egl_image[view->val0]) {
+        void *image = res->aux_plane_egl_image[view->val0];
         glGenTextures(1, &view->id);
         glBindTexture(view->target, view->id);
         glEGLImageTargetTexture2DOES(view->target, (GLeglImageOES) image);
         glBindTexture(view->target, 0);
-     }
+      }
    }
 
    ret_handle = vrend_renderer_object_insert(ctx, view, sizeof(*view), handle, VIRGL_OBJECT_SAMPLER_VIEW);
@@ -6611,9 +6616,12 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
 
    if (image_oes && gr->gbm_bo) {
 #ifdef ENABLE_GBM_ALLOCATION
-      for (int i = 0; i < gbm_bo_get_plane_count(gr->gbm_bo) - 1; i++) {
-         gr->aux_plane_egl_image[i] =
-               virgl_egl_aux_plane_image_from_dmabuf(egl, gr->gbm_bo, i + 1);
+      if (!has_bit(gr->storage_bits, VREND_STORAGE_GL_BUFFER) &&
+            !vrend_format_can_texture_view(gr->base.format)) {
+         for (int i = 0; i < gbm_bo_get_plane_count(gr->gbm_bo); i++) {
+            gr->aux_plane_egl_image[i] =
+                  virgl_egl_aux_plane_image_from_dmabuf(egl, gr->gbm_bo, i);
+         }
       }
 #endif
    }
