@@ -45,6 +45,15 @@
 #include <sys/select.h>
 #endif
 
+enum vtest_client_error {
+   VTEST_CLIENT_ERROR_INPUT_READ = 2, /* for backward compatibility */
+   VTEST_CLIENT_ERROR_CONTEXT_MISSING,
+   VTEST_CLIENT_ERROR_CONTEXT_FAILED,
+   VTEST_CLIENT_ERROR_COMMAND_ID,
+   VTEST_CLIENT_ERROR_COMMAND_UNEXPECTED,
+   VTEST_CLIENT_ERROR_COMMAND_DISPATCH,
+};
+
 struct vtest_client
 {
    int in_fd;
@@ -393,6 +402,21 @@ static void vtest_server_wait_clients(void)
    }
 }
 
+static const char *vtest_client_error_string(enum vtest_client_error err)
+{
+   switch (err) {
+#define CASE(e) case e: return #e;
+   CASE(VTEST_CLIENT_ERROR_INPUT_READ)
+   CASE(VTEST_CLIENT_ERROR_CONTEXT_MISSING)
+   CASE(VTEST_CLIENT_ERROR_CONTEXT_FAILED)
+   CASE(VTEST_CLIENT_ERROR_COMMAND_ID)
+   CASE(VTEST_CLIENT_ERROR_COMMAND_UNEXPECTED)
+   CASE(VTEST_CLIENT_ERROR_COMMAND_DISPATCH)
+#undef CASE
+   default: return "VTEST_CLIENT_ERROR_UNKNOWN";
+   }
+}
+
 static void vtest_server_dispatch_clients(void)
 {
    struct vtest_client *client, *tmp;
@@ -406,7 +430,8 @@ static void vtest_server_dispatch_clients(void)
 
       err = vtest_client_dispatch_commands(client);
       if (err) {
-         fprintf(stderr, "client failed: err %d\n", err);
+         fprintf(stderr, "client failed: %s\n",
+                 vtest_client_error_string(err));
          list_del(&client->head);
          list_addtail(&client->head, &server.inactive_clients);
       }
@@ -571,19 +596,19 @@ static int vtest_client_dispatch_commands(struct vtest_client *client)
 
    ret = client->input.read(&client->input, &header, sizeof(header));
    if (ret < 0 || (size_t)ret < sizeof(header)) {
-      return 2;
+      return VTEST_CLIENT_ERROR_INPUT_READ;
    }
 
    if (!client->context) {
       /* The first command MUST be VCMD_CREATE_RENDERER */
       if (header[1] != VCMD_CREATE_RENDERER) {
-         return 3;
+         return VTEST_CLIENT_ERROR_CONTEXT_MISSING;
       }
 
       ret = vtest_create_context(&client->input, client->out_fd,
                                  header[0], &client->context);
       if (ret < 0) {
-         return 4;
+         return VTEST_CLIENT_ERROR_CONTEXT_FAILED;
       }
       printf("%s: client context created.\n", __func__);
       vtest_poll();
@@ -593,18 +618,18 @@ static int vtest_client_dispatch_commands(struct vtest_client *client)
 
    vtest_poll();
    if (header[1] <= 0 || header[1] >= ARRAY_SIZE(vtest_commands)) {
-      return 5;
+      return VTEST_CLIENT_ERROR_COMMAND_ID;
    }
 
    if (vtest_commands[header[1]] == NULL) {
-      return 6;
+      return VTEST_CLIENT_ERROR_COMMAND_UNEXPECTED;
    }
 
    vtest_set_current_context(client->context);
 
    ret = vtest_commands[header[1]](header[0]);
    if (ret < 0) {
-      return 7;
+      return VTEST_CLIENT_ERROR_COMMAND_DISPATCH;
    }
 
    /* GL draws are fenced, while possible fence creations are too */
