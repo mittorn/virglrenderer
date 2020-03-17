@@ -11,7 +11,6 @@ spec/!opengl es 3.0/oes_compressed_etc2_texture-miptree_gles3 srgb8-punchthrough
 spec/amd_framebuffer_multisample_advanced/api-gles3: skip
 spec/arb_blend_func_extended/arb_blend_func_extended-bindfragdataindexed-invalid-parameters_gles3: pass
 spec/arb_blend_func_extended/arb_blend_func_extended-dual-src-blending-discard-without-src1_gles3: pass
-spec/arb_blend_func_extended/arb_blend_func_extended-dual-src-blending-issue-1917_gles3: pass
 spec/arb_blend_func_extended/arb_blend_func_extended-fbo-extended-blend-explicit_gles3: pass
 spec/arb_blend_func_extended/arb_blend_func_extended-fbo-extended-blend-pattern_gles3: pass
 spec/arb_blend_func_extended/arb_blend_func_extended-fbo-extended-blend_gles3: pass

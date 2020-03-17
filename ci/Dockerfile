@@ -131,7 +131,7 @@ RUN git clone --shallow-since="$GIT_DATE" https://github.com/KhronosGroup/VK-GL-
 WORKDIR /
 
 ARG KNOWN_GOOD_PIGLIT
-ENV KNOWN_GOOD_PIGLIT ${KNOWN_GOOD_PIGLIT:-603cfb97542a411e8957a0d689d8b28cf8b9ef4d}
+ENV KNOWN_GOOD_PIGLIT ${KNOWN_GOOD_PIGLIT:-645e15dc84fb48c1f270e322af61d7c716f1c45c}
 WORKDIR /piglit
 RUN git clone --shallow-since="$GIT_DATE" https://gitlab.freedesktop.org/mesa/piglit.git . && \
     git checkout ${KNOWN_GOOD_PIGLIT} && \
