@@ -211,6 +211,33 @@ static int vrend_decode_clear(struct vrend_decode_ctx *ctx, int length)
    return 0;
 }
 
+static int vrend_decode_clear_texture(struct vrend_decode_ctx *ctx, int length)
+{
+   struct pipe_box box;
+   uint32_t handle;
+   uint32_t level;
+   uint32_t arr[4] = {0};
+
+   if (length != VIRGL_CLEAR_TEXTURE_SIZE)
+      return EINVAL;
+
+   handle = get_buf_entry(ctx, VIRGL_TEXTURE_HANDLE);
+   level = get_buf_entry(ctx, VIRGL_TEXTURE_LEVEL);
+   box.x = get_buf_entry(ctx, VIRGL_TEXTURE_SRC_X);
+   box.y = get_buf_entry(ctx, VIRGL_TEXTURE_SRC_Y);
+   box.z = get_buf_entry(ctx, VIRGL_TEXTURE_SRC_Z);
+   box.width = get_buf_entry(ctx, VIRGL_TEXTURE_SRC_W);
+   box.height = get_buf_entry(ctx, VIRGL_TEXTURE_SRC_H);
+   box.depth = get_buf_entry(ctx, VIRGL_TEXTURE_SRC_D);
+   arr[0] = get_buf_entry(ctx, VIRGL_TEXTURE_ARRAY_A);
+   arr[1] = get_buf_entry(ctx, VIRGL_TEXTURE_ARRAY_B);
+   arr[2] = get_buf_entry(ctx, VIRGL_TEXTURE_ARRAY_C);
+   arr[3] = get_buf_entry(ctx, VIRGL_TEXTURE_ARRAY_D);
+
+   vrend_clear_texture(ctx->grctx, handle, level, &box, (void *) &arr);
+   return 0;
+}
+
 static float uif(unsigned int ui)
 {
    union { float f; unsigned int ui; } myuif;
@@ -1495,6 +1522,9 @@ static int vrend_decode_ctx_submit_cmd(struct virgl_context *ctx,
          break;
       case VIRGL_CCMD_CLEAR:
          ret = vrend_decode_clear(gdctx, len);
+         break;
+      case VIRGL_CCMD_CLEAR_TEXTURE:
+         ret = vrend_decode_clear_texture(gdctx, len);
          break;
       case VIRGL_CCMD_DRAW_VBO:
          ret = vrend_decode_draw_vbo(gdctx, len);

@@ -3720,6 +3720,38 @@ void vrend_clear(struct vrend_context *ctx,
       glDisable(GL_SCISSOR_TEST);
 }
 
+void vrend_clear_texture(struct vrend_context* ctx,
+                         uint32_t handle, uint32_t level,
+                         const struct pipe_box *box,
+                         const void * data)
+{
+   GLenum format, type;
+   struct vrend_resource *res;
+
+   if (handle)
+      res = vrend_renderer_ctx_res_lookup(ctx, handle);
+   else {
+      vrend_printf( "cannot find resource for handle %d\n", handle);
+      return;
+   }
+
+   enum virgl_formats fmt = vrend_format_replace_emulated(res->base.bind, res->base.format);
+   format = tex_conv_table[fmt].glformat;
+   type = tex_conv_table[fmt].gltype;
+
+   if (vrend_state.use_gles) {
+      glClearTexSubImageEXT(res->id, level,
+                            box->x, box->y, box->z,
+                            box->width, box->height, box->depth,
+                            format, type, data);
+   } else {
+      glClearTexSubImage(res->id, level,
+                         box->x, box->y, box->z,
+                         box->width, box->height, box->depth,
+                         format, type, data);
+   }
+}
+
 static void vrend_update_scissor_state(struct vrend_context *ctx)
 {
    struct pipe_scissor_state *ss;
