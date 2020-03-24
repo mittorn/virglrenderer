@@ -676,3 +676,30 @@ int virgl_renderer_resource_create_blob(const struct virgl_renderer_resource_cre
 
    return 0;
 }
+
+int virgl_renderer_resource_map(uint32_t res_handle, void **map, uint64_t *out_size)
+{
+   struct virgl_resource *res = virgl_resource_lookup(res_handle);
+   if (!res || !res->pipe_resource)
+      return -EINVAL;
+
+   return vrend_renderer_resource_map(res->pipe_resource, map, out_size);
+}
+
+int virgl_renderer_resource_unmap(uint32_t res_handle)
+{
+   struct virgl_resource *res = virgl_resource_lookup(res_handle);
+   if (!res || !res->pipe_resource)
+      return -EINVAL;
+
+   return vrend_renderer_resource_unmap(res->pipe_resource);
+}
+
+int virgl_renderer_resource_get_map_info(uint32_t res_handle, uint32_t *map_info)
+{
+   struct virgl_resource *res = virgl_resource_lookup(res_handle);
+   if (!res || !res->pipe_resource)
+      return -EINVAL;
+
+   return vrend_renderer_resource_get_map_info(res->pipe_resource, map_info);
+}

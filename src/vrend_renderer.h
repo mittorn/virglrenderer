@@ -77,6 +77,7 @@ extern struct virgl_gbm *gbm;
 struct vrend_resource {
    struct pipe_resource base;
    uint32_t storage_bits;
+   uint32_t map_info;
 
    GLuint id;
    GLenum target;
@@ -99,6 +100,9 @@ struct vrend_resource {
    uint64_t mipmap_offsets[VR_MAX_TEXTURE_2D_LEVELS];
    void *gbm_bo, *egl_image;
    void *aux_plane_egl_image[VIRGL_GBM_MAX_PLANES];
+   
+   uint64_t size;
+   GLbitfield buffer_storage_flags; 
 
    uint32_t blob_id;
    struct list_head head;
@@ -496,5 +500,11 @@ vrend_renderer_pipe_resource_create(struct vrend_context *ctx, uint32_t blob_id,
                                     struct vrend_renderer_resource_create_args *args);
 
 struct pipe_resource *vrend_get_blob_pipe(struct vrend_context *ctx, uint64_t blob_id);
+
+int vrend_renderer_resource_get_map_info(struct pipe_resource *pres, uint32_t *map_info);
+
+int vrend_renderer_resource_map(struct pipe_resource *pres, void **map, uint64_t *out_size);
+
+int vrend_renderer_resource_unmap(struct pipe_resource *pres);
 
 #endif

@@ -258,4 +258,17 @@ struct virgl_renderer_resource_create_blob_args
 
 VIRGL_EXPORT int
 virgl_renderer_resource_create_blob(const struct virgl_renderer_resource_create_blob_args *args);
+
+VIRGL_EXPORT int virgl_renderer_resource_map(uint32_t res_handle, void **map, uint64_t *out_size);
+
+VIRGL_EXPORT int virgl_renderer_resource_unmap(uint32_t res_handle);
+
+#define VIRGL_RENDERER_MAP_CACHE_MASK      0x0f
+#define VIRGL_RENDERER_MAP_CACHE_NONE      0x00
+#define VIRGL_RENDERER_MAP_CACHE_CACHED    0x01
+#define VIRGL_RENDERER_MAP_CACHE_UNCACHED  0x02
+#define VIRGL_RENDERER_MAP_CACHE_WC        0x03
+
+VIRGL_EXPORT int virgl_renderer_resource_get_map_info(uint32_t res_handle, uint32_t *map_info);
+
 #endif

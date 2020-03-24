@@ -310,6 +310,8 @@ struct global_renderer_state {
    float tess_factors[6];
    bool bgra_srgb_emulation_loaded;
 
+   /* inferred GL caching type */
+   uint32_t inferred_gl_caching_type;
 };
 
 static struct global_renderer_state vrend_state;
@@ -6437,6 +6439,11 @@ static void vrend_resource_gbm_init(struct vrend_resource *gr, uint32_t format)
 
    gr->gbm_bo = bo;
    gr->storage_bits |= VREND_STORAGE_GBM_BUFFER;
+   /* This is true so far, but maybe gbm_bo_get_caching_type is needed in the future. */
+   if (!strcmp(gbm_device_get_backend_name(gbm->device), "i915"))
+      gr->map_info = VIRGL_MAP_CACHE_CACHED;
+   else
+      gr->map_info = VIRGL_MAP_CACHE_WC;
 
    if (!virgl_gbm_gpu_import_required(gr->base.bind))
       return;
@@ -10366,4 +10373,42 @@ struct pipe_resource *vrend_get_blob_pipe(struct vrend_context *ctx, uint64_t bl
    }
 
    return NULL;
+}
+
+int vrend_renderer_resource_get_map_info(struct pipe_resource *pres, uint32_t *map_info)
+{
+   struct vrend_resource *res = (struct vrend_resource *)pres;
+   if (!res->map_info)
+      return -EINVAL;
+
+   *map_info = res->map_info;
+   return 0;
+}
+
+int vrend_renderer_resource_map(struct pipe_resource *pres, void **map, uint64_t *out_size)
+{
+   struct vrend_resource *res = (struct vrend_resource *)pres;
+   if (!has_bits(res->storage_bits, VREND_STORAGE_GL_BUFFER | VREND_STORAGE_GL_IMMUTABLE))
+      return -EINVAL;
+
+   glBindBufferARB(res->target, res->id);
+   *map = glMapBufferRange(res->target, 0, res->size, res->buffer_storage_flags);
+   if (!*map)
+      return -EINVAL;
+
+   glBindBufferARB(res->target, 0);
+   *out_size = res->size;
+   return 0;
+}
+
+int vrend_renderer_resource_unmap(struct pipe_resource *pres)
+{
+   struct vrend_resource *res = (struct vrend_resource *)pres;
+   if (!has_bits(res->storage_bits, VREND_STORAGE_GL_BUFFER | VREND_STORAGE_GL_IMMUTABLE))
+      return -EINVAL;
+
+   glBindBufferARB(res->target, res->id);
+   glUnmapBuffer(res->target);
+   glBindBufferARB(res->target, 0);
+   return 0;
 }
