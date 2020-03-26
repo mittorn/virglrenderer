@@ -19,6 +19,8 @@ AM_CFLAGS = \
 	$(CODE_COVERAGE_CFLAGS)
 
 libvrend_la_SOURCES = \
+        virgl_context.c \
+        virgl_context.h \
         virgl_hw.h \
         virgl_protocol.h \
         virgl_util.c \

@@ -38,6 +38,8 @@
 
 #include "virglrenderer.h"
 
+#include "virgl_context.h"
+
 #ifdef HAVE_EPOXY_EGL_H
 #include "virgl_gbm.h"
 #include "virgl_egl.h"
@@ -291,6 +293,8 @@ void virgl_renderer_poll(void)
 void virgl_renderer_cleanup(UNUSED void *cookie)
 {
    vrend_renderer_fini();
+   virgl_context_table_cleanup();
+
 #ifdef HAVE_EPOXY_EGL_H
    if (use_context == CONTEXT_EGL) {
       virgl_egl_destroy(egl);
@@ -365,6 +369,9 @@ int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks
       return -1;
 #endif
    }
+
+   if (virgl_context_table_init())
+      return -1;
 
    if (flags & VIRGL_RENDERER_THREAD_SYNC)
       renderer_flags |= VREND_USE_THREAD_SYNC;

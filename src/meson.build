@@ -25,6 +25,8 @@ subdir('gallium')
 
 virgl_sources = [
    'iov.c',
+   'virgl_context.c',
+   'virgl_context.h',
    'virgl_hw.h',
    'virgl_protocol.h',
    'virgl_util.c',
