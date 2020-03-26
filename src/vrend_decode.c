@@ -54,8 +54,6 @@ struct vrend_decode_ctx {
    struct vrend_context *grctx;
 };
 
-static struct vrend_decode_ctx *dec_ctx0;
-
 static inline uint32_t get_buf_entry(struct vrend_decode_ctx *ctx, uint32_t offset)
 {
    return ctx->ds->buf[ctx->ds->buf_offset + offset];
@@ -1407,17 +1405,13 @@ struct virgl_context *vrend_renderer_context_create(uint32_t handle,
 
    dctx->ds = &dctx->ids;
 
-   if (handle == 0)
-      dec_ctx0 = dctx;
-
    return &dctx->base;
 }
 
 struct vrend_context *vrend_lookup_renderer_ctx(uint32_t ctx_id)
 {
-   struct vrend_decode_ctx *dctx = ctx_id ?
-      (struct vrend_decode_ctx *)virgl_context_lookup(ctx_id) :
-      dec_ctx0;
+   struct vrend_decode_ctx *dctx =
+      (struct vrend_decode_ctx *)virgl_context_lookup(ctx_id);
    return dctx ? dctx->grctx : NULL;
 }
 
@@ -1641,14 +1635,7 @@ static void vrend_decode_ctx_init_base(struct vrend_decode_ctx *dctx,
    ctx->submit_cmd = vrend_decode_ctx_submit_cmd;
 }
 
-void vrend_decode_reset(bool ctx_0_only)
+void vrend_decode_reset(void)
 {
-   vrend_hw_switch_context(dec_ctx0->grctx, true);
-
-   if (!ctx_0_only) {
-      virgl_context_table_reset();
-   } else {
-      vrend_decode_ctx_destroy(&dec_ctx0->base);
-      dec_ctx0 = NULL;
-   }
+   virgl_context_table_reset();
 }

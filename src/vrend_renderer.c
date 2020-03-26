@@ -297,6 +297,8 @@ struct global_renderer_state {
    struct list_head fence_wait_list;
    pipe_condvar fence_cond;
 
+   struct vrend_context *ctx0;
+
    pipe_thread sync_thread;
    virgl_gl_context sync_context;
 
@@ -5868,7 +5870,7 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
    list_inithead(&vrend_state.waiting_query_list);
    list_inithead(&vrend_state.active_ctx_list);
    /* create 0 context */
-   vrend_renderer_context_create(0, strlen("HOST"), "HOST");
+   vrend_state.ctx0 = vrend_create_context(0, strlen("HOST"), "HOST");
 
    vrend_state.eventfd = -1;
    if (flags & VREND_USE_THREAD_SYNC) {
@@ -5894,9 +5896,11 @@ vrend_renderer_fini(void)
    }
 
    vrend_blitter_fini();
-   vrend_decode_reset(false);
+
+   vrend_hw_switch_context(vrend_state.ctx0, true);
+   vrend_decode_reset();
    vrend_object_fini_resource_table();
-   vrend_decode_reset(true);
+   vrend_destroy_context(vrend_state.ctx0);
 
    vrend_state.current_ctx = NULL;
    vrend_state.current_hw_ctx = NULL;
@@ -7651,14 +7655,15 @@ int vrend_renderer_transfer_iov(const struct vrend_transfer_info *info,
    if (!info->box)
       return EINVAL;
 
-   ctx = vrend_lookup_renderer_ctx(info->ctx_id);
-   if (!ctx)
-      return EINVAL;
-
-   if (info->ctx_id == 0)
+   if (info->ctx_id == 0) {
+      ctx = vrend_state.ctx0;
       res = vrend_resource_lookup(info->handle, 0);
-   else
+   } else {
+      ctx = vrend_lookup_renderer_ctx(info->ctx_id);
+      if (!ctx)
+         return EINVAL;
       res = vrend_renderer_ctx_res_lookup(ctx, info->handle);
+   }
 
    if (!res) {
       if (info->ctx_id)
@@ -9990,10 +9995,9 @@ void *vrend_renderer_get_cursor_contents(uint32_t res_handle, uint32_t *width, u
 
 void vrend_renderer_force_ctx_0(void)
 {
-   struct vrend_context *ctx0 = vrend_lookup_renderer_ctx(0);
    vrend_state.current_ctx = NULL;
    vrend_state.current_hw_ctx = NULL;
-   vrend_hw_switch_context(ctx0, true);
+   vrend_hw_switch_context(vrend_state.ctx0, true);
 }
 
 void vrend_renderer_get_rect(int res_handle, struct iovec *iov, unsigned int num_iovs,
@@ -10279,11 +10283,14 @@ void vrend_renderer_reset(void)
    }
    vrend_reset_fences();
    vrend_blitter_fini();
-   vrend_decode_reset(false);
+
+   vrend_hw_switch_context(vrend_state.ctx0, true);
+   vrend_decode_reset();
    vrend_object_fini_resource_table();
-   vrend_decode_reset(true);
+   vrend_destroy_context(vrend_state.ctx0);
+
    vrend_object_init_resource_table();
-   vrend_renderer_context_create(0, strlen("HOST"), "HOST");
+   vrend_state.ctx0 = vrend_create_context(0, strlen("HOST"), "HOST");
 }
 
 int vrend_renderer_get_poll_fd(void)
