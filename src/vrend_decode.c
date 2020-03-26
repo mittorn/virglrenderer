@@ -1469,25 +1469,20 @@ static void vrend_decode_ctx_detach_resource(struct virgl_context *ctx,
    vrend_renderer_detach_res_ctx(dctx->grctx, res_id);
 }
 
-int vrend_decode_block(uint32_t ctx_id, uint32_t *block, int ndw)
+static int vrend_decode_ctx_submit_cmd(struct virgl_context *ctx,
+                                       const void *buffer,
+                                       size_t size)
 {
-   struct vrend_decode_ctx *gdctx;
+   struct vrend_decode_ctx *gdctx = (struct vrend_decode_ctx *)ctx;
    bool bret;
    int ret;
-
-   if (ctx_id == 0)
-      return EINVAL;
-
-   gdctx = vrend_decode_ctx_lookup(ctx_id);
-   if (!gdctx)
-      return EINVAL;
 
    bret = vrend_hw_switch_context(gdctx->grctx, true);
    if (bret == false)
       return EINVAL;
 
-   gdctx->ds->buf = block;
-   gdctx->ds->buf_total = ndw;
+   gdctx->ds->buf = buffer;
+   gdctx->ds->buf_total = size / sizeof(uint32_t);
    gdctx->ds->buf_offset = 0;
 
    while (gdctx->ds->buf_offset < gdctx->ds->buf_total) {
@@ -1632,7 +1627,7 @@ int vrend_decode_block(uint32_t ctx_id, uint32_t *block, int ndw)
          ret = vrend_decode_get_query_result_qbo(gdctx, len);
          break;
       case VIRGL_CCMD_TRANSFER3D:
-         ret = vrend_decode_transfer3d(gdctx, len, ctx_id);
+         ret = vrend_decode_transfer3d(gdctx, len, gdctx->base.ctx_id);
          break;
       case VIRGL_CCMD_COPY_TRANSFER3D:
          ret = vrend_decode_copy_transfer3d(gdctx, len);
@@ -1669,6 +1664,7 @@ static void vrend_decode_ctx_init_base(struct vrend_decode_ctx *dctx,
    ctx->destroy = vrend_decode_ctx_destroy;
    ctx->attach_resource = vrend_decode_ctx_attach_resource;
    ctx->detach_resource = vrend_decode_ctx_detach_resource;
+   ctx->submit_cmd = vrend_decode_ctx_submit_cmd;
 }
 
 void vrend_decode_reset(bool ctx_0_only)

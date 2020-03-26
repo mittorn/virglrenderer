@@ -25,6 +25,7 @@
 #ifndef VIRGL_CONTEXT_H
 #define VIRGL_CONTEXT_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 struct virgl_context {
@@ -36,6 +37,10 @@ struct virgl_context {
                            uint32_t res_id);
    void (*detach_resource)(struct virgl_context *ctx,
                            uint32_t res_id);
+
+   int (*submit_cmd)(struct virgl_context *ctx,
+                     const void *buffer,
+                     size_t size);
 };
 
 int

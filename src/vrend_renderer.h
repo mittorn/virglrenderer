@@ -332,7 +332,6 @@ void vrend_set_tess_state(struct vrend_context *ctx, const float tess_factors[6]
 
 void vrend_renderer_fini(void);
 
-int vrend_decode_block(uint32_t ctx_id, uint32_t *block, int ndw);
 struct vrend_context *vrend_lookup_renderer_ctx(uint32_t ctx_id);
 
 int vrend_renderer_create_fence(int client_fence_id, uint32_t ctx_id);

@@ -101,7 +101,10 @@ int virgl_renderer_submit_cmd(void *buffer,
                               int ctx_id,
                               int ndw)
 {
-   return vrend_decode_block(ctx_id, buffer, ndw);
+   struct virgl_context *ctx = virgl_context_lookup(ctx_id);
+   if (!ctx)
+      return EINVAL;
+   return ctx->submit_cmd(ctx, buffer, sizeof(uint32_t) * ndw);
 }
 
 int virgl_renderer_transfer_write_iov(uint32_t handle,
