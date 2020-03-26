@@ -22,6 +22,9 @@
  *
     **************************************************************************/
 
+#ifndef VIRGL_UTIL_H
+#define VIRGL_UTIL_H
+
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -41,3 +44,5 @@ static inline bool is_only_bit(uint32_t mask, uint32_t bit)
 {
     return (mask == bit);
 }
+
+#endif /* VIRGL_UTIL_H */

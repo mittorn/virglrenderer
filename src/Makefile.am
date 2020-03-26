@@ -21,6 +21,7 @@ AM_CFLAGS = \
 libvrend_la_SOURCES = \
         virgl_hw.h \
         virgl_protocol.h \
+        virgl_util.h \
         vrend_iov.h \
         vrend_renderer.c \
         vrend_renderer.h \
@@ -37,7 +38,6 @@ libvrend_la_SOURCES = \
         vrend_strbuf.h \
         vrend_tweaks.c \
         vrend_tweaks.h \
-        vrend_util.h \
         iov.c
 
 if HAVE_EPOXY_EGL

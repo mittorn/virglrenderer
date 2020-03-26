@@ -43,7 +43,7 @@
 #include "virgl_egl.h"
 #include "virgl_hw.h"
 #include "virgl_gbm.h"
-#include "vrend_util.h"
+#include "virgl_util.h"
 
 #define EGL_KHR_SURFACELESS_CONTEXT            BIT(0)
 #define EGL_KHR_CREATE_CONTEXT                 BIT(1)

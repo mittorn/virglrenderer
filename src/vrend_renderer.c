@@ -49,7 +49,7 @@
 #include "vrend_renderer.h"
 #include "vrend_debug.h"
 
-#include "vrend_util.h"
+#include "virgl_util.h"
 
 #include "virgl_hw.h"
 #include "virglrenderer.h"
