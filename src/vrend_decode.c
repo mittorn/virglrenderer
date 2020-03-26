@@ -42,7 +42,7 @@
 #define DECODE_MAX_TOKENS 8000
 
 struct vrend_decoder_state {
-   uint32_t *buf;
+   const uint32_t *buf;
    uint32_t buf_total;
    uint32_t buf_offset;
 };
@@ -61,8 +61,8 @@ static inline uint32_t get_buf_entry(struct vrend_decode_ctx *ctx, uint32_t offs
    return ctx->ds->buf[ctx->ds->buf_offset + offset];
 }
 
-static inline void *get_buf_ptr(struct vrend_decode_ctx *ctx,
-                                uint32_t offset)
+static inline const void *get_buf_ptr(struct vrend_decode_ctx *ctx,
+                                      uint32_t offset)
 {
    return &ctx->ds->buf[ctx->ds->buf_offset + offset];
 }
@@ -76,7 +76,7 @@ static int vrend_decode_create_shader(struct vrend_decode_ctx *ctx,
    int ret;
    uint32_t shader_offset, req_local_mem = 0;
    unsigned num_tokens, num_so_outputs, offlen;
-   uint8_t *shd_text;
+   const uint8_t *shd_text;
    uint32_t type;
 
    if (length < VIRGL_OBJ_SHADER_HDR_SIZE(0))
@@ -204,7 +204,7 @@ static int vrend_decode_clear(struct vrend_decode_ctx *ctx, int length)
    buffers = get_buf_entry(ctx, VIRGL_OBJ_CLEAR_BUFFERS);
    for (i = 0; i < 4; i++)
       color.ui[i] = get_buf_entry(ctx, VIRGL_OBJ_CLEAR_COLOR_0 + i);
-   double *depth_ptr = (double *)(uint64_t *)get_buf_ptr(ctx, VIRGL_OBJ_CLEAR_DEPTH_0);
+   const void *depth_ptr = get_buf_ptr(ctx, VIRGL_OBJ_CLEAR_DEPTH_0);
    memcpy(&depth, depth_ptr, sizeof(double));
    stencil = get_buf_entry(ctx, VIRGL_OBJ_CLEAR_STENCIL);
 
@@ -370,7 +370,7 @@ static int vrend_decode_resource_inline_write(struct vrend_decode_ctx *ctx, uint
    struct vrend_transfer_info info;
    uint32_t data_len;
    struct iovec dataiovec;
-   void *data;
+   const void *data;
 
    if (length < 12)
       return EINVAL;
@@ -387,7 +387,7 @@ static int vrend_decode_resource_inline_write(struct vrend_decode_ctx *ctx, uint
    info.ctx_id = 0;
    info.offset = 0;
 
-   dataiovec.iov_base = data;
+   dataiovec.iov_base = (void*)data;
    dataiovec.iov_len = data_len;
 
    info.iovec = &dataiovec;
@@ -1305,7 +1305,7 @@ static int vrend_decode_set_debug_mask(struct vrend_decode_ctx *ctx, int length)
 {
    char *flagstring;
    int slen = sizeof(uint32_t) * length;
-   uint32_t *buf;
+   const uint32_t *buf;
 
    if (length < VIRGL_SET_DEBUG_FLAGS_MIN_SIZE)
       return EINVAL;

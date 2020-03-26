@@ -256,7 +256,7 @@ void vrend_bind_sampler_states(struct vrend_context *ctx,
                                uint32_t shader_type,
                                uint32_t start_slot,
                                uint32_t num_states,
-                               uint32_t *handles);
+                               const uint32_t *handles);
 void vrend_set_index_buffer(struct vrend_context *ctx,
                             uint32_t res_handle,
                             uint32_t index_size,
@@ -317,7 +317,7 @@ void vrend_set_constants(struct vrend_context *ctx,
                          uint32_t shader,
                          uint32_t index,
                          uint32_t num_constant,
-                         float *data);
+                         const float *data);
 
 void vrend_set_uniform_buffer(struct vrend_context *ctx, uint32_t shader,
                               uint32_t index, uint32_t offset, uint32_t length,
