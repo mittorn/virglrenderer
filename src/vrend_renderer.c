@@ -9346,16 +9346,8 @@ static void vrend_fill_caps_glsl_version(int gl_ver, int gles_ver,
          caps->v1.glsl_level = 140;
       else if (gl_ver == 32)
          caps->v1.glsl_level = 150;
-      else if (gl_ver == 33)
-         caps->v1.glsl_level = 330;
-      else if (gl_ver == 40)
-         caps->v1.glsl_level = 400;
-      else if (gl_ver == 41)
-         caps->v1.glsl_level = 410;
-      else if (gl_ver == 42)
-         caps->v1.glsl_level = 420;
-      else if (gl_ver >= 43)
-         caps->v1.glsl_level = 430;
+      else if (gl_ver >= 33)
+         caps->v1.glsl_level = 10 * gl_ver;
    }
 
    if (caps->v1.glsl_level < 400) {

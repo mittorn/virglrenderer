@@ -460,7 +460,7 @@ struct gl_version {
    uint32_t minor;
 };
 
-static const struct gl_version gl_versions[] = { {4,5}, {4,4}, {4,3}, {4,2}, {4,1}, {4,0},
+static const struct gl_version gl_versions[] = { {4,6}, {4,5}, {4,4}, {4,3}, {4,2}, {4,1}, {4,0},
                                                  {3,3}, {3,2}, {3,1}, {3,0} };
 
 extern struct vrend_if_cbs *vrend_clicbs;
