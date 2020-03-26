@@ -178,12 +178,18 @@ void virgl_renderer_force_ctx_0(void)
 
 void virgl_renderer_ctx_attach_resource(int ctx_id, int res_handle)
 {
-   vrend_renderer_attach_res_ctx(ctx_id, res_handle);
+   struct virgl_context *ctx = virgl_context_lookup(ctx_id);
+   if (!ctx)
+      return;
+   ctx->attach_resource(ctx, res_handle);
 }
 
 void virgl_renderer_ctx_detach_resource(int ctx_id, int res_handle)
 {
-   vrend_renderer_detach_res_ctx(ctx_id, res_handle);
+   struct virgl_context *ctx = virgl_context_lookup(ctx_id);
+   if (!ctx)
+      return;
+   ctx->detach_resource(ctx, res_handle);
 }
 
 int virgl_renderer_resource_get_info(int res_handle,

@@ -1455,6 +1455,20 @@ static void vrend_decode_ctx_destroy(struct virgl_context *ctx)
    free(dctx);
 }
 
+static void vrend_decode_ctx_attach_resource(struct virgl_context *ctx,
+                                             uint32_t res_id)
+{
+   struct vrend_decode_ctx *dctx = (struct vrend_decode_ctx *)ctx;
+   vrend_renderer_attach_res_ctx(dctx->grctx, res_id);
+}
+
+static void vrend_decode_ctx_detach_resource(struct virgl_context *ctx,
+                                             uint32_t res_id)
+{
+   struct vrend_decode_ctx *dctx = (struct vrend_decode_ctx *)ctx;
+   vrend_renderer_detach_res_ctx(dctx->grctx, res_id);
+}
+
 int vrend_decode_block(uint32_t ctx_id, uint32_t *block, int ndw)
 {
    struct vrend_decode_ctx *gdctx;
@@ -1650,6 +1664,8 @@ static void vrend_decode_ctx_init_base(struct vrend_decode_ctx *dctx,
 
    ctx->ctx_id = ctx_id;
    ctx->destroy = vrend_decode_ctx_destroy;
+   ctx->attach_resource = vrend_decode_ctx_attach_resource;
+   ctx->detach_resource = vrend_decode_ctx_detach_resource;
 }
 
 void vrend_decode_reset(bool ctx_0_only)

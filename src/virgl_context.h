@@ -31,6 +31,11 @@ struct virgl_context {
    uint32_t ctx_id;
 
    void (*destroy)(struct virgl_context *ctx);
+
+   void (*attach_resource)(struct virgl_context *ctx,
+                           uint32_t res_id);
+   void (*detach_resource)(struct virgl_context *ctx,
+                           uint32_t res_id);
 };
 
 int

@@ -663,7 +663,6 @@ static void vrend_patch_blend_state(struct vrend_context *ctx);
 static void vrend_update_frontface_state(struct vrend_context *ctx);
 static void vrender_get_glsl_version(int *glsl_version);
 static void vrend_destroy_resource_object(void *obj_ptr);
-static void vrend_renderer_detach_res_ctx_p(struct vrend_context *ctx, int res_handle);
 static void vrend_destroy_program(struct vrend_linked_shader_program *ent);
 static void vrend_apply_sampler_state(struct vrend_context *ctx,
                                       struct vrend_resource *res,
@@ -6776,7 +6775,7 @@ void vrend_renderer_resource_unref(uint32_t res_handle)
 
    /* remove from any contexts */
    LIST_FOR_EACH_ENTRY(ctx, &vrend_state.active_ctx_list, ctx_entry) {
-      vrend_renderer_detach_res_ctx_p(ctx, res->handle);
+      vrend_renderer_detach_res_ctx(ctx, res->handle);
    }
 
    vrend_resource_remove(res->handle);
@@ -10046,13 +10045,11 @@ void *vrend_renderer_resource_get_priv(uint32_t res_handle)
     return res->priv;
 }
 
-void vrend_renderer_attach_res_ctx(int ctx_id, int resource_id)
+void vrend_renderer_attach_res_ctx(struct vrend_context *ctx, int resource_id)
 {
-   struct vrend_context *ctx = vrend_lookup_renderer_ctx(ctx_id);
    struct vrend_resource *res;
 
-   if (!ctx)
-      return;
+   assert(ctx);
 
    res = vrend_resource_lookup(resource_id, 0);
    if (!res)
@@ -10061,7 +10058,7 @@ void vrend_renderer_attach_res_ctx(int ctx_id, int resource_id)
    vrend_object_insert_nofree(ctx->res_hash, res, sizeof(*res), resource_id, 1, false);
 }
 
-static void vrend_renderer_detach_res_ctx_p(struct vrend_context *ctx, int res_handle)
+void vrend_renderer_detach_res_ctx(struct vrend_context *ctx, int res_handle)
 {
    struct vrend_resource *res;
    res = vrend_object_lookup(ctx->res_hash, res_handle, 1);
@@ -10069,14 +10066,6 @@ static void vrend_renderer_detach_res_ctx_p(struct vrend_context *ctx, int res_h
       return;
 
    vrend_object_remove(ctx->res_hash, res_handle, 1);
-}
-
-void vrend_renderer_detach_res_ctx(int ctx_id, int res_handle)
-{
-   struct vrend_context *ctx = vrend_lookup_renderer_ctx(ctx_id);
-   if (!ctx)
-      return;
-   vrend_renderer_detach_res_ctx_p(ctx, res_handle);
 }
 
 static struct vrend_resource *vrend_renderer_ctx_res_lookup(struct vrend_context *ctx, int res_handle)
