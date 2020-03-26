@@ -31,6 +31,7 @@
 #include "pipe/p_defines.h"
 #include "pipe/p_state.h"
 #include "pipe/p_shader_tokens.h"
+#include "virgl_context.h"
 #include "vrend_renderer.h"
 #include "vrend_object.h"
 #include "tgsi/tgsi_text.h"
@@ -47,11 +48,13 @@ struct vrend_decoder_state {
 };
 
 struct vrend_decode_ctx {
+   struct virgl_context base;
+
    struct vrend_decoder_state ids, *ds;
    struct vrend_context *grctx;
 };
-#define VREND_MAX_CTX 64
-static struct vrend_decode_ctx *dec_ctx[VREND_MAX_CTX];
+
+static struct vrend_decode_ctx *dec_ctx0;
 
 static inline uint32_t get_buf_entry(struct vrend_decode_ctx *ctx, uint32_t offset)
 {
@@ -1381,21 +1384,31 @@ static int vrend_decode_copy_transfer3d(struct vrend_decode_ctx *ctx, int length
    return vrend_renderer_copy_transfer3d(ctx->grctx, &info, src_handle);
 }
 
+static void vrend_decode_ctx_init_base(struct vrend_decode_ctx *dctx,
+                                       uint32_t ctx_id);
+
+static struct vrend_decode_ctx *
+vrend_decode_ctx_lookup(uint32_t ctx_id)
+{
+   return ctx_id ?
+      (struct vrend_decode_ctx *)virgl_context_lookup(ctx_id) :
+      dec_ctx0;
+}
+
 void vrend_renderer_context_create_internal(uint32_t handle, uint32_t nlen,
                                             const char *debug_name)
 {
    struct vrend_decode_ctx *dctx;
 
-   if (handle >= VREND_MAX_CTX)
-      return;
-
-   dctx = dec_ctx[handle];
+   dctx = vrend_decode_ctx_lookup(handle);
    if (dctx)
       return;
 
    dctx = malloc(sizeof(struct vrend_decode_ctx));
    if (!dctx)
       return;
+
+   vrend_decode_ctx_init_base(dctx, handle);
 
    dctx->grctx = vrend_create_context(handle, nlen, debug_name);
    if (!dctx->grctx) {
@@ -1405,14 +1418,17 @@ void vrend_renderer_context_create_internal(uint32_t handle, uint32_t nlen,
 
    dctx->ds = &dctx->ids;
 
-   dec_ctx[handle] = dctx;
+   if (handle) {
+      if (virgl_context_add(&dctx->base)) {
+         dctx->base.destroy(&dctx->base);
+      }
+   } else {
+      dec_ctx0 = dctx;
+   }
 }
 
 int vrend_renderer_context_create(uint32_t handle, uint32_t nlen, const char *debug_name)
 {
-   if (handle >= VREND_MAX_CTX)
-      return EINVAL;
-
    /* context 0 is always available with no guarantees */
    if (handle == 0)
       return EINVAL;
@@ -1423,37 +1439,30 @@ int vrend_renderer_context_create(uint32_t handle, uint32_t nlen, const char *de
 
 void vrend_renderer_context_destroy(uint32_t handle)
 {
-   struct vrend_decode_ctx *ctx;
-   bool ret;
-
-   if (handle >= VREND_MAX_CTX)
-      return;
-
    /* never destroy context 0 here, it will be destroyed in vrend_decode_reset()*/
    if (handle == 0) {
       return;
    }
 
-   ctx = dec_ctx[handle];
-   if (!ctx)
-      return;
-   dec_ctx[handle] = NULL;
-   ret = vrend_destroy_context(ctx->grctx);
-   free(ctx);
-   /* switch to ctx 0 */
-   if (ret && handle != 0)
-      vrend_hw_switch_context(dec_ctx[0]->grctx, true);
+   virgl_context_remove(handle);
 }
 
 struct vrend_context *vrend_lookup_renderer_ctx(uint32_t ctx_id)
 {
-   if (ctx_id >= VREND_MAX_CTX)
-      return NULL;
+   struct vrend_decode_ctx *dctx = vrend_decode_ctx_lookup(ctx_id);
+   return dctx ? dctx->grctx : NULL;
+}
 
-   if (dec_ctx[ctx_id] == NULL)
-      return NULL;
+static void vrend_decode_ctx_destroy(struct virgl_context *ctx)
+{
+   struct vrend_decode_ctx *dctx = (struct vrend_decode_ctx *)ctx;
+   bool switch_0;
 
-   return dec_ctx[ctx_id]->grctx;
+   switch_0 = vrend_destroy_context(dctx->grctx);
+   if (switch_0 && dec_ctx0 != dctx)
+      vrend_hw_switch_context(dec_ctx0->grctx, true);
+
+   free(dctx);
 }
 
 int vrend_decode_block(uint32_t ctx_id, uint32_t *block, int ndw)
@@ -1461,13 +1470,10 @@ int vrend_decode_block(uint32_t ctx_id, uint32_t *block, int ndw)
    struct vrend_decode_ctx *gdctx;
    bool bret;
    int ret;
-   if (ctx_id >= VREND_MAX_CTX)
-      return EINVAL;
 
-   if (dec_ctx[ctx_id] == NULL)
+   gdctx = vrend_decode_ctx_lookup(ctx_id);
+   if (!gdctx)
       return EINVAL;
-
-   gdctx = dec_ctx[ctx_id];
 
    bret = vrend_hw_switch_context(gdctx->grctx, true);
    if (bret == false)
@@ -1647,27 +1653,23 @@ int vrend_decode_block(uint32_t ctx_id, uint32_t *block, int ndw)
    return ret;
 }
 
+static void vrend_decode_ctx_init_base(struct vrend_decode_ctx *dctx,
+                                       uint32_t ctx_id)
+{
+   struct virgl_context *ctx = &dctx->base;
+
+   ctx->ctx_id = ctx_id;
+   ctx->destroy = vrend_decode_ctx_destroy;
+}
+
 void vrend_decode_reset(bool ctx_0_only)
 {
-   int i;
+   vrend_hw_switch_context(dec_ctx0->grctx, true);
 
-   vrend_hw_switch_context(dec_ctx[0]->grctx, true);
-
-   if (ctx_0_only == false) {
-      for (i = 1; i < VREND_MAX_CTX; i++) {
-         if (!dec_ctx[i])
-            continue;
-
-         if (!dec_ctx[i]->grctx)
-            continue;
-
-         vrend_destroy_context(dec_ctx[i]->grctx);
-         free(dec_ctx[i]);
-         dec_ctx[i] = NULL;
-      }
+   if (!ctx_0_only) {
+      virgl_context_table_reset();
    } else {
-      vrend_destroy_context(dec_ctx[0]->grctx);
-      free(dec_ctx[0]);
-      dec_ctx[0] = NULL;
+      vrend_decode_ctx_destroy(&dec_ctx0->base);
+      dec_ctx0 = NULL;
    }
 }
