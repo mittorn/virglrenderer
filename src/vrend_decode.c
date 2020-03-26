@@ -1437,16 +1437,6 @@ int vrend_renderer_context_create(uint32_t handle, uint32_t nlen, const char *de
    return 0;
 }
 
-void vrend_renderer_context_destroy(uint32_t handle)
-{
-   /* never destroy context 0 here, it will be destroyed in vrend_decode_reset()*/
-   if (handle == 0) {
-      return;
-   }
-
-   virgl_context_remove(handle);
-}
-
 struct vrend_context *vrend_lookup_renderer_ctx(uint32_t ctx_id)
 {
    struct vrend_decode_ctx *dctx = vrend_decode_ctx_lookup(ctx_id);

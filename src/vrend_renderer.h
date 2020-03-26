@@ -166,7 +166,6 @@ struct vrend_context *vrend_create_context(int id, uint32_t nlen, const char *de
 bool vrend_destroy_context(struct vrend_context *ctx);
 int vrend_renderer_context_create(uint32_t handle, uint32_t nlen, const char *name);
 void vrend_renderer_context_create_internal(uint32_t handle, uint32_t nlen, const char *name);
-void vrend_renderer_context_destroy(uint32_t handle);
 
 struct vrend_renderer_resource_create_args {
    uint32_t handle;

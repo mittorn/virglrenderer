@@ -94,7 +94,7 @@ int virgl_renderer_context_create(uint32_t handle, uint32_t nlen, const char *na
 
 void virgl_renderer_context_destroy(uint32_t handle)
 {
-   vrend_renderer_context_destroy(handle);
+   virgl_context_remove(handle);
 }
 
 int virgl_renderer_submit_cmd(void *buffer,
