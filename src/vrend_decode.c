@@ -1475,6 +1475,9 @@ int vrend_decode_block(uint32_t ctx_id, uint32_t *block, int ndw)
    bool bret;
    int ret;
 
+   if (ctx_id == 0)
+      return EINVAL;
+
    gdctx = vrend_decode_ctx_lookup(ctx_id);
    if (!gdctx)
       return EINVAL;
