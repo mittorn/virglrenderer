@@ -1424,12 +1424,8 @@ struct vrend_context *vrend_lookup_renderer_ctx(uint32_t ctx_id)
 static void vrend_decode_ctx_destroy(struct virgl_context *ctx)
 {
    struct vrend_decode_ctx *dctx = (struct vrend_decode_ctx *)ctx;
-   bool switch_0;
 
-   switch_0 = vrend_destroy_context(dctx->grctx);
-   if (switch_0 && dec_ctx0 != dctx)
-      vrend_hw_switch_context(dec_ctx0->grctx, true);
-
+   vrend_destroy_context(dctx->grctx);
    free(dctx);
 }
 

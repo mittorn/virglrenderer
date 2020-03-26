@@ -164,7 +164,7 @@ void vrend_set_framebuffer_state(struct vrend_context *ctx,
                                  uint32_t zsurf_handle);
 
 struct vrend_context *vrend_create_context(int id, uint32_t nlen, const char *debug_name);
-bool vrend_destroy_context(struct vrend_context *ctx);
+void vrend_destroy_context(struct vrend_context *ctx);
 struct virgl_context *vrend_renderer_context_create(uint32_t handle,
                                                     uint32_t nlen,
                                                     const char *name);

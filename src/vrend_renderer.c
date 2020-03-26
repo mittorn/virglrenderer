@@ -5975,7 +5975,7 @@ static void vrend_destroy_sub_context(struct vrend_sub_context *sub)
 
 }
 
-bool vrend_destroy_context(struct vrend_context *ctx)
+void vrend_destroy_context(struct vrend_context *ctx)
 {
    bool switch_0 = (ctx == vrend_state.current_ctx);
    struct vrend_context *cur = vrend_state.current_ctx;
@@ -6018,8 +6018,6 @@ bool vrend_destroy_context(struct vrend_context *ctx)
 
    if (!switch_0 && cur)
       vrend_hw_switch_context(cur, true);
-
-   return switch_0;
 }
 
 struct vrend_context *vrend_create_context(int id, uint32_t nlen, const char *debug_name)
