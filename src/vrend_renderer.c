@@ -5868,7 +5868,7 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
    list_inithead(&vrend_state.waiting_query_list);
    list_inithead(&vrend_state.active_ctx_list);
    /* create 0 context */
-   vrend_renderer_context_create_internal(0, strlen("HOST"), "HOST");
+   vrend_renderer_context_create(0, strlen("HOST"), "HOST");
 
    vrend_state.eventfd = -1;
    if (flags & VREND_USE_THREAD_SYNC) {
@@ -10285,7 +10285,7 @@ void vrend_renderer_reset(void)
    vrend_object_fini_resource_table();
    vrend_decode_reset(true);
    vrend_object_init_resource_table();
-   vrend_renderer_context_create_internal(0, strlen("HOST"), "HOST");
+   vrend_renderer_context_create(0, strlen("HOST"), "HOST");
 }
 
 int vrend_renderer_get_poll_fd(void)

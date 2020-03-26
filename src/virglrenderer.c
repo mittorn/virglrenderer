@@ -89,7 +89,27 @@ void virgl_renderer_fill_caps(uint32_t set, uint32_t version,
 
 int virgl_renderer_context_create(uint32_t handle, uint32_t nlen, const char *name)
 {
-   return vrend_renderer_context_create(handle, nlen, name);
+   struct virgl_context *ctx;
+   int ret;
+
+   /* user context id must be greater than 0 */
+   if (handle == 0)
+      return EINVAL;
+
+   if (virgl_context_lookup(handle))
+      return 0;
+
+   ctx = vrend_renderer_context_create(handle, nlen, name);
+   if (!ctx)
+      return ENOMEM;
+
+   ret = virgl_context_add(ctx);
+   if (ret) {
+      ctx->destroy(ctx);
+      return ret;
+   }
+
+   return 0;
 }
 
 void virgl_renderer_context_destroy(uint32_t handle)

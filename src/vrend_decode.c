@@ -1387,59 +1387,37 @@ static int vrend_decode_copy_transfer3d(struct vrend_decode_ctx *ctx, int length
 static void vrend_decode_ctx_init_base(struct vrend_decode_ctx *dctx,
                                        uint32_t ctx_id);
 
-static struct vrend_decode_ctx *
-vrend_decode_ctx_lookup(uint32_t ctx_id)
-{
-   return ctx_id ?
-      (struct vrend_decode_ctx *)virgl_context_lookup(ctx_id) :
-      dec_ctx0;
-}
-
-void vrend_renderer_context_create_internal(uint32_t handle, uint32_t nlen,
-                                            const char *debug_name)
+struct virgl_context *vrend_renderer_context_create(uint32_t handle,
+                                                    uint32_t nlen,
+                                                    const char *debug_name)
 {
    struct vrend_decode_ctx *dctx;
 
-   dctx = vrend_decode_ctx_lookup(handle);
-   if (dctx)
-      return;
-
    dctx = malloc(sizeof(struct vrend_decode_ctx));
    if (!dctx)
-      return;
+      return NULL;
 
    vrend_decode_ctx_init_base(dctx, handle);
 
    dctx->grctx = vrend_create_context(handle, nlen, debug_name);
    if (!dctx->grctx) {
       free(dctx);
-      return;
+      return NULL;
    }
 
    dctx->ds = &dctx->ids;
 
-   if (handle) {
-      if (virgl_context_add(&dctx->base)) {
-         dctx->base.destroy(&dctx->base);
-      }
-   } else {
-      dec_ctx0 = dctx;
-   }
-}
-
-int vrend_renderer_context_create(uint32_t handle, uint32_t nlen, const char *debug_name)
-{
-   /* context 0 is always available with no guarantees */
    if (handle == 0)
-      return EINVAL;
+      dec_ctx0 = dctx;
 
-   vrend_renderer_context_create_internal(handle, nlen, debug_name);
-   return 0;
+   return &dctx->base;
 }
 
 struct vrend_context *vrend_lookup_renderer_ctx(uint32_t ctx_id)
 {
-   struct vrend_decode_ctx *dctx = vrend_decode_ctx_lookup(ctx_id);
+   struct vrend_decode_ctx *dctx = ctx_id ?
+      (struct vrend_decode_ctx *)virgl_context_lookup(ctx_id) :
+      dec_ctx0;
    return dctx ? dctx->grctx : NULL;
 }
 

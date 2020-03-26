@@ -44,6 +44,7 @@ struct virgl_gl_ctx_param {
    bool shared;
 };
 
+struct virgl_context;
 struct vrend_context;
 
 /* Number of mipmap levels for which to keep the backing iov offsets.
@@ -164,8 +165,9 @@ void vrend_set_framebuffer_state(struct vrend_context *ctx,
 
 struct vrend_context *vrend_create_context(int id, uint32_t nlen, const char *debug_name);
 bool vrend_destroy_context(struct vrend_context *ctx);
-int vrend_renderer_context_create(uint32_t handle, uint32_t nlen, const char *name);
-void vrend_renderer_context_create_internal(uint32_t handle, uint32_t nlen, const char *name);
+struct virgl_context *vrend_renderer_context_create(uint32_t handle,
+                                                    uint32_t nlen,
+                                                    const char *name);
 
 struct vrend_renderer_resource_create_args {
    uint32_t handle;
