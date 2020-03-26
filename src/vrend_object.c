@@ -26,6 +26,7 @@
 #include "util/u_memory.h"
 #include "util/u_hash_table.h"
 
+#include "virgl_util.h"
 #include "vrend_object.h"
 
 struct vrend_object_types {
@@ -42,24 +43,6 @@ void vrend_object_set_destroy_callback(int type, void (*cb)(void *))
 void vrend_resource_set_destroy_callback(void (*cb)(void *))
 {
    resource_unref = cb;
-}
-
-static unsigned
-hash_func(void *key)
-{
-   intptr_t ip = pointer_to_intptr(key);
-   return (unsigned)(ip & 0xffffffff);
-}
-
-static int
-compare(void *key1, void *key2)
-{
-   if (key1 < key2)
-      return -1;
-   if (key1 > key2)
-      return 1;
-   else
-      return 0;
 }
 
 static struct util_hash_table *res_hash;
@@ -89,7 +72,7 @@ static void free_object(void *value)
 struct util_hash_table *vrend_object_init_ctx_table(void)
 {
    struct util_hash_table *ctx_hash;
-   ctx_hash = util_hash_table_create(hash_func, compare, free_object);
+   ctx_hash = util_hash_table_create(hash_func_u32, compare_func, free_object);
    return ctx_hash;
 }
 
@@ -112,7 +95,7 @@ void
 vrend_object_init_resource_table(void)
 {
    if (!res_hash)
-      res_hash = util_hash_table_create(hash_func, compare, free_res);
+      res_hash = util_hash_table_create(hash_func_u32, compare_func, free_res);
 }
 
 void vrend_object_fini_resource_table(void)

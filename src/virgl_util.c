@@ -22,31 +22,22 @@
  *
     **************************************************************************/
 
-#ifndef VIRGL_UTIL_H
-#define VIRGL_UTIL_H
+#include "virgl_util.h"
 
-#include <stdint.h>
-#include <stdbool.h>
+#include "util/u_pointer.h"
 
-#define BIT(n)                   (UINT32_C(1) << (n))
-
-static inline bool has_bit(uint32_t mask, uint32_t bit)
+unsigned hash_func_u32(void *key)
 {
-    return !!(mask & bit);
+   intptr_t ip = pointer_to_intptr(key);
+   return (unsigned)(ip & 0xffffffff);
 }
 
-static inline bool has_bits(uint32_t mask, uint32_t bits)
+int compare_func(void *key1, void *key2)
 {
-    return !!((mask & bits) == bits);
+   if (key1 < key2)
+      return -1;
+   if (key1 > key2)
+      return 1;
+   else
+      return 0;
 }
-
-static inline bool is_only_bit(uint32_t mask, uint32_t bit)
-{
-    return (mask == bit);
-}
-
-unsigned hash_func_u32(void *key);
-
-int compare_func(void *key1, void *key2);
-
-#endif /* VIRGL_UTIL_H */

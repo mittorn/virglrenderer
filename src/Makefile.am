@@ -21,6 +21,7 @@ AM_CFLAGS = \
 libvrend_la_SOURCES = \
         virgl_hw.h \
         virgl_protocol.h \
+        virgl_util.c \
         virgl_util.h \
         vrend_iov.h \
         vrend_renderer.c \
