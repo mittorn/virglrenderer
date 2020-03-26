@@ -116,9 +116,9 @@ with_glx = require_glx or auto_egl_glx
 have_egl = false
 have_glx = false
 
-with_gbm_allocation = get_option('gbm_allocation')
-if with_gbm_allocation
-   conf_data.set('ENABLE_GBM_ALLOCATION', 1)
+with_minigbm_allocation = get_option('minigbm_allocation')
+if with_minigbm_allocation
+   conf_data.set('ENABLE_MINIGBM_ALLOCATION', 1)
    _gbm_ver = '18.0.0'
 else
    _gbm_ver = '0.0.0'
@@ -193,7 +193,7 @@ lines = [
 lines += 'egl:       ' + (have_egl ? 'yes' : 'no')
 lines += 'glx:       ' + (have_glx ? 'yes' : 'no')
 lines += ''
-lines += 'gbm_alloc: ' + (with_gbm_allocation ? 'yes' : 'no' )
+lines += 'minigbm_alloc: ' + (with_minigbm_allocation ? 'yes' : 'no' )
 lines += ''
 lines += 'tests:     ' + (with_tests ? 'yes' : 'no' )
 lines += 'fuzzer:    ' + (with_fuzzer ? 'yes' : 'no' )

@@ -32,10 +32,10 @@ option(
 )
 
 option(
-  'gbm_allocation',
+  'minigbm_allocation',
   type : 'boolean',
   value : 'false',
-  description : 'enable support for gbm_allocations'
+  description : 'enable support for minigbm_allocations'
 )
 
 option(

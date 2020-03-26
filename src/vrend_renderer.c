@@ -681,7 +681,7 @@ static inline bool vrend_format_can_sample(enum virgl_formats format)
    if (tex_conv_table[format].bindings & VIRGL_BIND_SAMPLER_VIEW)
       return true;
 
-#ifdef ENABLE_GBM_ALLOCATION
+#ifdef ENABLE_MINIGBM_ALLOCATION
    uint32_t gbm_format = 0;
    if (virgl_gbm_convert_format(&format, &gbm_format))
       return false;
@@ -689,12 +689,7 @@ static inline bool vrend_format_can_sample(enum virgl_formats format)
    if (!gbm || !gbm->device || !gbm_format)
       return false;
 
-#ifdef MINIGBM
    uint32_t gbm_usage = GBM_BO_USE_TEXTURING;
-#else
-   uint32_t gbm_usage = 0;
-#endif
-
    return gbm_device_is_format_supported(gbm->device, gbm_format, gbm_usage);
 #else
    return false;
@@ -718,7 +713,7 @@ static inline bool vrend_format_is_ds(enum virgl_formats format)
 
 static inline bool vrend_format_can_scanout(enum virgl_formats format)
 {
-#ifdef ENABLE_GBM_ALLOCATION
+#ifdef ENABLE_MINIGBM_ALLOCATION
    uint32_t gbm_format = 0;
    if (virgl_gbm_convert_format(&format, &gbm_format))
       return false;
@@ -6260,7 +6255,7 @@ static int check_resource_valid(struct vrend_renderer_resource_create_args *args
          return -1;
       }
 
-#ifdef ENABLE_GBM_ALLOCATION
+#ifdef ENABLE_MINIGBM_ALLOCATION
       if (!virgl_gbm_gpu_import_required(args->bind)) {
          return 0;
       }
@@ -6383,7 +6378,7 @@ vrend_renderer_resource_copy_args(struct vrend_renderer_resource_create_args *ar
  */
 static void vrend_resource_gbm_init(struct vrend_resource *gr, uint32_t format)
 {
-#ifdef ENABLE_GBM_ALLOCATION
+#ifdef ENABLE_MINIGBM_ALLOCATION
    uint32_t gbm_flags = virgl_gbm_convert_flags(gr->base.bind);
    uint32_t gbm_format = 0;
    if (virgl_gbm_convert_format(&format, &gbm_format))
@@ -6453,7 +6448,7 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
    if (image_oes && !has_feature(feat_egl_image_storage))
       gr->base.bind &= ~VIRGL_BIND_PREFER_EMULATED_BGRA;
 
-#ifdef ENABLE_GBM_ALLOCATION
+#ifdef ENABLE_MINIGBM_ALLOCATION
    if (virgl_gbm_external_allocation_preferred(gr->base.bind) &&
        !has_feature(feat_egl_image_storage))
       gr->base.bind &= ~VIRGL_BIND_PREFER_EMULATED_BGRA;
@@ -6615,7 +6610,7 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
    glBindTexture(gr->target, 0);
 
    if (image_oes && gr->gbm_bo) {
-#ifdef ENABLE_GBM_ALLOCATION
+#ifdef ENABLE_MINIGBM_ALLOCATION
       if (!has_bit(gr->storage_bits, VREND_STORAGE_GL_BUFFER) &&
             !vrend_format_can_texture_view(gr->base.format)) {
          for (int i = 0; i < gbm_bo_get_plane_count(gr->gbm_bo); i++) {
@@ -6744,7 +6739,7 @@ void vrend_renderer_resource_destroy(struct vrend_resource *res)
       free(res->ptr);
    }
 
-#ifdef ENABLE_GBM_ALLOCATION
+#ifdef ENABLE_MINIGBM_ALLOCATION
    if (res->egl_image) {
       virgl_egl_image_destroy(egl, res->egl_image);
       for (unsigned i = 0; i < ARRAY_SIZE(res->aux_plane_egl_image); i++) {
@@ -7699,7 +7694,7 @@ int vrend_renderer_transfer_iov(const struct vrend_transfer_info *info,
       return EINVAL;
    }
 
-#ifdef ENABLE_GBM_ALLOCATION
+#ifdef ENABLE_MINIGBM_ALLOCATION
    if (res->gbm_bo && (transfer_mode == VIRGL_TRANSFER_TO_HOST ||
                        !has_bit(res->storage_bits, VREND_STORAGE_EGL_IMAGE)))
       return virgl_gbm_transfer(res->gbm_bo, transfer_mode, iov, num_iovs, info);
@@ -10326,7 +10321,7 @@ static int vrend_renderer_export_query(void *execute_args, uint32_t execute_size
    if (!res)
       return -EINVAL;
 
-#ifdef ENABLE_GBM_ALLOCATION
+#ifdef ENABLE_MINIGBM_ALLOCATION
    if (res->gbm_bo)
       return virgl_gbm_export_query(res->gbm_bo, export_query);
 #endif
