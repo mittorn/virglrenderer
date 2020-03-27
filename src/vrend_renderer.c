@@ -52,6 +52,7 @@
 #include "virgl_util.h"
 
 #include "virgl_hw.h"
+#include "virgl_resource.h"
 #include "virglrenderer.h"
 
 #include "tgsi/tgsi_text.h"
@@ -275,6 +276,7 @@ struct global_renderer_state {
    struct list_head waiting_query_list;
 
    bool inited;
+   bool finishing;
    bool use_gles;
    bool use_core_profile;
 
@@ -666,7 +668,6 @@ static void vrend_finish_context_switch(struct vrend_context *ctx);
 static void vrend_patch_blend_state(struct vrend_context *ctx);
 static void vrend_update_frontface_state(struct vrend_context *ctx);
 static void vrender_get_glsl_version(int *glsl_version);
-static void vrend_destroy_resource_object(void *obj_ptr);
 static void vrend_destroy_program(struct vrend_linked_shader_program *ent);
 static void vrend_apply_sampler_state(struct vrend_context *ctx,
                                       struct vrend_resource *res,
@@ -5764,6 +5765,25 @@ static void vrend_debug_cb(UNUSED GLenum source, GLenum type, UNUSED GLuint id,
    vrend_printf( "ERROR: %s\n", message);
 }
 
+static void vrend_pipe_resource_unref(struct pipe_resource *pres,
+                                      UNUSED void *data)
+{
+   struct vrend_resource *res = (struct vrend_resource *)pres;
+
+   if (vrend_state.finishing || pipe_reference(&res->base.reference, NULL))
+      vrend_renderer_resource_destroy(res);
+}
+
+static const struct virgl_resource_pipe_callbacks *
+vrend_renderer_get_pipe_callbacks(void)
+{
+   static const struct virgl_resource_pipe_callbacks callbacks = {
+      .unref = vrend_pipe_resource_unref,
+   };
+
+   return &callbacks;
+}
+
 int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
 {
    bool gles;
@@ -5773,7 +5793,7 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
 
    if (!vrend_state.inited) {
       vrend_state.inited = true;
-      vrend_object_init_resource_table();
+      virgl_resource_table_init(vrend_renderer_get_pipe_callbacks());
       vrend_clicbs = cbs;
       /* Give some defaults to be able to run the tests */
       vrend_state.max_texture_2d_size =
@@ -5837,7 +5857,6 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
    }
 
    /* callbacks for when we are cleaning up the object table */
-   vrend_resource_set_destroy_callback(vrend_destroy_resource_object);
    vrend_object_set_destroy_callback(VIRGL_OBJECT_QUERY, vrend_destroy_query_object);
    vrend_object_set_destroy_callback(VIRGL_OBJECT_SURFACE, vrend_destroy_surface_object);
    vrend_object_set_destroy_callback(VIRGL_OBJECT_SHADER, vrend_destroy_shader_object);
@@ -5889,8 +5908,7 @@ vrend_renderer_fini(void)
    if (!vrend_state.inited)
       return;
 
-   typedef  void (*destroy_callback)(void *);
-   vrend_resource_set_destroy_callback((destroy_callback)vrend_renderer_resource_destroy);
+   vrend_state.finishing = true;
 
    vrend_free_sync_thread();
    if (vrend_state.eventfd != -1) {
@@ -5902,12 +5920,14 @@ vrend_renderer_fini(void)
 
    vrend_hw_switch_context(vrend_state.ctx0, true);
    vrend_decode_reset();
-   vrend_object_fini_resource_table();
+   virgl_resource_table_cleanup();
    vrend_destroy_context(vrend_state.ctx0);
 
    vrend_state.current_ctx = NULL;
    vrend_state.current_hw_ctx = NULL;
    vrend_state.inited = false;
+
+   vrend_state.finishing = false;
 }
 
 static void vrend_destroy_sub_context(struct vrend_sub_context *sub)
@@ -6069,12 +6089,18 @@ struct vrend_context *vrend_create_context(int id, uint32_t nlen, const char *de
    return grctx;
 }
 
+static struct vrend_resource *vrend_renderer_res_lookup(uint32_t res_id)
+{
+   struct virgl_resource *res = virgl_resource_lookup(res_id);
+   return (struct vrend_resource *) (res ? res->pipe_resource : NULL);
+}
+
 int vrend_renderer_resource_attach_iov(int res_handle, struct iovec *iov,
                                        int num_iovs)
 {
    struct vrend_resource *res;
 
-   res = vrend_resource_lookup(res_handle, 0);
+   res = vrend_renderer_res_lookup(res_handle);
    if (!res)
       return EINVAL;
 
@@ -6098,7 +6124,7 @@ void vrend_renderer_resource_detach_iov(int res_handle,
                                         int *num_iovs_p)
 {
    struct vrend_resource *res;
-   res = vrend_resource_lookup(res_handle, 0);
+   res = vrend_renderer_res_lookup(res_handle);
    if (!res) {
       return;
    }
@@ -6721,10 +6747,10 @@ int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *a
       }
    }
 
-   ret = vrend_resource_insert(gr, args->handle);
-   if (ret == 0) {
+   ret = virgl_resource_create_from_pipe(args->handle, &gr->base);
+   if (ret) {
       vrend_renderer_resource_destroy(gr);
-      return ENOMEM;
+      return ret;
    }
    return 0;
 }
@@ -6760,20 +6786,12 @@ void vrend_renderer_resource_destroy(struct vrend_resource *res)
    free(res);
 }
 
-static void vrend_destroy_resource_object(void *obj_ptr)
-{
-   struct vrend_resource *res = obj_ptr;
-
-   if (pipe_reference(&res->base.reference, NULL))
-       vrend_renderer_resource_destroy(res);
-}
-
 void vrend_renderer_resource_unref(uint32_t res_handle)
 {
    struct vrend_resource *res;
    struct vrend_context *ctx;
 
-   res = vrend_resource_lookup(res_handle, 0);
+   res = vrend_renderer_res_lookup(res_handle);
    if (!res)
       return;
 
@@ -6784,7 +6802,7 @@ void vrend_renderer_resource_unref(uint32_t res_handle)
       vrend_renderer_detach_res_ctx(ctx, res->handle);
    }
 
-   vrend_resource_remove(res->handle);
+   virgl_resource_remove(res->handle);
 }
 
 struct virgl_sub_upload_data {
@@ -7661,7 +7679,7 @@ int vrend_renderer_transfer_iov(const struct vrend_transfer_info *info,
 
    if (info->ctx_id == 0) {
       ctx = vrend_state.ctx0;
-      res = vrend_resource_lookup(info->handle, 0);
+      res = vrend_renderer_res_lookup(info->handle);
    } else {
       ctx = vrend_lookup_renderer_ctx(info->ctx_id);
       if (!ctx)
@@ -9927,7 +9945,7 @@ void *vrend_renderer_get_cursor_contents(uint32_t res_handle, uint32_t *width, u
    int size;
    uint h;
 
-   res = vrend_resource_lookup(res_handle, 0);
+   res = vrend_renderer_res_lookup(res_handle);
    if (!res)
       return NULL;
 
@@ -10007,7 +10025,7 @@ void vrend_renderer_force_ctx_0(void)
 void vrend_renderer_get_rect(int res_handle, struct iovec *iov, unsigned int num_iovs,
                              uint32_t offset, int x, int y, int width, int height)
 {
-   struct vrend_resource *res = vrend_resource_lookup(res_handle, 0);
+   struct vrend_resource *res = vrend_renderer_res_lookup(res_handle);
    struct vrend_transfer_info transfer_info;
    struct pipe_box box;
    int elsize;
@@ -10035,7 +10053,7 @@ void vrend_renderer_get_rect(int res_handle, struct iovec *iov, unsigned int num
 
 void vrend_renderer_resource_set_priv(uint32_t res_handle, void *priv)
 {
-    struct vrend_resource *res = vrend_resource_lookup(res_handle, 0);
+    struct vrend_resource *res = vrend_renderer_res_lookup(res_handle);
     if (!res)
        return;
 
@@ -10044,7 +10062,7 @@ void vrend_renderer_resource_set_priv(uint32_t res_handle, void *priv)
 
 void *vrend_renderer_resource_get_priv(uint32_t res_handle)
 {
-    struct vrend_resource *res = vrend_resource_lookup(res_handle, 0);
+    struct vrend_resource *res = vrend_renderer_res_lookup(res_handle);
     if (!res)
        return NULL;
 
@@ -10057,7 +10075,7 @@ void vrend_renderer_attach_res_ctx(struct vrend_context *ctx, int resource_id)
 
    assert(ctx);
 
-   res = vrend_resource_lookup(resource_id, 0);
+   res = vrend_renderer_res_lookup(resource_id);
    if (!res)
       return;
 
@@ -10098,7 +10116,7 @@ int vrend_renderer_resource_get_info(int res_handle,
 
    if (!info)
       return EINVAL;
-   res = vrend_resource_lookup(res_handle, 0);
+   res = vrend_renderer_res_lookup(res_handle);
    if (!res)
       return EINVAL;
 
@@ -10290,10 +10308,9 @@ void vrend_renderer_reset(void)
 
    vrend_hw_switch_context(vrend_state.ctx0, true);
    vrend_decode_reset();
-   vrend_object_fini_resource_table();
+   virgl_resource_table_reset();
    vrend_destroy_context(vrend_state.ctx0);
 
-   vrend_object_init_resource_table();
    vrend_state.ctx0 = vrend_create_context(0, strlen("HOST"), "HOST");
 }
 
@@ -10315,7 +10332,7 @@ static int vrend_renderer_export_query(void *execute_args, uint32_t execute_size
    if (export_query->hdr.size != sizeof(struct virgl_renderer_export_query))
       return -EINVAL;
 
-   res = vrend_resource_lookup(export_query->in_resource_id, 0);
+   res = vrend_renderer_res_lookup(export_query->in_resource_id);
    if (!res)
       return -EINVAL;
 
