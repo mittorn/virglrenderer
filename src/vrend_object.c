@@ -33,19 +33,10 @@ struct vrend_object_types {
    void (*unref)(void *);
 } obj_types[VIRGL_MAX_OBJECTS];
 
-static void (*resource_unref)(void *);
-
 void vrend_object_set_destroy_callback(int type, void (*cb)(void *))
 {
    obj_types[type].unref = cb;
 }
-
-void vrend_resource_set_destroy_callback(void (*cb)(void *))
-{
-   resource_unref = cb;
-}
-
-static struct util_hash_table *res_hash;
 
 struct vrend_object {
    enum virgl_object_type type;
@@ -84,26 +75,22 @@ void vrend_object_fini_ctx_table(struct util_hash_table *ctx_hash)
    util_hash_table_destroy(ctx_hash);
 }
 
-static void free_res(void *value)
+static void vrend_ctx_resource_destroy_func(UNUSED void *val)
 {
-   struct vrend_object *obj = value;
-   (*resource_unref)(obj->data);
-   free(obj);
+   /* we don't own a reference of vrend_resource */
 }
 
-void
-vrend_object_init_resource_table(void)
+struct util_hash_table *
+vrend_ctx_resource_init_table(void)
 {
-   if (!res_hash)
-      res_hash = util_hash_table_create(hash_func_u32, compare_func, free_res);
+   return util_hash_table_create(hash_func_u32,
+                                 compare_func,
+                                 vrend_ctx_resource_destroy_func);
 }
 
-void vrend_object_fini_resource_table(void)
+void vrend_ctx_resource_fini_table(struct util_hash_table *res_hash)
 {
-   if (res_hash) {
-      util_hash_table_destroy(res_hash);
-   }
-   res_hash = NULL;
+   util_hash_table_destroy(res_hash);
 }
 
 uint32_t
@@ -153,33 +140,21 @@ void *vrend_object_lookup(struct util_hash_table *handle_hash,
    return obj->data;
 }
 
-int vrend_resource_insert(void *data, uint32_t handle)
+void vrend_ctx_resource_insert(struct util_hash_table *res_hash,
+                               uint32_t res_id,
+                               struct vrend_resource *res)
 {
-   struct vrend_object *obj;
-
-   if (!handle)
-      return 0;
-
-   obj = CALLOC_STRUCT(vrend_object);
-   if (!obj)
-      return 0;
-
-   obj->handle = handle;
-   obj->data = data;
-   util_hash_table_set(res_hash, intptr_to_pointer(obj->handle), obj);
-   return obj->handle;
+   util_hash_table_set(res_hash, uintptr_to_pointer(res_id), res);
 }
 
-void vrend_resource_remove(uint32_t handle)
+void vrend_ctx_resource_remove(struct util_hash_table *res_hash,
+                               uint32_t res_id)
 {
-   util_hash_table_remove(res_hash, intptr_to_pointer(handle));
+   util_hash_table_remove(res_hash, uintptr_to_pointer(res_id));
 }
 
-void *vrend_resource_lookup(uint32_t handle, UNUSED uint32_t ctx_id)
+struct vrend_resource *vrend_ctx_resource_lookup(struct util_hash_table *res_hash,
+                                                 uint32_t res_id)
 {
-   struct vrend_object *obj;
-   obj = util_hash_table_get(res_hash, intptr_to_pointer(handle));
-   if (!obj)
-      return NULL;
-   return obj->data;
+   return util_hash_table_get(res_hash, uintptr_to_pointer(res_id));
 }

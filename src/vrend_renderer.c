@@ -6038,7 +6038,7 @@ void vrend_destroy_context(struct vrend_context *ctx)
    if(ctx->ctx_id)
       vrend_renderer_force_ctx_0();
 
-   vrend_object_fini_ctx_table(ctx->res_hash);
+   vrend_ctx_resource_fini_table(ctx->res_hash);
 
    list_del(&ctx->ctx_entry);
 
@@ -6069,7 +6069,7 @@ struct vrend_context *vrend_create_context(int id, uint32_t nlen, const char *de
    list_inithead(&grctx->sub_ctxs);
    list_inithead(&grctx->active_nontimer_query_list);
 
-   grctx->res_hash = vrend_object_init_ctx_table();
+   grctx->res_hash = vrend_ctx_resource_init_table();
 
    grctx->shader_cfg.use_gles = vrend_state.use_gles;
    grctx->shader_cfg.use_core_profile = vrend_state.use_core_profile;
@@ -10079,24 +10079,17 @@ void vrend_renderer_attach_res_ctx(struct vrend_context *ctx, int resource_id)
    if (!res)
       return;
 
-   vrend_object_insert_nofree(ctx->res_hash, res, sizeof(*res), resource_id, 1, false);
+   vrend_ctx_resource_insert(ctx->res_hash, resource_id, res);
 }
 
 void vrend_renderer_detach_res_ctx(struct vrend_context *ctx, int res_handle)
 {
-   struct vrend_resource *res;
-   res = vrend_object_lookup(ctx->res_hash, res_handle, 1);
-   if (!res)
-      return;
-
-   vrend_object_remove(ctx->res_hash, res_handle, 1);
+   vrend_ctx_resource_remove(ctx->res_hash, res_handle);
 }
 
 static struct vrend_resource *vrend_renderer_ctx_res_lookup(struct vrend_context *ctx, int res_handle)
 {
-   struct vrend_resource *res = vrend_object_lookup(ctx->res_hash, res_handle, 1);
-
-   return res;
+   return vrend_ctx_resource_lookup(ctx->res_hash, res_handle);
 }
 
 void vrend_context_set_debug_flags(struct vrend_context *ctx, const char *flagstring)
