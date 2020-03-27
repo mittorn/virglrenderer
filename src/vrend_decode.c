@@ -32,6 +32,7 @@
 #include "pipe/p_state.h"
 #include "pipe/p_shader_tokens.h"
 #include "virgl_context.h"
+#include "virgl_resource.h"
 #include "vrend_renderer.h"
 #include "vrend_object.h"
 #include "tgsi/tgsi_text.h"
@@ -1424,17 +1425,23 @@ static void vrend_decode_ctx_destroy(struct virgl_context *ctx)
 }
 
 static void vrend_decode_ctx_attach_resource(struct virgl_context *ctx,
-                                             uint32_t res_id)
+                                             struct virgl_resource *res)
 {
    struct vrend_decode_ctx *dctx = (struct vrend_decode_ctx *)ctx;
-   vrend_renderer_attach_res_ctx(dctx->grctx, res_id);
+
+   /* in the future, we should import to create the pipe resource */
+   if (!res->pipe_resource)
+      return;
+
+   vrend_renderer_attach_res_ctx(dctx->grctx, res->res_id,
+                                 res->pipe_resource);
 }
 
 static void vrend_decode_ctx_detach_resource(struct virgl_context *ctx,
-                                             uint32_t res_id)
+                                             struct virgl_resource *res)
 {
    struct vrend_decode_ctx *dctx = (struct vrend_decode_ctx *)ctx;
-   vrend_renderer_detach_res_ctx(dctx->grctx, res_id);
+   vrend_renderer_detach_res_ctx(dctx->grctx, res->res_id);
 }
 
 static int vrend_decode_ctx_submit_cmd(struct virgl_context *ctx,

@@ -392,8 +392,12 @@ void vrend_renderer_force_ctx_0(void);
 
 void vrend_renderer_get_rect(int resource_id, struct iovec *iov, unsigned int num_iovs,
                              uint32_t offset, int x, int y, int width, int height);
-void vrend_renderer_attach_res_ctx(struct vrend_context *ctx, int resource_id);
-void vrend_renderer_detach_res_ctx(struct vrend_context *ctx, int resource_id);
+
+void vrend_renderer_attach_res_ctx(struct vrend_context *ctx,
+                                   uint32_t res_id,
+                                   struct pipe_resource *pres);
+void vrend_renderer_detach_res_ctx(struct vrend_context *ctx,
+                                   uint32_t res_id);
 
 struct vrend_context_tweaks *vrend_get_context_tweaks(struct vrend_context *ctx);
 

@@ -10051,22 +10051,18 @@ void vrend_renderer_get_rect(int res_handle, struct iovec *iov, unsigned int num
    vrend_renderer_transfer_iov(&transfer_info, VIRGL_TRANSFER_FROM_HOST);
 }
 
-void vrend_renderer_attach_res_ctx(struct vrend_context *ctx, int resource_id)
+void vrend_renderer_attach_res_ctx(struct vrend_context *ctx,
+                                   uint32_t res_id,
+                                   struct pipe_resource *pres)
 {
-   struct vrend_resource *res;
-
-   assert(ctx);
-
-   res = vrend_renderer_res_lookup(resource_id);
-   if (!res)
-      return;
-
-   vrend_ctx_resource_insert(ctx->res_hash, resource_id, res);
+   struct vrend_resource *res = (struct vrend_resource *)pres;
+   vrend_ctx_resource_insert(ctx->res_hash, res_id, res);
 }
 
-void vrend_renderer_detach_res_ctx(struct vrend_context *ctx, int res_handle)
+void vrend_renderer_detach_res_ctx(struct vrend_context *ctx,
+                                   uint32_t res_id)
 {
-   vrend_ctx_resource_remove(ctx->res_hash, res_handle);
+   vrend_ctx_resource_remove(ctx->res_hash, res_id);
 }
 
 static struct vrend_resource *vrend_renderer_ctx_res_lookup(struct vrend_context *ctx, int res_handle)

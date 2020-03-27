@@ -28,6 +28,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+struct virgl_resource;
+
 /**
  * Base class for renderer contexts.  For example, vrend_decode_ctx is a
  * subclass of virgl_context.
@@ -38,9 +40,9 @@ struct virgl_context {
    void (*destroy)(struct virgl_context *ctx);
 
    void (*attach_resource)(struct virgl_context *ctx,
-                           uint32_t res_id);
+                           struct virgl_resource *res);
    void (*detach_resource)(struct virgl_context *ctx,
-                           uint32_t res_id);
+                           struct virgl_resource *res);
 
    int (*submit_cmd)(struct virgl_context *ctx,
                      const void *buffer,
