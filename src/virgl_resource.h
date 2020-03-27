@@ -40,6 +40,8 @@ struct pipe_resource;
 struct virgl_resource {
    uint32_t res_id;
 
+   void *private_data;
+
    struct pipe_resource *pipe_resource;
 };
 

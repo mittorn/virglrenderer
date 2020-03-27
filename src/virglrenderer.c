@@ -39,6 +39,7 @@
 #include "virglrenderer.h"
 
 #include "virgl_context.h"
+#include "virgl_resource.h"
 
 #ifdef HAVE_EPOXY_EGL_H
 #include "virgl_gbm.h"
@@ -68,12 +69,20 @@ int virgl_renderer_resource_import_eglimage(struct virgl_renderer_resource_creat
 
 void virgl_renderer_resource_set_priv(uint32_t res_handle, void *priv)
 {
-   vrend_renderer_resource_set_priv(res_handle, priv);
+   struct virgl_resource *res = virgl_resource_lookup(res_handle);
+   if (!res)
+      return;
+
+   res->private_data = priv;
 }
 
 void *virgl_renderer_resource_get_priv(uint32_t res_handle)
 {
-   return vrend_renderer_resource_get_priv(res_handle);
+   struct virgl_resource *res = virgl_resource_lookup(res_handle);
+   if (!res)
+      return NULL;
+
+   return res->private_data;
 }
 
 void virgl_renderer_resource_unref(uint32_t res_handle)

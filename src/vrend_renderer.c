@@ -10051,24 +10051,6 @@ void vrend_renderer_get_rect(int res_handle, struct iovec *iov, unsigned int num
    vrend_renderer_transfer_iov(&transfer_info, VIRGL_TRANSFER_FROM_HOST);
 }
 
-void vrend_renderer_resource_set_priv(uint32_t res_handle, void *priv)
-{
-    struct vrend_resource *res = vrend_renderer_res_lookup(res_handle);
-    if (!res)
-       return;
-
-    res->priv = priv;
-}
-
-void *vrend_renderer_resource_get_priv(uint32_t res_handle)
-{
-    struct vrend_resource *res = vrend_renderer_res_lookup(res_handle);
-    if (!res)
-       return NULL;
-
-    return res->priv;
-}
-
 void vrend_renderer_attach_res_ctx(struct vrend_context *ctx, int resource_id)
 {
    struct vrend_resource *res;
