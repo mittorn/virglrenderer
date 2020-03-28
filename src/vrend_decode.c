@@ -470,7 +470,7 @@ static int vrend_decode_create_blend(struct vrend_decode_ctx *ctx, uint32_t hand
       blend_state->rt[i].colormask = (tmp >> 27) & 0xf;
    }
 
-   tmp = vrend_renderer_object_insert(ctx->grctx, blend_state, sizeof(struct pipe_blend_state), handle,
+   tmp = vrend_renderer_object_insert(ctx->grctx, blend_state, handle,
                                       VIRGL_OBJECT_BLEND);
    if (tmp == 0) {
       FREE(blend_state);
@@ -514,7 +514,7 @@ static int vrend_decode_create_dsa(struct vrend_decode_ctx *ctx, uint32_t handle
    tmp = get_buf_entry(ctx, VIRGL_OBJ_DSA_ALPHA_REF);
    dsa_state->alpha.ref_value = uif(tmp);
 
-   tmp = vrend_renderer_object_insert(ctx->grctx, dsa_state, sizeof(struct pipe_depth_stencil_alpha_state), handle,
+   tmp = vrend_renderer_object_insert(ctx->grctx, dsa_state, handle,
                                       VIRGL_OBJECT_DSA);
    if (tmp == 0) {
       FREE(dsa_state);
@@ -580,7 +580,7 @@ static int vrend_decode_create_rasterizer(struct vrend_decode_ctx *ctx, uint32_t
    rs_state->offset_scale = uif(get_buf_entry(ctx, VIRGL_OBJ_RS_OFFSET_SCALE));
    rs_state->offset_clamp = uif(get_buf_entry(ctx, VIRGL_OBJ_RS_OFFSET_CLAMP));
 
-   tmp = vrend_renderer_object_insert(ctx->grctx, rs_state, sizeof(struct pipe_rasterizer_state), handle,
+   tmp = vrend_renderer_object_insert(ctx->grctx, rs_state, handle,
                                       VIRGL_OBJECT_RASTERIZER);
    if (tmp == 0) {
       FREE(rs_state);

@@ -1811,7 +1811,7 @@ int vrend_create_surface(struct vrend_context *ctx,
 
    vrend_resource_reference(&surf->texture, res);
 
-   ret_handle = vrend_renderer_object_insert(ctx, surf, sizeof(*surf), handle, VIRGL_OBJECT_SURFACE);
+   ret_handle = vrend_renderer_object_insert(ctx, surf, handle, VIRGL_OBJECT_SURFACE);
    if (ret_handle == 0) {
       FREE(surf);
       return ENOMEM;
@@ -1974,7 +1974,7 @@ int vrend_create_sampler_state(struct vrend_context *ctx,
          glSamplerParameteri(state->ids[i], GL_TEXTURE_SRGB_DECODE_EXT, i == 0 ? GL_SKIP_DECODE_EXT : GL_DECODE_EXT);
       }
    }
-   ret_handle = vrend_renderer_object_insert(ctx, state, sizeof(struct vrend_sampler_state), handle,
+   ret_handle = vrend_renderer_object_insert(ctx, state, handle,
                                              VIRGL_OBJECT_SAMPLER_STATE);
    if (!ret_handle) {
       if (has_feature(feat_samplers))
@@ -2178,7 +2178,7 @@ int vrend_create_sampler_view(struct vrend_context *ctx,
       }
    }
 
-   ret_handle = vrend_renderer_object_insert(ctx, view, sizeof(*view), handle, VIRGL_OBJECT_SAMPLER_VIEW);
+   ret_handle = vrend_renderer_object_insert(ctx, view, handle, VIRGL_OBJECT_SAMPLER_VIEW);
    if (ret_handle == 0) {
       FREE(view);
       return ENOMEM;
@@ -2664,7 +2664,7 @@ int vrend_create_vertex_elements_state(struct vrend_context *ctx,
          glEnableVertexAttribArray(i);
       }
    }
-   ret_handle = vrend_renderer_object_insert(ctx, v, sizeof(struct vrend_vertex_element), handle,
+   ret_handle = vrend_renderer_object_insert(ctx, v, handle,
                                              VIRGL_OBJECT_VERTEX_ELEMENTS);
    if (!ret_handle) {
       FREE(v);
@@ -3527,7 +3527,7 @@ int vrend_create_shader(struct vrend_context *ctx,
    }
 
    if (new_shader) {
-      ret_handle = vrend_renderer_object_insert(ctx, sel, sizeof(*sel), handle, VIRGL_OBJECT_SHADER);
+      ret_handle = vrend_renderer_object_insert(ctx, sel, handle, VIRGL_OBJECT_SHADER);
       if (ret_handle == 0) {
          ret = ENOMEM;
          goto error;
@@ -8940,9 +8940,9 @@ vrend_renderer_object_destroy(struct vrend_context *ctx, uint32_t handle)
 }
 
 uint32_t vrend_renderer_object_insert(struct vrend_context *ctx, void *data,
-                                      uint32_t size, uint32_t handle, enum virgl_object_type type)
+                                      uint32_t handle, enum virgl_object_type type)
 {
-   return vrend_object_insert(ctx->sub->object_hash, data, size, handle, type);
+   return vrend_object_insert(ctx->sub->object_hash, data, handle, type);
 }
 
 int vrend_create_query(struct vrend_context *ctx, uint32_t handle,
@@ -9031,7 +9031,7 @@ int vrend_create_query(struct vrend_context *ctx, uint32_t handle,
 
    glGenQueries(1, &q->id);
 
-   ret_handle = vrend_renderer_object_insert(ctx, q, sizeof(struct vrend_query), handle,
+   ret_handle = vrend_renderer_object_insert(ctx, q, handle,
                                              VIRGL_OBJECT_QUERY);
    if (!ret_handle) {
       FREE(q);
@@ -9313,7 +9313,7 @@ int vrend_create_so_target(struct vrend_context *ctx,
    target->sub_ctx = ctx->sub;
    vrend_resource_reference(&target->buffer, res);
 
-   ret_handle = vrend_renderer_object_insert(ctx, target, sizeof(*target), handle,
+   ret_handle = vrend_renderer_object_insert(ctx, target, handle,
                                              VIRGL_OBJECT_STREAMOUT_TARGET);
    if (ret_handle == 0) {
       FREE(target);

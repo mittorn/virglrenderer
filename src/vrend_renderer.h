@@ -342,7 +342,7 @@ void vrend_renderer_check_fences(void);
 
 bool vrend_hw_switch_context(struct vrend_context *ctx, bool now);
 uint32_t vrend_renderer_object_insert(struct vrend_context *ctx, void *data,
-                                      uint32_t size, uint32_t handle, enum virgl_object_type type);
+                                      uint32_t handle, enum virgl_object_type type);
 void vrend_renderer_object_destroy(struct vrend_context *ctx, uint32_t handle);
 
 int vrend_create_query(struct vrend_context *ctx, uint32_t handle,
