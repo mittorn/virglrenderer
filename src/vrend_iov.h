@@ -44,7 +44,7 @@ struct vrend_transfer_info {
    uint32_t stride;
    uint32_t layer_stride;
    unsigned int iovec_cnt;
-   struct iovec *iovec;
+   const struct iovec *iovec;
    uint64_t offset;
    bool context0;
    struct pipe_box *box;

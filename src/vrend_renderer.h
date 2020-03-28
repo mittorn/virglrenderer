@@ -95,7 +95,7 @@ struct vrend_resource {
     */
    char *ptr;
    /* IOV pointing to shared guest memory storage for this resource. */
-   struct iovec *iov;
+   const struct iovec *iov;
    uint32_t num_iovs;
    uint64_t mipmap_offsets[VR_MAX_TEXTURE_2D_LEVELS];
    void *gbm_bo, *egl_image;
@@ -392,7 +392,7 @@ vrend_resource_reference(struct vrend_resource **ptr, struct vrend_resource *tex
 void vrend_renderer_force_ctx_0(void);
 
 void vrend_renderer_get_rect(struct pipe_resource *pres,
-                             struct iovec *iov, unsigned int num_iovs,
+                             const struct iovec *iov, unsigned int num_iovs,
                              uint32_t offset,
                              int x, int y, int width, int height);
 

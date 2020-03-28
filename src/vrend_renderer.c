@@ -6123,7 +6123,7 @@ void vrend_renderer_resource_detach_iov(int res_handle,
       return;
    }
    if (iov_p)
-      *iov_p = res->iov;
+      *iov_p = (struct iovec *)res->iov;
    if (num_iovs_p)
       *num_iovs_p = res->num_iovs;
 
@@ -6802,7 +6802,7 @@ static void vrend_scale_depth(void *ptr, int size, float scale_val)
    }
 }
 
-static void read_transfer_data(struct iovec *iov,
+static void read_transfer_data(const struct iovec *iov,
                                unsigned int num_iovs,
                                char *data,
                                enum virgl_formats format,
@@ -6846,7 +6846,7 @@ static void read_transfer_data(struct iovec *iov,
 }
 
 static void write_transfer_data(struct pipe_resource *res,
-                                struct iovec *iov,
+                                const struct iovec *iov,
                                 unsigned num_iovs,
                                 char *data,
                                 uint32_t dst_stride,
@@ -6971,7 +6971,7 @@ static uint64_t vrend_transfer_size(struct vrend_resource *vres,
 
 static bool check_iov_bounds(struct vrend_resource *res,
                              const struct vrend_transfer_info *info,
-                             struct iovec *iov, int num_iovs)
+                             const struct iovec *iov, int num_iovs)
 {
    GLuint transfer_size;
    GLuint iovsize = vrend_get_iovec_size(iov, num_iovs);
@@ -7027,7 +7027,7 @@ static bool check_iov_bounds(struct vrend_resource *res,
 
 static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
                                              struct vrend_resource *res,
-                                             struct iovec *iov, int num_iovs,
+                                             const struct iovec *iov, int num_iovs,
                                              const struct vrend_transfer_info *info)
 {
    void *data;
@@ -7301,7 +7301,7 @@ static uint32_t vrend_get_texture_depth(struct vrend_resource *res, uint32_t lev
 }
 
 static int vrend_transfer_send_getteximage(struct vrend_resource *res,
-                                           struct iovec *iov, int num_iovs,
+                                           const struct iovec *iov, int num_iovs,
                                            const struct vrend_transfer_info *info)
 {
    GLenum format, type;
@@ -7392,7 +7392,7 @@ static void do_readpixels(GLint x, GLint y,
 }
 
 static int vrend_transfer_send_readpixels(struct vrend_resource *res,
-                                          struct iovec *iov, int num_iovs,
+                                          const struct iovec *iov, int num_iovs,
                                           const struct vrend_transfer_info *info)
 {
    char *myptr = (char*)iov[0].iov_base + info->offset;
@@ -7557,7 +7557,7 @@ static int vrend_transfer_send_readpixels(struct vrend_resource *res,
 }
 
 static int vrend_transfer_send_readonly(struct vrend_resource *res,
-                                        struct iovec *iov, int num_iovs,
+                                        const struct iovec *iov, int num_iovs,
                                         UNUSED const struct vrend_transfer_info *info)
 {
    bool same_iov = true;
@@ -7588,7 +7588,7 @@ static int vrend_transfer_send_readonly(struct vrend_resource *res,
 }
 
 static int vrend_renderer_transfer_send_iov(struct vrend_resource *res,
-                                            struct iovec *iov, int num_iovs,
+                                            const struct iovec *iov, int num_iovs,
                                             const struct vrend_transfer_info *info)
 {
    if (is_only_bit(res->storage_bits, VREND_STORAGE_GUEST_MEMORY) ||
@@ -7644,7 +7644,7 @@ int vrend_renderer_transfer_iov(const struct vrend_transfer_info *info,
 {
    struct vrend_resource *res;
    struct vrend_context *ctx;
-   struct iovec *iov;
+   const struct iovec *iov;
    int num_iovs;
 
    if (!info->box)
@@ -9994,7 +9994,7 @@ void vrend_renderer_force_ctx_0(void)
 }
 
 void vrend_renderer_get_rect(struct pipe_resource *pres,
-                             struct iovec *iov, unsigned int num_iovs,
+                             const struct iovec *iov, unsigned int num_iovs,
                              uint32_t offset,
                              int x, int y, int width, int height)
 {
