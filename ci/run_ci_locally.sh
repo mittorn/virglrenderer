@@ -6,7 +6,7 @@
 cd ${VIRGL_PATH}
 
 DOCKER_DRIVER=overlay2
-DOCKER_IMAGE=virglrenderer/ci
+DOCKER_IMAGE=${DOCKER_IMAGE:-registry.freedesktop.org/virgl/virglrenderer/debian/buster:latest}
 
 if [[ -z $NUM_THREADS ]] ; then 
     # If not forced use slightly less than half of available threads
@@ -31,8 +31,6 @@ echo LOCAL_VIRGL=$LOCAL_VIRGL
 rm -rf $VIRGL_PATH/results
 mkdir -p $VIRGL_PATH/results
 
-time docker build -t $DOCKER_IMAGE -f ci/Dockerfile --cache-from $DOCKER_IMAGE:latest ci
-
 time docker run \
      -it \
      --ulimit core=99999999999:99999999999 \
@@ -40,5 +38,5 @@ time docker run \
      $RD_CONFIG \
      $LOCAL_MESA \
      $LOCAL_VIRGL \
-     $DOCKER_IMAGE:latest \
+     $DOCKER_IMAGE \
      bash -c "/virglrenderer/ci/run_tests.sh --make-check --deqp-gl-gl-tests --deqp-gl-gles-tests --deqp-gles-gl-tests --deqp-gles-gles-tests  --piglit-gl --piglit-gles" 2>&1 | tee results/log.txt

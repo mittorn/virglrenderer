@@ -1,25 +1,12 @@
-image: docker:latest
-
-cache:
-  paths:
-    - ccache
-
 variables:
-  DOCKER_DRIVER: overlay
-# When running CI jobs, don't allow
-# HW backed renderes, due to the
-# variability it introduces.
-#  RENDER_DEVICE: /dev/dri/renderD128
+  FDO_DISTRIBUTION_TAG: "2020-03-30"
+  FDO_DISTRIBUTION_VERSION: buster
+  TEST_IMAGE: "$CI_REGISTRY_IMAGE/debian/$FDO_DISTRIBUTION_VERSION:$FDO_DISTRIBUTION_TAG"
 
-.docker-setup: &docker-setup
-    - mkdir -p ccache
-    - mkdir -p results
-    - export DOCKER_IMAGE_DIGEST=$(cat results/docker_image_digest.txt)
-    - echo $DOCKER_IMAGE_DIGEST
-    - echo core > /proc/sys/kernel/core_pattern || true
-    - echo 0 > /proc/sys/kernel/core_uses_pid || true
-    - if [[ -n "$RENDER_DEVICE" ]]; then RD_CONFIG="--device=$RENDER_DEVICE -e RENDER_DEVICE=$RENDER_DEVICE"; fi
-    - echo RD_CONFIG=$RD_CONFIG
+include:
+  - project: 'freedesktop/ci-templates'
+    ref: 4a73f030d0602042cfa44ed94dc5e744b52f57aa
+    file: '/templates/debian.yml'
 
 stages:
   - build
@@ -28,51 +15,23 @@ stages:
 
 build docker image:
   stage: build
-  services:
-    - docker:dind
-  before_script:
-    - mkdir -p results
-  script:
-    - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN $CI_REGISTRY
-    - time docker pull $CI_REGISTRY_IMAGE:latest || true
-
-    - docker build
-             --build-arg KNOWN_GOOD_MESA=$MESA_COMMIT
-             --build-arg MESA_REPO=$MESA_REPO
-             -t $CI_REGISTRY_IMAGE
-             --cache-from $CI_REGISTRY_IMAGE:latest ci
-
-    - docker history $CI_REGISTRY_IMAGE:latest
-
-    - time docker push $CI_REGISTRY_IMAGE:latest 2>&1 | tee results/docker_push_log.txt
-
-    - "grep -o 'digest: sha256:[0-9a-f]\\+' results/docker_push_log.txt |
-       cut -f 2 -d ' ' |
-       tee results/docker_image_digest.txt"
+  extends: .fdo.container-ifnot-exists@debian
+  stage: build
+  variables:
+    GIT_STRATEGY: none # no need to pull the whole tree for rebuilding the image
+    FDO_DISTRIBUTION_EXEC: 'bash ci/build-container.sh'
   only:
     - branches
     - tags
     - merge_requests
     - schedules
 
-  artifacts:
-    when: always
-    paths:
-      - results/
-
-
 .tests_base: 
-  services:
-    - docker:dind
-  before_script:
-    *docker-setup
+  image: $TEST_IMAGE
+  variables:
+    NUM_THREADS: 4
   script:
-    - docker run
-             --ulimit core=99999999999:99999999999
-             $RD_CONFIG
-             -v $PWD:/virglrenderer
-             $CI_REGISTRY_IMAGE@$DOCKER_IMAGE_DIGEST
-             bash -c "/virglrenderer/ci/run_tests.sh $TEST_SUITE"
+    - ci/run_tests.sh $TEST_SUITE
     - echo -e "\nThat's all folks\n"
   only:
     - branches

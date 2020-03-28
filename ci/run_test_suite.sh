@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -x
+
 # Setup paths and import util functions
 . $(dirname $(readlink -f "$0"))/util.sh
 

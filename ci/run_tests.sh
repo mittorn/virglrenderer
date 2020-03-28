@@ -16,8 +16,10 @@ run_setup()
    export NUM_THREADS
    echo "Using $NUM_THREADS threads"
 
-   export CCACHE_BASEDIR=/virglrenderer
-   export CCACHE_DIR=/virglrenderer/ccache
+   export LD_LIBRARY_PATH=/usr/local/lib64:/usr/local/lib:/usr/local/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
+
+   export CCACHE_BASEDIR="$(pwd)"
+   export CCACHE_DIR="$(pwd)/ccache"
    export PATH="/usr/lib/ccache:$PATH"
    mkdir -p $CCACHE_DIR
    ccache -s
@@ -32,10 +34,8 @@ run_setup()
       export SOFTWARE_ONLY=1
    fi
 
-   set +x
-
    if [[ $LOCAL_MESA ]]; then
-      cd $LOCAL_MESA && \
+      pushd $LOCAL_MESA
       mkdir -p build  && \
       meson build/ && \
       meson configure build/ -Dprefix=/usr/local -Dplatforms=drm,x11,wayland,surfaceless -Ddri-drivers=i965 -Dgallium-drivers=swrast,virgl,radeonsi,r600 -Dbuildtype=debugoptimized -Dllvm=true -Dglx=dri -Dgallium-vdpau=false -Dgallium-va=false -Dvulkan-drivers=[] -Dlibdir=lib && \
@@ -44,45 +44,35 @@ run_setup()
         meson setup --wipe build/
         ninja -C build/ install -j $NUM_THREADS || exit 1
       fi
+      popd
    fi
 
-   VIRGL_PATH="/virglrenderer"
-   rm -rf $VIRGL_PATH/results/
-   mkdir -p $VIRGL_PATH/results/
+   rm -rf ./results/
+   mkdir -p ./results/
 
    if [ "x$use_meson" = "x" ]; then
-      if [ -d "$VIRGL_PATH" ]; then
-          cd $VIRGL_PATH
-          ./autogen.sh --prefix=/usr/local --enable-debug --enable-tests --enable-autotools
-          make -j$NUM_THREADS install
-      fi
+      ./autogen.sh --prefix=/usr/local --enable-debug --enable-tests --enable-autotools
+      make -j$NUM_THREADS install
    else
-      if [ -d "$VIRGL_PATH" ]; then
-          cd $VIRGL_PATH
-          mkdir build
-          if [ "x$use_clang_fuzzer" = "x1" ]; then
-             CC=clang-8
-             FUZZER=-Dfuzzer=true
-          fi
+       mkdir build
+       if [ "x$use_clang_fuzzer" = "x1" ]; then
+          export CC=clang-8
+          export FUZZER=-Dfuzzer=true
+       fi
 
-          meson build/ -Dprefix=/usr/local -Ddebug=true -Dtests=true --fatal-meson-warnings $FUZZER
-          ninja -C build -j$NUM_THREADS install
-      fi
+       meson build/ -Dprefix=/usr/local -Ddebug=true -Dtests=true --fatal-meson-warnings $FUZZER
+       ninja -C build -j$NUM_THREADS install
    fi
-
-   CI_DIR=$(dirname $(readlink -f "$0"))
-   cd $CI_DIR
 }
 
 run_make_check()
 {
    run_setup
    (
-      cd /virglrenderer
-      mkdir -p /virglrenderer/results/make_check
+      mkdir -p ./results/make_check
       VRENDTEST_USE_EGL_SURFACELESS=1 make -j$NUM_THREADS check --no-print-directory
       RET=$?
-      cp tests/test*.log /virglrenderer/results/make_check/
+      cp tests/test*.log ./results/make_check/
       return $RET
    )
 }
@@ -91,11 +81,10 @@ run_make_check_meson()
 {
    run_setup meson
    (
-      cd /virglrenderer/build
-      mkdir -p /virglrenderer/results/make_check_meson
-      VRENDTEST_USE_EGL_SURFACELESS=1 ninja -j$NUM_THREADS test
+      mkdir -p ./results/make_check_meson
+      VRENDTEST_USE_EGL_SURFACELESS=1 ninja -Cbuild -j$NUM_THREADS test
       RET=$?
-      cp /virglrenderer/build/meson-logs/testlog.txt /virglrenderer/results/make_check_meson/
+      cp ./build/meson-logs/testlog.txt ./results/make_check_meson/
       return $RET
    )
 }
@@ -104,11 +93,12 @@ run_make_check_clang_fuzzer()
 {
    run_setup meson fuzzer
    (
-      cd /virglrenderer/build
-      mkdir -p /virglrenderer/results/make_check_clang_fuzzer
+      mkdir -p ./results/make_check_clang_fuzzer
+      pushd ./build
       VRENDTEST_USE_EGL_SURFACELESS=1 ninja -j$NUM_THREADS test
       RET=$?
-      cp /virglrenderer/build/meson-logs/testlog.txt /virglrenderer/results/make_check_clang_fuzzer/
+      cp ./meson-logs/testlog.txt ../results/make_check_clang_fuzzer/
+      popd
       return $RET
    )
 }
@@ -148,9 +138,11 @@ run_deqp()
       BACKENDS="${BACKENDS} --backend vtest-gpu"
    fi
 
+   pushd ci
    ./run_test_suite.sh --deqp ${TEST_SUITE} \
       --host-${OGL_BACKEND} \
       ${BACKENDS}
+   popd
 
    return $?
 }
@@ -170,9 +162,11 @@ run_piglit()
       BACKENDS="${BACKENDS} --backend vtest-gpu"
    fi
 
+   pushd ci
    ./run_test_suite.sh --piglit --gles2 --gles3 \
       --host-${OGL_BACKEND} \
       ${BACKENDS}
+   popd
 
    return $?
 }
