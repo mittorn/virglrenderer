@@ -356,7 +356,9 @@ void vrend_render_condition(struct vrend_context *ctx,
                             uint32_t handle,
                             bool condtion,
                             uint mode);
-void *vrend_renderer_get_cursor_contents(uint32_t res_handle, uint32_t *width, uint32_t *height);
+void *vrend_renderer_get_cursor_contents(struct pipe_resource *pres,
+                                         uint32_t *width,
+                                         uint32_t *height);
 
 void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
                               union virgl_caps *caps);
@@ -388,8 +390,10 @@ vrend_resource_reference(struct vrend_resource **ptr, struct vrend_resource *tex
 
 void vrend_renderer_force_ctx_0(void);
 
-void vrend_renderer_get_rect(int resource_id, struct iovec *iov, unsigned int num_iovs,
-                             uint32_t offset, int x, int y, int width, int height);
+void vrend_renderer_get_rect(struct pipe_resource *pres,
+                             struct iovec *iov, unsigned int num_iovs,
+                             uint32_t offset,
+                             int x, int y, int width, int height);
 
 void vrend_renderer_attach_res_ctx(struct vrend_context *ctx,
                                    uint32_t res_id,
@@ -410,7 +414,7 @@ struct vrend_renderer_resource_info {
    uint32_t stride;
 };
 
-int vrend_renderer_resource_get_info(int res_handle,
+int vrend_renderer_resource_get_info(struct pipe_resource *pres,
                                      struct vrend_renderer_resource_info *info);
 
 #define VREND_CAP_SET 1

@@ -246,8 +246,16 @@ void virgl_renderer_ctx_detach_resource(int ctx_id, int res_handle)
 int virgl_renderer_resource_get_info(int res_handle,
                                      struct virgl_renderer_resource_info *info)
 {
+   struct virgl_resource *res = virgl_resource_lookup(res_handle);
    int ret;
-   ret = vrend_renderer_resource_get_info(res_handle, (struct vrend_renderer_resource_info *)info);
+
+   if (!res || !res->pipe_resource)
+      return EINVAL;
+   if (!info)
+      return EINVAL;
+
+   ret = vrend_renderer_resource_get_info(res->pipe_resource,
+                                          (struct vrend_renderer_resource_info *)info);
 #ifdef HAVE_EPOXY_EGL_H
    if (ret == 0 && use_context == CONTEXT_EGL)
       return virgl_egl_get_fourcc_for_texture(egl, info->tex_id, info->virgl_format, &info->drm_fourcc);
@@ -265,7 +273,12 @@ void virgl_renderer_get_cap_set(uint32_t cap_set, uint32_t *max_ver,
 void virgl_renderer_get_rect(int resource_id, struct iovec *iov, unsigned int num_iovs,
                              uint32_t offset, int x, int y, int width, int height)
 {
-   vrend_renderer_get_rect(resource_id, iov, num_iovs, offset, x, y, width, height);
+   struct virgl_resource *res = virgl_resource_lookup(resource_id);
+   if (!res || !res->pipe_resource)
+      return;
+
+   vrend_renderer_get_rect(res->pipe_resource, iov, num_iovs, offset, x, y,
+                           width, height);
 }
 
 
@@ -338,8 +351,14 @@ static struct vrend_if_cbs virgl_cbs = {
 
 void *virgl_renderer_get_cursor_data(uint32_t resource_id, uint32_t *width, uint32_t *height)
 {
+   struct virgl_resource *res = virgl_resource_lookup(resource_id);
+   if (!res || !res->pipe_resource)
+      return NULL;
+
    vrend_renderer_force_ctx_0();
-   return vrend_renderer_get_cursor_contents(resource_id, width, height);
+   return vrend_renderer_get_cursor_contents(res->pipe_resource,
+                                             width,
+                                             height);
 }
 
 void virgl_renderer_poll(void)

@@ -9911,18 +9911,16 @@ GLint64 vrend_renderer_get_timestamp(void)
    return v;
 }
 
-void *vrend_renderer_get_cursor_contents(uint32_t res_handle, uint32_t *width, uint32_t *height)
+void *vrend_renderer_get_cursor_contents(struct pipe_resource *pres,
+                                         uint32_t *width,
+                                         uint32_t *height)
 {
+   struct vrend_resource *res = (struct vrend_resource *)pres;
    GLenum format, type;
-   struct vrend_resource *res;
    int blsize;
    char *data, *data2;
    int size;
    uint h;
-
-   res = vrend_renderer_res_lookup(res_handle);
-   if (!res)
-      return NULL;
 
    if (res->base.width0 > 128 || res->base.height0 > 128)
       return NULL;
@@ -9997,10 +9995,12 @@ void vrend_renderer_force_ctx_0(void)
    vrend_hw_switch_context(vrend_state.ctx0, true);
 }
 
-void vrend_renderer_get_rect(int res_handle, struct iovec *iov, unsigned int num_iovs,
-                             uint32_t offset, int x, int y, int width, int height)
+void vrend_renderer_get_rect(struct pipe_resource *pres,
+                             struct iovec *iov, unsigned int num_iovs,
+                             uint32_t offset,
+                             int x, int y, int width, int height)
 {
-   struct vrend_resource *res = vrend_renderer_res_lookup(res_handle);
+   struct vrend_resource *res = (struct vrend_resource *)pres;
    struct vrend_transfer_info transfer_info;
    struct pipe_box box;
    int elsize;
@@ -10054,21 +10054,15 @@ void vrend_context_set_debug_flags(struct vrend_context *ctx, const char *flagst
    }
 }
 
-int vrend_renderer_resource_get_info(int res_handle,
+int vrend_renderer_resource_get_info(struct pipe_resource *pres,
                                      struct vrend_renderer_resource_info *info)
 {
-   struct vrend_resource *res;
+   struct vrend_resource *res = (struct vrend_resource *)pres;
    int elsize;
-
-   if (!info)
-      return EINVAL;
-   res = vrend_renderer_res_lookup(res_handle);
-   if (!res)
-      return EINVAL;
 
    elsize = util_format_get_blocksize(res->base.format);
 
-   info->handle = res_handle;
+   info->handle = res->handle;
    info->tex_id = res->id;
    info->width = res->base.width0;
    info->height = res->base.height0;
