@@ -5772,11 +5772,43 @@ static void vrend_pipe_resource_unref(struct pipe_resource *pres,
       vrend_renderer_resource_destroy(res);
 }
 
+static void vrend_pipe_resource_attach_iov(struct pipe_resource *pres,
+                                           const struct iovec *iov,
+                                           int iov_count,
+                                           UNUSED void *data)
+{
+   struct vrend_resource *res = (struct vrend_resource *)pres;
+
+   res->iov = iov;
+   res->num_iovs = iov_count;
+
+   if (has_bit(res->storage_bits, VREND_STORAGE_HOST_SYSTEM_MEMORY)) {
+      vrend_write_to_iovec(res->iov, res->num_iovs, 0,
+            res->ptr, res->base.width0);
+   }
+}
+
+static void vrend_pipe_resource_detach_iov(struct pipe_resource *pres,
+                                           UNUSED void *data)
+{
+   struct vrend_resource *res = (struct vrend_resource *)pres;
+
+   if (has_bit(res->storage_bits, VREND_STORAGE_HOST_SYSTEM_MEMORY)) {
+      vrend_read_from_iovec(res->iov, res->num_iovs, 0,
+            res->ptr, res->base.width0);
+   }
+
+   res->iov = NULL;
+   res->num_iovs = 0;
+}
+
 static const struct virgl_resource_pipe_callbacks *
 vrend_renderer_get_pipe_callbacks(void)
 {
    static const struct virgl_resource_pipe_callbacks callbacks = {
       .unref = vrend_pipe_resource_unref,
+      .attach_iov = vrend_pipe_resource_attach_iov,
+      .detach_iov = vrend_pipe_resource_detach_iov,
    };
 
    return &callbacks;
@@ -6087,53 +6119,6 @@ static struct vrend_resource *vrend_renderer_res_lookup(uint32_t res_id)
 {
    struct virgl_resource *res = virgl_resource_lookup(res_id);
    return (struct vrend_resource *) (res ? res->pipe_resource : NULL);
-}
-
-int vrend_renderer_resource_attach_iov(int res_handle, struct iovec *iov,
-                                       int num_iovs)
-{
-   struct vrend_resource *res;
-
-   res = vrend_renderer_res_lookup(res_handle);
-   if (!res)
-      return EINVAL;
-
-   if (res->iov)
-      return 0;
-
-   /* work out size and max resource size */
-   res->iov = iov;
-   res->num_iovs = num_iovs;
-
-   if (has_bit(res->storage_bits, VREND_STORAGE_HOST_SYSTEM_MEMORY)) {
-      vrend_write_to_iovec(res->iov, res->num_iovs, 0,
-            res->ptr, res->base.width0);
-   }
-
-   return 0;
-}
-
-void vrend_renderer_resource_detach_iov(int res_handle,
-                                        struct iovec **iov_p,
-                                        int *num_iovs_p)
-{
-   struct vrend_resource *res;
-   res = vrend_renderer_res_lookup(res_handle);
-   if (!res) {
-      return;
-   }
-   if (iov_p)
-      *iov_p = (struct iovec *)res->iov;
-   if (num_iovs_p)
-      *num_iovs_p = res->num_iovs;
-
-   if (has_bit(res->storage_bits, VREND_STORAGE_HOST_SYSTEM_MEMORY)) {
-      vrend_read_from_iovec(res->iov, res->num_iovs, 0,
-            res->ptr, res->base.width0);
-   }
-
-   res->iov = NULL;
-   res->num_iovs = 0;
 }
 
 static int check_resource_valid(struct vrend_renderer_resource_create_args *args,

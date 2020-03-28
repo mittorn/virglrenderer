@@ -372,11 +372,6 @@ void vrend_build_format_list_gles(void);
 void vrend_build_emulated_format_list_gles(void);
 void vrend_check_texture_storage(struct vrend_format_table *table);
 
-int vrend_renderer_resource_attach_iov(int res_handle, struct iovec *iov,
-                                       int num_iovs);
-void vrend_renderer_resource_detach_iov(int res_handle,
-                                        struct iovec **iov_p,
-                                        int *num_iovs_p);
 void vrend_renderer_resource_destroy(struct vrend_resource *res);
 
 static inline void

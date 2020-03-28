@@ -108,3 +108,37 @@ struct virgl_resource *virgl_resource_lookup(uint32_t res_id)
    return util_hash_table_get(virgl_resource_table,
                               uintptr_to_pointer(res_id));
 }
+
+int
+virgl_resource_attach_iov(struct virgl_resource *res,
+                          const struct iovec *iov,
+                          int iov_count)
+{
+   if (res->iov)
+      return EINVAL;
+
+   res->iov = iov;
+   res->iov_count = iov_count;
+
+   if (res->pipe_resource) {
+      pipe_callbacks.attach_iov(res->pipe_resource,
+                                iov,
+                                iov_count,
+                                pipe_callbacks.data);
+   }
+
+   return 0;
+}
+
+void
+virgl_resource_detach_iov(struct virgl_resource *res)
+{
+   if (!res->iov)
+      return;
+
+   if (res->pipe_resource)
+      pipe_callbacks.detach_iov(res->pipe_resource, pipe_callbacks.data);
+
+   res->iov = NULL;
+   res->iov_count = 0;
+}

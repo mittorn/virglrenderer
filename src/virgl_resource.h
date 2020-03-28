@@ -27,6 +27,7 @@
 
 #include <stdint.h>
 
+struct iovec;
 struct pipe_resource;
 
 /**
@@ -40,6 +41,9 @@ struct pipe_resource;
 struct virgl_resource {
    uint32_t res_id;
 
+   const struct iovec *iov;
+   int iov_count;
+
    void *private_data;
 
    struct pipe_resource *pipe_resource;
@@ -49,6 +53,12 @@ struct virgl_resource_pipe_callbacks {
    void *data;
 
    void (*unref)(struct pipe_resource *pres, void *data);
+
+   void (*attach_iov)(struct pipe_resource *pres,
+                      const struct iovec *iov,
+                      int iov_count,
+                      void *data);
+   void (*detach_iov)(struct pipe_resource *pres, void *data);
 };
 
 int
@@ -68,5 +78,13 @@ virgl_resource_remove(uint32_t res_id);
 
 struct virgl_resource *
 virgl_resource_lookup(uint32_t res_id);
+
+int
+virgl_resource_attach_iov(struct virgl_resource *res,
+                          const struct iovec *iov,
+                          int iov_count);
+
+void
+virgl_resource_detach_iov(struct virgl_resource *res);
 
 #endif /* VIRGL_RESOURCE_H */

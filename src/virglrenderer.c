@@ -218,12 +218,25 @@ int virgl_renderer_transfer_read_iov(uint32_t handle, uint32_t ctx_id,
 int virgl_renderer_resource_attach_iov(int res_handle, struct iovec *iov,
                                        int num_iovs)
 {
-   return vrend_renderer_resource_attach_iov(res_handle, iov, num_iovs);
+   struct virgl_resource *res = virgl_resource_lookup(res_handle);
+   if (!res)
+      return EINVAL;
+
+   return virgl_resource_attach_iov(res, iov, num_iovs);
 }
 
 void virgl_renderer_resource_detach_iov(int res_handle, struct iovec **iov_p, int *num_iovs_p)
 {
-   vrend_renderer_resource_detach_iov(res_handle, iov_p, num_iovs_p);
+   struct virgl_resource *res = virgl_resource_lookup(res_handle);
+   if (!res)
+      return;
+
+   if (iov_p)
+      *iov_p = (struct iovec *)res->iov;
+   if (num_iovs_p)
+      *num_iovs_p = res->iov_count;
+
+   virgl_resource_detach_iov(res);
 }
 
 int virgl_renderer_create_fence(int client_fence_id, uint32_t ctx_id)
