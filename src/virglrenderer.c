@@ -85,9 +85,26 @@ void *virgl_renderer_resource_get_priv(uint32_t res_handle)
    return res->private_data;
 }
 
+static bool detach_resource(struct virgl_context *ctx, void *data)
+{
+   struct virgl_resource *res = data;
+   ctx->detach_resource(ctx, res);
+   return true;
+}
+
 void virgl_renderer_resource_unref(uint32_t res_handle)
 {
-   vrend_renderer_resource_unref(res_handle);
+   struct virgl_resource *res = virgl_resource_lookup(res_handle);
+   struct virgl_context_foreach_args args;
+
+   if (!res)
+      return;
+
+   args.callback = detach_resource;
+   args.data = res;
+   virgl_context_foreach(&args);
+
+   virgl_resource_remove(res->res_id);
 }
 
 void virgl_renderer_fill_caps(uint32_t set, uint32_t version,

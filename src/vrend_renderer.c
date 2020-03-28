@@ -288,7 +288,6 @@ struct global_renderer_state {
    uint32_t max_texture_2d_size;
    uint32_t max_texture_3d_size;
    uint32_t max_texture_cube_size;
-   struct list_head active_ctx_list;
 
    /* threaded sync */
    bool stop_sync_thread;
@@ -652,7 +651,6 @@ struct vrend_context {
    struct util_hash_table *res_hash;
 
    struct list_head active_nontimer_query_list;
-   struct list_head ctx_entry;
 
    struct vrend_shader_cfg shader_cfg;
 
@@ -5890,7 +5888,6 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
    list_inithead(&vrend_state.fence_list);
    list_inithead(&vrend_state.fence_wait_list);
    list_inithead(&vrend_state.waiting_query_list);
-   list_inithead(&vrend_state.active_ctx_list);
    /* create 0 context */
    vrend_state.ctx0 = vrend_create_context(0, strlen("HOST"), "HOST");
 
@@ -6040,8 +6037,6 @@ void vrend_destroy_context(struct vrend_context *ctx)
 
    vrend_ctx_resource_fini_table(ctx->res_hash);
 
-   list_del(&ctx->ctx_entry);
-
    FREE(ctx);
 
    if (!switch_0 && cur)
@@ -6085,7 +6080,6 @@ struct vrend_context *vrend_create_context(int id, uint32_t nlen, const char *de
 
    vrender_get_glsl_version(&grctx->shader_cfg.glsl_version);
 
-   list_addtail(&grctx->ctx_entry, &vrend_state.active_ctx_list);
    return grctx;
 }
 
@@ -6784,25 +6778,6 @@ void vrend_renderer_resource_destroy(struct vrend_resource *res)
 #endif
 
    free(res);
-}
-
-void vrend_renderer_resource_unref(uint32_t res_handle)
-{
-   struct vrend_resource *res;
-   struct vrend_context *ctx;
-
-   res = vrend_renderer_res_lookup(res_handle);
-   if (!res)
-      return;
-
-   /* find in all contexts and detach also */
-
-   /* remove from any contexts */
-   LIST_FOR_EACH_ENTRY(ctx, &vrend_state.active_ctx_list, ctx_entry) {
-      vrend_renderer_detach_res_ctx(ctx, res->handle);
-   }
-
-   virgl_resource_remove(res->handle);
 }
 
 struct virgl_sub_upload_data {

@@ -184,8 +184,6 @@ struct vrend_renderer_resource_create_args {
 
 int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *args, struct iovec *iov, uint32_t num_iovs, void *image_eos);
 
-void vrend_renderer_resource_unref(uint32_t handle);
-
 int vrend_create_surface(struct vrend_context *ctx,
                          uint32_t handle,
                          uint32_t res_handle, uint32_t format,
