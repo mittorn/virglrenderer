@@ -26,6 +26,7 @@
 
 #include <errno.h>
 
+#include "os/os_misc.h"
 #include "util/u_hash_table.h"
 #include "util/u_pointer.h"
 #include "virgl_util.h"
@@ -82,4 +83,21 @@ virgl_context_lookup(uint32_t ctx_id)
 {
    return util_hash_table_get(virgl_context_table,
                               uintptr_to_pointer(ctx_id));
+}
+
+static enum pipe_error
+virgl_context_foreach_func(UNUSED void *key, void *val, void *data)
+{
+   const struct virgl_context_foreach_args *args = data;
+   struct virgl_context *ctx = val;
+
+   return args->callback(ctx, args->data) ? PIPE_OK : PIPE_ERROR;
+}
+
+void
+virgl_context_foreach(const struct virgl_context_foreach_args *args)
+{
+   util_hash_table_foreach(virgl_context_table,
+                           virgl_context_foreach_func,
+                           (void *)args);
 }

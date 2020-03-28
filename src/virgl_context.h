@@ -25,6 +25,7 @@
 #ifndef VIRGL_CONTEXT_H
 #define VIRGL_CONTEXT_H
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -49,6 +50,11 @@ struct virgl_context {
                      size_t size);
 };
 
+struct virgl_context_foreach_args {
+   bool (*callback)(struct virgl_context *ctx, void *data);
+   void *data;
+};
+
 int
 virgl_context_table_init(void);
 
@@ -66,5 +72,8 @@ virgl_context_remove(uint32_t ctx_id);
 
 struct virgl_context *
 virgl_context_lookup(uint32_t ctx_id);
+
+void
+virgl_context_foreach(const struct virgl_context_foreach_args *args);
 
 #endif /* VIRGL_CONTEXT_H */
