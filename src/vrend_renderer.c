@@ -88,7 +88,7 @@ struct vrend_query {
    GLuint type;
    GLuint index;
    GLuint gltype;
-   int ctx_id;
+   struct vrend_context *ctx;
    struct vrend_resource *res;
    uint64_t current_total;
    bool fake_samples_passed;
@@ -8857,7 +8857,7 @@ static void vrend_renderer_check_queries(void)
    struct vrend_query *query, *stor;
 
    LIST_FOR_EACH_ENTRY_SAFE(query, stor, &vrend_state.waiting_query_list, waiting_queries) {
-      if (!vrend_hw_switch_context(vrend_lookup_renderer_ctx(query->ctx_id), true) ||
+      if (!vrend_hw_switch_context(query->ctx, true) ||
 	  vrend_check_query(query))
          list_delinit(&query->waiting_queries);
    }
@@ -8944,7 +8944,7 @@ int vrend_create_query(struct vrend_context *ctx, uint32_t handle,
    list_inithead(&q->waiting_queries);
    q->type = query_type;
    q->index = query_index;
-   q->ctx_id = ctx->ctx_id;
+   q->ctx = ctx;
    q->fake_samples_passed = fake_samples_passed;
 
    vrend_resource_reference(&q->res, res);
