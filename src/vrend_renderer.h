@@ -289,9 +289,14 @@ void vrend_set_framebuffer_state_no_attach(struct vrend_context *ctx,
 void vrend_texture_barrier(struct vrend_context *ctx,
                            unsigned flags);
 
-int vrend_renderer_transfer_iov(uint32_t dst_handle,
+int vrend_renderer_transfer_iov(struct vrend_context *ctx,
+                                uint32_t dst_handle,
                                 const struct vrend_transfer_info *info,
                                 int transfer_mode);
+
+int vrend_renderer_transfer_pipe(struct pipe_resource *pres,
+                                 const struct vrend_transfer_info *info,
+                                 int transfer_mode);
 
 void vrend_renderer_resource_copy_region(struct vrend_context *ctx,
                                          uint32_t dst_handle, uint32_t dst_level,

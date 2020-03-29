@@ -30,6 +30,7 @@
 #include <stdint.h>
 
 struct virgl_resource;
+struct vrend_transfer_info;
 
 /**
  * Base class for renderer contexts.  For example, vrend_decode_ctx is a
@@ -44,6 +45,11 @@ struct virgl_context {
                            struct virgl_resource *res);
    void (*detach_resource)(struct virgl_context *ctx,
                            struct virgl_resource *res);
+
+   int (*transfer_3d)(struct virgl_context *ctx,
+                      struct virgl_resource *res,
+                      const struct vrend_transfer_info *info,
+                      int transfer_mode);
 
    int (*submit_cmd)(struct virgl_context *ctx,
                      const void *buffer,

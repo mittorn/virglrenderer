@@ -1365,7 +1365,8 @@ static int vrend_decode_transfer3d(struct vrend_decode_ctx *ctx, int length, uin
        transfer_mode != VIRGL_TRANSFER_FROM_HOST)
       return EINVAL;
 
-   return vrend_renderer_transfer_iov(dst_handle, &info, transfer_mode);
+   return vrend_renderer_transfer_iov(ctx->grctx, dst_handle, &info,
+                                      transfer_mode);
 }
 
 static int vrend_decode_copy_transfer3d(struct vrend_decode_ctx *ctx, int length)
@@ -1449,6 +1450,16 @@ static void vrend_decode_ctx_detach_resource(struct virgl_context *ctx,
 {
    struct vrend_decode_ctx *dctx = (struct vrend_decode_ctx *)ctx;
    vrend_renderer_detach_res_ctx(dctx->grctx, res->res_id);
+}
+
+static int vrend_decode_ctx_transfer_3d(struct virgl_context *ctx,
+                                        struct virgl_resource *res,
+                                        const struct vrend_transfer_info *info,
+                                        int transfer_mode)
+{
+   struct vrend_decode_ctx *dctx = (struct vrend_decode_ctx *)ctx;
+   return vrend_renderer_transfer_iov(dctx->grctx, res->res_id, info,
+                                      transfer_mode);
 }
 
 static int vrend_decode_ctx_submit_cmd(struct virgl_context *ctx,
@@ -1646,6 +1657,7 @@ static void vrend_decode_ctx_init_base(struct vrend_decode_ctx *dctx,
    ctx->destroy = vrend_decode_ctx_destroy;
    ctx->attach_resource = vrend_decode_ctx_attach_resource;
    ctx->detach_resource = vrend_decode_ctx_detach_resource;
+   ctx->transfer_3d = vrend_decode_ctx_transfer_3d;
    ctx->submit_cmd = vrend_decode_ctx_submit_cmd;
 }
 
