@@ -387,7 +387,6 @@ static int vrend_decode_resource_inline_write(struct vrend_decode_ctx *ctx, uint
    data_len = (length - 11) * 4;
    data = get_buf_ptr(ctx, VIRGL_RESOURCE_IW_DATA_START);
 
-   info.ctx_id = 0;
    info.offset = 0;
 
    dataiovec.iov_base = (void*)data;
@@ -1344,7 +1343,7 @@ static int vrend_decode_set_tweaks(struct vrend_decode_ctx *ctx, int length)
 }
 
 
-static int vrend_decode_transfer3d(struct vrend_decode_ctx *ctx, int length, uint32_t ctx_id)
+static int vrend_decode_transfer3d(struct vrend_decode_ctx *ctx, int length)
 {
    struct pipe_box box;
    uint32_t dst_handle;
@@ -1355,7 +1354,6 @@ static int vrend_decode_transfer3d(struct vrend_decode_ctx *ctx, int length, uin
 
    memset(&info, 0, sizeof(info));
    info.box = &box;
-   info.ctx_id = ctx_id;
    vrend_decode_transfer_common(ctx, &dst_handle, &info);
    info.offset = get_buf_entry(ctx, VIRGL_TRANSFER3D_DATA_OFFSET);
    int transfer_mode = get_buf_entry(ctx, VIRGL_TRANSFER3D_DIRECTION);
@@ -1620,7 +1618,7 @@ static int vrend_decode_ctx_submit_cmd(struct virgl_context *ctx,
          ret = vrend_decode_get_query_result_qbo(gdctx, len);
          break;
       case VIRGL_CCMD_TRANSFER3D:
-         ret = vrend_decode_transfer3d(gdctx, len, gdctx->base.ctx_id);
+         ret = vrend_decode_transfer3d(gdctx, len);
          break;
       case VIRGL_CCMD_COPY_TRANSFER3D:
          ret = vrend_decode_copy_transfer3d(gdctx, len);

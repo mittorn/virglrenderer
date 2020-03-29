@@ -180,7 +180,6 @@ int virgl_renderer_transfer_write_iov(uint32_t handle,
    if (!res)
       return EINVAL;
 
-   transfer_info.ctx_id = ctx_id;
    transfer_info.level = level;
    transfer_info.stride = stride;
    transfer_info.layer_stride = layer_stride;
@@ -220,7 +219,6 @@ int virgl_renderer_transfer_read_iov(uint32_t handle, uint32_t ctx_id,
    if (!res)
       return EINVAL;
 
-   transfer_info.ctx_id = ctx_id;
    transfer_info.level = level;
    transfer_info.stride = stride;
    transfer_info.layer_stride = layer_stride;
