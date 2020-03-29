@@ -1415,13 +1415,6 @@ struct virgl_context *vrend_renderer_context_create(uint32_t handle,
    return &dctx->base;
 }
 
-struct vrend_context *vrend_lookup_renderer_ctx(uint32_t ctx_id)
-{
-   struct vrend_decode_ctx *dctx =
-      (struct vrend_decode_ctx *)virgl_context_lookup(ctx_id);
-   return dctx ? dctx->grctx : NULL;
-}
-
 static void vrend_decode_ctx_destroy(struct virgl_context *ctx)
 {
    struct vrend_decode_ctx *dctx = (struct vrend_decode_ctx *)ctx;
