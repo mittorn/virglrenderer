@@ -550,6 +550,7 @@ virgl_debug_callback_type virgl_set_debug_callback(virgl_debug_callback_type cb)
 
 static int virgl_renderer_export_query(void *execute_args, uint32_t execute_size)
 {
+   struct virgl_resource *res;
    struct virgl_renderer_export_query *export_query = execute_args;
    if (execute_size != sizeof(struct virgl_renderer_export_query))
       return -EINVAL;
@@ -557,7 +558,11 @@ static int virgl_renderer_export_query(void *execute_args, uint32_t execute_size
    if (export_query->hdr.size != sizeof(struct virgl_renderer_export_query))
       return -EINVAL;
 
-   return vrend_renderer_export_query(export_query->in_resource_id, export_query);
+   res = virgl_resource_lookup(export_query->in_resource_id);
+   if (!res || !res->pipe_resource)
+      return -EINVAL;
+
+   return vrend_renderer_export_query(res->pipe_resource, export_query);
 }
 
 static int virgl_renderer_supported_structures(void *execute_args, uint32_t execute_size)

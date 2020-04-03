@@ -482,7 +482,7 @@ static const struct gl_version gl_versions[] = { {4,6}, {4,5}, {4,4}, {4,3}, {4,
 
 extern struct vrend_if_cbs *vrend_clicbs;
 
-int vrend_renderer_export_query(uint32_t res_id,
+int vrend_renderer_export_query(struct pipe_resource *pres,
                                 struct virgl_renderer_export_query *export_query);
 
 void vrend_sync_make_current(virgl_gl_context);

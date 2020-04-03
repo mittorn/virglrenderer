@@ -6115,12 +6115,6 @@ struct vrend_context *vrend_create_context(int id, uint32_t nlen, const char *de
    return grctx;
 }
 
-static struct vrend_resource *vrend_renderer_res_lookup(uint32_t res_id)
-{
-   struct virgl_resource *res = virgl_resource_lookup(res_id);
-   return (struct vrend_resource *) (res ? res->pipe_resource : NULL);
-}
-
 static int check_resource_valid(struct vrend_renderer_resource_create_args *args,
                                 char errmsg[256])
 {
@@ -10258,18 +10252,16 @@ int vrend_renderer_get_poll_fd(void)
    return vrend_state.eventfd;
 }
 
-int vrend_renderer_export_query(uint32_t res_id,
+int vrend_renderer_export_query(struct pipe_resource *pres,
                                 struct virgl_renderer_export_query *export_query)
 {
-   struct vrend_resource *res;
-
-   res = vrend_renderer_res_lookup(res_id);
-   if (!res)
-      return -EINVAL;
+   struct vrend_resource *res = (struct vrend_resource *)pres;
 
 #ifdef ENABLE_MINIGBM_ALLOCATION
    if (res->gbm_bo)
       return virgl_gbm_export_query(res->gbm_bo, export_query);
+#else
+   (void)res;
 #endif
 
    /*
