@@ -548,7 +548,50 @@ virgl_debug_callback_type virgl_set_debug_callback(virgl_debug_callback_type cb)
    return vrend_set_debug_callback(cb);
 }
 
+static int virgl_renderer_export_query(void *execute_args, uint32_t execute_size)
+{
+   struct virgl_renderer_export_query *export_query = execute_args;
+   if (execute_size != sizeof(struct virgl_renderer_export_query))
+      return -EINVAL;
+
+   if (export_query->hdr.size != sizeof(struct virgl_renderer_export_query))
+      return -EINVAL;
+
+   return vrend_renderer_export_query(export_query->in_resource_id, export_query);
+}
+
+static int virgl_renderer_supported_structures(void *execute_args, uint32_t execute_size)
+{
+   struct virgl_renderer_supported_structures *supported_structures = execute_args;
+   if (execute_size != sizeof(struct virgl_renderer_supported_structures))
+      return -EINVAL;
+
+   if (supported_structures->hdr.size != sizeof(struct virgl_renderer_supported_structures))
+      return -EINVAL;
+
+   if (supported_structures->in_stype_version == 0) {
+      supported_structures->out_supported_structures_mask =
+         VIRGL_RENDERER_STRUCTURE_TYPE_EXPORT_QUERY |
+         VIRGL_RENDERER_STRUCTURE_TYPE_SUPPORTED_STRUCTURES;
+   } else {
+      supported_structures->out_supported_structures_mask = 0;
+   }
+
+   return 0;
+}
+
 int virgl_renderer_execute(void *execute_args, uint32_t execute_size)
 {
-   return vrend_renderer_execute(execute_args, execute_size);
+   struct virgl_renderer_hdr *hdr = execute_args;
+   if (hdr->stype_version != 0)
+      return -EINVAL;
+
+   switch (hdr->stype) {
+      case VIRGL_RENDERER_STRUCTURE_TYPE_SUPPORTED_STRUCTURES:
+         return virgl_renderer_supported_structures(execute_args, execute_size);
+      case VIRGL_RENDERER_STRUCTURE_TYPE_EXPORT_QUERY:
+         return virgl_renderer_export_query(execute_args, execute_size);
+      default:
+         return -EINVAL;
+   }
 }
