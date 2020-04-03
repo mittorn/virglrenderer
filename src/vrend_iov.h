@@ -38,7 +38,6 @@ struct iovec {
 #endif
 
 struct vrend_transfer_info {
-   uint32_t handle;
    uint32_t ctx_id;
    int level;
    uint32_t stride;

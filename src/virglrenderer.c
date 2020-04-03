@@ -176,7 +176,6 @@ int virgl_renderer_transfer_write_iov(uint32_t handle,
 {
    struct vrend_transfer_info transfer_info;
 
-   transfer_info.handle = handle;
    transfer_info.ctx_id = ctx_id;
    transfer_info.level = level;
    transfer_info.stride = stride;
@@ -188,7 +187,8 @@ int virgl_renderer_transfer_write_iov(uint32_t handle,
    transfer_info.context0 = true;
    transfer_info.synchronized = false;
 
-   return vrend_renderer_transfer_iov(&transfer_info, VIRGL_TRANSFER_TO_HOST);
+   return vrend_renderer_transfer_iov(handle, &transfer_info,
+                                      VIRGL_TRANSFER_TO_HOST);
 }
 
 int virgl_renderer_transfer_read_iov(uint32_t handle, uint32_t ctx_id,
@@ -200,7 +200,6 @@ int virgl_renderer_transfer_read_iov(uint32_t handle, uint32_t ctx_id,
 {
    struct vrend_transfer_info transfer_info;
 
-   transfer_info.handle = handle;
    transfer_info.ctx_id = ctx_id;
    transfer_info.level = level;
    transfer_info.stride = stride;
@@ -212,7 +211,8 @@ int virgl_renderer_transfer_read_iov(uint32_t handle, uint32_t ctx_id,
    transfer_info.context0 = true;
    transfer_info.synchronized = false;
 
-   return vrend_renderer_transfer_iov(&transfer_info, VIRGL_TRANSFER_FROM_HOST);
+   return vrend_renderer_transfer_iov(handle, &transfer_info,
+                                      VIRGL_TRANSFER_FROM_HOST);
 }
 
 int virgl_renderer_resource_attach_iov(int res_handle, struct iovec *iov,

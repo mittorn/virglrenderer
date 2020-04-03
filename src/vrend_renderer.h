@@ -225,11 +225,13 @@ void vrend_set_num_vbo(struct vrend_context *ctx,
                        int num_vbo);
 
 int vrend_transfer_inline_write(struct vrend_context *ctx,
-                                struct vrend_transfer_info *info);
+                                uint32_t dst_handle,
+                                const struct vrend_transfer_info *info);
 
 int vrend_renderer_copy_transfer3d(struct vrend_context *ctx,
-                                   struct vrend_transfer_info *info,
-                                   uint32_t src_handle);
+                                   uint32_t dst_handle,
+                                   uint32_t src_handle,
+                                   const struct vrend_transfer_info *info);
 
 void vrend_set_viewport_states(struct vrend_context *ctx,
                                uint32_t start_slot, uint32_t num_viewports,
@@ -286,7 +288,10 @@ void vrend_set_framebuffer_state_no_attach(struct vrend_context *ctx,
                                            uint32_t layers, uint32_t samples);
 void vrend_texture_barrier(struct vrend_context *ctx,
                            unsigned flags);
-int vrend_renderer_transfer_iov(const struct vrend_transfer_info *info, int transfer_mode);
+
+int vrend_renderer_transfer_iov(uint32_t dst_handle,
+                                const struct vrend_transfer_info *info,
+                                int transfer_mode);
 
 void vrend_renderer_resource_copy_region(struct vrend_context *ctx,
                                          uint32_t dst_handle, uint32_t dst_level,
