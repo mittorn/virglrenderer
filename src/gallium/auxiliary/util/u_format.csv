@@ -399,3 +399,13 @@ PIPE_FORMAT_G16R16_SNORM          , plain, 1, 1, sn16, sn16, , , yx01, rgb
 
 PIPE_FORMAT_A8B8G8R8_SNORM        , plain, 1, 1, sn8 , sn8 , sn8 , sn8 , wzyx, rgb
 PIPE_FORMAT_X8B8G8R8_SNORM        , plain, 1, 1, x8,   sn8,  sn8,  sn8,  wzy1, rgb
+PIPE_FORMAT_ETC2_RGB8         , etc, 4, 4, x64,      ,     ,     , xyz1, rgb
+PIPE_FORMAT_ETC2_SRGB8        , etc, 4, 4, x64,      ,     ,     , xyz1, srgb
+PIPE_FORMAT_ETC2_RGB8A1       , etc, 4, 4, x64,      ,     ,     , xyzw, rgb
+PIPE_FORMAT_ETC2_SRGB8A1      , etc, 4, 4, x64,      ,     ,     , xyzw, srgb
+PIPE_FORMAT_ETC2_RGBA8        , etc, 4, 4, x128,     ,     ,     , xyzw, rgb
+PIPE_FORMAT_ETC2_SRGBA8       , etc, 4, 4, x128,     ,     ,     , xyzw, srgb
+PIPE_FORMAT_ETC2_R11_UNORM    , etc, 4, 4, x64,      ,     ,     , x001, rgb
+PIPE_FORMAT_ETC2_R11_SNORM    , etc, 4, 4, x64,      ,     ,     , x001, rgb
+PIPE_FORMAT_ETC2_RG11_UNORM   , etc, 4, 4, x128,     ,     ,     , xy01, rgb
+PIPE_FORMAT_ETC2_RG11_SNORM   , etc, 4, 4, x128,     ,     ,     , xy01, rgb

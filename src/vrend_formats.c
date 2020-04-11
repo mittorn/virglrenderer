@@ -234,6 +234,19 @@ static struct vrend_format_table dxtn_srgb_formats[] = {
   { VIRGL_FORMAT_DXT5_SRGBA, GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT, GL_RGBA, GL_UNSIGNED_BYTE, NO_SWIZZLE },
 };
 
+static struct vrend_format_table etc2_formats[] = {
+  {VIRGL_FORMAT_ETC2_RGB8, GL_COMPRESSED_RGB8_ETC2, GL_RGB, GL_UNSIGNED_BYTE, NO_SWIZZLE },
+  {VIRGL_FORMAT_ETC2_SRGB8, GL_COMPRESSED_SRGB8_ETC2, GL_RGB, GL_BYTE, NO_SWIZZLE },
+  {VIRGL_FORMAT_ETC2_RGB8A1, GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2, GL_RGBA, GL_UNSIGNED_BYTE, NO_SWIZZLE },
+  {VIRGL_FORMAT_ETC2_SRGB8A1, GL_COMPRESSED_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2, GL_RGBA, GL_BYTE, NO_SWIZZLE },
+  {VIRGL_FORMAT_ETC2_RGBA8, GL_COMPRESSED_RGBA8_ETC2_EAC, GL_RGBA, GL_UNSIGNED_BYTE, NO_SWIZZLE },
+  {VIRGL_FORMAT_ETC2_SRGBA8, GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC, GL_RGBA, GL_BYTE, NO_SWIZZLE },
+  {VIRGL_FORMAT_ETC2_R11_UNORM, GL_COMPRESSED_R11_EAC, GL_RED, GL_UNSIGNED_BYTE, NO_SWIZZLE},
+  {VIRGL_FORMAT_ETC2_R11_SNORM, GL_COMPRESSED_SIGNED_R11_EAC, GL_RED, GL_BYTE, NO_SWIZZLE},
+  {VIRGL_FORMAT_ETC2_RG11_UNORM, GL_COMPRESSED_RG11_EAC, GL_RG, GL_UNSIGNED_BYTE, NO_SWIZZLE},
+  {VIRGL_FORMAT_ETC2_RG11_SNORM, GL_COMPRESSED_SIGNED_RG11_EAC, GL_RG, GL_BYTE, NO_SWIZZLE},
+};
+
 static struct vrend_format_table rgtc_formats[] = {
   { VIRGL_FORMAT_RGTC1_UNORM, GL_COMPRESSED_RED_RGTC1, GL_RED, GL_UNSIGNED_BYTE, NO_SWIZZLE },
   { VIRGL_FORMAT_RGTC1_SNORM, GL_COMPRESSED_SIGNED_RED_RGTC1, GL_RED, GL_BYTE, NO_SWIZZLE },
@@ -408,7 +421,9 @@ static void vrend_add_formats(struct vrend_format_table *table, int num_entries)
           continue;
 
        case UTIL_FORMAT_LAYOUT_ETC:
-          if (epoxy_has_gl_extension("GL_OES_compressed_ETC1_RGB8_texture"))
+          if ((table[i].format == VIRGL_FORMAT_ETC1_RGB8 &&
+               epoxy_has_gl_extension("GL_OES_compressed_ETC1_RGB8_texture")) ||
+               (table[i].format != VIRGL_FORMAT_ETC1_RGB8 && gles_ver >= 30))
              vrend_insert_format(&table[i], VIRGL_BIND_SAMPLER_VIEW, flags);
           continue;
 
@@ -536,6 +551,7 @@ void vrend_build_format_list_common(void)
   add_formats(snorm_la_formats);
 
   /* compressed */
+  add_formats(etc2_formats);
   add_formats(rgtc_formats);
   add_formats(dxtn_formats);
   add_formats(dxtn_srgb_formats);
@@ -713,6 +729,10 @@ static int format_uncompressed_compressed_copy_compatible(enum virgl_formats src
       case VIRGL_FORMAT_BPTC_SRGBA:
       case VIRGL_FORMAT_BPTC_RGB_FLOAT:
       case VIRGL_FORMAT_BPTC_RGB_UFLOAT:
+      case VIRGL_FORMAT_ETC2_RGBA8:
+      case VIRGL_FORMAT_ETC2_SRGBA8:
+      case VIRGL_FORMAT_ETC2_RG11_UNORM:
+      case VIRGL_FORMAT_ETC2_RG11_SNORM:
          return 1;
       default:
          return -1;
@@ -734,6 +754,12 @@ static int format_uncompressed_compressed_copy_compatible(enum virgl_formats src
       case VIRGL_FORMAT_DXT1_SRGB:
       case VIRGL_FORMAT_RGTC1_UNORM:
       case VIRGL_FORMAT_RGTC1_SNORM:
+      case VIRGL_FORMAT_ETC2_RGB8:
+      case VIRGL_FORMAT_ETC2_SRGB8:
+      case VIRGL_FORMAT_ETC2_RGB8A1:
+      case VIRGL_FORMAT_ETC2_SRGB8A1:
+      case VIRGL_FORMAT_ETC2_R11_UNORM:
+      case VIRGL_FORMAT_ETC2_R11_SNORM:
          return 1;
       default:
          return -1;
@@ -748,7 +774,12 @@ static boolean format_compressed_compressed_copy_compatible(enum virgl_formats s
    if ((src == VIRGL_FORMAT_RGTC1_UNORM && dst == VIRGL_FORMAT_RGTC1_SNORM) ||
        (src == VIRGL_FORMAT_RGTC2_UNORM && dst == VIRGL_FORMAT_RGTC2_SNORM) ||
        (src == VIRGL_FORMAT_BPTC_RGBA_UNORM && dst == VIRGL_FORMAT_BPTC_SRGBA) ||
-       (src == VIRGL_FORMAT_BPTC_RGB_FLOAT && dst == VIRGL_FORMAT_BPTC_RGB_UFLOAT))
+       (src == VIRGL_FORMAT_BPTC_RGB_FLOAT && dst == VIRGL_FORMAT_BPTC_RGB_UFLOAT) ||
+       (src == VIRGL_FORMAT_ETC2_R11_UNORM && dst == VIRGL_FORMAT_ETC2_R11_SNORM) ||
+       (src == VIRGL_FORMAT_ETC2_RG11_UNORM && dst == VIRGL_FORMAT_ETC2_RG11_SNORM) ||
+       (src == VIRGL_FORMAT_ETC2_RGBA8 && dst == VIRGL_FORMAT_ETC2_SRGBA8) ||
+       (src == VIRGL_FORMAT_ETC2_RGB8A1 && dst == VIRGL_FORMAT_ETC2_SRGB8A1) ||
+       (src == VIRGL_FORMAT_ETC2_RGB8 && dst == VIRGL_FORMAT_ETC2_SRGB8))
       return true;
    return false;
 }
@@ -779,5 +810,6 @@ boolean format_is_copy_compatible(enum virgl_formats src, enum virgl_formats dst
    if (r)
       return r > 0;
 
-   return format_compressed_compressed_copy_compatible(dst, src);
+   return format_compressed_compressed_copy_compatible(dst, src) ||
+          format_compressed_compressed_copy_compatible(src, dst);
 }
