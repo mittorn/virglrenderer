@@ -1724,7 +1724,7 @@ static void emit_alpha_test(struct dump_ctx *ctx)
    case PIPE_FUNC_GREATER:
    case PIPE_FUNC_NOTEQUAL:
    case PIPE_FUNC_GEQUAL:
-      snprintf(comp_buf, 128, "%s %s %f", "fsout_c0.w", atests[ctx->key->alpha_test], ctx->key->alpha_ref_val);
+      snprintf(comp_buf, 128, "%s %s alpha_ref_val", "fsout_c0.w", atests[ctx->key->alpha_test]);
       break;
    default:
       vrend_printf( "invalid alpha-test: %x\n", ctx->key->alpha_test);
@@ -6137,6 +6137,10 @@ static void emit_ios_fs(struct dump_ctx *ctx)
       }
    }
 
+   if (vrend_shader_needs_alpha_func(ctx->key)) {
+      emit_hdr(ctx, "uniform float alpha_ref_val;\n");
+   }
+
    if (ctx->key->color_two_side) {
       if (ctx->color_in_mask & 1)
          emit_hdr(ctx, "vec4 realcolor0;\n");
@@ -7059,4 +7063,20 @@ fail:
    free(ctx.so_names);
    free(ctx.temp_ranges);
    return false;
+}
+
+bool vrend_shader_needs_alpha_func(const struct vrend_shader_key *key) {
+   if (!key->add_alpha_test)
+      return false;
+   switch (key->alpha_test) {
+   default:
+      return false;
+   case PIPE_FUNC_LESS:
+   case PIPE_FUNC_EQUAL:
+   case PIPE_FUNC_LEQUAL:
+   case PIPE_FUNC_GREATER:
+   case PIPE_FUNC_NOTEQUAL:
+   case PIPE_FUNC_GEQUAL:
+      return true;
+   }
 }

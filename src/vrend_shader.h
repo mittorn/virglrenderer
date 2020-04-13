@@ -117,7 +117,6 @@ struct vrend_shader_key {
 
    uint8_t prev_stage_num_clip_out;
    uint8_t prev_stage_num_cull_out;
-   float alpha_ref_val;
    uint32_t cbufs_are_a8_bitmask;
    uint8_t num_indirect_generic_outputs;
    uint8_t num_indirect_patch_outputs;
@@ -176,4 +175,7 @@ bool vrend_shader_create_passthrough_tcs(struct vrend_context *ctx,
                                          struct vrend_shader_info *sinfo,
                                          struct vrend_strarray *shader,
                                          int vertices_per_patch);
+
+bool vrend_shader_needs_alpha_func(const struct vrend_shader_key *key);
+
 #endif

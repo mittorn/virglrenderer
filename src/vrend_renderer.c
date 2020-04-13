@@ -347,6 +347,8 @@ struct vrend_linked_shader_program {
 
    GLint fs_stipple_loc;
 
+   GLint fs_alpha_ref_val_loc;
+
    GLuint clip_locs[8];
 
    uint32_t images_used_mask[PIPE_SHADER_TYPES];
@@ -1602,6 +1604,10 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
       sprog->fs_stipple_loc = glGetUniformLocation(prog_id, "pstipple_sampler");
    else
       sprog->fs_stipple_loc = -1;
+   if (vrend_shader_needs_alpha_func(&fs->key))
+      sprog->fs_alpha_ref_val_loc = glGetUniformLocation(prog_id, "alpha_ref_val");
+   else
+      sprog->fs_alpha_ref_val_loc = -1;
    sprog->vs_ws_adjust_loc = glGetUniformLocation(prog_id, "winsys_adjust_y");
 
    vrend_use_program(ctx, prog_id);
@@ -3138,7 +3144,6 @@ static inline void vrend_fill_shader_key(struct vrend_context *ctx,
       if (add_alpha_test) {
          key->add_alpha_test = ctx->sub->dsa_state.alpha.enabled;
          key->alpha_test = ctx->sub->dsa_state.alpha.func;
-         key->alpha_ref_val = ctx->sub->dsa_state.alpha.ref_value;
       }
 
       key->pstipple_tex = ctx->sub->rs_state.poly_stipple_enable;
@@ -4227,6 +4232,10 @@ static void vrend_draw_bind_objects(struct vrend_context *ctx, bool new_program)
       glActiveTexture(GL_TEXTURE0 + next_sampler_id);
       glBindTexture(GL_TEXTURE_2D, ctx->pstipple_tex_id);
       glUniform1i(ctx->sub->prog->fs_stipple_loc, next_sampler_id);
+   }
+
+   if (vrend_state.use_core_profile && ctx->sub->prog->fs_alpha_ref_val_loc != -1) {
+      glUniform1i(ctx->sub->prog->fs_alpha_ref_val_loc, ctx->sub->dsa_state.alpha.ref_value);
    }
 }
 
