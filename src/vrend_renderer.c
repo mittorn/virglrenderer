@@ -3279,7 +3279,7 @@ static inline int conv_shader_type(int type)
 
 static int vrend_shader_create(struct vrend_context *ctx,
                                struct vrend_shader *shader,
-                               struct vrend_shader_key key)
+                               struct vrend_shader_key *key)
 {
 
    shader->id = glCreateShader(conv_shader_type(shader->sel->type));
@@ -3287,7 +3287,7 @@ static int vrend_shader_create(struct vrend_context *ctx,
 
    if (shader->sel->tokens) {
       bool ret = vrend_convert_shader(ctx, &ctx->shader_cfg, shader->sel->tokens,
-                                      shader->sel->req_local_mem, &key, &shader->sel->sinfo, &shader->glsl_strings);
+                                      shader->sel->req_local_mem, key, &shader->sel->sinfo, &shader->glsl_strings);
       if (!ret) {
          report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SHADER, shader->sel->type);
          glDeleteShader(shader->id);
@@ -3299,7 +3299,7 @@ static int vrend_shader_create(struct vrend_context *ctx,
       return -1;
    }
 
-   shader->key = key;
+   shader->key = *key;
    if (1) {//shader->sel->type == PIPE_SHADER_FRAGMENT || shader->sel->type == PIPE_SHADER_GEOMETRY) {
       bool ret;
 
@@ -3346,7 +3346,7 @@ static int vrend_shader_select(struct vrend_context *ctx,
       list_inithead(&shader->programs);
       strarray_alloc(&shader->glsl_strings, SHADER_MAX_STRINGS);
 
-      r = vrend_shader_create(ctx, shader, key);
+      r = vrend_shader_create(ctx, shader, &key);
       if (r) {
          sel->current = NULL;
          FREE(shader);
