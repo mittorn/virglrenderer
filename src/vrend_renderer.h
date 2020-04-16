@@ -88,8 +88,6 @@ struct vrend_resource {
    GLuint tbo_tex_id;/* tbos have two ids to track */
    bool y_0_top;
 
-   GLuint handle;
-
    /* Pointer to system memory storage for this resource. Only valid for
     * VREND_RESOURCE_STORAGE_GUEST_ELSE_SYSTEM buffer storage.
     */
@@ -174,7 +172,6 @@ struct virgl_context *vrend_renderer_context_create(uint32_t handle,
                                                     const char *name);
 
 struct vrend_renderer_resource_create_args {
-   uint32_t handle;
    enum pipe_texture_target target;
    uint32_t format;
    uint32_t bind;
@@ -187,8 +184,8 @@ struct vrend_renderer_resource_create_args {
    uint32_t flags;
 };
 
-int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *args,
-                                   void *image_eos);
+struct pipe_resource *
+vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *args, void *image_eos);
 
 int vrend_create_surface(struct vrend_context *ctx,
                          uint32_t handle,

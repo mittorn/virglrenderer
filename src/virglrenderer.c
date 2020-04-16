@@ -53,11 +53,39 @@ static struct virgl_glx *glx_info;
 
 /* new API - just wrap internal API for now */
 
-int virgl_renderer_resource_create(struct virgl_renderer_resource_create_args *args, struct iovec *iov, uint32_t num_iovs)
+static int virgl_renderer_resource_create_internal(struct virgl_renderer_resource_create_args *args,
+                                                   UNUSED struct iovec *iov, UNUSED uint32_t num_iovs,
+                                                   void *image)
 {
    int ret;
+   struct pipe_resource *pipe_res;
+   struct vrend_renderer_resource_create_args vrend_args =  { 0 };
 
-   ret = vrend_renderer_resource_create((struct vrend_renderer_resource_create_args *)args, NULL);
+   /* do not accept handle 0 */
+   if (args->handle == 0)
+      return EINVAL;
+
+   vrend_args.target = args->target;
+   vrend_args.format = args->format;
+   vrend_args.bind = args->bind;
+   vrend_args.width = args->width;
+   vrend_args.height = args->height;
+   vrend_args.depth = args->depth;
+   vrend_args.array_size = args->array_size;
+   vrend_args.nr_samples = args->nr_samples;
+   vrend_args.last_level = args->last_level;
+   vrend_args.flags = args->flags;
+
+   pipe_res = vrend_renderer_resource_create(&vrend_args, image);
+   if (!pipe_res)
+      return EINVAL;
+
+   ret = virgl_resource_create_from_pipe(args->handle, pipe_res);
+   if (ret) {
+      vrend_renderer_resource_destroy((struct vrend_resource *)pipe_res);
+      return ret;
+   }
+
    if (!ret && num_iovs) {
       ret = virgl_renderer_resource_attach_iov(args->handle, iov, num_iovs);
       if (ret) {
@@ -66,13 +94,19 @@ int virgl_renderer_resource_create(struct virgl_renderer_resource_create_args *a
       }
    }
 
-   return ret;
+   return 0;
+}
+
+int virgl_renderer_resource_create(struct virgl_renderer_resource_create_args *args,
+                                   struct iovec *iov, uint32_t num_iovs)
+{
+   return virgl_renderer_resource_create_internal(args, iov, num_iovs, NULL);
 }
 
 int virgl_renderer_resource_import_eglimage(struct virgl_renderer_resource_create_args *args, void *image)
 {
 #ifdef HAVE_EPOXY_EGL_H
-   return vrend_renderer_resource_create((struct vrend_renderer_resource_create_args *)args, image);
+   return virgl_renderer_resource_create_internal(args, NULL, 0, image);
 #else
    return EINVAL;
 #endif
@@ -308,6 +342,7 @@ int virgl_renderer_resource_get_info(int res_handle,
 
    ret = vrend_renderer_resource_get_info(res->pipe_resource,
                                           (struct vrend_renderer_resource_info *)info);
+   info->handle = res_handle;
 #ifdef HAVE_EPOXY_EGL_H
    if (ret == 0 && use_context == CONTEXT_EGL)
       return virgl_egl_get_fourcc_for_texture(egl, info->tex_id, info->virgl_format, &info->drm_fourcc);

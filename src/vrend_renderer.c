@@ -6154,12 +6154,6 @@ struct vrend_context *vrend_create_context(int id, uint32_t nlen, const char *de
 static int check_resource_valid(struct vrend_renderer_resource_create_args *args,
                                 char errmsg[256])
 {
-   /* do not accept handle 0 */
-   if (args->handle == 0) {
-      snprintf(errmsg, 256, "Invalid handle");
-      return -1;
-   }
-
    /* limit the target */
    if (args->target >= PIPE_MAX_TEXTURE_TYPES) {
       snprintf(errmsg, 256, "Invalid texture target %d (>= %d)",
@@ -6400,7 +6394,6 @@ vrend_renderer_resource_copy_args(struct vrend_renderer_resource_create_args *ar
    assert(gr);
    assert(args);
 
-   gr->handle = args->handle;
    gr->base.bind = args->bind;
    gr->base.width0 = args->width;
    gr->base.height0 = args->height;
@@ -6668,8 +6661,8 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
    return 0;
 }
 
-int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *args,
-                                   void *image_oes)
+struct pipe_resource *
+vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *args, void *image_oes)
 {
    struct vrend_resource *gr;
    int ret;
@@ -6678,12 +6671,12 @@ int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *a
    ret = check_resource_valid(args, error_string);
    if (ret) {
       vrend_printf("%s, Illegal resource parameters, error: %s\n", __func__, error_string);
-      return EINVAL;
+      return NULL;
    }
 
    gr = (struct vrend_resource *)CALLOC_STRUCT(vrend_texture);
    if (!gr)
-      return ENOMEM;
+      return NULL;
 
    vrend_renderer_resource_copy_args(args, gr);
    gr->storage_bits = VREND_STORAGE_GUEST_MEMORY;
@@ -6700,7 +6693,7 @@ int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *a
          gr->ptr = malloc(args->width);
          if (!gr->ptr) {
             FREE(gr);
-            return ENOMEM;
+            return NULL;
          }
       } else if (args->bind == VIRGL_BIND_STAGING) {
         /* staging buffers only use guest memory -- nothing to do. */
@@ -6744,22 +6737,17 @@ int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *a
       } else {
          vrend_printf("%s: Illegal buffer binding flags 0x%x\n", __func__, args->bind);
          FREE(gr);
-         return EINVAL;
+         return NULL;
       }
    } else {
       int r = vrend_renderer_resource_allocate_texture(gr, image_oes);
       if (r) {
          FREE(gr);
-         return r;
+         return NULL;
       }
    }
 
-   ret = virgl_resource_create_from_pipe(args->handle, &gr->base);
-   if (ret) {
-      vrend_renderer_resource_destroy(gr);
-      return ret;
-   }
-   return 0;
+   return &gr->base;
 }
 
 void vrend_renderer_resource_destroy(struct vrend_resource *res)
@@ -10125,7 +10113,6 @@ int vrend_renderer_resource_get_info(struct pipe_resource *pres,
 
    elsize = util_format_get_blocksize(res->base.format);
 
-   info->handle = res->handle;
    info->tex_id = res->id;
    info->width = res->base.width0;
    info->height = res->base.height0;
