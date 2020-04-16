@@ -6654,7 +6654,7 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
 }
 
 int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *args,
-                                   struct iovec *iov, uint32_t num_iovs, void *image_oes)
+                                   void *image_oes)
 {
    struct vrend_resource *gr;
    int ret;
@@ -6671,8 +6671,6 @@ int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *a
       return ENOMEM;
 
    vrend_renderer_resource_copy_args(args, gr);
-   gr->iov = iov;
-   gr->num_iovs = num_iovs;
    gr->storage_bits = VREND_STORAGE_GUEST_MEMORY;
 
    if (args->flags & VIRGL_RESOURCE_Y_0_TOP)

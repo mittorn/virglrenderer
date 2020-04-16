@@ -55,13 +55,24 @@ static struct virgl_glx *glx_info;
 
 int virgl_renderer_resource_create(struct virgl_renderer_resource_create_args *args, struct iovec *iov, uint32_t num_iovs)
 {
-   return vrend_renderer_resource_create((struct vrend_renderer_resource_create_args *)args, iov, num_iovs, NULL);
+   int ret;
+
+   ret = vrend_renderer_resource_create((struct vrend_renderer_resource_create_args *)args, NULL);
+   if (!ret && num_iovs) {
+      ret = virgl_renderer_resource_attach_iov(args->handle, iov, num_iovs);
+      if (ret) {
+         virgl_resource_remove(args->handle);
+         return ret;
+      }
+   }
+
+   return ret;
 }
 
 int virgl_renderer_resource_import_eglimage(struct virgl_renderer_resource_create_args *args, void *image)
 {
 #ifdef HAVE_EPOXY_EGL_H
-   return vrend_renderer_resource_create((struct vrend_renderer_resource_create_args *)args, 0, 0, image);
+   return vrend_renderer_resource_create((struct vrend_renderer_resource_create_args *)args, image);
 #else
    return EINVAL;
 #endif
