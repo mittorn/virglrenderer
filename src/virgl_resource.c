@@ -72,25 +72,38 @@ virgl_resource_table_reset(void)
    util_hash_table_clear(virgl_resource_table);
 }
 
-int
-virgl_resource_create_from_pipe(uint32_t res_id, struct pipe_resource *pres)
+static struct virgl_resource *
+virgl_resource_create(uint32_t res_id)
 {
    struct virgl_resource *res;
    enum pipe_error err;
 
    res = calloc(1, sizeof(*res));
    if (!res)
-      return ENOMEM;
+      return NULL;
 
    err = util_hash_table_set(virgl_resource_table,
                              uintptr_to_pointer(res_id),
                              res);
    if (err != PIPE_OK) {
       free(res);
-      return ENOMEM;
+      return NULL;
    }
 
    res->res_id = res_id;
+
+   return res;
+}
+
+int
+virgl_resource_create_from_pipe(uint32_t res_id, struct pipe_resource *pres)
+{
+   struct virgl_resource *res;
+
+   res = virgl_resource_create(res_id);
+   if (!res)
+      return ENOMEM;
+
    /* take ownership */
    res->pipe_resource = pres;
 
