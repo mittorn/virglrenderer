@@ -29,9 +29,21 @@
 #include <stddef.h>
 #include <stdint.h>
 
-struct virgl_resource;
+#include "virgl_resource.h"
+
 struct vrend_transfer_info;
 struct pipe_resource;
+
+struct virgl_context_blob {
+   /* valid fd or pipe resource */
+   enum virgl_resource_fd_type type;
+   union {
+      int fd;
+      struct pipe_resource *pipe_resource;
+   } u;
+
+   void *renderer_data;
+};
 
 /**
  * Base class for renderer contexts.  For example, vrend_decode_ctx is a
@@ -52,12 +64,26 @@ struct virgl_context {
                       const struct vrend_transfer_info *info,
                       int transfer_mode);
 
+   /* These are used to create a virgl_resource from a context object.
+    *
+    * get_blob returns a virgl_context_blob from which a virgl_resource can be
+    * created.  get_blob_done is optional and allows the context to associate
+    * the newly created resource with the context object.
+    *
+    * Note that get_blob is a one-time thing.  The context object might be
+    * destroyed or reject subsequent get_blob calls.
+    */
+   int (*get_blob)(struct virgl_context *ctx,
+                   uint64_t blob_id,
+                   uint32_t blob_flags,
+                   struct virgl_context_blob *blob);
+   void (*get_blob_done)(struct virgl_context *ctx,
+                         uint32_t res_id,
+                         struct virgl_context_blob *blob);
+
    int (*submit_cmd)(struct virgl_context *ctx,
                      const void *buffer,
                      size_t size);
-
-   struct pipe_resource *(*get_blob_pipe)(struct virgl_context *ctx,
-                                          uint64_t blob_id);
 };
 
 struct virgl_context_foreach_args {

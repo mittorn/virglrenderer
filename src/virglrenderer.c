@@ -647,7 +647,7 @@ int virgl_renderer_execute(void *execute_args, uint32_t execute_size)
 int virgl_renderer_resource_create_blob(const struct virgl_renderer_resource_create_blob_args *args)
 {
    struct virgl_context *ctx;
-   struct pipe_resource *pipe_res;
+   struct virgl_context_blob blob;
    bool has_host_storage;
    bool has_guest_storage;
    int ret;
@@ -694,18 +694,33 @@ int virgl_renderer_resource_create_blob(const struct virgl_renderer_resource_cre
    if (!ctx)
       return -EINVAL;
 
-   pipe_res = ctx->get_blob_pipe(ctx, args->blob_id);
-   if (!pipe_res)
-      return -EINVAL;
-
-   ret = virgl_resource_create_from_pipe(args->res_handle,
-                                         pipe_res,
-                                         args->iovecs,
-                                         args->num_iovs);
-   if (ret) {
-      vrend_renderer_resource_destroy((struct vrend_resource *)pipe_res);
+   ret = ctx->get_blob(ctx, args->blob_id, args->blob_flags, &blob);
+   if (ret)
       return ret;
+
+   if (blob.type != VIRGL_RESOURCE_FD_INVALID) {
+      ret = virgl_resource_create_from_fd(args->res_handle,
+                                          blob.type,
+                                          blob.u.fd,
+                                          args->iovecs,
+                                          args->num_iovs);
+      if (ret) {
+         close(blob.u.fd);
+         return ret;
+      }
+   } else {
+      ret = virgl_resource_create_from_pipe(args->res_handle,
+                                            blob.u.pipe_resource,
+                                            args->iovecs,
+                                            args->num_iovs);
+      if (ret) {
+         vrend_renderer_resource_destroy((struct vrend_resource *)blob.u.pipe_resource);
+         return ret;
+      }
    }
+
+   if (ctx->get_blob_done)
+      ctx->get_blob_done(ctx, args->res_handle, &blob);
 
    return 0;
 }
