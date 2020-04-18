@@ -146,33 +146,33 @@ struct vrend_context;
 #define SHADER_STRING_HDR 1
 
 
-bool vrend_patch_vertex_shader_interpolants(struct vrend_context *rctx,
-                                            struct vrend_shader_cfg *cfg,
+bool vrend_patch_vertex_shader_interpolants(const struct vrend_context *rctx,
+                                            const struct vrend_shader_cfg *cfg,
                                             struct vrend_strarray *shader,
-                                            struct vrend_shader_info *vs_info,
-                                            struct vrend_shader_info *fs_info,
+                                            const struct vrend_shader_info *vs_info,
+                                            const struct vrend_shader_info *fs_info,
                                             const char *oprefix, bool flatshade);
 
-bool vrend_convert_shader(struct  vrend_context *rctx,
-                          struct vrend_shader_cfg *cfg,
+bool vrend_convert_shader(const struct vrend_context *rctx,
+                          const struct vrend_shader_cfg *cfg,
                           const struct tgsi_token *tokens,
                           uint32_t req_local_mem,
-                          struct vrend_shader_key *key,
-                          struct vrend_shader_info *sinfo,
+                          const struct vrend_shader_key *key,
+                          const struct vrend_shader_info *sinfo,
                           struct vrend_strarray *shader);
 
 const char *vrend_shader_samplertypeconv(bool use_gles, int sampler_type);
 
 char vrend_shader_samplerreturnconv(enum tgsi_return_type type);
 
-int vrend_shader_lookup_sampler_array(struct vrend_shader_info *sinfo, int index);
+int vrend_shader_lookup_sampler_array(const struct vrend_shader_info *sinfo, int index);
 
-bool vrend_shader_create_passthrough_tcs(struct vrend_context *ctx,
-                                         struct vrend_shader_cfg *cfg,
-                                         struct tgsi_token *vs_info,
-                                         struct vrend_shader_key *key,
+bool vrend_shader_create_passthrough_tcs(const struct vrend_context *ctx,
+                                         const struct vrend_shader_cfg *cfg,
+                                         const struct tgsi_token *vs_info,
+                                         const struct vrend_shader_key *key,
                                          const float tess_factors[6],
-                                         struct vrend_shader_info *sinfo,
+                                         const struct vrend_shader_info *sinfo,
                                          struct vrend_strarray *shader,
                                          int vertices_per_patch);
 

@@ -229,7 +229,7 @@ struct dump_ctx {
    int gs_in_prim, gs_out_prim, gs_max_out_verts;
    int gs_num_invocations;
 
-   struct vrend_shader_key *key;
+   const struct vrend_shader_key *key;
    int num_in_clip_dist;
    int num_clip_dist;
    int fs_uses_clipdist_input;
@@ -789,7 +789,7 @@ static int lookup_sampler_array(struct dump_ctx *ctx, int index)
    return -1;
 }
 
-int vrend_shader_lookup_sampler_array(struct vrend_shader_info *sinfo, int index)
+int vrend_shader_lookup_sampler_array(const struct vrend_shader_info *sinfo, int index)
 {
    int i;
    for (i = 0; i < sinfo->num_sampler_arrays; i++) {
@@ -869,7 +869,7 @@ iter_inputs(struct tgsi_iterate_context *iter,
    return true;
 }
 
-static bool logiop_require_inout(struct vrend_shader_key *key)
+static bool logiop_require_inout(const struct vrend_shader_key *key)
 {
    if (!key->fs_logicop_enabled)
       return false;
@@ -5405,7 +5405,7 @@ const char *vrend_shader_samplertypeconv(bool use_gles, int sampler_type)
    }
 }
 
-static const char *get_interp_string(struct vrend_shader_cfg *cfg, int interpolate, bool flatshade)
+static const char *get_interp_string(const struct vrend_shader_cfg *cfg, int interpolate, bool flatshade)
 {
    switch (interpolate) {
    case TGSI_INTERPOLATE_LINEAR:
@@ -6652,12 +6652,12 @@ static void set_strbuffers(MAYBE_UNUSED struct vrend_context *rctx, struct dump_
    VREND_DEBUG(dbg_shader_glsl, rctx, "\n");
 }
 
-bool vrend_convert_shader(struct vrend_context *rctx,
-			  struct vrend_shader_cfg *cfg,
-			  const struct tgsi_token *tokens,
-			  uint32_t req_local_mem,
-			  struct vrend_shader_key *key,
-			  struct vrend_shader_info *sinfo,
+bool vrend_convert_shader(const struct vrend_context *rctx,
+                          const struct vrend_shader_cfg *cfg,
+                          const struct tgsi_token *tokens,
+                          uint32_t req_local_mem,
+                          const struct vrend_shader_key *key,
+                          const struct vrend_shader_info *sinfo,
                           struct vrend_strarray *shader)
 {
    struct dump_ctx ctx;
@@ -6792,11 +6792,11 @@ static void require_gpu_shader5_and_msinterp(struct vrend_strarray *program)
    strbuf_append(&program->strings[SHADER_STRING_VER_EXT], gpu_shader5_and_msinterp_string);
 }
 
-bool vrend_patch_vertex_shader_interpolants(MAYBE_UNUSED struct vrend_context *rctx,
-                                            struct vrend_shader_cfg *cfg,
+bool vrend_patch_vertex_shader_interpolants(MAYBE_UNUSED const struct vrend_context *rctx,
+                                            const struct vrend_shader_cfg *cfg,
                                             struct vrend_strarray *prog_strings,
-                                            struct vrend_shader_info *vs_info,
-                                            struct vrend_shader_info *fs_info,
+                                            const struct vrend_shader_info *vs_info,
+                                            const struct vrend_shader_info *fs_info,
                                             const char *oprefix, bool flatshade)
 {
    int i;
@@ -6980,12 +6980,12 @@ iter_vs_declaration(struct tgsi_iterate_context *iter,
    return true;
 }
 
-bool vrend_shader_create_passthrough_tcs(struct vrend_context *rctx,
-                                         struct vrend_shader_cfg *cfg,
-                                         struct tgsi_token *vs_tokens,
-                                         struct vrend_shader_key *key,
+bool vrend_shader_create_passthrough_tcs(const struct vrend_context *rctx,
+                                         const struct vrend_shader_cfg *cfg,
+                                         const struct tgsi_token *vs_tokens,
+                                         const struct vrend_shader_key *key,
                                          const float tess_factors[6],
-                                         struct vrend_shader_info *sinfo,
+                                         const struct vrend_shader_info *sinfo,
                                          struct vrend_strarray *shader,
                                          int vertices_per_patch)
 {
