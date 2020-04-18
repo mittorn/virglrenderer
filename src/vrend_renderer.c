@@ -6003,6 +6003,7 @@ void vrend_destroy_context(struct vrend_context *ctx)
          glDeleteTextures(1, &ctx->pstipple_tex_id);
       ctx->pstip_inited = false;
    }
+   vrend_clicbs->make_current(ctx->sub->gl_context);
    /* reset references on framebuffers */
    vrend_set_framebuffer_state(ctx, 0, NULL, 0);
 
