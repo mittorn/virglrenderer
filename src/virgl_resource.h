@@ -30,6 +30,13 @@
 struct iovec;
 struct pipe_resource;
 
+enum virgl_resource_fd_type {
+   VIRGL_RESOURCE_FD_DMABUF,
+   VIRGL_RESOURCE_FD_OPAQUE,
+
+   VIRGL_RESOURCE_FD_INVALID = -1,
+};
+
 /**
  * A global cross-context resource.  A virgl_resource is not directly usable
  * by renderer contexts, but must be attached and imported into renderer
@@ -42,6 +49,9 @@ struct virgl_resource {
    uint32_t res_id;
 
    struct pipe_resource *pipe_resource;
+
+   enum virgl_resource_fd_type fd_type;
+   int fd;
 
    const struct iovec *iov;
    int iov_count;
@@ -75,6 +85,13 @@ virgl_resource_create_from_pipe(uint32_t res_id,
                                 struct pipe_resource *pres,
                                 const struct iovec *iov,
                                 int iov_count);
+
+int
+virgl_resource_create_from_fd(uint32_t res_id,
+                              enum virgl_resource_fd_type fd_type,
+                              int fd,
+                              const struct iovec *iov,
+                              int iov_count);
 
 int
 virgl_resource_create_from_iov(uint32_t res_id,

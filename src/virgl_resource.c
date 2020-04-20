@@ -27,6 +27,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "util/u_hash_table.h"
 #include "util/u_pointer.h"
@@ -42,6 +43,8 @@ virgl_resource_destroy_func(void *val)
 
    if (res->pipe_resource)
       pipe_callbacks.unref(res->pipe_resource, pipe_callbacks.data);
+   if (res->fd_type != VIRGL_RESOURCE_FD_INVALID)
+      close(res->fd);
 
    free(res);
 }
@@ -92,6 +95,8 @@ virgl_resource_create(uint32_t res_id)
    }
 
    res->res_id = res_id;
+   res->fd_type = VIRGL_RESOURCE_FD_INVALID;
+   res->fd = -1;
 
    return res;
 }
@@ -110,6 +115,31 @@ virgl_resource_create_from_pipe(uint32_t res_id,
 
    /* take ownership */
    res->pipe_resource = pres;
+
+   res->iov = iov;
+   res->iov_count = iov_count;
+
+   return 0;
+}
+
+int
+virgl_resource_create_from_fd(uint32_t res_id,
+                              enum virgl_resource_fd_type fd_type,
+                              int fd,
+                              const struct iovec *iov,
+                              int iov_count)
+{
+   struct virgl_resource *res;
+
+   assert(fd_type != VIRGL_RESOURCE_FD_INVALID  && fd >= 0);
+
+   res = virgl_resource_create(res_id);
+   if (!res)
+      return ENOMEM;
+
+   res->fd_type = fd_type;
+   /* take ownership */
+   res->fd = fd;
 
    res->iov = iov;
    res->iov_count = iov_count;
