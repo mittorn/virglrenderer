@@ -790,20 +790,14 @@ static const char *vrend_ctx_error_strings[] = {
    [VIRGL_ERROR_CTX_TRANSFER_IOV_BOUNDS]   = "IOV data size exceeds resource capacity",
 };
 
-static void __report_context_error(const char *fname, struct vrend_context *ctx,
-                                   enum virgl_ctx_errors error, uint32_t value)
+void vrend_report_context_error_internal(const char *fname, struct vrend_context *ctx,
+                                         enum virgl_ctx_errors error, uint32_t value)
 {
    ctx->in_error = true;
    ctx->last_error = error;
    vrend_printf("%s: context error reported %d \"%s\" %s %d\n", fname,
                 ctx->ctx_id, ctx->debug_name, vrend_ctx_error_strings[error],
                 value);
-}
-#define report_context_error(ctx, error, value) __report_context_error(__func__, ctx, error, value)
-
-void vrend_report_buffer_error(struct vrend_context *ctx, int cmd)
-{
-   report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_CMD_BUFFER, cmd);
 }
 
 #define CORE_PROFILE_WARN_NONE 0
@@ -1021,7 +1015,7 @@ static bool vrend_compile_shader(struct vrend_context *ctx,
       char infolog[65536];
       int len;
       glGetShaderInfoLog(shader->id, 65536, &len, infolog);
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SHADER, 0);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SHADER, 0);
       vrend_printf("shader failed to compile\n%s\n", infolog);
       vrend_shader_dump(shader);
       return false;
@@ -1439,7 +1433,7 @@ static struct vrend_linked_shader_program *add_cs_shader_program(struct vrend_co
       glGetProgramInfoLog(prog_id, 65536, &len, infolog);
       vrend_printf("got error linking\n%s\n", infolog);
       /* dump shaders */
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SHADER, 0);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SHADER, 0);
       vrend_shader_dump(cs);
       glDeleteProgram(prog_id);
       free(sprog);
@@ -1539,7 +1533,7 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
             glBindFragDataLocationIndexed(prog_id, 0, 0, "fsout_c0");
             glBindFragDataLocationIndexed(prog_id, 0, 1, "fsout_c1");
          } else {
-            report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_DUAL_SRC_BLEND, 0);
+            vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_DUAL_SRC_BLEND, 0);
          }
          sprog->dual_src_linked = true;
       } else {
@@ -1570,7 +1564,7 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
       glGetProgramInfoLog(prog_id, 65536, &len, infolog);
       vrend_printf("got error linking\n%s\n", infolog);
       /* dump shaders */
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SHADER, 0);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SHADER, 0);
       vrend_shader_dump(vs);
       if (gs)
          vrend_shader_dump(gs);
@@ -1757,7 +1751,7 @@ int vrend_create_surface(struct vrend_context *ctx,
 
    res = vrend_renderer_ctx_res_lookup(ctx, res_handle);
    if (!res) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, res_handle);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, res_handle);
       return EINVAL;
    }
 
@@ -2017,7 +2011,7 @@ int vrend_create_sampler_view(struct vrend_context *ctx,
 
    res = vrend_renderer_ctx_res_lookup(ctx, res_handle);
    if (!res) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, res_handle);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, res_handle);
       return EINVAL;
    }
 
@@ -2029,14 +2023,14 @@ int vrend_create_sampler_view(struct vrend_context *ctx,
    view->format = format & 0xffffff;
 
    if (!view->format || view->format >= VIRGL_FORMAT_MAX) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_FORMAT, view->format);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_FORMAT, view->format);
       FREE(view);
       return EINVAL;
    }
 
    uint32_t pipe_target = (format >> 24) & 0xff;
    if (pipe_target >= PIPE_MAX_TEXTURE_TYPES) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SAMPLER_VIEW_TARGET,
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SAMPLER_VIEW_TARGET,
                            view->format);
       FREE(view);
       return EINVAL;
@@ -2412,7 +2406,7 @@ void vrend_set_framebuffer_state(struct vrend_context *ctx,
    if (zsurf_handle) {
       zsurf = vrend_object_lookup(ctx->sub->object_hash, zsurf_handle, VIRGL_OBJECT_SURFACE);
       if (!zsurf) {
-         report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SURFACE, zsurf_handle);
+         vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SURFACE, zsurf_handle);
          return;
       }
    } else
@@ -2431,7 +2425,7 @@ void vrend_set_framebuffer_state(struct vrend_context *ctx,
       if (surf_handle[i] != 0) {
          surf = vrend_object_lookup(ctx->sub->object_hash, surf_handle[i], VIRGL_OBJECT_SURFACE);
          if (!surf) {
-            report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SURFACE, surf_handle[i]);
+            vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SURFACE, surf_handle[i]);
             return;
          }
       } else
@@ -2467,7 +2461,7 @@ void vrend_set_framebuffer_state(struct vrend_context *ctx,
          }
       }
       if (surf == NULL) {
-         report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SURFACE, i);
+         vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SURFACE, i);
          return;
       }
       new_height = u_minify(surf->texture->base.height0, surf->val0);
@@ -2528,7 +2522,7 @@ void vrend_set_viewport_states(struct vrend_context *ctx,
 
    if (num_viewports > PIPE_MAX_VIEWPORTS ||
        start_slot > (PIPE_MAX_VIEWPORTS - num_viewports)) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_CMD_BUFFER, num_viewports);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_CMD_BUFFER, num_viewports);
       return;
    }
 
@@ -2638,7 +2632,7 @@ int vrend_create_vertex_elements_state(struct vrend_context *ctx,
          type = GL_UNSIGNED_INT_10F_11F_11F_REV;
 
       if (type == GL_FALSE) {
-         report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_VERTEX_FORMAT, elements[i].src_format);
+         vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_VERTEX_FORMAT, elements[i].src_format);
          FREE(v);
          return EINVAL;
       }
@@ -2689,7 +2683,7 @@ void vrend_bind_vertex_elements_state(struct vrend_context *ctx,
    }
    v = vrend_object_lookup(ctx->sub->object_hash, handle, VIRGL_OBJECT_VERTEX_ELEMENTS);
    if (!v) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_HANDLE, handle);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_HANDLE, handle);
       return;
    }
 
@@ -2738,7 +2732,7 @@ void vrend_set_uniform_buffer(struct vrend_context *ctx,
       res = vrend_renderer_ctx_res_lookup(ctx, res_handle);
 
       if (!res) {
-         report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, res_handle);
+         vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, res_handle);
          return;
       }
       ctx->sub->cbs[shader][index].buffer = (struct pipe_resource *)res;
@@ -2770,7 +2764,7 @@ void vrend_set_index_buffer(struct vrend_context *ctx,
          if (!res) {
             vrend_resource_reference((struct vrend_resource **)&ctx->sub->ib.buffer, NULL);
             ctx->sub->index_buffer_res_id = 0;
-            report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, res_handle);
+            vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, res_handle);
             return;
          }
          vrend_resource_reference((struct vrend_resource **)&ctx->sub->ib.buffer, res);
@@ -2804,7 +2798,7 @@ void vrend_set_single_vbo(struct vrend_context *ctx,
    } else if (ctx->sub->vbo_res_ids[index] != res_handle) {
       res = vrend_renderer_ctx_res_lookup(ctx, res_handle);
       if (!res) {
-         report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, res_handle);
+         vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, res_handle);
          ctx->sub->vbo_res_ids[index] = 0;
          return;
       }
@@ -2844,7 +2838,7 @@ void vrend_set_single_sampler_view(struct vrend_context *ctx,
       view = vrend_object_lookup(ctx->sub->object_hash, handle, VIRGL_OBJECT_SAMPLER_VIEW);
       if (!view) {
          ctx->sub->views[shader_type].views[index] = NULL;
-         report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_HANDLE, handle);
+         vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_HANDLE, handle);
          return;
       }
       if (ctx->sub->views[shader_type].views[index] == view) {
@@ -2971,7 +2965,7 @@ void vrend_set_single_image_view(struct vrend_context *ctx,
 
       res = vrend_renderer_ctx_res_lookup(ctx, handle);
       if (!res) {
-         report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, handle);
+         vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, handle);
          return;
       }
       iview->texture = res;
@@ -3002,7 +2996,7 @@ void vrend_set_single_ssbo(struct vrend_context *ctx,
    if (handle) {
       res = vrend_renderer_ctx_res_lookup(ctx, handle);
       if (!res) {
-         report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, handle);
+         vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, handle);
          return;
       }
       ssbo->res = res;
@@ -3031,7 +3025,7 @@ void vrend_set_single_abo(struct vrend_context *ctx,
    if (handle) {
       res = vrend_renderer_ctx_res_lookup(ctx, handle);
       if (!res) {
-         report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, handle);
+         vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, handle);
          return;
       }
       abo->res = res;
@@ -3289,12 +3283,12 @@ static int vrend_shader_create(struct vrend_context *ctx,
       bool ret = vrend_convert_shader(ctx, &ctx->shader_cfg, shader->sel->tokens,
                                       shader->sel->req_local_mem, key, &shader->sel->sinfo, &shader->glsl_strings);
       if (!ret) {
-         report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SHADER, shader->sel->type);
+         vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SHADER, shader->sel->type);
          glDeleteShader(shader->id);
          return -1;
       }
    } else if (!ctx->shader_cfg.use_gles && shader->sel->type != TGSI_PROCESSOR_TESS_CTRL) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SHADER, shader->sel->type);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SHADER, shader->sel->type);
       glDeleteShader(shader->id);
       return -1;
    }
@@ -4298,7 +4292,7 @@ int vrend_draw_vbo(struct vrend_context *ctx,
          return EINVAL;
       indirect_res = vrend_renderer_ctx_res_lookup(ctx, indirect_handle);
       if (!indirect_res) {
-         report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, indirect_handle);
+         vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, indirect_handle);
          return 0;
       }
    }
@@ -4310,7 +4304,7 @@ int vrend_draw_vbo(struct vrend_context *ctx,
 
       indirect_params_res = vrend_renderer_ctx_res_lookup(ctx, indirect_draw_count_handle);
       if (!indirect_params_res){
-         report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, indirect_draw_count_handle);
+         vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, indirect_draw_count_handle);
          return 0;
       }
    }
@@ -4667,7 +4661,7 @@ void vrend_launch_grid(struct vrend_context *ctx,
    if (indirect_handle) {
       indirect_res = vrend_renderer_ctx_res_lookup(ctx, indirect_handle);
       if (!indirect_res) {
-         report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, indirect_handle);
+         vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, indirect_handle);
          return;
       }
    }
@@ -4993,7 +4987,7 @@ void vrend_object_bind_blend(struct vrend_context *ctx,
    }
    state = vrend_object_lookup(ctx->sub->object_hash, handle, VIRGL_OBJECT_BLEND);
    if (!state) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_HANDLE, handle);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_HANDLE, handle);
       return;
    }
 
@@ -5042,7 +5036,7 @@ void vrend_object_bind_dsa(struct vrend_context *ctx,
 
    state = vrend_object_lookup(ctx->sub->object_hash, handle, VIRGL_OBJECT_DSA);
    if (!state) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_HANDLE, handle);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_HANDLE, handle);
       return;
    }
 
@@ -5399,7 +5393,7 @@ void vrend_object_bind_rasterizer(struct vrend_context *ctx,
    state = vrend_object_lookup(ctx->sub->object_hash, handle, VIRGL_OBJECT_RASTERIZER);
 
    if (!state) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_HANDLE, handle);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_HANDLE, handle);
       return;
    }
 
@@ -5418,13 +5412,13 @@ void vrend_bind_sampler_states(struct vrend_context *ctx,
    struct vrend_sampler_state *state;
 
    if (shader_type >= PIPE_SHADER_TYPES) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_CMD_BUFFER, shader_type);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_CMD_BUFFER, shader_type);
       return;
    }
 
    if (num_states > PIPE_MAX_SAMPLERS ||
        start_slot > (PIPE_MAX_SAMPLERS - num_states)) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_CMD_BUFFER, num_states);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_CMD_BUFFER, num_states);
       return;
    }
 
@@ -7677,7 +7671,7 @@ int vrend_renderer_transfer_iov(const struct vrend_transfer_info *info,
 
    if (!res) {
       if (info->ctx_id)
-         report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, info->handle);
+         vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, info->handle);
       return EINVAL;
    }
 
@@ -7702,7 +7696,7 @@ int vrend_renderer_transfer_iov(const struct vrend_transfer_info *info,
 
    if (!iov) {
       if (info->ctx_id)
-         report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, info->handle);
+         vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, info->handle);
       return EINVAL;
    }
 
@@ -7713,12 +7707,12 @@ int vrend_renderer_transfer_iov(const struct vrend_transfer_info *info,
 #endif
 
    if (!check_transfer_bounds(res, info)) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_TRANSFER_IOV_BOUNDS, res->id);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_TRANSFER_IOV_BOUNDS, res->id);
       return EINVAL;
    }
 
    if (!check_iov_bounds(res, info, iov, num_iovs)) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_TRANSFER_IOV_BOUNDS, res->id);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_TRANSFER_IOV_BOUNDS, res->id);
       return EINVAL;
    }
 
@@ -7747,17 +7741,17 @@ int vrend_transfer_inline_write(struct vrend_context *ctx,
 
    res = vrend_renderer_ctx_res_lookup(ctx, info->handle);
    if (!res) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, info->handle);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, info->handle);
       return EINVAL;
    }
 
    if (!check_transfer_bounds(res, info)) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_CMD_BUFFER, info->handle);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_CMD_BUFFER, info->handle);
       return EINVAL;
    }
 
    if (!check_iov_bounds(res, info, info->iovec, info->iovec_cnt)) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_CMD_BUFFER, info->handle);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_CMD_BUFFER, info->handle);
       return EINVAL;
    }
 
@@ -7775,27 +7769,27 @@ int vrend_renderer_copy_transfer3d(struct vrend_context *ctx,
    dst_res = vrend_renderer_ctx_res_lookup(ctx, info->handle);
 
    if (!src_res) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, src_handle);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, src_handle);
       return EINVAL;
    }
 
    if (!dst_res) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, info->handle);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, info->handle);
       return EINVAL;
    }
 
    if (!src_res->iov) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, info->handle);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, info->handle);
       return EINVAL;
    }
 
    if (!check_transfer_bounds(dst_res, info)) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_CMD_BUFFER, info->handle);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_CMD_BUFFER, info->handle);
       return EINVAL;
    }
 
    if (!check_iov_bounds(dst_res, info, src_res->iov, src_res->num_iovs)) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_CMD_BUFFER, info->handle);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_CMD_BUFFER, info->handle);
       return EINVAL;
    }
 
@@ -7976,7 +7970,7 @@ void vrend_set_streamout_targets(struct vrend_context *ctx,
             continue;
          target = vrend_object_lookup(ctx->sub->object_hash, handles[i], VIRGL_OBJECT_STREAMOUT_TARGET);
          if (!target) {
-            report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_HANDLE, handles[i]);
+            vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_HANDLE, handles[i]);
             free(obj);
             return;
          }
@@ -8227,11 +8221,11 @@ void vrend_renderer_resource_copy_region(struct vrend_context *ctx,
    dst_res = vrend_renderer_ctx_res_lookup(ctx, dst_handle);
 
    if (!src_res) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, src_handle);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, src_handle);
       return;
    }
    if (!dst_res) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, dst_handle);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, dst_handle);
       return;
    }
 
@@ -8649,11 +8643,11 @@ void vrend_renderer_blit(struct vrend_context *ctx,
    dst_res = vrend_renderer_ctx_res_lookup(ctx, dst_handle);
 
    if (!src_res) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, src_handle);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, src_handle);
       return;
    }
    if (!dst_res) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, dst_handle);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, dst_handle);
       return;
    }
 
@@ -8661,12 +8655,12 @@ void vrend_renderer_blit(struct vrend_context *ctx,
       return;
 
    if (!info->src.format || info->src.format >= VIRGL_FORMAT_MAX) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_FORMAT, info->src.format);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_FORMAT, info->src.format);
       return;
    }
 
    if (!info->dst.format || info->dst.format >= VIRGL_FORMAT_MAX) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_FORMAT, info->dst.format);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_FORMAT, info->dst.format);
       return;
    }
 
@@ -8943,7 +8937,7 @@ int vrend_create_query(struct vrend_context *ctx, uint32_t handle,
    bool fake_samples_passed = false;
    res = vrend_renderer_ctx_res_lookup(ctx, res_handle);
    if (!res || !has_bit(res->storage_bits, VREND_STORAGE_HOST_SYSTEM_MEMORY)) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, res_handle);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, res_handle);
       return EINVAL;
    }
 
@@ -8957,7 +8951,7 @@ int vrend_create_query(struct vrend_context *ctx, uint32_t handle,
 
    if (query_type == PIPE_QUERY_OCCLUSION_PREDICATE &&
        !has_feature(feat_occlusion_query_boolean)) {
-      report_context_error(ctx, VIRGL_ERROR_GL_ANY_SAMPLES_PASSED, res_handle);
+      vrend_report_context_error(ctx, VIRGL_ERROR_GL_ANY_SAMPLES_PASSED, res_handle);
       return EINVAL;
    }
 
@@ -9137,7 +9131,7 @@ void vrend_get_query_result_qbo(struct vrend_context *ctx, uint32_t handle,
 
   res = vrend_renderer_ctx_res_lookup(ctx, qbo_handle);
   if (!res) {
-     report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, qbo_handle);
+     vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, qbo_handle);
      return;
   }
 
@@ -9286,7 +9280,7 @@ int vrend_create_so_target(struct vrend_context *ctx,
    int ret_handle;
    res = vrend_renderer_ctx_res_lookup(ctx, res_handle);
    if (!res) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, res_handle);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, res_handle);
       return EINVAL;
    }
 

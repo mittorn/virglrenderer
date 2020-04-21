@@ -423,7 +423,15 @@ void vrend_renderer_get_cap_set(uint32_t cap_set, uint32_t *max_ver,
 void vrend_renderer_create_sub_ctx(struct vrend_context *ctx, int sub_ctx_id);
 void vrend_renderer_destroy_sub_ctx(struct vrend_context *ctx, int sub_ctx_id);
 void vrend_renderer_set_sub_ctx(struct vrend_context *ctx, int sub_ctx_id);
-void vrend_report_buffer_error(struct vrend_context *ctx, int cmd);
+
+void vrend_report_context_error_internal(const char *fname, struct vrend_context *ctx,
+                                   enum virgl_ctx_errors error, uint32_t value);
+
+#define vrend_report_context_error(ctx, error, value) \
+    vrend_report_context_error_internal(__func__, ctx, error, value)
+
+#define vrend_report_buffer_error(ctx, cmd) \
+    vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_CMD_BUFFER, cmd)
 
 void vrend_fb_bind_texture(struct vrend_resource *res,
                            int idx,
