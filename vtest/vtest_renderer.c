@@ -681,10 +681,10 @@ int vtest_submit_cmd(uint32_t length_dw)
       return -1;
    }
 
-   virgl_renderer_submit_cmd(cbuf, ctx->ctx_id, length_dw);
+   ret = virgl_renderer_submit_cmd(cbuf, ctx->ctx_id, length_dw);
 
    free(cbuf);
-   return 0;
+   return ret ? -1 : 0;
 }
 
 #define DECODE_TRANSFER \
