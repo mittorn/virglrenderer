@@ -193,7 +193,8 @@ int vtest_block_read(struct vtest_input *input, void *buf, int size)
 static int vtest_send_fd(int socket_fd, int fd)
 {
     struct iovec iovec;
-    char buf[CMSG_SPACE(sizeof(int))], c;
+    char buf[CMSG_SPACE(sizeof(int))];
+    char c = 0;
     struct msghdr msgh = { 0 };
     memset(buf, 0, sizeof(buf));
 
