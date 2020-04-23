@@ -1968,14 +1968,15 @@ static void emit_fragment_logicop(struct dump_ctx *ctx)
    char src_fb[PIPE_MAX_COLOR_BUFS][64];
    double scale[PIPE_MAX_COLOR_BUFS];
    int mask[PIPE_MAX_COLOR_BUFS];
-   char full_op[PIPE_MAX_COLOR_BUFS][128];
+   char full_op[PIPE_MAX_COLOR_BUFS][128 + 8];
 
    for (unsigned i = 0; i < ctx->num_outputs; i++) {
       mask[i] = (1 << ctx->key->surface_component_bits[i]) - 1;
       scale[i] = mask[i];
       switch (ctx->key->fs_logicop_func) {
       case PIPE_LOGICOP_INVERT:
-         snprintf(src_fb[i], 64, "ivec4(%f * fsout_c%d + 0.5)", scale[i], i);
+         snprintf(src_fb[i], ARRAY_SIZE(src_fb[i]),
+                  "ivec4(%f * fsout_c%d + 0.5)", scale[i], i);
          break;
       case PIPE_LOGICOP_NOR:
       case PIPE_LOGICOP_AND_INVERTED:
@@ -1987,10 +1988,12 @@ static void emit_fragment_logicop(struct dump_ctx *ctx)
       case PIPE_LOGICOP_OR_INVERTED:
       case PIPE_LOGICOP_OR_REVERSE:
       case PIPE_LOGICOP_OR:
-         snprintf(src_fb[i], 64, "ivec4(%f * fsout_c%d + 0.5)", scale[i], i);
+         snprintf(src_fb[i], ARRAY_SIZE(src_fb[i]),
+                  "ivec4(%f * fsout_c%d + 0.5)", scale[i], i);
          /* fallthrough */
       case PIPE_LOGICOP_COPY_INVERTED:
-         snprintf(src[i], 64, "ivec4(%f * fsout_tmp_c%d + 0.5)", scale[i], i);
+         snprintf(src[i], ARRAY_SIZE(src[i]),
+                  "ivec4(%f * fsout_tmp_c%d + 0.5)", scale[i], i);
          break;
       case PIPE_LOGICOP_COPY:
       case PIPE_LOGICOP_NOOP:
@@ -2002,23 +2005,69 @@ static void emit_fragment_logicop(struct dump_ctx *ctx)
 
    for (unsigned i = 0; i < ctx->num_outputs; i++) {
       switch (ctx->key->fs_logicop_func) {
-      case PIPE_LOGICOP_CLEAR: snprintf(full_op[i], 128, "%s", "vec4(0)"); break;
-      case PIPE_LOGICOP_NOOP: full_op[i][0]= 0; break;
-      case PIPE_LOGICOP_SET: snprintf(full_op[i], 128, "%s", "vec4(1)"); break;
-      case PIPE_LOGICOP_COPY: snprintf(full_op[i], 128, "fsout_tmp_c%d", i); break;
-      case PIPE_LOGICOP_COPY_INVERTED: snprintf(full_op[i], 128, "~%s", src[i]); break;
-      case PIPE_LOGICOP_INVERT: snprintf(full_op[i], 128, "~%s", src_fb[i]); break;
-      case PIPE_LOGICOP_AND: snprintf(full_op[i], 128, "%s & %s", src[i], src_fb[i]); break;
-      case PIPE_LOGICOP_NAND: snprintf(full_op[i], 128, "~( %s & %s )", src[i], src_fb[i]); break;
-      case PIPE_LOGICOP_NOR: snprintf(full_op[i], 128, "~( %s | %s )", src[i], src_fb[i]); break;
-      case PIPE_LOGICOP_AND_INVERTED: snprintf(full_op[i], 128, "~%s & %s", src[i], src_fb[i]); break;
-      case PIPE_LOGICOP_AND_REVERSE: snprintf(full_op[i], 128, "%s & ~%s", src[i], src_fb[i]); break;
-      case PIPE_LOGICOP_XOR:  snprintf(full_op[i], 128, "%s ^%s", src[i], src_fb[i]); break;
-      case PIPE_LOGICOP_EQUIV: snprintf(full_op[i], 128, "~( %s ^ %s )", src[i], src_fb[i]); break;
-      case PIPE_LOGICOP_OR_INVERTED: snprintf(full_op[i], 128, "~%s | %s", src[i], src_fb[i]); break;
-      case PIPE_LOGICOP_OR_REVERSE: snprintf(full_op[i], 128, "%s | ~%s", src[i], src_fb[i]); break;
-      case PIPE_LOGICOP_OR: snprintf(full_op[i], 128, "%s | %s", src[i], src_fb[i]); break;
-
+      case PIPE_LOGICOP_CLEAR:
+         snprintf(full_op[i], ARRAY_SIZE(full_op[i]),
+                  "%s", "vec4(0)");
+         break;
+      case PIPE_LOGICOP_NOOP:
+         full_op[i][0]= 0;
+         break;
+      case PIPE_LOGICOP_SET:
+         snprintf(full_op[i], ARRAY_SIZE(full_op[i]),
+                  "%s", "vec4(1)");
+         break;
+      case PIPE_LOGICOP_COPY:
+         snprintf(full_op[i], ARRAY_SIZE(full_op[i]),
+                  "fsout_tmp_c%d", i);
+         break;
+      case PIPE_LOGICOP_COPY_INVERTED:
+         snprintf(full_op[i], ARRAY_SIZE(full_op[i]),
+                  "~%s", src[i]);
+         break;
+      case PIPE_LOGICOP_INVERT:
+         snprintf(full_op[i], ARRAY_SIZE(full_op[i]),
+                  "~%s", src_fb[i]);
+         break;
+      case PIPE_LOGICOP_AND:
+         snprintf(full_op[i], ARRAY_SIZE(full_op[i]),
+                  "%s & %s", src[i], src_fb[i]);
+         break;
+      case PIPE_LOGICOP_NAND:
+         snprintf(full_op[i], ARRAY_SIZE(full_op[i]),
+                  "~( %s & %s )", src[i], src_fb[i]);
+         break;
+      case PIPE_LOGICOP_NOR:
+         snprintf(full_op[i], ARRAY_SIZE(full_op[i]),
+                  "~( %s | %s )", src[i], src_fb[i]);
+         break;
+      case PIPE_LOGICOP_AND_INVERTED:
+         snprintf(full_op[i], ARRAY_SIZE(full_op[i]),
+                  "~%s & %s", src[i], src_fb[i]);
+         break;
+      case PIPE_LOGICOP_AND_REVERSE:
+         snprintf(full_op[i], ARRAY_SIZE(full_op[i]),
+                  "%s & ~%s", src[i], src_fb[i]);
+         break;
+      case PIPE_LOGICOP_XOR:
+         snprintf(full_op[i], ARRAY_SIZE(full_op[i]),
+                  "%s ^%s", src[i], src_fb[i]);
+         break;
+      case PIPE_LOGICOP_EQUIV:
+         snprintf(full_op[i], ARRAY_SIZE(full_op[i]),
+                  "~( %s ^ %s )", src[i], src_fb[i]);
+         break;
+      case PIPE_LOGICOP_OR_INVERTED:
+         snprintf(full_op[i], ARRAY_SIZE(full_op[i]),
+                  "~%s | %s", src[i], src_fb[i]);
+         break;
+      case PIPE_LOGICOP_OR_REVERSE:
+         snprintf(full_op[i], ARRAY_SIZE(full_op[i]),
+                  "%s | ~%s", src[i], src_fb[i]);
+         break;
+      case PIPE_LOGICOP_OR:
+         snprintf(full_op[i], ARRAY_SIZE(full_op[i]),
+                  "%s | %s", src[i], src_fb[i]);
+         break;
       }
    }
 
