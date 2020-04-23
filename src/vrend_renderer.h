@@ -462,7 +462,7 @@ void vrend_renderer_reset(void);
 int vrend_renderer_get_poll_fd(void);
 void vrend_decode_reset(void);
 
-unsigned vrend_context_has_debug_flag(struct vrend_context *ctx,
+unsigned vrend_context_has_debug_flag(const struct vrend_context *ctx,
                                       enum virgl_debug_flags flag);
 
 unsigned vrend_renderer_query_multisample_caps(unsigned max_samples,

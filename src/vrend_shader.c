@@ -143,7 +143,7 @@ struct vrend_io_range {
 
 struct dump_ctx {
    struct tgsi_iterate_context iter;
-   struct vrend_shader_cfg *cfg;
+   const struct vrend_shader_cfg *cfg;
    struct tgsi_shader_info info;
    int prog_type;
    int size;
@@ -4453,7 +4453,7 @@ static bool apply_prev_layout(struct dump_ctx *ctx)
 
       if (io->name == TGSI_SEMANTIC_GENERIC || io->name == TGSI_SEMANTIC_PATCH) {
 
-         struct vrend_layout_info *layout = ctx->key->prev_stage_generic_and_patch_outputs_layout;
+         const struct vrend_layout_info *layout = ctx->key->prev_stage_generic_and_patch_outputs_layout;
          for (unsigned generic_index = 0; generic_index  < ctx->key->num_prev_generic_and_patch_outputs; ++generic_index, ++layout) {
 
             bool already_found_one = false;
@@ -6641,7 +6641,7 @@ static bool allocate_strbuffers(struct dump_ctx* ctx)
    return true;
 }
 
-static void set_strbuffers(MAYBE_UNUSED struct vrend_context *rctx, struct dump_ctx* ctx,
+static void set_strbuffers(MAYBE_UNUSED const struct vrend_context *rctx, struct dump_ctx* ctx,
                            struct vrend_strarray *shader)
 {
    strarray_addstrbuf(shader, &ctx->glsl_ver_ext);
@@ -6657,7 +6657,7 @@ bool vrend_convert_shader(const struct vrend_context *rctx,
                           const struct tgsi_token *tokens,
                           uint32_t req_local_mem,
                           const struct vrend_shader_key *key,
-                          const struct vrend_shader_info *sinfo,
+                          struct vrend_shader_info *sinfo,
                           struct vrend_strarray *shader)
 {
    struct dump_ctx ctx;
@@ -6985,7 +6985,7 @@ bool vrend_shader_create_passthrough_tcs(const struct vrend_context *rctx,
                                          const struct tgsi_token *vs_tokens,
                                          const struct vrend_shader_key *key,
                                          const float tess_factors[6],
-                                         const struct vrend_shader_info *sinfo,
+                                         struct vrend_shader_info *sinfo,
                                          struct vrend_strarray *shader,
                                          int vertices_per_patch)
 {

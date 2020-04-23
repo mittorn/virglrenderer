@@ -10141,12 +10141,12 @@ void vrend_renderer_create_sub_ctx(struct vrend_context *ctx, int sub_ctx_id)
    vrend_set_tweak_from_env(&ctx->sub->tweaks);
 }
 
-unsigned vrend_context_has_debug_flag(struct vrend_context *ctx, enum virgl_debug_flags flag)
+unsigned vrend_context_has_debug_flag(const struct vrend_context *ctx, enum virgl_debug_flags flag)
 {
    return ctx && (ctx->debug_flags & flag);
 }
 
-void vrend_print_context_name(struct vrend_context *ctx)
+void vrend_print_context_name(const struct vrend_context *ctx)
 {
    if (ctx)
       vrend_printf("%s: ", ctx->debug_name);

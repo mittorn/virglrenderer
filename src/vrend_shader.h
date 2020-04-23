@@ -158,7 +158,7 @@ bool vrend_convert_shader(const struct vrend_context *rctx,
                           const struct tgsi_token *tokens,
                           uint32_t req_local_mem,
                           const struct vrend_shader_key *key,
-                          const struct vrend_shader_info *sinfo,
+                          struct vrend_shader_info *sinfo,
                           struct vrend_strarray *shader);
 
 const char *vrend_shader_samplertypeconv(bool use_gles, int sampler_type);
@@ -172,7 +172,7 @@ bool vrend_shader_create_passthrough_tcs(const struct vrend_context *ctx,
                                          const struct tgsi_token *vs_info,
                                          const struct vrend_shader_key *key,
                                          const float tess_factors[6],
-                                         const struct vrend_shader_info *sinfo,
+                                         struct vrend_shader_info *sinfo,
                                          struct vrend_strarray *shader,
                                          int vertices_per_patch);
 

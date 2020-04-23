@@ -29,7 +29,7 @@
 #include <stdarg.h>
 
 struct vrend_context;
-void vrend_print_context_name(struct vrend_context *ctx);
+void vrend_print_context_name(const struct vrend_context *ctx);
 
 enum virgl_debug_flags {
    dbg_shader_tgsi = 1 << 0,
@@ -65,7 +65,7 @@ int vrend_get_debug_flags(const char *flagstring);
 
 void vrend_context_set_debug_flags(struct vrend_context *ctx, const char *flags);
 
-unsigned vrend_debug(struct vrend_context *ctx, enum virgl_debug_flags flag);
+unsigned vrend_debug(const struct vrend_context *ctx, enum virgl_debug_flags flag);
 
 void vrend_debug_add_flag(enum virgl_debug_flags flag);
 

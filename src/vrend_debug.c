@@ -157,7 +157,7 @@ void vrend_init_debug_flags()
    }
 }
 
-unsigned vrend_debug(struct vrend_context *ctx, enum virgl_debug_flags flag)
+unsigned vrend_debug(const struct vrend_context *ctx, enum virgl_debug_flags flag)
 {
    return (vrend_debug_flags & flag) || vrend_context_has_debug_flag(ctx, flag);
 }
