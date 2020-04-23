@@ -2308,9 +2308,9 @@ static bool fill_offset_buffer(struct dump_ctx *ctx,
       case TGSI_TEXTURE_SHADOW1D:
       case TGSI_TEXTURE_SHADOW1D_ARRAY:
          if (!ctx->cfg->use_gles)
-            snprintf(offbuf, 256, ", int(%d)", imd->val[inst->TexOffsets[0].SwizzleX].i);
+            snprintf(offbuf, 512, ", int(%d)", imd->val[inst->TexOffsets[0].SwizzleX].i);
          else
-            snprintf(offbuf, 256, ", ivec2(%d, 0)", imd->val[inst->TexOffsets[0].SwizzleX].i);
+            snprintf(offbuf, 512, ", ivec2(%d, 0)", imd->val[inst->TexOffsets[0].SwizzleX].i);
          break;
       case TGSI_TEXTURE_RECT:
       case TGSI_TEXTURE_SHADOWRECT:
@@ -2318,10 +2318,10 @@ static bool fill_offset_buffer(struct dump_ctx *ctx,
       case TGSI_TEXTURE_2D_ARRAY:
       case TGSI_TEXTURE_SHADOW2D:
       case TGSI_TEXTURE_SHADOW2D_ARRAY:
-         snprintf(offbuf, 256, ", ivec2(%d, %d)", imd->val[inst->TexOffsets[0].SwizzleX].i, imd->val[inst->TexOffsets[0].SwizzleY].i);
+         snprintf(offbuf, 512, ", ivec2(%d, %d)", imd->val[inst->TexOffsets[0].SwizzleX].i, imd->val[inst->TexOffsets[0].SwizzleY].i);
          break;
       case TGSI_TEXTURE_3D:
-         snprintf(offbuf, 256, ", ivec3(%d, %d, %d)", imd->val[inst->TexOffsets[0].SwizzleX].i, imd->val[inst->TexOffsets[0].SwizzleY].i,
+         snprintf(offbuf, 512, ", ivec3(%d, %d, %d)", imd->val[inst->TexOffsets[0].SwizzleX].i, imd->val[inst->TexOffsets[0].SwizzleY].i,
                   imd->val[inst->TexOffsets[0].SwizzleZ].i);
          break;
       default:
@@ -2336,7 +2336,7 @@ static bool fill_offset_buffer(struct dump_ctx *ctx,
       case TGSI_TEXTURE_1D_ARRAY:
       case TGSI_TEXTURE_SHADOW1D:
       case TGSI_TEXTURE_SHADOW1D_ARRAY:
-         snprintf(offbuf, 256, ", int(floatBitsToInt(temp%d[%d].%c))",
+         snprintf(offbuf, 512, ", int(floatBitsToInt(temp%d[%d].%c))",
                   range->first, idx,
                   get_swiz_char(inst->TexOffsets[0].SwizzleX));
          break;
@@ -2346,14 +2346,14 @@ static bool fill_offset_buffer(struct dump_ctx *ctx,
       case TGSI_TEXTURE_2D_ARRAY:
       case TGSI_TEXTURE_SHADOW2D:
       case TGSI_TEXTURE_SHADOW2D_ARRAY:
-         snprintf(offbuf, 256, ", ivec2(floatBitsToInt(temp%d[%d].%c), floatBitsToInt(temp%d[%d].%c))",
+         snprintf(offbuf, 512, ", ivec2(floatBitsToInt(temp%d[%d].%c), floatBitsToInt(temp%d[%d].%c))",
                   range->first, idx,
                   get_swiz_char(inst->TexOffsets[0].SwizzleX),
                   range->first, idx,
                   get_swiz_char(inst->TexOffsets[0].SwizzleY));
             break;
       case TGSI_TEXTURE_3D:
-         snprintf(offbuf, 256, ", ivec3(floatBitsToInt(temp%d[%d].%c), floatBitsToInt(temp%d[%d].%c), floatBitsToInt(temp%d[%d].%c)",
+         snprintf(offbuf, 512, ", ivec3(floatBitsToInt(temp%d[%d].%c), floatBitsToInt(temp%d[%d].%c), floatBitsToInt(temp%d[%d].%c)",
                   range->first, idx,
                   get_swiz_char(inst->TexOffsets[0].SwizzleX),
                   range->first, idx,
@@ -2375,7 +2375,7 @@ static bool fill_offset_buffer(struct dump_ctx *ctx,
          case TGSI_TEXTURE_1D_ARRAY:
          case TGSI_TEXTURE_SHADOW1D:
          case TGSI_TEXTURE_SHADOW1D_ARRAY:
-            snprintf(offbuf, 256, ", int(floatBitsToInt(%s.%c))",
+            snprintf(offbuf, 512, ", int(floatBitsToInt(%s.%c))",
                      ctx->inputs[j].glsl_name,
                      get_swiz_char(inst->TexOffsets[0].SwizzleX));
             break;
@@ -2385,14 +2385,14 @@ static bool fill_offset_buffer(struct dump_ctx *ctx,
          case TGSI_TEXTURE_2D_ARRAY:
          case TGSI_TEXTURE_SHADOW2D:
          case TGSI_TEXTURE_SHADOW2D_ARRAY:
-            snprintf(offbuf, 256, ", ivec2(floatBitsToInt(%s.%c), floatBitsToInt(%s.%c))",
+            snprintf(offbuf, 512, ", ivec2(floatBitsToInt(%s.%c), floatBitsToInt(%s.%c))",
                      ctx->inputs[j].glsl_name,
                      get_swiz_char(inst->TexOffsets[0].SwizzleX),
                      ctx->inputs[j].glsl_name,
                      get_swiz_char(inst->TexOffsets[0].SwizzleY));
             break;
          case TGSI_TEXTURE_3D:
-            snprintf(offbuf, 256, ", ivec3(floatBitsToInt(%s.%c), floatBitsToInt(%s.%c), floatBitsToInt(%s.%c)",
+            snprintf(offbuf, 512, ", ivec3(floatBitsToInt(%s.%c), floatBitsToInt(%s.%c), floatBitsToInt(%s.%c)",
                      ctx->inputs[j].glsl_name,
                      get_swiz_char(inst->TexOffsets[0].SwizzleX),
                      ctx->inputs[j].glsl_name,
@@ -2422,7 +2422,7 @@ static void translate_tex(struct dump_ctx *ctx,
    unsigned twm = TGSI_WRITEMASK_NONE, gwm = TGSI_WRITEMASK_NONE;
    enum vrend_type_qualifier dtypeprefix = TYPE_CONVERSION_NONE;
    bool is_shad;
-   char offbuf[256] = "";
+   char offbuf[512] = "";
    char bias[256] = "";
    int sampler_index;
    const char *tex_ext;
