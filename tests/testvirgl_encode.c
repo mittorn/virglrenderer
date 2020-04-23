@@ -529,13 +529,13 @@ int virgl_encoder_inline_write(struct virgl_context *ctx,
    /* break things down into chunks we can send */
    /* send layers in separate chunks */
    for (layer = 0; layer < box->depth; layer++) {
-     const void *layer_data = data;
+     const uint8_t *layer_data = data;
      mybox.z = layer;
      mybox.depth = 1;
 
      /* send one line in separate chunks */
      for (row = 0; row < box->height; row++) {
-       const void *row_data = layer_data;
+       const uint8_t *row_data = layer_data;
        mybox.y = row;
        mybox.height = 1;
        mybox.x = 0;
@@ -558,7 +558,7 @@ int virgl_encoder_inline_write(struct virgl_context *ctx,
        }
        layer_data += stride_internal;
      }
-     data += layer_stride_internal;
+     data = (uint8_t *)data + layer_stride_internal;
    }
    return 0;
 }

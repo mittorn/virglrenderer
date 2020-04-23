@@ -51,7 +51,8 @@ warnings = [
    '-Werror=implicit-function-declaration',
    '-Werror=missing-prototypes',
    '-Wmissing-prototypes',
-   '-Werror=int-to-pointer-cast'
+   '-Werror=int-to-pointer-cast',
+   '-Wno-overlength-strings',
 ]
 
 foreach w : warnings
