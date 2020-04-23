@@ -183,6 +183,7 @@ static const struct planar_layout *layout_from_format(uint32_t format)
    }
 }
 
+#ifdef ENABLE_MINIGBM_ALLOCATION
 static void virgl_gbm_transfer_internal(uint32_t planar_bytes_per_pixel,
                                         uint32_t subsampled_width,
                                         uint32_t subsampled_height,
@@ -246,6 +247,7 @@ static void virgl_gbm_transfer_internal(uint32_t planar_bytes_per_pixel,
          current_height++;
    }
 }
+#endif /* ENABLE_MINIGBM_ALLOCATION */
 
 struct virgl_gbm *virgl_gbm_init(int fd)
 {
