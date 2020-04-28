@@ -311,7 +311,7 @@ int virgl_gbm_transfer(struct gbm_bo *bo, uint32_t direction, struct iovec *iove
                        uint32_t num_iovecs, const struct vrend_transfer_info *info)
 {
    void *map_data;
-   uint32_t guest_plane_offset, guest_stride0, calc_stride0, host_map_stride0;
+   uint32_t guest_plane_offset, guest_stride0, host_map_stride0;
 
    uint32_t width = gbm_bo_get_width(bo);
    uint32_t height = gbm_bo_get_height(bo);
@@ -333,13 +333,13 @@ int virgl_gbm_transfer(struct gbm_bo *bo, uint32_t direction, struct iovec *iove
     * guest stride to the host (compare virtio_gpu.h and virtgpu_drm.h). We can use
     * the level (always zero for 2D images) to work around this.
     */
-   guest_stride0 = info->stride;
-   calc_stride0 = width * layout->bytes_per_pixel[0];
-   if (!guest_stride0)
-      guest_stride0 = (info->level > 0) ? (uint32_t)info->level : calc_stride0;
-
-   if (guest_stride0 < calc_stride0)
-      return -1;
+   if (info->stride || info->level) {
+      guest_stride0 = info->stride ? info->stride : info->level;
+      if (guest_stride0 < (uint32_t)info->box->width * layout->bytes_per_pixel[0])
+         return -1;
+   } else {
+      guest_stride0 = width * layout->bytes_per_pixel[0];
+   }
 
    if (guest_stride0 > host_map_stride0)
       return -1;
