@@ -401,8 +401,9 @@ enum virgl_formats {
 #define VIRGL_CAP_COPY_TRANSFER        (1 << 26)
 #define VIRGL_CAP_CLIP_HALFZ           (1 << 27)
 #define VIRGL_CAP_APP_TWEAK_SUPPORT    (1 << 28)
-#define VIRGL_CAP_BGRA_SRGB_IS_EMULATED  (1 << 29)
+#define VIRGL_CAP_BGRA_SRGB_IS_EMULATED (1 << 29)
 #define VIRGL_CAP_CLEAR_TEXTURE        (1 << 30)
+#define VIRGL_CAP_ARB_BUFFER_STORAGE   (1 << 31)
 
 /* virgl bind flags - these are compatible with mesa 10.5 gallium.
  * but are fixed, no other should be passed to virgl either.
@@ -585,5 +586,11 @@ enum virgl_ctx_errors {
         VIRGL_ERROR_CTX_ILLEGAL_DUAL_SRC_BLEND
 };
 
+/**
+ * Flags for the driver about resource behaviour:
+ */
 #define VIRGL_RESOURCE_Y_0_TOP (1 << 0)
+#define VIRGL_RESOURCE_FLAG_MAP_PERSISTENT (1 << 1)
+#define VIRGL_RESOURCE_FLAG_MAP_COHERENT   (1 << 2)
+
 #endif

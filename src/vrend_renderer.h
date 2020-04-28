@@ -60,6 +60,7 @@ struct vrend_context;
 #define VREND_STORAGE_GBM_BUFFER         BIT(4)
 #define VREND_STORAGE_HOST_SYSTEM_MEMORY BIT(5)
 #define VREND_STORAGE_GL_IMMUTABLE       BIT(6)
+#define VREND_STORAGE_GL_MEMOBJ          BIT(7)
 
 enum {
    CONTEXT_NONE,
@@ -102,7 +103,8 @@ struct vrend_resource {
    void *aux_plane_egl_image[VIRGL_GBM_MAX_PLANES];
    
    uint64_t size;
-   GLbitfield buffer_storage_flags; 
+   GLbitfield buffer_storage_flags;
+   GLuint memobj;
 
    uint32_t blob_id;
    struct list_head head;

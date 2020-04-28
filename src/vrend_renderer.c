@@ -101,6 +101,7 @@ enum features_id
 {
    feat_arb_or_gles_ext_texture_buffer,
    feat_arb_robustness,
+   feat_arb_buffer_storage,
    feat_arrays_of_arrays,
    feat_atomic_counters,
    feat_base_instance,
@@ -137,6 +138,8 @@ enum features_id
    feat_indep_blend_func,
    feat_indirect_draw,
    feat_indirect_params,
+   feat_memory_object,
+   feat_memory_object_fd,
    feat_mesa_invert,
    feat_ms_scaled_blit,
    feat_multisample,
@@ -193,6 +196,7 @@ static const  struct {
 } feature_list[] = {
    FEAT(arb_or_gles_ext_texture_buffer, 31, UNAVAIL, "GL_ARB_texture_buffer_object", "GL_EXT_texture_buffer", NULL),
    FEAT(arb_robustness, UNAVAIL, UNAVAIL,  "GL_ARB_robustness" ),
+   FEAT(arb_buffer_storage, 44, UNAVAIL, "GL_ARB_buffer_storage"),
    FEAT(arrays_of_arrays, 43, 31, "GL_ARB_arrays_of_arrays"),
    FEAT(atomic_counters, 42, 31,  "GL_ARB_shader_atomic_counters" ),
    FEAT(base_instance, 42, UNAVAIL,  "GL_ARB_base_instance", "GL_EXT_base_instance" ),
@@ -229,6 +233,8 @@ static const  struct {
    FEAT(indep_blend_func, 40, 32,  "GL_ARB_draw_buffers_blend", "GL_OES_draw_buffers_indexed"),
    FEAT(indirect_draw, 40, 31,  "GL_ARB_draw_indirect" ),
    FEAT(indirect_params, 46, UNAVAIL,  "GL_ARB_indirect_parameters" ),
+   FEAT(memory_object, UNAVAIL, UNAVAIL, "GL_EXT_memory_object"),
+   FEAT(memory_object_fd, UNAVAIL, UNAVAIL, "GL_EXT_memory_object_fd"),
    FEAT(mesa_invert, UNAVAIL, UNAVAIL,  "GL_MESA_pack_invert" ),
    FEAT(ms_scaled_blit, UNAVAIL, UNAVAIL,  "GL_EXT_framebuffer_multisample_blit_scaled" ),
    FEAT(multisample, 32, 30,  "GL_ARB_texture_multisample" ),
@@ -6213,9 +6219,14 @@ static int check_resource_valid(struct vrend_renderer_resource_create_args *args
       }
    }
 
-   if (args->flags != 0 && args->flags != VIRGL_RESOURCE_Y_0_TOP) {
-      snprintf(errmsg, 256, "Resource flags 0x%x not supported", args->flags);
-      return -1;
+   if (args->flags != 0) {
+      uint32_t supported_mask = VIRGL_RESOURCE_Y_0_TOP | VIRGL_RESOURCE_FLAG_MAP_PERSISTENT
+                                | VIRGL_RESOURCE_FLAG_MAP_COHERENT;
+
+      if (args->flags & ~supported_mask) {
+         snprintf(errmsg, 256, "Resource flags 0x%x not supported", args->flags);
+         return -1;
+      }
    }
 
    if (args->flags & VIRGL_RESOURCE_Y_0_TOP) {
@@ -6385,11 +6396,69 @@ static int check_resource_valid(struct vrend_renderer_resource_create_args *args
 
 static void vrend_create_buffer(struct vrend_resource *gr, uint32_t width, uint32_t flags)
 {
-   gr->storage_bits |= VREND_STORAGE_GL_BUFFER;
 
+   GLbitfield buffer_storage_flags = 0;
+   if (flags & VIRGL_RESOURCE_FLAG_MAP_PERSISTENT) {
+      buffer_storage_flags |= GL_MAP_PERSISTENT_BIT;
+      /* Gallium's storage_flags_to_buffer_flags seems to drop some information, but we have to
+       * satisfy the following:
+       *
+       * "If flags contains GL_MAP_PERSISTENT_BIT, it must also contain at least one of
+       *  GL_MAP_READ_BIT or GL_MAP_WRITE_BIT."
+       */
+      buffer_storage_flags |= GL_MAP_READ_BIT | GL_MAP_WRITE_BIT;
+   }
+   if (flags & VIRGL_RESOURCE_FLAG_MAP_COHERENT)
+      buffer_storage_flags |= GL_MAP_COHERENT_BIT;
+
+   gr->storage_bits |= VREND_STORAGE_GL_BUFFER;
    glGenBuffersARB(1, &gr->id);
    glBindBufferARB(gr->target, gr->id);
-   glBufferData(gr->target, width, NULL, GL_STREAM_DRAW);
+
+   if (buffer_storage_flags) {
+      if (has_feature(feat_arb_buffer_storage)) {
+         glBufferStorage(gr->target, width, NULL, buffer_storage_flags);
+      }
+#ifdef ENABLE_MINIGBM_ALLOCATION
+      else if (has_feature(feat_memory_object_fd) && has_feature(feat_memory_object)) {
+         GLuint memobj = 0;
+         int fd = -1;
+	 int ret;
+
+         /* Could use VK too. */
+         struct gbm_bo *bo = gbm_bo_create(gbm->device, width, 1,
+                                           GBM_FORMAT_R8, GBM_BO_USE_LINEAR);
+         if (!bo) {
+            vrend_printf("Failed to allocate emulated GL buffer backing storage");
+            return;
+         }
+
+         ret = virgl_gbm_export_fd(gbm->device, gbm_bo_get_handle(bo).u32, &fd);
+         if (ret || fd < 0) {
+            vrend_printf("Failed to get file descriptor\n");
+            return;
+         }
+
+         glCreateMemoryObjectsEXT(1, &memobj);
+         glImportMemoryFdEXT(memobj, width, GL_HANDLE_TYPE_OPAQUE_FD_EXT, fd);
+         glBufferStorageMemEXT(gr->target, width, memobj, 0);
+         gr->gbm_bo = bo;
+         gr->memobj = memobj;
+         gr->storage_bits |= VREND_STORAGE_GBM_BUFFER | VREND_STORAGE_GL_MEMOBJ;
+      }
+#endif
+      else {
+         vrend_printf("Missing buffer storage and interop extensions\n");
+         return;
+      }
+
+      gr->storage_bits |= VREND_STORAGE_GL_IMMUTABLE;
+      gr->buffer_storage_flags = buffer_storage_flags;
+      gr->map_info = vrend_state.inferred_gl_caching_type;
+      gr->size = width;
+   } else
+      glBufferData(gr->target, width, NULL, GL_STREAM_DRAW);
+
    glBindBufferARB(gr->target, 0);
 }
 
@@ -6443,10 +6512,12 @@ static void vrend_resource_gbm_init(struct vrend_resource *gr, uint32_t format)
    gr->gbm_bo = bo;
    gr->storage_bits |= VREND_STORAGE_GBM_BUFFER;
    /* This is true so far, but maybe gbm_bo_get_caching_type is needed in the future. */
+#ifdef VIRGL_RENDERER_UNSTABLE_APIS
    if (!strcmp(gbm_device_get_backend_name(gbm->device), "i915"))
       gr->map_info = VIRGL_MAP_CACHE_CACHED;
    else
       gr->map_info = VIRGL_MAP_CACHE_WC;
+#endif
 
    if (!virgl_gbm_gpu_import_required(gr->base.bind))
       return;
@@ -6774,6 +6845,10 @@ void vrend_renderer_resource_destroy(struct vrend_resource *res)
          glDeleteTextures(1, &res->tbo_tex_id);
    } else if (has_bit(res->storage_bits, VREND_STORAGE_HOST_SYSTEM_MEMORY)) {
       free(res->ptr);
+   }
+
+   if (has_bit(res->storage_bits, VREND_STORAGE_GL_MEMOBJ)) {
+      glDeleteMemoryObjectsEXT(1, &res->memobj);
    }
 
 #ifdef ENABLE_MINIGBM_ALLOCATION
@@ -9915,6 +9990,43 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
    caps->v2.capability_bits |= VIRGL_CAP_INDIRECT_INPUT_ADDR;
 
    caps->v2.capability_bits |= VIRGL_CAP_COPY_TRANSFER;
+
+
+#ifdef VIRGL_RENDERER_UNSTABLE_APIS
+   if (has_feature(feat_arb_buffer_storage) && !vrend_state.use_external_blob) {
+      const char *vendor = (const char *)glGetString(GL_VENDOR);
+      const char *renderer = (const char*)glGetString(GL_RENDERER);
+      bool is_mesa = ((strstr(renderer, "Mesa") != NULL) || (strstr(renderer, "DRM") != NULL));
+      /*
+       * Intel GPUs (aside from Atom, which doesn't expose GL4.5) are cache-coherent.
+       * Mesa AMDGPUs use write-combine mappings for coherent/persistent memory (see
+       * RADEON_FLAG_GTT_WC in si_buffer.c/r600_buffer_common.c). For Nvidia, we can guess and
+       * check.  Long term, maybe a GL extension or using VK could replace these heuristics.
+       *
+       * Note Intel VMX ignores the caching type returned from virglrenderer, while AMD SVM and
+       * ARM honor it.
+       */
+      if (is_mesa) {
+         if (strstr(vendor, "Intel") != NULL)
+            vrend_state.inferred_gl_caching_type = VIRGL_RENDERER_MAP_CACHE_CACHED;
+         else if (strstr(vendor, "AMD") != NULL)
+            vrend_state.inferred_gl_caching_type = VIRGL_RENDERER_MAP_CACHE_WC;
+      } else {
+         /* This is an educated guess since things don't explode with VMX + Nvidia. */
+         if (strstr(renderer, "Quadro K2200") != NULL)
+            vrend_state.inferred_gl_caching_type = VIRGL_RENDERER_MAP_CACHE_CACHED;
+      }
+
+      if (vrend_state.inferred_gl_caching_type)
+         caps->v2.capability_bits |= VIRGL_CAP_ARB_BUFFER_STORAGE;
+   }
+
+#ifdef ENABLE_MINIGBM_ALLOCATION
+   if (has_feature(feat_memory_object) && has_feature(feat_memory_object_fd))
+      caps->v2.capability_bits |= VIRGL_CAP_ARB_BUFFER_STORAGE;
+#endif
+
+#endif
 }
 
 void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
