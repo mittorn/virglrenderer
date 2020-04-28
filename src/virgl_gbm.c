@@ -321,12 +321,15 @@ int virgl_gbm_transfer(struct gbm_bo *bo, uint32_t direction, struct iovec *iove
    if (!layout)
       return -1;
 
-   guest_plane_offset = host_map_stride0 = guest_stride0 = 0;
+   host_map_stride0 = 0;
    uint32_t map_flags = (direction == VIRGL_TRANSFER_TO_HOST) ? GBM_BO_TRANSFER_WRITE :
                                                                 GBM_BO_TRANSFER_READ;
    void *addr = gbm_bo_map(bo, 0, 0, width, height, map_flags, &host_map_stride0, &map_data);
    if (!addr)
       return -1;
+
+   guest_plane_offset = info->offset;
+   guest_stride0 = 0;
 
    /*
     * Unfortunately, the kernel doesn't actually pass the guest layer_stride and
@@ -359,18 +362,31 @@ int virgl_gbm_transfer(struct gbm_bo *bo, uint32_t direction, struct iovec *iove
       uint32_t host_plane_stride = plane == 0
             ? host_map_stride0 : gbm_bo_get_stride_for_plane(bo, plane);
 
-      uint32_t guest_resource_offset = guest_plane_offset + (subsampled_y * guest_plane_stride)
-                                       + subsampled_x * layout->bytes_per_pixel[plane];
+      uint32_t guest_resource_offset = guest_plane_offset;
       uint32_t host_resource_offset = host_plane_offset + (subsampled_y * host_plane_stride)
                                        + subsampled_x * layout->bytes_per_pixel[plane];
 
       uint8_t *host_address = (uint8_t*)addr + host_resource_offset;
 
+      /*
+       * Here we apply another hack. info->offset does not account for
+       * info->box for planar resources and we need to make adjustments.
+       */
+      if (plane_count > 1) {
+         guest_resource_offset += (subsampled_y * guest_plane_stride)
+            + subsampled_x * layout->bytes_per_pixel[plane];
+      }
+
       virgl_gbm_transfer_internal(layout->bytes_per_pixel[plane], subsampled_width,
                                   subsampled_height, guest_plane_stride, guest_resource_offset,
                                   host_plane_stride, host_address, iovecs, num_iovecs, direction);
 
-      guest_plane_offset += plane_height * guest_plane_stride;
+      if (info->layer_stride) {
+         guest_plane_offset += (info->layer_stride * plane_byte_ratio)
+            / (layout->horizontal_subsampling[plane] * layout->vertical_subsampling[plane]);
+      } else {
+         guest_plane_offset += plane_height * guest_plane_stride;
+      }
    }
 
    gbm_bo_unmap(bo, map_data);
