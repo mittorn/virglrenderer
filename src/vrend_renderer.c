@@ -7656,8 +7656,10 @@ static int vrend_renderer_transfer_internal(struct vrend_context *ctx,
 
 #ifdef ENABLE_MINIGBM_ALLOCATION
    if (res->gbm_bo && (transfer_mode == VIRGL_TRANSFER_TO_HOST ||
-                       !has_bit(res->storage_bits, VREND_STORAGE_EGL_IMAGE)))
+                       !has_bit(res->storage_bits, VREND_STORAGE_EGL_IMAGE))) {
+      assert(!info->synchronized);
       return virgl_gbm_transfer(res->gbm_bo, transfer_mode, iov, num_iovs, info);
+   }
 #endif
 
    if (!check_transfer_bounds(res, info)) {
@@ -7736,6 +7738,17 @@ int vrend_transfer_inline_write(struct vrend_context *ctx,
       return EINVAL;
    }
 
+#ifdef ENABLE_MINIGBM_ALLOCATION
+   if (res->gbm_bo) {
+      assert(!info->synchronized);
+      return virgl_gbm_transfer(res->gbm_bo,
+                                VIRGL_TRANSFER_TO_HOST,
+                                info->iovec,
+                                info->iovec_cnt,
+                                info);
+   }
+#endif
+
    return vrend_renderer_transfer_write_iov(ctx, res, info->iovec, info->iovec_cnt, info);
 
 }
@@ -7774,6 +7787,35 @@ int vrend_renderer_copy_transfer3d(struct vrend_context *ctx,
       vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_CMD_BUFFER, dst_handle);
       return EINVAL;
    }
+
+#ifdef ENABLE_MINIGBM_ALLOCATION
+   if (dst_res->gbm_bo) {
+      bool use_gbm = true;
+
+      /* The guest uses copy transfers against busy resources to avoid
+       * waiting.  The host driver is usually smart enough to avoid blocking
+       * by putting the data in a staging buffer and doing a pipelined copy.
+       *
+       * However, we cannot do that with GBM.  Use GBM only when we have to
+       * (until vrend_renderer_transfer_write_iov swizzles).
+       */
+      if (info->synchronized) {
+         if (tex_conv_table[dst_res->base.format].internalformat == 0 ||
+             tex_conv_table[dst_res->base.format].flags & VIRGL_TEXTURE_NEED_SWIZZLE)
+            glFinish();
+         else
+            use_gbm = false;
+      }
+
+      if (use_gbm) {
+         return virgl_gbm_transfer(dst_res->gbm_bo,
+                                   VIRGL_TRANSFER_TO_HOST,
+                                   src_res->iov,
+                                   src_res->num_iovs,
+                                   info);
+      }
+   }
+#endif
 
   return vrend_renderer_transfer_write_iov(ctx, dst_res, src_res->iov,
                                            src_res->num_iovs, info);

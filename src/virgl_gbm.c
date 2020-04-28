@@ -189,7 +189,7 @@ static void virgl_gbm_transfer_internal(uint32_t planar_bytes_per_pixel,
                                         uint32_t guest_plane_stride,
                                         uint32_t guest_resource_offset,
                                         uint32_t host_plane_stride, uint8_t *host_address,
-                                        struct iovec *iovecs, uint32_t num_iovecs,
+                                        const struct iovec *iovecs, uint32_t num_iovecs,
                                         uint32_t direction)
 {
    bool next_iovec, next_line;
@@ -307,7 +307,7 @@ int virgl_gbm_convert_format(uint32_t *virgl_format, uint32_t *gbm_format)
 }
 
 #ifdef ENABLE_MINIGBM_ALLOCATION
-int virgl_gbm_transfer(struct gbm_bo *bo, uint32_t direction, struct iovec *iovecs,
+int virgl_gbm_transfer(struct gbm_bo *bo, uint32_t direction, const struct iovec *iovecs,
                        uint32_t num_iovecs, const struct vrend_transfer_info *info)
 {
    void *map_data;
