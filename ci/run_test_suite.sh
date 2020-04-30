@@ -298,7 +298,7 @@ create_result_dir()
    TEST_PATH=${HOST_GL}_host${HOST_DRIVER}/${TEST_APP}_${TEST_NAME}
    RESULTS_DIR=$VIRGL_PATH/results/${TEST_PATH}
 
-   if [ $HOST_DRIVER = softpipe ]; then
+   if [ "$HOST_DRIVER" = "_softpipe" ]; then
       PREVIOUS_RESULTS_DIR=$VIRGL_PATH/ci/previous_results/${TEST_PATH}
    else
       echo WARNING: Results are not up-to-date!
