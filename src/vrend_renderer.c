@@ -7710,7 +7710,10 @@ static int vrend_renderer_transfer_internal(struct vrend_context *ctx,
       vrend_renderer_force_ctx_0();
       ctx = NULL;
    }
+
+#ifdef HAVE_EPOXY_EGL_H
    virgl_egl_wait_fence(egl, fence);
+#endif
 
    switch (transfer_mode) {
    case VIRGL_TRANSFER_TO_HOST:
