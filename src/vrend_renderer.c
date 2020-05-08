@@ -115,6 +115,7 @@ enum features_id
    feat_conditional_render_inverted,
    feat_conservative_depth,
    feat_cube_map_array,
+   feat_cull_distance,
    feat_debug_cb,
    feat_depth_clamp,
    feat_draw_instance,
@@ -206,6 +207,7 @@ static const  struct {
    FEAT(conditional_render_inverted, 45, UNAVAIL,  "GL_ARB_conditional_render_inverted" ),
    FEAT(conservative_depth, 42, UNAVAIL, "GL_ARB_conservative_depth", "GL_EXT_conservative_depth" ),
    FEAT(cube_map_array, 40, 32,  "GL_ARB_texture_cube_map_array", "GL_EXT_texture_cube_map_array", "GL_OES_texture_cube_map_array" ),
+   FEAT(cull_distance, 45, UNAVAIL, "GL_ARB_cull_distance", "GL_EXT_clip_cull_distance" ),
    FEAT(debug_cb, UNAVAIL, UNAVAIL, NULL), /* special case */
    FEAT(draw_instance, 31, 30,  "GL_ARB_draw_instanced" ),
    FEAT(dual_src_blend, 33, UNAVAIL,  "GL_ARB_blend_func_extended", "GL_EXT_blend_func_extended" ),
@@ -9567,7 +9569,7 @@ static void vrend_renderer_fill_caps_v1(int gl_ver, int gles_ver, union virgl_ca
       caps->v1.bset.has_cull = 1;
       caps->v1.bset.derivative_control = 1;
    } else {
-     if (epoxy_has_gl_extension("GL_ARB_cull_distance"))
+     if (has_feature(feat_cull_distance))
         caps->v1.bset.has_cull = 1;
      if (epoxy_has_gl_extension("GL_ARB_derivative_control"))
 	caps->v1.bset.derivative_control = 1;
