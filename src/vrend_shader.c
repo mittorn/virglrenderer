@@ -6123,7 +6123,7 @@ static void emit_ios_vs(struct dump_ctx *ctx)
       }
       if (ctx->key->gs_present || ctx->key->tes_present) {
          ctx->vs_has_pervertex = true;
-         emit_hdrf(ctx, "out gl_PerVertex {\n vec4 gl_Position;\n float gl_PointSize;\n%s%s};\n", clip_buf, cull_buf);
+         emit_hdrf(ctx, "out gl_PerVertex {\n vec4 gl_Position;\n %s%s};\n", clip_buf, cull_buf);
       } else {
          emit_hdrf(ctx, "%s%s", clip_buf, cull_buf);
       }
@@ -6319,7 +6319,7 @@ static void emit_ios_geom(struct dump_ctx *ctx)
       if (cull_dist)
          snprintf(cull_var, 64, "float gl_CullDistance[%d];\n", cull_dist);
 
-      emit_hdrf(ctx, "in gl_PerVertex {\n vec4 gl_Position;\n float gl_PointSize; \n %s%s\n} gl_in[];\n", clip_var, cull_var);
+      emit_hdrf(ctx, "in gl_PerVertex {\n vec4 gl_Position; \n %s%s\n} gl_in[];\n", clip_var, cull_var);
    }
    if (ctx->num_clip_dist) {
       bool has_prop = (ctx->num_clip_dist_prop + ctx->num_cull_dist_prop) > 0;
@@ -6392,10 +6392,10 @@ static void emit_ios_tcs(struct dump_ctx *ctx)
       if (cull_dist)
          snprintf(cull_var, 64, "float gl_CullDistance[%d];\n", cull_dist);
 
-      emit_hdrf(ctx, "in gl_PerVertex {\n vec4 gl_Position;\n float gl_PointSize; \n %s%s} gl_in[];\n", clip_var, cull_var);
+      emit_hdrf(ctx, "in gl_PerVertex {\n vec4 gl_Position; \n %s%s} gl_in[];\n", clip_var, cull_var);
    }
    if (ctx->num_clip_dist) {
-      emit_hdrf(ctx, "out gl_PerVertex {\n vec4 gl_Position;\n float gl_PointSize;\n float gl_ClipDistance[%d];\n} gl_out[];\n", ctx->num_clip_dist ? ctx->num_clip_dist : 8);
+      emit_hdrf(ctx, "out gl_PerVertex {\n vec4 gl_Position;\n float gl_ClipDistance[%d];\n} gl_out[];\n", ctx->num_clip_dist ? ctx->num_clip_dist : 8);
       emit_hdr(ctx, "vec4 clip_dist_temp[2];\n");
    }
 }
@@ -6443,10 +6443,10 @@ static void emit_ios_tes(struct dump_ctx *ctx)
       if (cull_dist)
          snprintf(cull_var, 64, "float gl_CullDistance[%d];\n", cull_dist);
 
-      emit_hdrf(ctx, "in gl_PerVertex {\n vec4 gl_Position;\n float gl_PointSize; \n %s%s} gl_in[];\n", clip_var, cull_var);
+      emit_hdrf(ctx, "in gl_PerVertex {\n vec4 gl_Position; \n %s%s} gl_in[];\n", clip_var, cull_var);
    }
    if (ctx->num_clip_dist) {
-      emit_hdrf(ctx, "out gl_PerVertex {\n vec4 gl_Position;\n float gl_PointSize;\n float gl_ClipDistance[%d];\n} gl_out[];\n", ctx->num_clip_dist ? ctx->num_clip_dist : 8);
+      emit_hdrf(ctx, "out gl_PerVertex {\n vec4 gl_Position;\n float gl_ClipDistance[%d];\n} gl_out[];\n", ctx->num_clip_dist ? ctx->num_clip_dist : 8);
       emit_hdr(ctx, "vec4 clip_dist_temp[2];\n");
    }
 }
