@@ -1898,6 +1898,7 @@ static void emit_so_movs(struct dump_ctx *ctx)
                emit_buff(ctx, "tfout%d = %s(%s);\n", i, outtype, out_var);
             } else {
                get_so_name(ctx, true, output, ctx->so->output[i].register_index, out_var, writemask);
+               free(ctx->so_names[i]);
                ctx->so_names[i] = strdup(out_var);
             }
          }
