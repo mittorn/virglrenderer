@@ -41,12 +41,10 @@ struct vrend_blitter_ctx {
    virgl_gl_context gl_context;
    bool initialised;
    bool use_gles;
-   int framebuffer_srgb_enabled;
 
    GLuint vaoid;
 
    GLuint vs;
-   GLuint vs_pos_only;
    GLuint fs_texfetch_col[PIPE_MAX_TEXTURE_TYPES];
    GLuint fs_texfetch_depth[PIPE_MAX_TEXTURE_TYPES];
    GLuint fs_texfetch_depth_msaa[PIPE_MAX_TEXTURE_TYPES];
@@ -467,7 +465,6 @@ static void vrend_renderer_init_blit_ctx(struct vrend_blitter_ctx *blit_ctx)
 
    if (!blit_ctx->use_gles)
       glEnable(GL_FRAMEBUFFER_SRGB);
-   blit_ctx->framebuffer_srgb_enabled = true;
 }
 
 static inline GLenum convert_mag_filter(unsigned int filter)
