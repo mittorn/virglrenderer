@@ -70,9 +70,10 @@ struct vrend_blitter_delta {
     int dy;
 };
 
-static bool build_and_check(GLuint id, const char *buf)
+static GLint build_and_check(GLenum shader_type, const char *buf)
 {
    GLint param;
+   GLint id = glCreateShader(shader_type);
    glShaderSource(id, 1, (const char **)&buf, NULL);
    glCompileShader(id);
 
@@ -83,22 +84,10 @@ static bool build_and_check(GLuint id, const char *buf)
       glGetShaderInfoLog(id, 65536, &len, infolog);
       vrend_printf("shader failed to compile\n%s\n", infolog);
       vrend_printf("GLSL:\n%s\n", buf);
-      return false;
+      glDeleteShader(id);
+      return 0;
    }
-   return true;
-}
-
-static bool blit_build_vs_passthrough(struct vrend_blitter_ctx *blit_ctx)
-{
-   blit_ctx->vs = glCreateShader(GL_VERTEX_SHADER);
-
-   if (!build_and_check(blit_ctx->vs,
-        blit_ctx->use_gles ? VS_PASSTHROUGH_GLES : VS_PASSTHROUGH_GL)) {
-      glDeleteShader(blit_ctx->vs);
-      blit_ctx->vs = 0;
-      return false;
-   }
-   return true;
+   return id;
 }
 
 static void create_dest_swizzle_snippet(const uint8_t swizzle[4],
@@ -153,7 +142,6 @@ static GLuint blit_build_frag_tex_col(struct vrend_blitter_ctx *blit_ctx,
                                       enum tgsi_return_type tgsi_ret,
                                       const uint8_t swizzle[4])
 {
-   GLuint fs_id;
    char shader_buf[4096];
    const char *twm;
    const char *ext_str = "";
@@ -204,14 +192,8 @@ static GLuint blit_build_frag_tex_col(struct vrend_blitter_ctx *blit_ctx,
             vrend_shader_samplertypeconv(blit_ctx->use_gles, tgsi_tex_target), twm,
             dest_swizzle_snippet);
 
-   fs_id = glCreateShader(GL_FRAGMENT_SHADER);
+   return build_and_check(GL_FRAGMENT_SHADER, shader_buf);
 
-   if (!build_and_check(fs_id, shader_buf)) {
-      glDeleteShader(fs_id);
-      return 0;
-   }
-
-   return fs_id;
 }
 
 static GLuint blit_build_frag_tex_col_msaa(struct vrend_blitter_ctx *blit_ctx,
@@ -220,7 +202,6 @@ static GLuint blit_build_frag_tex_col_msaa(struct vrend_blitter_ctx *blit_ctx,
                                            const uint8_t swizzle[4],
                                            int nr_samples)
 {
-   GLuint fs_id;
    char shader_buf[4096];
    const char *twm;
    const char *ivec;
@@ -258,19 +239,11 @@ static GLuint blit_build_frag_tex_col_msaa(struct vrend_blitter_ctx *blit_ctx,
    VREND_DEBUG(dbg_blit, NULL, "-- Blit FS shader MSAA -----------------\n"
                "%s\n---------------------------------------\n", shader_buf);
 
-   fs_id = glCreateShader(GL_FRAGMENT_SHADER);
-
-   if (!build_and_check(fs_id, shader_buf)) {
-      glDeleteShader(fs_id);
-      return 0;
-   }
-
-   return fs_id;
+   return build_and_check(GL_FRAGMENT_SHADER, shader_buf);
 }
 
 static GLuint blit_build_frag_tex_writedepth(struct vrend_blitter_ctx *blit_ctx, int tgsi_tex_target)
 {
-   GLuint fs_id;
    char shader_buf[4096];
    const char *twm;
 
@@ -313,19 +286,11 @@ static GLuint blit_build_frag_tex_writedepth(struct vrend_blitter_ctx *blit_ctx,
                                                  : FS_TEXFETCH_DS_GL,
       vrend_shader_samplertypeconv(blit_ctx->use_gles, tgsi_tex_target), twm);
 
-   fs_id = glCreateShader(GL_FRAGMENT_SHADER);
-
-   if (!build_and_check(fs_id, shader_buf)) {
-      glDeleteShader(fs_id);
-      return 0;
-   }
-
-   return fs_id;
+   return build_and_check(GL_FRAGMENT_SHADER, shader_buf);
 }
 
 static GLuint blit_build_frag_blit_msaa_depth(struct vrend_blitter_ctx *blit_ctx, int tgsi_tex_target)
 {
-   GLuint fs_id;
    char shader_buf[4096];
    const char *twm;
    const char *ivec;
@@ -350,14 +315,7 @@ static GLuint blit_build_frag_blit_msaa_depth(struct vrend_blitter_ctx *blit_ctx
              : FS_TEXFETCH_DS_MSAA_GL,
       vrend_shader_samplertypeconv(blit_ctx->use_gles, tgsi_tex_target), ivec, twm);
 
-   fs_id = glCreateShader(GL_FRAGMENT_SHADER);
-
-   if (!build_and_check(fs_id, shader_buf)) {
-      glDeleteShader(fs_id);
-      return 0;
-   }
-
-   return fs_id;
+   return build_and_check(GL_FRAGMENT_SHADER, shader_buf);
 }
 
 static GLuint blit_get_frag_tex_writedepth(struct vrend_blitter_ctx *blit_ctx, int pipe_tex_target, unsigned nr_samples)
@@ -456,7 +414,8 @@ static void vrend_renderer_init_blit_ctx(struct vrend_blitter_ctx *blit_ctx)
    glGenFramebuffers(1, &blit_ctx->fb_id);
 
    glGenBuffers(1, &blit_ctx->vbo_id);
-   blit_build_vs_passthrough(blit_ctx);
+   blit_ctx->vs = build_and_check(GL_VERTEX_SHADER,
+        blit_ctx->use_gles ? VS_PASSTHROUGH_GLES : VS_PASSTHROUGH_GL);
 
    for (i = 0; i < 4; i++)
       blit_ctx->vertices[i][0][3] = 1; /*v.w*/
