@@ -24,29 +24,15 @@
 
 /* gallium blitter implementation in GL */
 /* for when we can't use glBlitFramebuffer */
-#include <epoxy/gl.h>
 
 #include <stdio.h>
-#include "pipe/p_shader_tokens.h"
 
-#include "pipe/p_context.h"
-#include "pipe/p_defines.h"
-#include "pipe/p_screen.h"
-#include "pipe/p_state.h"
-#include "util/u_inlines.h"
 #include "util/u_memory.h"
-#include "util/u_dual_blend.h"
-
-#include "util/u_double_list.h"
 #include "util/u_format.h"
 #include "util/u_texture.h"
-#include "tgsi/tgsi_parse.h"
 
-#include "vrend_object.h"
 #include "vrend_shader.h"
-
 #include "vrend_renderer.h"
-
 #include "vrend_blitter.h"
 
 #define DEST_SWIZZLE_SNIPPET_SIZE 64
