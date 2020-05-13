@@ -426,13 +426,6 @@ static void vrend_renderer_init_blit_ctx(struct vrend_blitter_ctx *blit_ctx)
       glEnable(GL_FRAMEBUFFER_SRGB);
 }
 
-static inline GLenum convert_mag_filter(unsigned int filter)
-{
-   if (filter == PIPE_TEX_FILTER_NEAREST)
-      return GL_NEAREST;
-   return GL_LINEAR;
-}
-
 static void blitter_set_dst_dim(struct vrend_blitter_ctx *blit_ctx,
                                 unsigned width, unsigned height)
 {
@@ -662,7 +655,6 @@ void vrend_renderer_blit_gl(MAYBE_UNUSED struct vrend_context *ctx,
    GLuint prog_id;
    GLuint fs_id;
    GLint lret;
-   GLenum filter;
    GLuint pos_loc, tc_loc;
    bool has_depth, has_stencil;
    bool blit_stencil, blit_depth;
@@ -687,7 +679,6 @@ void vrend_renderer_blit_gl(MAYBE_UNUSED struct vrend_context *ctx,
    blit_depth = has_depth && (info->mask & PIPE_MASK_Z);
    blit_stencil = has_stencil && (info->mask & PIPE_MASK_S) & 0;
 
-   filter = convert_mag_filter(info->filter);
    vrend_renderer_init_blit_ctx(blit_ctx);
 
    blitter_set_dst_dim(blit_ctx,
@@ -776,6 +767,8 @@ void vrend_renderer_blit_gl(MAYBE_UNUSED struct vrend_context *ctx,
    glTexParameteri(src_res->target, GL_TEXTURE_MAX_LEVEL, info->src.level);
 
    if (src_res->base.nr_samples < 1) {
+      GLenum filter = info->filter == PIPE_TEX_FILTER_NEAREST ?
+                                       GL_NEAREST : GL_LINEAR;
       glTexParameterf(src_res->target, GL_TEXTURE_MAG_FILTER, filter);
       glTexParameterf(src_res->target, GL_TEXTURE_MIN_FILTER, filter);
    }
