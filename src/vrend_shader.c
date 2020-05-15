@@ -237,11 +237,11 @@ struct dump_ctx {
    int color_in_mask;
    /* only used when cull is enabled */
    uint8_t num_cull_dist_prop, num_clip_dist_prop;
+   bool has_pervertex;
    bool front_face_emitted;
 
    bool has_clipvertex;
    bool has_clipvertex_so;
-   bool vs_has_pervertex;
    bool write_mul_utemp;
    bool write_mul_itemp;
    bool has_sample_input;
@@ -6121,8 +6121,7 @@ static void emit_ios_vs(struct dump_ctx *ctx)
       if (ctx->key->clip_plane_enable) {
          emit_hdr(ctx, "uniform vec4 clipp[8];\n");
       }
-      if (ctx->key->gs_present || ctx->key->tes_present) {
-         ctx->vs_has_pervertex = true;
+      if ((ctx->key->gs_present || ctx->key->tes_present) && ctx->key->next_stage_pervertex_in) {
          emit_hdrf(ctx, "out gl_PerVertex {\n vec4 gl_Position;\n %s%s};\n", clip_buf, cull_buf);
       } else {
          emit_hdrf(ctx, "%s%s", clip_buf, cull_buf);
@@ -6306,7 +6305,7 @@ static void emit_ios_geom(struct dump_ctx *ctx)
 
    emit_winsys_correction(ctx);
 
-   if (ctx->num_in_clip_dist || ctx->key->clip_plane_enable || ctx->key->prev_stage_pervertex_out) {
+   if (ctx->num_in_clip_dist || ctx->key->clip_plane_enable) {
       int clip_dist, cull_dist;
       char clip_var[64] = "";
       char cull_var[64] = "";
@@ -6319,6 +6318,7 @@ static void emit_ios_geom(struct dump_ctx *ctx)
       if (cull_dist)
          snprintf(cull_var, 64, "float gl_CullDistance[%d];\n", cull_dist);
 
+      ctx->has_pervertex = true;
       emit_hdrf(ctx, "in gl_PerVertex {\n vec4 gl_Position; \n %s%s\n} gl_in[];\n", clip_var, cull_var);
    }
    if (ctx->num_clip_dist) {
@@ -6380,7 +6380,7 @@ static void emit_ios_tcs(struct dump_ctx *ctx)
       }
    }
 
-   if (ctx->num_in_clip_dist || ctx->key->prev_stage_pervertex_out) {
+   if (ctx->num_in_clip_dist) {
       int clip_dist, cull_dist;
       char clip_var[64] = "", cull_var[64] = "";
 
@@ -6392,10 +6392,11 @@ static void emit_ios_tcs(struct dump_ctx *ctx)
       if (cull_dist)
          snprintf(cull_var, 64, "float gl_CullDistance[%d];\n", cull_dist);
 
+      ctx->has_pervertex = true;
       emit_hdrf(ctx, "in gl_PerVertex {\n vec4 gl_Position; \n %s%s} gl_in[];\n", clip_var, cull_var);
    }
-   if (ctx->num_clip_dist) {
-      emit_hdrf(ctx, "out gl_PerVertex {\n vec4 gl_Position;\n float gl_ClipDistance[%d];\n} gl_out[];\n", ctx->num_clip_dist ? ctx->num_clip_dist : 8);
+   if (ctx->num_clip_dist && ctx->key->next_stage_pervertex_in) {
+      emit_hdrf(ctx, "out gl_PerVertex {\n vec4 gl_Position;\n float gl_ClipDistance[%d];\n} gl_out[];\n", ctx->num_clip_dist);
       emit_hdr(ctx, "vec4 clip_dist_temp[2];\n");
    }
 }
@@ -6431,7 +6432,7 @@ static void emit_ios_tes(struct dump_ctx *ctx)
 
    emit_winsys_correction(ctx);
 
-   if (ctx->num_in_clip_dist || ctx->key->prev_stage_pervertex_out) {
+   if (ctx->num_in_clip_dist) {
       int clip_dist, cull_dist;
       char clip_var[64] = "", cull_var[64] = "";
 
@@ -6443,10 +6444,11 @@ static void emit_ios_tes(struct dump_ctx *ctx)
       if (cull_dist)
          snprintf(cull_var, 64, "float gl_CullDistance[%d];\n", cull_dist);
 
+      ctx->has_pervertex = true;
       emit_hdrf(ctx, "in gl_PerVertex {\n vec4 gl_Position; \n %s%s} gl_in[];\n", clip_var, cull_var);
    }
-   if (ctx->num_clip_dist) {
-      emit_hdrf(ctx, "out gl_PerVertex {\n vec4 gl_Position;\n float gl_ClipDistance[%d];\n} gl_out[];\n", ctx->num_clip_dist ? ctx->num_clip_dist : 8);
+   if (ctx->num_clip_dist && ctx->key->next_stage_pervertex_in) {
+      emit_hdrf(ctx, "out gl_PerVertex {\n vec4 gl_Position;\n float gl_ClipDistance[%d];\n} gl_out[];\n", ctx->num_clip_dist);
       emit_hdr(ctx, "vec4 clip_dist_temp[2];\n");
    }
 }
@@ -6603,7 +6605,7 @@ static boolean analyze_instruction(struct tgsi_iterate_context *iter,
 static void fill_sinfo(struct dump_ctx *ctx, struct vrend_shader_info *sinfo)
 {
    sinfo->num_ucp = ctx->key->clip_plane_enable ? 8 : 0;
-   sinfo->has_pervertex_out = ctx->vs_has_pervertex;
+   sinfo->has_pervertex_in = ctx->has_pervertex;
    sinfo->has_sample_input = ctx->has_sample_input;
    bool has_prop = (ctx->num_clip_dist_prop + ctx->num_cull_dist_prop) > 0;
    sinfo->num_clip_out = has_prop ? ctx->num_clip_dist_prop : (ctx->num_clip_dist ? ctx->num_clip_dist : 8);

@@ -56,6 +56,7 @@ struct vrend_shader_info {
    uint32_t ubo_used_mask;
    uint32_t ssbo_used_mask;
    uint32_t num_generic_and_patch_outputs;
+   bool has_pervertex_in;
    bool guest_sent_io_arrays;
    struct vrend_layout_info generic_outputs_layout[64];
    int num_consts;
@@ -70,7 +71,6 @@ struct vrend_shader_info {
    uint32_t generic_inputs_emitted_mask;
    int num_ucp;
    int glsl_ver;
-   bool has_pervertex_out;
    bool has_sample_input;
    uint8_t num_clip_out;
    uint8_t num_cull_out;
@@ -105,7 +105,6 @@ struct vrend_shader_key {
    bool tcs_present;
    bool tes_present;
    bool flatshade;
-   bool prev_stage_pervertex_out;
    bool guest_sent_io_arrays;
    bool fs_logicop_enabled;
    bool fs_logicop_emulate_coherent;
@@ -117,6 +116,7 @@ struct vrend_shader_key {
 
    uint8_t prev_stage_num_clip_out;
    uint8_t prev_stage_num_cull_out;
+   bool next_stage_pervertex_in;
    uint32_t cbufs_are_a8_bitmask;
    uint8_t num_indirect_generic_outputs;
    uint8_t num_indirect_patch_outputs;
