@@ -409,9 +409,30 @@ uint32_t virgl_gbm_convert_flags(uint32_t virgl_bind_flags)
    if (virgl_bind_flags & VIRGL_BIND_LINEAR)
       flags |= GBM_BO_USE_LINEAR;
 
+   if (virgl_bind_flags & VIRGL_BIND_MINIGBM_CAMERA_WRITE)
+      flags |= GBM_BO_USE_CAMERA_WRITE;
+   if (virgl_bind_flags & VIRGL_BIND_MINIGBM_CAMERA_READ)
+      flags |= GBM_BO_USE_CAMERA_READ;
+   if (virgl_bind_flags & VIRGL_BIND_MINIGBM_HW_VIDEO_DECODER)
+      flags |= GBM_BO_USE_HW_VIDEO_DECODER;
+   if (virgl_bind_flags & VIRGL_BIND_MINIGBM_HW_VIDEO_ENCODER)
+      flags |= GBM_BO_USE_HW_VIDEO_ENCODER;
+
+   if ((virgl_bind_flags & VIRGL_BIND_MINIGBM_PROTECTED) == VIRGL_BIND_MINIGBM_PROTECTED) {
+      flags |= GBM_BO_USE_PROTECTED;
+   } else {
+      if (virgl_bind_flags & VIRGL_BIND_MINIGBM_SW_READ_OFTEN)
+         flags |= GBM_BO_USE_SW_READ_OFTEN;
+      if (virgl_bind_flags & VIRGL_BIND_MINIGBM_SW_READ_RARELY)
+         flags |= GBM_BO_USE_SW_READ_RARELY;
+      if (virgl_bind_flags & VIRGL_BIND_MINIGBM_SW_WRITE_OFTEN)
+         flags |= GBM_BO_USE_SW_WRITE_OFTEN;
+      if (virgl_bind_flags & VIRGL_BIND_MINIGBM_SW_WRITE_RARELY)
+         flags |= GBM_BO_USE_SW_WRITE_RARELY;
+   }
+
    return flags;
 }
-
 
 int virgl_gbm_export_query(struct gbm_bo *bo, struct virgl_renderer_export_query *query)
 {

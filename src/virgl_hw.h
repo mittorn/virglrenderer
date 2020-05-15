@@ -431,6 +431,18 @@ enum virgl_formats {
 
 #define VIRGL_BIND_LINEAR (1 << 22)
 
+#define VIRGL_BIND_SHARED_SUBFLAGS (0xff << 24)
+
+#define VIRGL_BIND_MINIGBM_CAMERA_WRITE (1 << 24)
+#define VIRGL_BIND_MINIGBM_CAMERA_READ (1 << 25)
+#define VIRGL_BIND_MINIGBM_HW_VIDEO_DECODER (1 << 26)
+#define VIRGL_BIND_MINIGBM_HW_VIDEO_ENCODER (1 << 27)
+#define VIRGL_BIND_MINIGBM_SW_READ_OFTEN (1 << 28)
+#define VIRGL_BIND_MINIGBM_SW_READ_RARELY (1 << 29)
+#define VIRGL_BIND_MINIGBM_SW_WRITE_OFTEN (1 << 30)
+#define VIRGL_BIND_MINIGBM_SW_WRITE_RARELY (1 << 31)
+#define VIRGL_BIND_MINIGBM_PROTECTED (0xf << 28) // Mutually exclusive with SW_ flags
+
 struct virgl_caps_bool_set1 {
         unsigned indep_blend_enable:1;
         unsigned indep_blend_func:1;
