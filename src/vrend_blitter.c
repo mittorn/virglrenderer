@@ -37,6 +37,10 @@
 
 #define DEST_SWIZZLE_SNIPPET_SIZE 64
 
+#define BLIT_USE_GLES      (1 << 0)
+#define BLIT_USE_MSAA      (1 << 1)
+#define BLIT_USE_DEPTH     (1 << 2)
+
 struct vrend_blitter_ctx {
    virgl_gl_context gl_context;
    bool initialised;
@@ -68,6 +72,12 @@ struct vrend_blitter_point {
 struct vrend_blitter_delta {
     int dx;
     int dy;
+};
+
+struct swizzle_and_type {
+  char *twm;
+  char *ivec;
+  bool is_array;
 };
 
 static GLint build_and_check(GLenum shader_type, const char *buf)
@@ -137,133 +147,38 @@ static enum tgsi_return_type tgsi_ret_for_format(enum virgl_formats format)
    return TGSI_RETURN_TYPE_UNORM;
 }
 
-static GLuint blit_build_frag_tex_col(struct vrend_blitter_ctx *blit_ctx,
-                                      int tgsi_tex_target,
-                                      enum tgsi_return_type tgsi_ret,
-                                      const uint8_t swizzle[4])
+static void get_swizzle(int tgsi_tex_target, unsigned flags,
+                        struct swizzle_and_type *retval)
 {
-   char shader_buf[4096];
-   const char *twm;
-   const char *ext_str = "";
-   char dest_swizzle_snippet[DEST_SWIZZLE_SNIPPET_SIZE] = "texel";
+   retval->twm = "";
+   retval->ivec = "";
+   retval->is_array = false;
    switch (tgsi_tex_target) {
    case TGSI_TEXTURE_1D:
-   case TGSI_TEXTURE_BUFFER:
-      twm = ".x";
-      break;
-   case TGSI_TEXTURE_1D_ARRAY:
-   case TGSI_TEXTURE_2D:
-   case TGSI_TEXTURE_RECT:
-   case TGSI_TEXTURE_2D_MSAA:
-   default:
-      twm = ".xy";
-      break;
-   case TGSI_TEXTURE_SHADOW1D:
-   case TGSI_TEXTURE_SHADOW2D:
-   case TGSI_TEXTURE_SHADOW1D_ARRAY:
-   case TGSI_TEXTURE_SHADOWRECT:
-   case TGSI_TEXTURE_3D:
-   case TGSI_TEXTURE_CUBE:
-   case TGSI_TEXTURE_2D_ARRAY:
-   case TGSI_TEXTURE_2D_ARRAY_MSAA:
-      twm = ".xyz";
-      break;
-   case TGSI_TEXTURE_SHADOWCUBE:
-   case TGSI_TEXTURE_SHADOW2D_ARRAY:
-   case TGSI_TEXTURE_SHADOWCUBE_ARRAY:
-   case TGSI_TEXTURE_CUBE_ARRAY:
-      twm = "";
-      break;
-   }
-
-   if (tgsi_tex_target == TGSI_TEXTURE_CUBE_ARRAY ||
-       tgsi_tex_target == TGSI_TEXTURE_SHADOWCUBE_ARRAY)
-      ext_str = "#extension GL_ARB_texture_cube_map_array : require\n";
-
-   if (swizzle)
-      create_dest_swizzle_snippet(swizzle, dest_swizzle_snippet);
-
-   snprintf(shader_buf, 4096,
-            blit_ctx->use_gles ? (tgsi_tex_target == TGSI_TEXTURE_1D ?
-                                     FS_TEXFETCH_COL_GLES_1D : FS_TEXFETCH_COL_GLES):
-                                 FS_TEXFETCH_COL_GL,
-            ext_str, vec4_type_for_tgsi_ret(tgsi_ret),
-            vrend_shader_samplerreturnconv(tgsi_ret),
-            vrend_shader_samplertypeconv(blit_ctx->use_gles, tgsi_tex_target), twm,
-            dest_swizzle_snippet);
-
-   return build_and_check(GL_FRAGMENT_SHADER, shader_buf);
-
-}
-
-static GLuint blit_build_frag_tex_col_msaa(struct vrend_blitter_ctx *blit_ctx,
-                                           int tgsi_tex_target,
-                                           enum tgsi_return_type tgsi_ret,
-                                           const uint8_t swizzle[4],
-                                           int nr_samples)
-{
-   char shader_buf[4096];
-   const char *twm;
-   const char *ivec;
-   char dest_swizzle_snippet[DEST_SWIZZLE_SNIPPET_SIZE] = "texel";
-   const char *ext_str = blit_ctx->use_gles ? "" :
-                         "#extension GL_ARB_texture_multisample : enable\n";
-
-   bool is_array = false;
-   switch (tgsi_tex_target) {
-   case TGSI_TEXTURE_2D_MSAA:
-      twm = ".xy";
-      ivec = "ivec2";
-      break;
-   case TGSI_TEXTURE_2D_ARRAY_MSAA:
-      twm = ".xyz";
-      ivec = "ivec3";
-      is_array = true;
-      break;
-   default:
-      return 0;
-   }
-
-   if (swizzle)
-      create_dest_swizzle_snippet(swizzle, dest_swizzle_snippet);
-
-   snprintf(shader_buf, 4096,
-            blit_ctx->use_gles ?
-              (is_array ?  FS_TEXFETCH_COL_MSAA_ARRAY_GLES :  FS_TEXFETCH_COL_MSAA_GLES)
-             : FS_TEXFETCH_COL_MSAA_GL,
-            ext_str, vec4_type_for_tgsi_ret(tgsi_ret),
-            vrend_shader_samplerreturnconv(tgsi_ret),
-            vrend_shader_samplertypeconv(blit_ctx->use_gles, tgsi_tex_target),
-            nr_samples, ivec, twm, dest_swizzle_snippet);
-
-   VREND_DEBUG(dbg_blit, NULL, "-- Blit FS shader MSAA -----------------\n"
-               "%s\n---------------------------------------\n", shader_buf);
-
-   return build_and_check(GL_FRAGMENT_SHADER, shader_buf);
-}
-
-static GLuint blit_build_frag_tex_writedepth(struct vrend_blitter_ctx *blit_ctx, int tgsi_tex_target)
-{
-   char shader_buf[4096];
-   const char *twm;
-
-   switch (tgsi_tex_target) {
-   case TGSI_TEXTURE_1D:
-      if (blit_ctx->use_gles) {
-         twm=".xy";
+      if (flags & (BLIT_USE_GLES | BLIT_USE_DEPTH)) {
+         retval->twm = ".xy";
          break;
       }
       /* fallthrough */
    case TGSI_TEXTURE_BUFFER:
-      twm = ".x";
+      retval->twm = ".x";
       break;
+   case TGSI_TEXTURE_2D_MSAA:
+      if (flags & BLIT_USE_MSAA) {
+         retval->ivec = "ivec2";
+      }
+      /* fallthrough */
    case TGSI_TEXTURE_1D_ARRAY:
    case TGSI_TEXTURE_2D:
    case TGSI_TEXTURE_RECT:
-   case TGSI_TEXTURE_2D_MSAA:
-   default:
-      twm = ".xy";
+      retval->twm = ".xy";
       break;
+   case TGSI_TEXTURE_2D_ARRAY_MSAA:
+      if (flags & BLIT_USE_MSAA) {
+         retval->ivec = "ivec3";
+         retval->is_array = true;
+      }
+      /* fallthrough */
    case TGSI_TEXTURE_SHADOW1D:
    case TGSI_TEXTURE_SHADOW2D:
    case TGSI_TEXTURE_SHADOW1D_ARRAY:
@@ -271,49 +186,95 @@ static GLuint blit_build_frag_tex_writedepth(struct vrend_blitter_ctx *blit_ctx,
    case TGSI_TEXTURE_3D:
    case TGSI_TEXTURE_CUBE:
    case TGSI_TEXTURE_2D_ARRAY:
-   case TGSI_TEXTURE_2D_ARRAY_MSAA:
-      twm = ".xyz";
+      retval->twm = ".xyz";
       break;
    case TGSI_TEXTURE_SHADOWCUBE:
    case TGSI_TEXTURE_SHADOW2D_ARRAY:
    case TGSI_TEXTURE_SHADOWCUBE_ARRAY:
    case TGSI_TEXTURE_CUBE_ARRAY:
-      twm = "";
+      retval->twm = "";
+      break;
+   default:
+      if (flags & BLIT_USE_MSAA) {
+         break;
+      }
+      retval->twm = ".xy";
       break;
    }
+}
 
-   snprintf(shader_buf, 4096, blit_ctx->use_gles ? FS_TEXFETCH_DS_GLES
-                                                 : FS_TEXFETCH_DS_GL,
-      vrend_shader_samplertypeconv(blit_ctx->use_gles, tgsi_tex_target), twm);
+static GLuint blit_build_frag_tex_col(struct vrend_blitter_ctx *blit_ctx,
+                                      int tgsi_tex_target,
+                                      enum tgsi_return_type tgsi_ret,
+                                      const uint8_t swizzle[4],
+                                      int nr_samples)
+{
+   char shader_buf[4096];
+   struct swizzle_and_type retval;
+   unsigned flags = 0;
+   char dest_swizzle_snippet[DEST_SWIZZLE_SNIPPET_SIZE] = "texel";
+   const char *ext_str = "";
+   bool msaa = nr_samples > 0;
+
+   if (msaa && !blit_ctx->use_gles)
+      ext_str = "#extension GL_ARB_texture_multisample : enable\n";
+   else if (tgsi_tex_target == TGSI_TEXTURE_CUBE_ARRAY ||
+            tgsi_tex_target == TGSI_TEXTURE_SHADOWCUBE_ARRAY)
+      ext_str = "#extension GL_ARB_texture_cube_map_array : require\n";
+
+   if (blit_ctx->use_gles)
+      flags |= BLIT_USE_GLES;
+   if (msaa)
+      flags |= BLIT_USE_MSAA;
+   get_swizzle(tgsi_tex_target, flags, &retval);
+
+   if (swizzle)
+      create_dest_swizzle_snippet(swizzle, dest_swizzle_snippet);
+
+   if (msaa)
+      snprintf(shader_buf, 4096, blit_ctx->use_gles ?
+                                 (retval.is_array ? FS_TEXFETCH_COL_MSAA_ARRAY_GLES
+                                                   : FS_TEXFETCH_COL_MSAA_GLES)
+                                 : FS_TEXFETCH_COL_MSAA_GL,
+         ext_str, vec4_type_for_tgsi_ret(tgsi_ret),
+         vrend_shader_samplerreturnconv(tgsi_ret),
+         vrend_shader_samplertypeconv(blit_ctx->use_gles, tgsi_tex_target),
+         nr_samples, retval.ivec, retval.twm, dest_swizzle_snippet);
+   else
+      snprintf(shader_buf, 4096, blit_ctx->use_gles ?
+                                 (tgsi_tex_target == TGSI_TEXTURE_1D ?
+                                    FS_TEXFETCH_COL_GLES_1D : FS_TEXFETCH_COL_GLES)
+                                 : FS_TEXFETCH_COL_GL,
+         ext_str, vec4_type_for_tgsi_ret(tgsi_ret),
+         vrend_shader_samplerreturnconv(tgsi_ret),
+         vrend_shader_samplertypeconv(blit_ctx->use_gles, tgsi_tex_target),
+         retval.twm, dest_swizzle_snippet);
+
+   VREND_DEBUG(dbg_blit, NULL, "-- Blit FS shader MSAA: %d -----------------\n"
+               "%s\n---------------------------------------\n", msaa, shader_buf);
 
    return build_and_check(GL_FRAGMENT_SHADER, shader_buf);
 }
 
-static GLuint blit_build_frag_blit_msaa_depth(struct vrend_blitter_ctx *blit_ctx, int tgsi_tex_target)
+static GLuint blit_build_frag_depth(struct vrend_blitter_ctx *blit_ctx, int tgsi_tex_target, bool msaa)
 {
    char shader_buf[4096];
-   const char *twm;
-   const char *ivec;
+   struct swizzle_and_type retval;
+   unsigned flags = BLIT_USE_DEPTH;
 
-   bool is_array = false;
-   switch (tgsi_tex_target) {
-   case TGSI_TEXTURE_2D_MSAA:
-      twm = ".xy";
-      ivec = "ivec2";
-      break;
-   case TGSI_TEXTURE_2D_ARRAY_MSAA:
-      twm = ".xyz";
-      ivec = "ivec3";
-      is_array = true;
-      break;
-   default:
-      return 0;
-   }
+   if (msaa)
+      flags |= BLIT_USE_MSAA;
 
-   snprintf(shader_buf, 4096, blit_ctx->use_gles ?
-               (is_array ?  FS_TEXFETCH_DS_MSAA_ARRAY_GLES :  FS_TEXFETCH_DS_MSAA_GLES)
-             : FS_TEXFETCH_DS_MSAA_GL,
-      vrend_shader_samplertypeconv(blit_ctx->use_gles, tgsi_tex_target), ivec, twm);
+   get_swizzle(tgsi_tex_target, flags, &retval);
+
+   if (msaa)
+      snprintf(shader_buf, 4096, blit_ctx->use_gles ?
+                                 (retval.is_array ?  FS_TEXFETCH_DS_MSAA_ARRAY_GLES :  FS_TEXFETCH_DS_MSAA_GLES)
+                                 : FS_TEXFETCH_DS_MSAA_GL,
+         vrend_shader_samplertypeconv(blit_ctx->use_gles, tgsi_tex_target), retval.ivec, retval.twm);
+   else
+      snprintf(shader_buf, 4096, blit_ctx->use_gles ? FS_TEXFETCH_DS_GLES : FS_TEXFETCH_DS_GL,
+         vrend_shader_samplertypeconv(blit_ctx->use_gles, tgsi_tex_target), retval.twm);
 
    return build_and_check(GL_FRAGMENT_SHADER, shader_buf);
 }
@@ -322,26 +283,14 @@ static GLuint blit_get_frag_tex_writedepth(struct vrend_blitter_ctx *blit_ctx, i
 {
    assert(pipe_tex_target < PIPE_MAX_TEXTURE_TYPES);
 
-   if (nr_samples > 0) {
-      GLuint *shader = &blit_ctx->fs_texfetch_depth_msaa[pipe_tex_target];
+   GLuint *shader = nr_samples > 0 ? &blit_ctx->fs_texfetch_depth_msaa[pipe_tex_target]
+                                   : &blit_ctx->fs_texfetch_depth[pipe_tex_target];
 
-      if (!*shader) {
-         unsigned tgsi_tex = util_pipe_tex_to_tgsi_tex(pipe_tex_target, nr_samples);
-
-         *shader = blit_build_frag_blit_msaa_depth(blit_ctx, tgsi_tex);
-      }
-      return *shader;
-
-   } else {
-      GLuint *shader = &blit_ctx->fs_texfetch_depth[pipe_tex_target];
-
-      if (!*shader) {
-         unsigned tgsi_tex = util_pipe_tex_to_tgsi_tex(pipe_tex_target, 0);
-
-         *shader = blit_build_frag_tex_writedepth(blit_ctx, tgsi_tex);
-      }
-      return *shader;
+   if (!*shader) {
+      unsigned tgsi_tex = util_pipe_tex_to_tgsi_tex(pipe_tex_target, nr_samples);
+      *shader = blit_build_frag_depth(blit_ctx, tgsi_tex, nr_samples > 0);
    }
+   return *shader;
 }
 
 static GLuint blit_get_frag_tex_col(struct vrend_blitter_ctx *blit_ctx,
@@ -355,37 +304,23 @@ static GLuint blit_get_frag_tex_col(struct vrend_blitter_ctx *blit_ctx,
 
    bool needs_swizzle = !skip_dest_swizzle && (dst_entry->flags & VIRGL_TEXTURE_NEED_SWIZZLE);
 
-   if (needs_swizzle || nr_samples > 1) {
-      const uint8_t *swizzle = needs_swizzle ? dst_entry->swizzle : NULL;
-      GLuint *shader = &blit_ctx->fs_texfetch_col_swizzle;
-      if (shader) {
-         glDeleteShader(*shader);
-      }
+   GLuint *shader = (needs_swizzle || nr_samples > 1) ? &blit_ctx->fs_texfetch_col_swizzle
+                                                      : &blit_ctx->fs_texfetch_col[pipe_tex_target];
+
+   if (!*shader) {
 
       unsigned tgsi_tex = util_pipe_tex_to_tgsi_tex(pipe_tex_target, nr_samples);
       enum tgsi_return_type tgsi_ret = tgsi_ret_for_format(src_entry->format);
 
-      if (nr_samples > 0) {
-         // Integer textures are resolved using just one sample
-         int msaa_samples = tgsi_ret == TGSI_RETURN_TYPE_UNORM ? nr_samples : 1;
-         *shader = blit_build_frag_tex_col_msaa(blit_ctx, tgsi_tex, tgsi_ret,
-                                                swizzle, msaa_samples);
-      } else {
-         *shader = blit_build_frag_tex_col(blit_ctx, tgsi_tex, tgsi_ret, swizzle);
-      }
+      const uint8_t *swizzle = needs_swizzle ? dst_entry->swizzle : NULL;
 
-      return *shader;
-   } else {
-      GLuint *shader = &blit_ctx->fs_texfetch_col[pipe_tex_target];
+      // Integer textures are resolved using just one sample
+      int msaa_samples = nr_samples > 0 ? (tgsi_ret == TGSI_RETURN_TYPE_UNORM ? nr_samples : 1) : 0;
 
-      if (!*shader) {
-         unsigned tgsi_tex = util_pipe_tex_to_tgsi_tex(pipe_tex_target, 0);
-         enum tgsi_return_type tgsi_ret = tgsi_ret_for_format(src_entry->format);
-
-         *shader = blit_build_frag_tex_col(blit_ctx, tgsi_tex, tgsi_ret, NULL);
-      }
-      return *shader;
+      *shader = blit_build_frag_tex_col(blit_ctx, tgsi_tex, tgsi_ret,
+                                        swizzle, msaa_samples);
    }
+   return *shader;
 }
 
 static void vrend_renderer_init_blit_ctx(struct vrend_blitter_ctx *blit_ctx)
