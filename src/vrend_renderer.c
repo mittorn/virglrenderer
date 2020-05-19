@@ -291,6 +291,7 @@ struct global_renderer_state {
    bool use_gles;
    bool use_core_profile;
    bool use_external_blob;
+   bool use_integer;
 
    bool features[feat_last];
 
@@ -492,6 +493,8 @@ struct vrend_vertex_element_array {
    unsigned count;
    struct vrend_vertex_element elements[PIPE_MAX_ATTRIBS];
    GLuint id;
+   uint32_t signed_int_bitmask;
+   uint32_t unsigned_int_bitmask;
 };
 
 struct vrend_constants {
@@ -657,6 +660,7 @@ struct vrend_context {
    bool in_error;
    bool ctx_switch_pending;
    bool pstip_inited;
+   bool drawing;
 
    GLuint pstipple_tex_id;
 
@@ -2566,6 +2570,18 @@ void vrend_set_viewport_states(struct vrend_context *ctx,
    }
 }
 
+static void update_int_sign_masks(enum pipe_format fmt, int i,
+                                  uint32_t *signed_mask,
+                                  uint32_t *unsigned_mask)  {
+   if (vrend_state.use_integer &&
+       util_format_is_pure_integer(fmt)) {
+      if (util_format_is_pure_uint(fmt))
+         (*unsigned_mask) |= (1 << i);
+      else
+         (*signed_mask) |= (1 << i);
+   }
+}
+
 int vrend_create_vertex_elements_state(struct vrend_context *ctx,
                                        uint32_t handle,
                                        unsigned num_elements,
@@ -2654,8 +2670,12 @@ int vrend_create_vertex_elements_state(struct vrend_context *ctx,
       for (i = 0; i < num_elements; i++) {
          struct vrend_vertex_element *ve = &v->elements[i];
 
-         if (util_format_is_pure_integer(ve->base.src_format))
+         if (util_format_is_pure_integer(ve->base.src_format)) {
+            update_int_sign_masks(ve->base.src_format, i,
+                                  &v->signed_int_bitmask,
+                                  &v->unsigned_int_bitmask);
             glVertexAttribIFormat(i, ve->nr_chan, ve->type, ve->base.src_offset);
+         }
          else
             glVertexAttribFormat(i, ve->nr_chan, ve->type, ve->norm, ve->base.src_offset);
          glVertexAttribBinding(i, ve->base.vertex_buffer_index);
@@ -3125,13 +3145,22 @@ static inline void vrend_fill_shader_key(struct vrend_context *ctx,
       int i;
       bool add_alpha_test = true;
       key->cbufs_are_a8_bitmask = 0;
+      // Only use integer info when drawing to avoid stale info.
+      if (vrend_state.use_integer && ctx->drawing) {
+         key->attrib_signed_int_bitmask = ctx->sub->ve->signed_int_bitmask;
+         key->attrib_unsigned_int_bitmask = ctx->sub->ve->unsigned_int_bitmask;
+      }
       for (i = 0; i < ctx->sub->nr_cbufs; i++) {
          if (!ctx->sub->surf[i])
             continue;
          if (vrend_format_is_emulated_alpha(ctx->sub->surf[i]->format))
             key->cbufs_are_a8_bitmask |= (1 << i);
-         if (util_format_is_pure_integer(ctx->sub->surf[i]->format))
+         if (util_format_is_pure_integer(ctx->sub->surf[i]->format)) {
             add_alpha_test = false;
+            update_int_sign_masks(ctx->sub->surf[i]->format, i,
+                                  &key->cbufs_signed_int_bitmask,
+                                  &key->cbufs_unsigned_int_bitmask);
+         }
          key->surface_component_bits[i] = util_format_get_component_bits(ctx->sub->surf[i]->format, UTIL_FORMAT_COLORSPACE_RGB, 0);
       }
       if (add_alpha_test) {
@@ -4377,7 +4406,14 @@ int vrend_draw_vbo(struct vrend_context *ctx,
          return 0;
       }
 
+      // For some GPU, we'd like to use integer variable in generated GLSL if
+      // the input buffers are integer formats. But we actually don't know the
+      // buffer formats when the shader is created, we only know it here.
+      // Set it to true so the underlying code knows to use the buffer formats
+      // now.
+      ctx->drawing = true;
       vrend_shader_select(ctx, ctx->sub->shaders[PIPE_SHADER_VERTEX], &vs_dirty);
+      ctx->drawing = false;
 
       if (ctx->sub->shaders[PIPE_SHADER_TESS_CTRL] && ctx->sub->shaders[PIPE_SHADER_TESS_CTRL]->tokens)
          vrend_shader_select(ctx, ctx->sub->shaders[PIPE_SHADER_TESS_CTRL], &tcs_dirty);
@@ -5893,6 +5929,16 @@ vrend_renderer_get_pipe_callbacks(void)
    return &callbacks;
 }
 
+static bool use_integer() {
+   if (getenv("VIRGL_USE_INTEGER"))
+      return true;
+
+   const char * a = (const char *) glGetString(GL_VENDOR);
+   if (strcmp(a, "ARM") == 0)
+      return true;
+   return false;
+}
+
 int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
 {
    bool gles;
@@ -5952,6 +5998,8 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
    } else {
       vrend_printf( "gl_version %d - compat profile\n", gl_ver);
    }
+
+   vrend_state.use_integer = use_integer();
 
    init_features(gles ? 0 : gl_ver,
                  gles ? gl_ver : 0);
@@ -6188,6 +6236,7 @@ struct vrend_context *vrend_create_context(int id, uint32_t nlen, const char *de
    grctx->shader_cfg.has_gpu_shader5 = has_feature(feat_gpu_shader5);
    grctx->shader_cfg.has_es31_compat = has_feature(feat_gles31_compatibility);
    grctx->shader_cfg.has_conservative_depth = has_feature(feat_conservative_depth);
+   grctx->shader_cfg.use_integer = vrend_state.use_integer;
 
    vrend_renderer_create_sub_ctx(grctx, 0);
    vrend_renderer_set_sub_ctx(grctx, 0);

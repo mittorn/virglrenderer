@@ -80,6 +80,12 @@
 #define FRONT_COLOR_EMITTED (1 << 0)
 #define BACK_COLOR_EMITTED  (1 << 1);
 
+enum vec_type {
+   VEC_FLOAT = 0,
+   VEC_INT = 1,
+   VEC_UINT = 2
+};
+
 struct vrend_shader_io {
    unsigned                name;
    unsigned                gpr;
@@ -101,6 +107,7 @@ struct vrend_shader_io {
    bool glsl_gl_block;
    bool override_no_wm;
    bool is_int;
+   enum vec_type type;
    bool fbfetch_used;
    char glsl_name[128];
    unsigned stream;
@@ -912,6 +919,17 @@ static bool logiop_require_inout(const struct vrend_shader_key *key)
    }
 }
 
+static enum vec_type get_type(uint32_t signed_int_mask,
+                              uint32_t unsigned_int_mask,
+                              int bit) {
+   if (signed_int_mask & (1 << bit))
+      return VEC_INT;
+   else if (unsigned_int_mask & (1 << bit))
+      return VEC_UINT;
+   else
+      return VEC_FLOAT;
+}
+
 static boolean
 iter_declaration(struct tgsi_iterate_context *iter,
                  struct tgsi_full_declaration *decl )
@@ -941,6 +959,9 @@ iter_declaration(struct tgsi_iterate_context *iter,
       }
       if (iter->processor.Processor == TGSI_PROCESSOR_VERTEX) {
          ctx->attrib_input_mask |= (1 << decl->Range.First);
+         ctx->inputs[i].type = get_type(ctx->key->attrib_signed_int_bitmask,
+                                        ctx->key->attrib_unsigned_int_bitmask,
+                                        decl->Range.First);
       }
       ctx->inputs[i].name = decl->Semantic.Name;
       ctx->inputs[i].sid = decl->Semantic.Index;
@@ -1291,6 +1312,12 @@ iter_declaration(struct tgsi_iterate_context *iter,
          }
          break;
       case TGSI_SEMANTIC_COLOR:
+         if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
+            ctx->outputs[i].type = get_type(ctx->key->cbufs_signed_int_bitmask,
+                                            ctx->key->cbufs_unsigned_int_bitmask,
+                                            ctx->outputs[i].sid);
+         }
+
          if (iter->processor.Processor == TGSI_PROCESSOR_VERTEX) {
             if (ctx->glsl_ver_required < 140) {
                ctx->outputs[i].glsl_no_index = true;
@@ -3605,6 +3632,16 @@ get_destination_info(struct dump_ctx *ctx,
                         dinfo->dtypeprefix = FLOAT_BITS_TO_INT;
                      dinfo->dstconv = INT;
                   }
+                  else if (ctx->outputs[j].type == VEC_UINT) {
+                     if (dinfo->dtypeprefix == TYPE_CONVERSION_NONE)
+                        dinfo->dtypeprefix = FLOAT_BITS_TO_UINT;
+                     dinfo->dstconv = dinfo->udstconv;
+                  }
+                  else if (ctx->outputs[j].type == VEC_INT) {
+                     if (dinfo->dtypeprefix == TYPE_CONVERSION_NONE)
+                        dinfo->dtypeprefix = FLOAT_BITS_TO_INT;
+                     dinfo->dstconv = dinfo->idstconv;
+                  }
                   if (ctx->outputs[j].name == TGSI_SEMANTIC_PSIZE) {
                      dinfo->dstconv = FLOAT;
                      break;
@@ -3901,6 +3938,16 @@ get_source_info(struct dump_ctx *ctx,
                   if ((stype == TGSI_TYPE_UNSIGNED || stype == TGSI_TYPE_SIGNED) &&
                       ctx->inputs[j].is_int)
                      srcstypeprefix = TYPE_CONVERSION_NONE;
+                  else if (ctx->inputs[j].type) {
+                     if (stype == TGSI_TYPE_UNSIGNED)
+                        srcstypeprefix = UVEC4;
+                     else if (stype == TGSI_TYPE_SIGNED)
+                        srcstypeprefix = IVEC4;
+                     else if (ctx->inputs[j].type == VEC_INT)
+                        srcstypeprefix = INT_BITS_TO_FLOAT;
+                     else // ctx->inputs[j].type == VEC_UINT
+                        srcstypeprefix = UINT_BITS_TO_FLOAT;
+                  }
 
                   if (inst->Instruction.Opcode == TGSI_OPCODE_INTERP_SAMPLE && i == 1) {
                      strbuf_fmt(src_buf, "floatBitsToInt(%s%s%s%s)", prefix, ctx->inputs[j].glsl_name, arrayname, swizzle);
@@ -5943,8 +5990,13 @@ emit_ios_generic(struct dump_ctx *ctx, enum io_type iot,  const char *prefix,
                  const struct vrend_shader_io *io, const char *inout,
                  const char *postfix)
 {
-   const char type[4][6] = {"float", " vec2", " vec3", " vec4"};
-   const char *t = " vec4";
+   const char *atype[3][4] =  {
+      {"float", " vec2", " vec3", " vec4"},
+      {"  int", "ivec2", "ivec3", "ivec4"},
+      {" uint", "uvec2", "uvec3", "uvec4"},
+   };
+   const char **type = atype[io->type];
+   const char *t = type[3];
 
    char layout[128] = "";
 
@@ -6113,7 +6165,9 @@ static void emit_ios_vs(struct dump_ctx *ctx)
          }
          if (ctx->inputs[i].first != ctx->inputs[i].last)
             snprintf(postfix, sizeof(postfix), "[%d]", ctx->inputs[i].last - ctx->inputs[i].first + 1);
-         emit_hdrf(ctx, "in vec4 %s%s;\n", ctx->inputs[i].glsl_name, postfix);
+         const char *vtype[3] = {"vec4", "ivec4", "uvec4"};
+         emit_hdrf(ctx, "in %s %s%s;\n",
+                   vtype[ctx->inputs[i].type], ctx->inputs[i].glsl_name, postfix);
       }
    }
 
@@ -6255,18 +6309,25 @@ static void emit_ios_fs(struct dump_ctx *ctx)
    }
 
    if (ctx->write_all_cbufs) {
+      const char* type = "vec4";
+      if (ctx->key->cbufs_unsigned_int_bitmask)
+         type = "uvec4";
+      else if (ctx->key->cbufs_signed_int_bitmask)
+         type = "ivec4";
+
       for (i = 0; i < (uint32_t)ctx->cfg->max_draw_buffers; i++) {
          if (ctx->cfg->use_gles) {
             if (ctx->key->fs_logicop_enabled)
-               emit_hdrf(ctx, "vec4 fsout_tmp_c%d;\n", i);
+               emit_hdrf(ctx, "%s fsout_tmp_c%d;\n", type, i);
 
             if (logiop_require_inout(ctx->key)) {
                const char *noncoherent = ctx->key->fs_logicop_emulate_coherent ? "" : ", noncoherent";
-               emit_hdrf(ctx, "layout (location=%d%s) inout highp vec4 fsout_c%d;\n", i, noncoherent, i);
+               emit_hdrf(ctx, "layout (location=%d%s) inout highp %s fsout_c%d;\n", i, noncoherent, type, i);
             } else
-               emit_hdrf(ctx, "layout (location=%d) out vec4 fsout_c%d;\n", i, i);
+               emit_hdrf(ctx, "layout (location=%d) out %s fsout_c%d;\n", i,
+			 type, i);
          } else
-            emit_hdrf(ctx, "out vec4 fsout_c%d;\n", i);
+            emit_hdrf(ctx, "out %s fsout_c%d;\n", type, i);
       }
    } else {
       for (i = 0; i < ctx->num_outputs; i++) {

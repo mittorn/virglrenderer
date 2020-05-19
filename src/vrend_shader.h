@@ -142,6 +142,10 @@ struct vrend_shader_key {
    uint8_t prev_stage_num_cull_out;
    bool next_stage_pervertex_in;
    uint32_t cbufs_are_a8_bitmask;
+   uint32_t cbufs_signed_int_bitmask;
+   uint32_t cbufs_unsigned_int_bitmask;
+   uint32_t attrib_signed_int_bitmask;
+   uint32_t attrib_unsigned_int_bitmask;
    uint8_t num_indirect_generic_outputs;
    uint8_t num_indirect_patch_outputs;
    uint8_t num_indirect_generic_inputs;
@@ -164,6 +168,7 @@ struct vrend_shader_cfg {
    bool has_gpu_shader5;
    bool has_es31_compat;
    bool has_conservative_depth;
+   bool use_integer;
 };
 
 struct vrend_context;
