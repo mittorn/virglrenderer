@@ -50,31 +50,14 @@ run_setup()
    rm -rf ./results/
    mkdir -p ./results/
 
-   if [ "x$use_meson" = "x" ]; then
-      ./autogen.sh --prefix=/usr/local --enable-debug --enable-tests --enable-autotools
-      make -j$NUM_THREADS install
-   else
-       mkdir build
-       if [ "x$use_clang_fuzzer" = "x1" ]; then
-          export CC=clang-8
-          export FUZZER=-Dfuzzer=true
-       fi
-
-       meson build/ -Dprefix=/usr/local -Ddebug=true -Dtests=true --fatal-meson-warnings $FUZZER
-       ninja -C build -j$NUM_THREADS install
+   mkdir build
+   if [ "x$use_clang_fuzzer" = "x1" ]; then
+      export CC=clang-8
+      export FUZZER=-Dfuzzer=true
    fi
-}
 
-run_make_check()
-{
-   run_setup
-   (
-      mkdir -p ./results/make_check
-      VRENDTEST_USE_EGL_SURFACELESS=1 make -j$NUM_THREADS check --no-print-directory
-      RET=$?
-      cp tests/test*.log ./results/make_check/
-      return $RET
-   )
+   meson build/ -Dprefix=/usr/local -Ddebug=true -Dtests=true --fatal-meson-warnings $FUZZER
+   ninja -C build -j$NUM_THREADS install
 }
 
 run_make_check_meson()
@@ -178,10 +161,6 @@ parse_input()
       echo ""
 
       case $1 in
-         --make-check)
-         run_make_check
-         ;;
-
          --make-check-meson)
          run_make_check_meson
          ;;

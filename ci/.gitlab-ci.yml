@@ -27,7 +27,7 @@ build docker image:
     - merge_requests
     - schedules
 
-.tests_base: 
+.tests_base:
   image: $TEST_IMAGE
   variables:
     NUM_THREADS: 4
@@ -48,11 +48,6 @@ build docker image:
 .make_check_base:
   stage: sanity test
   extends: .tests_base
-
-make check:
-  variables:
-    TEST_SUITE: '--make-check'
-  extends: .make_check_base
 
 mesa check meson:
   variables:

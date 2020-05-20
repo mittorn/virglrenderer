@@ -11,7 +11,7 @@ DOCKER_IMAGE=${DOCKER_IMAGE:-registry.freedesktop.org/virgl/virglrenderer/debian
 if [[ -z $NUM_THREADS ]] ; then 
     # If not forced use slightly less than half of available threads
     NUM_THREADS=$(expr $(expr $(nproc) + 2) / 3)
-fi    
+fi
 
 # When running the erhm, CI, locally,
 # do use HW based backends, which
@@ -39,4 +39,4 @@ time docker run \
      $LOCAL_MESA \
      $LOCAL_VIRGL \
      $DOCKER_IMAGE \
-     bash -c "/virglrenderer/ci/run_tests.sh --make-check --deqp-gl-gl-tests --deqp-gl-gles-tests --deqp-gles-gl-tests --deqp-gles-gles-tests  --piglit-gl --piglit-gles" 2>&1 | tee results/log.txt
+     bash -c "/virglrenderer/ci/run_tests.sh --make-check-meson --deqp-gl-gl-tests --deqp-gl-gles-tests --deqp-gles-gl-tests --deqp-gles-gles-tests  --piglit-gl --piglit-gles" 2>&1 | tee results/log.txt
