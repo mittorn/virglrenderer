@@ -5315,6 +5315,8 @@ static void emit_header(struct dump_ctx *ctx)
       }
 
       if (ctx->cfg->glsl_version < 320) {
+         if (ctx->shader_req_bits & SHADER_REQ_SAMPLER_BUF)
+            emit_ext(ctx, "EXT_texture_buffer", "require");
          if (prefer_generic_io_block(ctx, io_in) || prefer_generic_io_block(ctx, io_out)) {
             emit_ext(ctx, "OES_shader_io_blocks", "require");
          }
