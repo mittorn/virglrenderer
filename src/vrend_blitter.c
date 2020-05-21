@@ -725,6 +725,16 @@ void vrend_renderer_blit_gl(MAYBE_UNUSED struct vrend_context *ctx,
    } else
       glDisable(GL_SCISSOR_TEST);
 
+   if (has_srgb_write_control) {
+      if (util_format_is_srgb(info->dst.format) || util_format_is_srgb(info->src.format)) {
+         VREND_DEBUG(dbg_blit, ctx, "%s: Enable GL_FRAMEBUFFER_SRGB\n", __func__);
+         glEnable(GL_FRAMEBUFFER_SRGB);
+      } else {
+         VREND_DEBUG(dbg_blit, ctx, "%s: Disable GL_FRAMEBUFFER_SRGB\n", __func__);
+         glDisable(GL_FRAMEBUFFER_SRGB);
+      }
+   }
+
    for (dst_z = 0; dst_z < info->dst.box.depth; dst_z++) {
       float dst2src_scale = info->src.box.depth / (float)info->dst.box.depth;
       float dst_offset = ((info->src.box.depth - 1) -
@@ -734,16 +744,6 @@ void vrend_renderer_blit_gl(MAYBE_UNUSED struct vrend_context *ctx,
 
       glBindFramebuffer(GL_FRAMEBUFFER, blit_ctx->fb_id);
       vrend_fb_bind_texture_id(dst_res, blit_views[1], 0, info->dst.level, layer);
-
-      if (has_srgb_write_control) {
-         if (util_format_is_srgb(info->dst.format) || util_format_is_srgb(info->src.format)) {
-            VREND_DEBUG(dbg_blit, ctx, "%s: Enable GL_FRAMEBUFFER_SRGB\n", __func__);
-            glEnable(GL_FRAMEBUFFER_SRGB);
-         } else {
-            VREND_DEBUG(dbg_blit, ctx, "%s: Disable GL_FRAMEBUFFER_SRGB\n", __func__);
-            glDisable(GL_FRAMEBUFFER_SRGB);
-         }
-      }
 
       buffers = GL_COLOR_ATTACHMENT0;
       glDrawBuffers(1, &buffers);
