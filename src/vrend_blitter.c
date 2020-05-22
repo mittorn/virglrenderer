@@ -575,6 +575,46 @@ static void calc_dst_deltas_from_src(const struct pipe_blit_info *info,
    dst1_delta->dy = src1_delta->dy * scale_y;
 }
 
+static void vrend_set_tex_param(struct vrend_resource *src_res,
+                                const struct pipe_blit_info *info,
+                                bool has_texture_srgb_decode)
+{
+   const struct vrend_format_table *src_entry =
+      vrend_get_format_table_entry_with_emulation(src_res->base.bind, info->src.format);
+
+   if (src_entry->flags & VIRGL_TEXTURE_NEED_SWIZZLE) {
+      glTexParameteri(src_res->target, GL_TEXTURE_SWIZZLE_R,
+                      to_gl_swizzle(src_entry->swizzle[0]));
+      glTexParameteri(src_res->target, GL_TEXTURE_SWIZZLE_G,
+                      to_gl_swizzle(src_entry->swizzle[1]));
+      glTexParameteri(src_res->target, GL_TEXTURE_SWIZZLE_B,
+                      to_gl_swizzle(src_entry->swizzle[2]));
+      glTexParameteri(src_res->target, GL_TEXTURE_SWIZZLE_A,
+                      to_gl_swizzle(src_entry->swizzle[3]));
+   }
+
+   /* Just make sure that no stale state disabled decoding */
+   if (has_texture_srgb_decode && util_format_is_srgb(info->src.format) &&
+       src_res->base.nr_samples < 1)
+      glTexParameteri(src_res->target, GL_TEXTURE_SRGB_DECODE_EXT, GL_DECODE_EXT);
+
+   if (src_res->base.nr_samples < 1) {
+      glTexParameteri(src_res->target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+      glTexParameteri(src_res->target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+      glTexParameteri(src_res->target, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+   }
+
+   glTexParameteri(src_res->target, GL_TEXTURE_BASE_LEVEL, info->src.level);
+   glTexParameteri(src_res->target, GL_TEXTURE_MAX_LEVEL, info->src.level);
+
+   if (src_res->base.nr_samples < 1) {
+      GLenum filter = info->filter == PIPE_TEX_FILTER_NEAREST ?
+                                       GL_NEAREST : GL_LINEAR;
+      glTexParameterf(src_res->target, GL_TEXTURE_MAG_FILTER, filter);
+      glTexParameterf(src_res->target, GL_TEXTURE_MIN_FILTER, filter);
+   }
+}
+
 /* implement blitting using OpenGL. */
 void vrend_renderer_blit_gl(MAYBE_UNUSED struct vrend_context *ctx,
                             struct vrend_resource *src_res,
@@ -600,8 +640,6 @@ void vrend_renderer_blit_gl(MAYBE_UNUSED struct vrend_context *ctx,
       util_format_description(src_res->base.format);
    const struct util_format_description *dst_desc =
       util_format_description(dst_res->base.format);
-   const struct vrend_format_table *src_entry =
-      vrend_get_format_table_entry_with_emulation(src_res->base.bind, info->src.format);
    const struct vrend_format_table *orig_src_entry = vrend_get_format_table_entry(info->src.format);
    const struct vrend_format_table *dst_entry =
       vrend_get_format_table_entry_with_emulation(dst_res->base.bind, info->dst.format);
@@ -675,38 +713,7 @@ void vrend_renderer_blit_gl(MAYBE_UNUSED struct vrend_context *ctx,
    glDrawBuffers(1, &buffers);
 
    glBindTexture(src_res->target, blit_views[0]);
-
-   if (src_entry->flags & VIRGL_TEXTURE_NEED_SWIZZLE) {
-      glTexParameteri(src_res->target, GL_TEXTURE_SWIZZLE_R,
-                      to_gl_swizzle(src_entry->swizzle[0]));
-      glTexParameteri(src_res->target, GL_TEXTURE_SWIZZLE_G,
-                      to_gl_swizzle(src_entry->swizzle[1]));
-      glTexParameteri(src_res->target, GL_TEXTURE_SWIZZLE_B,
-                      to_gl_swizzle(src_entry->swizzle[2]));
-      glTexParameteri(src_res->target, GL_TEXTURE_SWIZZLE_A,
-                      to_gl_swizzle(src_entry->swizzle[3]));
-   }
-
-   /* Just make sure that no stale state disabled decoding */
-   if (has_texture_srgb_decode && util_format_is_srgb(info->src.format) &&
-       src_res->base.nr_samples < 1)
-      glTexParameteri(src_res->target, GL_TEXTURE_SRGB_DECODE_EXT, GL_DECODE_EXT);
-
-   if (src_res->base.nr_samples < 1) {
-      glTexParameteri(src_res->target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-      glTexParameteri(src_res->target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-      glTexParameteri(src_res->target, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-   }
-
-   glTexParameteri(src_res->target, GL_TEXTURE_BASE_LEVEL, info->src.level);
-   glTexParameteri(src_res->target, GL_TEXTURE_MAX_LEVEL, info->src.level);
-
-   if (src_res->base.nr_samples < 1) {
-      GLenum filter = info->filter == PIPE_TEX_FILTER_NEAREST ?
-                                       GL_NEAREST : GL_LINEAR;
-      glTexParameterf(src_res->target, GL_TEXTURE_MAG_FILTER, filter);
-      glTexParameterf(src_res->target, GL_TEXTURE_MIN_FILTER, filter);
-   }
+   vrend_set_tex_param(src_res, info, has_texture_srgb_decode);
 
    pos_loc = glGetAttribLocation(prog_id, "arg0");
    tc_loc = glGetAttribLocation(prog_id, "arg1");
