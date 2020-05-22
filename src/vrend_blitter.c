@@ -661,6 +661,20 @@ static void vrend_set_tex_param(struct vrend_resource *src_res,
    }
 }
 
+static void vrend_set_vertex_param(GLuint prog_id)
+{
+   GLuint pos_loc, tc_loc;
+
+   pos_loc = glGetAttribLocation(prog_id, "arg0");
+   tc_loc = glGetAttribLocation(prog_id, "arg1");
+
+   glVertexAttribPointer(pos_loc, 4, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)0);
+   glVertexAttribPointer(tc_loc, 4, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)(4 * sizeof(float)));
+
+   glEnableVertexAttribArray(pos_loc);
+   glEnableVertexAttribArray(tc_loc);
+}
+
 /* implement blitting using OpenGL. */
 void vrend_renderer_blit_gl(MAYBE_UNUSED struct vrend_context *ctx,
                             struct vrend_resource *src_res,
@@ -675,7 +689,6 @@ void vrend_renderer_blit_gl(MAYBE_UNUSED struct vrend_context *ctx,
    GLuint buffers;
    GLuint prog_id;
    GLuint fs_id;
-   GLuint pos_loc, tc_loc;
    bool has_depth, has_stencil;
    bool blit_stencil, blit_depth;
    int dst_z;
@@ -726,15 +739,7 @@ void vrend_renderer_blit_gl(MAYBE_UNUSED struct vrend_context *ctx,
 
    glBindTexture(src_res->target, blit_views[0]);
    vrend_set_tex_param(src_res, info, has_texture_srgb_decode);
-
-   pos_loc = glGetAttribLocation(prog_id, "arg0");
-   tc_loc = glGetAttribLocation(prog_id, "arg1");
-
-   glVertexAttribPointer(pos_loc, 4, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)0);
-   glVertexAttribPointer(tc_loc, 4, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)(4 * sizeof(float)));
-
-   glEnableVertexAttribArray(pos_loc);
-   glEnableVertexAttribArray(tc_loc);
+   vrend_set_vertex_param(prog_id);
 
    set_dsa_write_depth_keep_stencil();
 
