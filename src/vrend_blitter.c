@@ -379,13 +379,6 @@ static void vrend_renderer_init_blit_ctx(struct vrend_blitter_ctx *blit_ctx)
       glEnable(GL_FRAMEBUFFER_SRGB);
 }
 
-static void blitter_set_dst_dim(struct vrend_blitter_ctx *blit_ctx,
-                                unsigned width, unsigned height)
-{
-   blit_ctx->dst_width = width;
-   blit_ctx->dst_height = height;
-}
-
 static void blitter_set_rectangle(struct vrend_blitter_ctx *blit_ctx,
                                   int x1, int y1, int x2, int y2,
                                   float depth)
@@ -432,6 +425,7 @@ static void get_texcoords(struct vrend_blitter_ctx *blit_ctx,
       out[3] = (float) y2;
    }
 }
+
 static void set_texcoords_in_vertices(const float coord[4],
                                       float *out, unsigned stride)
 {
@@ -593,6 +587,40 @@ static void calc_dst_deltas_from_src(const struct pipe_blit_info *info,
    dst1_delta->dy = src1_delta->dy * scale_y;
 }
 
+static void blitter_set_points(struct vrend_blitter_ctx *blit_ctx,
+                               const struct pipe_blit_info *info,
+                               struct vrend_resource *src_res,
+                               struct vrend_resource *dst_res,
+                               struct vrend_blitter_point *src0,
+                               struct vrend_blitter_point *src1)
+{
+   struct vrend_blitter_point dst0, dst1;
+   struct vrend_blitter_delta src0_delta, src1_delta, dst0_delta, dst1_delta;
+
+   blit_ctx->dst_width = u_minify(dst_res->base.width0, info->dst.level);
+   blit_ctx->dst_height = u_minify(dst_res->base.height0, info->dst.level);
+
+   /* Calculate src and dst points taking deltas into account */
+   calc_src_deltas_for_bounds(src_res, info, &src0_delta, &src1_delta);
+   calc_dst_deltas_from_src(info, &src0_delta, &src1_delta, &dst0_delta, &dst1_delta);
+
+   src0->x = info->src.box.x + src0_delta.dx;
+   src0->y = info->src.box.y + src0_delta.dy;
+   src1->x = info->src.box.x + info->src.box.width + src1_delta.dx;
+   src1->y = info->src.box.y + info->src.box.height + src1_delta.dy;
+
+   dst0.x = info->dst.box.x + dst0_delta.dx;
+   dst0.y = info->dst.box.y + dst0_delta.dy;
+   dst1.x = info->dst.box.x + info->dst.box.width + dst1_delta.dx;
+   dst1.y = info->dst.box.y + info->dst.box.height + dst1_delta.dy;
+
+   VREND_DEBUG(dbg_blit, NULL, "Blitter src:[%3d, %3d] - [%3d, %3d] to dst:[%3d, %3d] - [%3d, %3d]\n",
+               src0->x, src0->y, src1->x, src1->y,
+               dst0.x, dst0.y, dst1.x, dst1.y);
+
+   blitter_set_rectangle(blit_ctx, dst0.x, dst0.y, dst1.x, dst1.y, 0);
+}
+
 static void vrend_set_tex_param(struct vrend_resource *src_res,
                                 const struct pipe_blit_info *info,
                                 bool has_texture_srgb_decode)
@@ -651,8 +679,7 @@ void vrend_renderer_blit_gl(MAYBE_UNUSED struct vrend_context *ctx,
    bool has_depth, has_stencil;
    bool blit_stencil, blit_depth;
    int dst_z;
-   struct vrend_blitter_delta src0_delta, src1_delta, dst0_delta, dst1_delta;
-   struct vrend_blitter_point src0, src1, dst0, dst1;
+   struct vrend_blitter_point src0, src1;
    const struct util_format_description *src_desc =
       util_format_description(src_res->base.format);
    const struct util_format_description *dst_desc =
@@ -670,30 +697,7 @@ void vrend_renderer_blit_gl(MAYBE_UNUSED struct vrend_context *ctx,
    blit_stencil = has_stencil && (info->mask & PIPE_MASK_S) & 0;
 
    vrend_renderer_init_blit_ctx(blit_ctx);
-
-   blitter_set_dst_dim(blit_ctx,
-                       u_minify(dst_res->base.width0, info->dst.level),
-                       u_minify(dst_res->base.height0, info->dst.level));
-
-   /* Calculate src and dst points taking deltas into account */
-   calc_src_deltas_for_bounds(src_res, info, &src0_delta, &src1_delta);
-   calc_dst_deltas_from_src(info, &src0_delta, &src1_delta, &dst0_delta, &dst1_delta);
-
-   src0.x = info->src.box.x + src0_delta.dx;
-   src0.y = info->src.box.y + src0_delta.dy;
-   src1.x = info->src.box.x + info->src.box.width + src1_delta.dx;
-   src1.y = info->src.box.y + info->src.box.height + src1_delta.dy;
-
-   dst0.x = info->dst.box.x + dst0_delta.dx;
-   dst0.y = info->dst.box.y + dst0_delta.dy;
-   dst1.x = info->dst.box.x + info->dst.box.width + dst1_delta.dx;
-   dst1.y = info->dst.box.y + info->dst.box.height + dst1_delta.dy;
-
-   VREND_DEBUG(dbg_blit, ctx, "Blitter src:[%3d, %3d] - [%3d, %3d] to dst:[%3d, %3d] - [%3d, %3d]\n",
-               src0.x, src0.y, src1.x, src1.y,
-               dst0.x, dst0.y, dst1.x, dst1.y);
-
-   blitter_set_rectangle(blit_ctx, dst0.x, dst0.y, dst1.x, dst1.y, 0);
+   blitter_set_points(blit_ctx, info, src_res, dst_res, &src0, &src1);
 
    prog_id = glCreateProgram();
    glAttachShader(prog_id, blit_ctx->vs);
