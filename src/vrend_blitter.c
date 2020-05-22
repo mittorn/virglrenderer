@@ -100,6 +100,24 @@ static GLint build_and_check(GLenum shader_type, const char *buf)
    return id;
 }
 
+static bool link_and_check(GLuint prog_id)
+{
+   GLint lret;
+
+   glLinkProgram(prog_id);
+   glGetProgramiv(prog_id, GL_LINK_STATUS, &lret);
+   if (lret == GL_FALSE) {
+      char infolog[65536];
+      int len;
+      glGetProgramInfoLog(prog_id, 65536, &len, infolog);
+      vrend_printf("got error linking\n%s\n", infolog);
+      /* dump shaders */
+      glDeleteProgram(prog_id);
+      return false;
+   }
+   return true;
+}
+
 static void create_dest_swizzle_snippet(const uint8_t swizzle[4],
                                         char snippet[DEST_SWIZZLE_SNIPPET_SIZE])
 {
@@ -629,7 +647,6 @@ void vrend_renderer_blit_gl(MAYBE_UNUSED struct vrend_context *ctx,
    GLuint buffers;
    GLuint prog_id;
    GLuint fs_id;
-   GLint lret;
    GLuint pos_loc, tc_loc;
    bool has_depth, has_stencil;
    bool blit_stencil, blit_depth;
@@ -692,17 +709,8 @@ void vrend_renderer_blit_gl(MAYBE_UNUSED struct vrend_context *ctx,
    }
    glAttachShader(prog_id, fs_id);
 
-   glLinkProgram(prog_id);
-   glGetProgramiv(prog_id, GL_LINK_STATUS, &lret);
-   if (lret == GL_FALSE) {
-      char infolog[65536];
-      int len;
-      glGetProgramInfoLog(prog_id, 65536, &len, infolog);
-      vrend_printf("got error linking\n%s\n", infolog);
-      /* dump shaders */
-      glDeleteProgram(prog_id);
+   if(!link_and_check(prog_id))
       return;
-   }
 
    glUseProgram(prog_id);
 
