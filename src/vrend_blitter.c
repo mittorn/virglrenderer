@@ -705,7 +705,6 @@ void vrend_renderer_blit_gl(MAYBE_UNUSED struct vrend_context *ctx,
    GLint lret;
    GLenum filter;
    GLuint pos_loc, tc_loc;
-   GLuint samp_loc;
    bool has_depth, has_stencil;
    bool blit_stencil, blit_depth;
    int dst_z;
@@ -821,11 +820,9 @@ void vrend_renderer_blit_gl(MAYBE_UNUSED struct vrend_context *ctx,
       glTexParameterf(src_res->target, GL_TEXTURE_MAG_FILTER, filter);
       glTexParameterf(src_res->target, GL_TEXTURE_MIN_FILTER, filter);
    }
+
    pos_loc = glGetAttribLocation(prog_id, "arg0");
    tc_loc = glGetAttribLocation(prog_id, "arg1");
-   samp_loc = glGetUniformLocation(prog_id, "samp");
-
-   glUniform1i(samp_loc, 0);
 
    glVertexAttribPointer(pos_loc, 4, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)0);
    glVertexAttribPointer(tc_loc, 4, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)(4 * sizeof(float)));
