@@ -42,38 +42,38 @@
 #define INVARI_PREFIX "invariant"
 
 #define SHADER_REQ_NONE 0
-#define SHADER_REQ_SAMPLER_RECT       (1 << 0)
-#define SHADER_REQ_CUBE_ARRAY         (1 << 1)
-#define SHADER_REQ_INTS               (1 << 2)
-#define SHADER_REQ_SAMPLER_MS         (1 << 3)
-#define SHADER_REQ_INSTANCE_ID        (1 << 4)
-#define SHADER_REQ_LODQ               (1 << 5)
-#define SHADER_REQ_TXQ_LEVELS         (1 << 6)
-#define SHADER_REQ_TG4                (1 << 7)
-#define SHADER_REQ_VIEWPORT_IDX       (1 << 8)
-#define SHADER_REQ_STENCIL_EXPORT     (1 << 9)
-#define SHADER_REQ_LAYER              (1 << 10)
-#define SHADER_REQ_SAMPLE_SHADING     (1 << 11)
-#define SHADER_REQ_GPU_SHADER5        (1 << 12)
-#define SHADER_REQ_DERIVATIVE_CONTROL (1 << 13)
-#define SHADER_REQ_FP64               (1 << 14)
-#define SHADER_REQ_IMAGE_LOAD_STORE   (1 << 15)
-#define SHADER_REQ_ES31_COMPAT        (1 << 16)
-#define SHADER_REQ_IMAGE_SIZE         (1 << 17)
-#define SHADER_REQ_TXQS               (1 << 18)
-#define SHADER_REQ_FBFETCH            (1 << 19)
-#define SHADER_REQ_SHADER_CLOCK       (1 << 20)
-#define SHADER_REQ_PSIZE              (1 << 21)
-#define SHADER_REQ_IMAGE_ATOMIC       (1 << 22)
-#define SHADER_REQ_CLIP_DISTANCE      (1 << 23)
-#define SHADER_REQ_ENHANCED_LAYOUTS   (1 << 24)
-#define SHADER_REQ_SEPERATE_SHADER_OBJECTS (1 << 25)
-#define SHADER_REQ_ARRAYS_OF_ARRAYS  (1 << 26)
-#define SHADER_REQ_SHADER_INTEGER_FUNC (1 << 27)
-#define SHADER_REQ_SHADER_ATOMIC_FLOAT (1 << 28)
-#define SHADER_REQ_NV_IMAGE_FORMATS    (1 << 29)
-#define SHADER_REQ_CONSERVATIVE_DEPTH  (1 << 30)
-#define SHADER_REQ_SAMPLER_BUF        (1 << 31)
+#define SHADER_REQ_SAMPLER_RECT       (1ULL << 0)
+#define SHADER_REQ_CUBE_ARRAY         (1ULL << 1)
+#define SHADER_REQ_INTS               (1ULL << 2)
+#define SHADER_REQ_SAMPLER_MS         (1ULL << 3)
+#define SHADER_REQ_INSTANCE_ID        (1ULL << 4)
+#define SHADER_REQ_LODQ               (1ULL << 5)
+#define SHADER_REQ_TXQ_LEVELS         (1ULL << 6)
+#define SHADER_REQ_TG4                (1ULL << 7)
+#define SHADER_REQ_VIEWPORT_IDX       (1ULL << 8)
+#define SHADER_REQ_STENCIL_EXPORT     (1ULL << 9)
+#define SHADER_REQ_LAYER              (1ULL << 10)
+#define SHADER_REQ_SAMPLE_SHADING     (1ULL << 11)
+#define SHADER_REQ_GPU_SHADER5        (1ULL << 12)
+#define SHADER_REQ_DERIVATIVE_CONTROL (1ULL << 13)
+#define SHADER_REQ_FP64               (1ULL << 14)
+#define SHADER_REQ_IMAGE_LOAD_STORE   (1ULL << 15)
+#define SHADER_REQ_ES31_COMPAT        (1ULL << 16)
+#define SHADER_REQ_IMAGE_SIZE         (1ULL << 17)
+#define SHADER_REQ_TXQS               (1ULL << 18)
+#define SHADER_REQ_FBFETCH            (1ULL << 19)
+#define SHADER_REQ_SHADER_CLOCK       (1ULL << 20)
+#define SHADER_REQ_PSIZE              (1ULL << 21)
+#define SHADER_REQ_IMAGE_ATOMIC       (1ULL << 22)
+#define SHADER_REQ_CLIP_DISTANCE      (1ULL << 23)
+#define SHADER_REQ_ENHANCED_LAYOUTS   (1ULL << 24)
+#define SHADER_REQ_SEPERATE_SHADER_OBJECTS (1ULL << 25)
+#define SHADER_REQ_ARRAYS_OF_ARRAYS  (1ULL << 26)
+#define SHADER_REQ_SHADER_INTEGER_FUNC (1ULL << 27)
+#define SHADER_REQ_SHADER_ATOMIC_FLOAT (1ULL << 28)
+#define SHADER_REQ_NV_IMAGE_FORMATS    (1ULL << 29)
+#define SHADER_REQ_CONSERVATIVE_DEPTH  (1ULL << 30)
+#define SHADER_REQ_SAMPLER_BUF        (1ULL << 31)
 
 #define FRONT_COLOR_EMITTED (1 << 0)
 #define BACK_COLOR_EMITTED  (1 << 1);
@@ -110,7 +110,7 @@ struct vrend_shader_sampler {
 };
 
 struct vrend_shader_table {
-   uint32_t key;
+   uint64_t key;
    const char *string;
 };
 
@@ -215,7 +215,7 @@ struct dump_ctx {
    int abo_sizes[32];
    int abo_offsets[32];
 
-   uint32_t shader_req_bits;
+   uint64_t shader_req_bits;
 
    struct pipe_stream_output_info *so;
    char **so_names;
