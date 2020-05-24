@@ -74,6 +74,7 @@
 #define SHADER_REQ_NV_IMAGE_FORMATS    (1ULL << 29)
 #define SHADER_REQ_CONSERVATIVE_DEPTH  (1ULL << 30)
 #define SHADER_REQ_SAMPLER_BUF        (1ULL << 31)
+#define SHADER_REQ_GEOMETRY_SHADER    (1ULL << 32)
 
 #define FRONT_COLOR_EMITTED (1 << 0)
 #define BACK_COLOR_EMITTED  (1 << 1);
@@ -1007,6 +1008,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
             ctx->inputs[i].glsl_predefined_no_emit = true;
             ctx->inputs[i].glsl_no_index = true;
             require_glsl_ver(ctx, 150);
+            ctx->shader_req_bits |= SHADER_REQ_GEOMETRY_SHADER;
             break;
          }
          /* fallthrough */
@@ -5333,6 +5335,9 @@ static void emit_header(struct dump_ctx *ctx)
             emit_ext(ctx, "EXT_geometry_shader", "require");
          if (ctx->shader_req_bits & SHADER_REQ_IMAGE_ATOMIC)
             emit_ext(ctx, "OES_shader_image_atomic", "require");
+
+         if (ctx->shader_req_bits & SHADER_REQ_GEOMETRY_SHADER)
+            emit_ext(ctx, "EXT_geometry_shader", "require");
       }
 
       if (logiop_require_inout(ctx->key)) {
