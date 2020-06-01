@@ -55,6 +55,10 @@ struct vrend_blitter_ctx {
    GLuint fs_texfetch_col_swizzle;
    GLuint fb_id;
 
+   // Parameters related to the creation of fs_texfetch_col_swizzle
+   unsigned fs_texfetch_col_swizzle_nr_samples;
+   bool fs_texfetch_col_swizzle_has_swizzle;
+
    unsigned dst_width;
    unsigned dst_height;
 
@@ -322,8 +326,20 @@ static GLuint blit_get_frag_tex_col(struct vrend_blitter_ctx *blit_ctx,
 
    bool needs_swizzle = !skip_dest_swizzle && (dst_entry->flags & VIRGL_TEXTURE_NEED_SWIZZLE);
 
-   GLuint *shader = (needs_swizzle || nr_samples > 1) ? &blit_ctx->fs_texfetch_col_swizzle
-                                                      : &blit_ctx->fs_texfetch_col[pipe_tex_target];
+
+   GLuint *shader;
+   if (needs_swizzle || nr_samples > 1) {
+      shader = &blit_ctx->fs_texfetch_col_swizzle;
+      if (*shader && (blit_ctx->fs_texfetch_col_swizzle_has_swizzle != needs_swizzle
+                        || blit_ctx->fs_texfetch_col_swizzle_nr_samples != nr_samples)) {
+         glDeleteShader(*shader);
+         *shader = 0;
+      }
+      blit_ctx->fs_texfetch_col_swizzle_has_swizzle = needs_swizzle;
+      blit_ctx->fs_texfetch_col_swizzle_nr_samples = nr_samples;
+   } else {
+      shader = &blit_ctx->fs_texfetch_col[pipe_tex_target];
+   }
 
    if (!*shader) {
 
