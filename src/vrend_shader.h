@@ -29,6 +29,29 @@
 #include "pipe/p_shader_tokens.h"
 
 #include "vrend_strbuf.h"
+
+enum gl_advanced_blend_mode
+{
+   BLEND_NONE = 0,
+   BLEND_MULTIPLY,
+   BLEND_SCREEN,
+   BLEND_OVERLAY,
+   BLEND_DARKEN,
+   BLEND_LIGHTEN,
+   BLEND_COLORDODGE,
+   BLEND_COLORBURN,
+   BLEND_HARDLIGHT,
+   BLEND_SOFTLIGHT,
+   BLEND_DIFFERENCE,
+   BLEND_EXCLUSION,
+   BLEND_HSL_HUE,
+   BLEND_HSL_SATURATION,
+   BLEND_HSL_COLOR,
+   BLEND_HSL_LUMINOSITY,
+   BLEND_ALL
+};
+
+
 /* need to store patching info for interpolation */
 struct vrend_interp_info {
    int semantic_name;

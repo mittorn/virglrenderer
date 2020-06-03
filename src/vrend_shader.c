@@ -75,6 +75,7 @@
 #define SHADER_REQ_CONSERVATIVE_DEPTH  (1ULL << 30)
 #define SHADER_REQ_SAMPLER_BUF        (1ULL << 31)
 #define SHADER_REQ_GEOMETRY_SHADER    (1ULL << 32)
+#define SHADER_REQ_BLEND_EQUATION_ADVANCED (1ULL << 33)
 
 #define FRONT_COLOR_EMITTED (1 << 0)
 #define BACK_COLOR_EMITTED  (1 << 1);
@@ -226,6 +227,7 @@ struct dump_ctx {
 
    int fs_coord_origin, fs_pixel_center;
    int fs_depth_layout;
+   uint32_t fs_blend_equation_advanced;
 
    int gs_in_prim, gs_out_prim, gs_max_out_verts;
    int gs_num_invocations;
@@ -285,6 +287,7 @@ static const struct vrend_shader_table shader_req_table[] = {
     { SHADER_REQ_SHADER_INTEGER_FUNC, "MESA_shader_integer_functions" },
     { SHADER_REQ_SHADER_ATOMIC_FLOAT, "NV_shader_atomic_float"},
     { SHADER_REQ_CONSERVATIVE_DEPTH, "ARB_conservative_depth"},
+    {SHADER_REQ_BLEND_EQUATION_ADVANCED, "KHR_blend_equation_advanced"},
 };
 
 enum vrend_type_qualifier {
@@ -453,6 +456,29 @@ static inline const char *prim_to_tes_name(int prim)
    case PIPE_PRIM_LINES: return "isolines";
    default: return "UNKNOWN";
    }
+}
+
+static inline const char *blend_to_name(enum gl_advanced_blend_mode blend)
+{
+   switch (blend) {
+   case BLEND_MULTIPLY: return "multiply";
+   case BLEND_SCREEN: return "screen";
+   case BLEND_OVERLAY: return "overlay";
+   case BLEND_DARKEN: return "darken";
+   case BLEND_LIGHTEN: return "lighten";
+   case BLEND_COLORDODGE: return "colordodge";
+   case BLEND_COLORBURN: return "colorburn";
+   case BLEND_HARDLIGHT: return "hardlight";
+   case BLEND_SOFTLIGHT: return "softlight";
+   case BLEND_DIFFERENCE: return "difference";
+   case BLEND_EXCLUSION: return "exclusion";
+   case BLEND_HSL_HUE: return "hsl_hue";
+   case BLEND_HSL_SATURATION: return "hsl_saturation";
+   case BLEND_HSL_COLOR: return "hsl_color";
+   case BLEND_HSL_LUMINOSITY: return "hsl_luminosity";
+   case BLEND_ALL: return "all_equations";
+   default: return "UNKNOWN";
+   };
 }
 
 static const char *get_spacing_string(int spacing)
@@ -1627,6 +1653,13 @@ iter_property(struct tgsi_iterate_context *iter,
       break;
    case TGSI_PROPERTY_CS_FIXED_BLOCK_DEPTH:
       ctx->local_cs_block_size[2] = prop->u[0].Data;
+      break;
+   case TGSI_PROPERTY_FS_BLEND_EQUATION_ADVANCED:
+      ctx->fs_blend_equation_advanced = prop->u[0].Data;
+      if (!ctx->cfg->use_gles || ctx->cfg->glsl_version < 320) {
+         require_glsl_ver(ctx, 150);
+         ctx->shader_req_bits |= SHADER_REQ_BLEND_EQUATION_ADVANCED;
+      }
       break;
    default:
       vrend_printf("unhandled property: %x\n", prop->Property.PropertyName);
@@ -5301,6 +5334,8 @@ static void emit_header(struct dump_ctx *ctx)
       if (ctx->prog_type == TGSI_PROCESSOR_FRAGMENT) {
          if (ctx->shader_req_bits & SHADER_REQ_FBFETCH)
             emit_ext(ctx, "EXT_shader_framebuffer_fetch", "require");
+         if (ctx->shader_req_bits & SHADER_REQ_BLEND_EQUATION_ADVANCED)
+            emit_ext(ctx, "KHR_blend_equation_advanced", "require");
       }
 
       if (ctx->shader_req_bits & SHADER_REQ_VIEWPORT_IDX)
@@ -6211,6 +6246,12 @@ static void emit_ios_fs(struct dump_ctx *ctx)
          emit_hdr(ctx, "vec4 realcolor0;\n");
       if (ctx->color_in_mask & 2)
          emit_hdr(ctx, "vec4 realcolor1;\n");
+   }
+
+   unsigned choices = ctx->fs_blend_equation_advanced;
+   while (choices) {
+      enum gl_advanced_blend_mode choice = (enum gl_advanced_blend_mode)u_bit_scan(&choices);
+      emit_hdrf(ctx, "layout(blend_support_%s) out;\n", blend_to_name(choice));
    }
 
    if (ctx->write_all_cbufs) {
