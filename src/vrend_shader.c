@@ -6225,7 +6225,13 @@ static void emit_ios_fs(struct dump_ctx *ctx)
       for (i = 0; i < ctx->num_outputs; i++) {
 
          if (!ctx->outputs[i].glsl_predefined_no_emit) {
-            emit_ios_generic(ctx, io_out, "", &ctx->outputs[i],
+            char prefix[64] = "";
+
+            if (ctx->cfg->use_gles &&
+                ctx->outputs[i].name == TGSI_SEMANTIC_COLOR)
+               sprintf(prefix, "layout(location = %d)", ctx->outputs[i].sid);
+
+            emit_ios_generic(ctx, io_out, prefix, &ctx->outputs[i],
                               ctx->outputs[i].fbfetch_used ? "inout" : "out", "");
 
          } else if (ctx->outputs[i].invariant || ctx->outputs[i].precise) {
