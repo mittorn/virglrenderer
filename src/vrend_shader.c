@@ -4839,7 +4839,13 @@ iter_instruction(struct tgsi_iterate_context *iter,
       emit_op1("floor");
       break;
    case TGSI_OPCODE_ROUND:
-      emit_op1("round");
+      // There is no TGSI OPCODE for roundEven, prefer roundEven
+      // so roundEven in guest gets translated to roundEven.
+      if ((ctx->cfg->use_gles && ctx->cfg->glsl_version >= 300) ||
+          ctx->cfg->glsl_version >= 400)
+         emit_op1("roundEven");
+      else
+         emit_op1("round");
       break;
    case TGSI_OPCODE_ISSG:
       emit_op1("sign");
