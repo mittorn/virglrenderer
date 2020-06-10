@@ -102,6 +102,7 @@ struct vrend_shader_info {
    int tes_prim;
    bool tes_point_mode;
    uint32_t attrib_input_mask;
+   uint32_t fs_blend_equation_advanced;
 
    struct vrend_array *sampler_arrays;
    int num_sampler_arrays;

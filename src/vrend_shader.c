@@ -6695,6 +6695,7 @@ static void fill_sinfo(struct dump_ctx *ctx, struct vrend_shader_info *sinfo)
    sinfo->gs_out_prim = ctx->gs_out_prim;
    sinfo->tes_prim = ctx->tes_prim_mode;
    sinfo->tes_point_mode = ctx->tes_point_mode;
+   sinfo->fs_blend_equation_advanced = ctx->fs_blend_equation_advanced;
 
    if (sinfo->so_names || ctx->so_names) {
       if (sinfo->so_names) {

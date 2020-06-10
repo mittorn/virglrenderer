@@ -788,6 +788,30 @@ static inline const char *pipe_shader_to_prefix(int shader_type)
    };
 }
 
+static GLenum translate_blend_func_advanced(enum gl_advanced_blend_mode blend)
+{
+   switch(blend){
+   case BLEND_MULTIPLY: return GL_MULTIPLY_KHR;
+   case BLEND_SCREEN: return GL_SCREEN_KHR;
+   case BLEND_OVERLAY: return GL_OVERLAY_KHR;
+   case BLEND_DARKEN: return GL_DARKEN_KHR;
+   case BLEND_LIGHTEN: return GL_LIGHTEN_KHR;
+   case BLEND_COLORDODGE: return GL_COLORDODGE_KHR;
+   case BLEND_COLORBURN: return GL_COLORBURN_KHR;
+   case BLEND_HARDLIGHT: return GL_HARDLIGHT_KHR;
+   case BLEND_SOFTLIGHT: return GL_SOFTLIGHT_KHR;
+   case BLEND_DIFFERENCE: return GL_DIFFERENCE_KHR;
+   case BLEND_EXCLUSION: return GL_EXCLUSION_KHR;
+   case BLEND_HSL_HUE: return GL_HSL_HUE_KHR;
+   case BLEND_HSL_SATURATION: return GL_HSL_SATURATION_KHR;
+   case BLEND_HSL_COLOR: return GL_HSL_COLOR_KHR;
+   case BLEND_HSL_LUMINOSITY: return GL_HSL_LUMINOSITY_KHR;
+   default:
+      assert("invalid blend token()" == NULL);
+      return 0;
+   }
+}
+
 static const char *vrend_ctx_error_strings[] = {
    [VIRGL_ERROR_CTX_NONE]                  = "None",
    [VIRGL_ERROR_CTX_UNKNOWN]               = "Unknown",
@@ -3059,11 +3083,10 @@ void vrend_memory_barrier(UNUSED struct vrend_context *ctx,
 void vrend_texture_barrier(UNUSED struct vrend_context *ctx,
                            unsigned flags)
 {
-   if (!has_feature(feat_texture_barrier))
-      return;
-
-   if (flags == PIPE_TEXTURE_BARRIER_SAMPLER)
+   if (has_feature(feat_texture_barrier) && (flags & PIPE_TEXTURE_BARRIER_SAMPLER))
       glTextureBarrier();
+   if (has_feature(feat_blend_equation_advanced) && (flags & PIPE_TEXTURE_BARRIER_FRAMEBUFFER))
+      glBlendBarrierKHR();
 }
 
 static void vrend_destroy_shader_object(void *obj_ptr)
@@ -4533,6 +4556,25 @@ int vrend_draw_vbo(struct vrend_context *ctx,
 
    if (info->vertices_per_patch && has_feature(feat_tessellation))
       glPatchParameteri(GL_PATCH_VERTICES, info->vertices_per_patch);
+
+   /* If the host support blend_equation_advanced but not fbfetch,
+    * the guest driver will not lower the equation to fbfetch so we need to set up the renderer to
+    * accept those blend equations.
+    * When we transmit the blend mode through alpha_src_factor, alpha_dst_factor is always 0.
+    */
+   uint32_t blend_mask_shader = ctx->sub->shaders[PIPE_SHADER_FRAGMENT]->sinfo.fs_blend_equation_advanced;
+   uint32_t blend_mode = ctx->sub->blend_state.rt[0].alpha_src_factor;
+   uint32_t alpha_dst_factor = ctx->sub->blend_state.rt[0].alpha_dst_factor;
+   bool use_advanced_blending = !has_feature(feat_framebuffer_fetch) &&
+                                 has_feature(feat_blend_equation_advanced) &&
+                                 blend_mask_shader != 0 &&
+                                 blend_mode != 0 &&
+                                 alpha_dst_factor == 0;
+   if(use_advanced_blending) {
+      GLenum blend = translate_blend_func_advanced(blend_mode);
+      glBlendEquation(blend);
+      glEnable(GL_BLEND);
+   }
 
    /* set the vertex state up now on a delay */
    if (!info->indexed) {
