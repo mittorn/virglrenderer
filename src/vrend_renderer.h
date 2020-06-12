@@ -131,6 +131,7 @@ struct vrend_if_cbs {
 };
 
 #define VREND_USE_THREAD_SYNC 1
+#define VREND_USE_EXTERNAL_BLOB 2
 
 int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags);
 

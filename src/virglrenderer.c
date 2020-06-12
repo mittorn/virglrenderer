@@ -538,6 +538,8 @@ int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks
 
    if (flags & VIRGL_RENDERER_THREAD_SYNC)
       renderer_flags |= VREND_USE_THREAD_SYNC;
+   if (flags & VIRGL_RENDERER_USE_EXTERNAL_BLOB)
+      renderer_flags |= VREND_USE_EXTERNAL_BLOB;
 
    return vrend_renderer_init(&virgl_cbs, renderer_flags);
 }

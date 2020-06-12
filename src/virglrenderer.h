@@ -69,6 +69,16 @@ struct virgl_renderer_callbacks {
 #define VIRGL_RENDERER_USE_GLX (1 << 2)
 #define VIRGL_RENDERER_USE_SURFACELESS (1 << 3)
 #define VIRGL_RENDERER_USE_GLES (1 << 4)
+/*
+ * Blob resources used with the 3D driver must be able to be represented as file descriptors.
+ * The typical use case is the virtual machine manager (or vtest) is running in a multiprocess
+ * mode. In a standard Linux setup, that means the KVM process is different from the process that
+ * instantiated virglrenderer. For zero-copy capability to work, file descriptors must be used.
+ *
+ * VMMs that advertise support for the virtio-gpu feature VIRTIO_GPU_F_RESOURCE_BLOB and run in
+ * a multi-process mode *must* specify this flag.
+ */
+#define VIRGL_RENDERER_USE_EXTERNAL_BLOB (1 << 5)
 
 VIRGL_EXPORT int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks *cb);
 VIRGL_EXPORT void virgl_renderer_poll(void); /* force fences */

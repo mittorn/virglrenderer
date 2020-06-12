@@ -282,6 +282,7 @@ struct global_renderer_state {
    bool finishing;
    bool use_gles;
    bool use_core_profile;
+   bool use_external_blob;
 
    bool features[feat_last];
 
@@ -5965,6 +5966,8 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
    if (flags & VREND_USE_THREAD_SYNC) {
       vrend_renderer_use_threaded_sync();
    }
+   if (flags & VREND_USE_EXTERNAL_BLOB)
+      vrend_state.use_external_blob = true;
 
    return 0;
 }
