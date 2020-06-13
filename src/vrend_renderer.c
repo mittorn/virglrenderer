@@ -7406,7 +7406,8 @@ static void do_readpixels(GLint x, GLint y,
       glReadPixels(x, y, width, height, format, type, data);
 }
 
-static int vrend_transfer_send_readpixels(struct vrend_resource *res,
+static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
+                                          struct vrend_resource *res,
                                           const struct iovec *iov, int num_iovs,
                                           const struct vrend_transfer_info *info)
 {
@@ -7424,7 +7425,10 @@ static int vrend_transfer_send_readpixels(struct vrend_resource *res,
    int row_stride = info->stride / elsize;
    GLint old_fbo;
 
-   glUseProgram(0);
+   if (ctx)
+      vrend_use_program(ctx, 0);
+   else
+      glUseProgram(0);
 
    enum virgl_formats fmt = vrend_format_replace_emulated(res->base.bind, res->base.format);
    format = tex_conv_table[fmt].glformat;
@@ -7602,7 +7606,8 @@ static int vrend_transfer_send_readonly(struct vrend_resource *res,
    return -1;
 }
 
-static int vrend_renderer_transfer_send_iov(struct vrend_resource *res,
+static int vrend_renderer_transfer_send_iov(struct vrend_context *ctx,
+					    struct vrend_resource *res,
                                             const struct iovec *iov, int num_iovs,
                                             const struct vrend_transfer_info *info)
 {
@@ -7639,7 +7644,7 @@ static int vrend_renderer_transfer_send_iov(struct vrend_resource *res,
       can_readpixels = vrend_format_can_render(res->base.format) || vrend_format_is_ds(res->base.format);
 
       if (can_readpixels)
-         ret = vrend_transfer_send_readpixels(res, iov, num_iovs, info);
+         ret = vrend_transfer_send_readpixels(ctx, res, iov, num_iovs, info);
 
       /* Can hit this on a non-error path as well. */
       if (ret) {
@@ -7665,16 +7670,7 @@ static int vrend_renderer_transfer_internal(struct vrend_context *ctx,
    if (!info->box)
       return EINVAL;
 
-   void* fence = NULL;
-#ifdef HAVE_EPOXY_EGL_H
-   // Some platforms require extra synchronization before transferring.
-   if (transfer_mode == VIRGL_TRANSFER_FROM_HOST) {
-      if (virgl_egl_need_fence_and_wait_external(egl)) {
-         vrend_hw_switch_context(ctx, true);
-         fence = virgl_egl_fence(egl);
-      }
-   }
-#endif
+   vrend_hw_switch_context(ctx, true);
 
    iov = info->iovec;
    num_iovs = info->iovec_cnt;
@@ -7708,20 +7704,11 @@ static int vrend_renderer_transfer_internal(struct vrend_context *ctx,
       return EINVAL;
    }
 
-   if (info->context0) {
-      vrend_renderer_force_ctx_0();
-      ctx = NULL;
-   }
-
-#ifdef HAVE_EPOXY_EGL_H
-   virgl_egl_wait_fence(egl, fence);
-#endif
-
    switch (transfer_mode) {
    case VIRGL_TRANSFER_TO_HOST:
       return vrend_renderer_transfer_write_iov(ctx, res, iov, num_iovs, info);
    case VIRGL_TRANSFER_FROM_HOST:
-      return vrend_renderer_transfer_send_iov(res, iov, num_iovs, info);
+      return vrend_renderer_transfer_send_iov(ctx, res, iov, num_iovs, info);
 
    default:
       assert(0);
@@ -8243,7 +8230,6 @@ GLenum translate_gles_emulation_texture_target(GLenum target)
    default: return target;
    }
 }
-
 
 static inline void
 vrend_copy_sub_image(struct vrend_resource* src_res, struct vrend_resource * dst_res,
@@ -10094,7 +10080,6 @@ void vrend_renderer_get_rect(struct pipe_resource *pres,
    transfer_info.offset = offset;
    transfer_info.iovec = iov;
    transfer_info.iovec_cnt = num_iovs;
-   transfer_info.context0 = true;
 
    vrend_renderer_transfer_pipe(pres, &transfer_info,
                                 VIRGL_TRANSFER_FROM_HOST);

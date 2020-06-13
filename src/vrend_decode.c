@@ -1384,7 +1384,6 @@ static int vrend_decode_transfer3d(struct vrend_decode_ctx *ctx, int length)
    vrend_decode_transfer_common(ctx, &dst_handle, &info);
    info.offset = get_buf_entry(ctx, VIRGL_TRANSFER3D_DATA_OFFSET);
    int transfer_mode = get_buf_entry(ctx, VIRGL_TRANSFER3D_DIRECTION);
-   info.context0 = false;
 
    if (transfer_mode != VIRGL_TRANSFER_TO_HOST &&
        transfer_mode != VIRGL_TRANSFER_FROM_HOST)
