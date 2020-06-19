@@ -26,6 +26,9 @@
 
 #include "virglrenderer.h"
 #include "vrend_renderer.h"
+
+#include <epoxy/egl.h>
+
 struct virgl_egl;
 struct virgl_gbm;
 struct gbm_bo;
@@ -56,4 +59,9 @@ int virgl_egl_get_fd_for_texture2(struct virgl_egl *egl, uint32_t tex_id, int *f
 void *virgl_egl_image_from_dmabuf(struct virgl_egl *egl, struct gbm_bo *bo);
 void *virgl_egl_aux_plane_image_from_dmabuf(struct virgl_egl *egl, struct gbm_bo *bo, int plane);
 void virgl_egl_image_destroy(struct virgl_egl *egl, void *image);
+
+bool virgl_egl_supports_fences(struct virgl_egl *egl);
+EGLSyncKHR virgl_egl_fence_create(struct virgl_egl *egl);
+void virgl_egl_fence_destroy(struct virgl_egl *egl, EGLSyncKHR fence);
+bool virgl_egl_client_wait_fence(struct virgl_egl *egl, EGLSyncKHR fence, uint64_t timeout);
 #endif

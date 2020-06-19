@@ -34,7 +34,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdbool.h>
-#include <epoxy/egl.h>
 #include <xf86drm.h>
 
 #include "util/u_memory.h"
@@ -53,7 +52,7 @@
 #define EGL_KHR_GL_COLORSPACE                  BIT(5)
 #define EGL_EXT_IMAGE_DMA_BUF_IMPORT           BIT(6)
 #define EGL_EXT_IMAGE_DMA_BUF_IMPORT_MODIFIERS BIT(7)
-#define EGL_KHR_FENCE_SYNC                     BIT(8)
+#define EGL_KHR_FENCE_SYNC_ANDROID             BIT(8)
 
 static const struct {
    uint32_t bit;
@@ -66,7 +65,7 @@ static const struct {
    { EGL_KHR_GL_COLORSPACE, "EGL_KHR_gl_colorspace" },
    { EGL_EXT_IMAGE_DMA_BUF_IMPORT, "EGL_EXT_image_dma_buf_import" },
    { EGL_EXT_IMAGE_DMA_BUF_IMPORT_MODIFIERS, "EGL_EXT_image_dma_buf_import_modifiers" },
-   { EGL_KHR_FENCE_SYNC, "EGL_KHR_fence_sync"}
+   { EGL_KHR_FENCE_SYNC_ANDROID, "EGL_ANDROID_native_fence_sync"}
 };
 
 struct virgl_egl {
@@ -507,3 +506,30 @@ void virgl_egl_image_destroy(struct virgl_egl *egl, void *image)
    eglDestroyImageKHR(egl->egl_display, image);
 }
 #endif
+
+bool virgl_egl_supports_fences(struct virgl_egl *egl)
+{
+   return (egl && has_bit(egl->extension_bits, EGL_KHR_FENCE_SYNC_ANDROID));
+}
+
+EGLSyncKHR virgl_egl_fence_create(struct virgl_egl *egl)
+{
+   if (!egl || !has_bit(egl->extension_bits, EGL_KHR_FENCE_SYNC_ANDROID)) {
+      return EGL_NO_SYNC_KHR;
+   }
+
+   return eglCreateSyncKHR(egl->egl_display, EGL_SYNC_NATIVE_FENCE_ANDROID, NULL);
+}
+
+void virgl_egl_fence_destroy(struct virgl_egl *egl, EGLSyncKHR fence) {
+   eglDestroySyncKHR(egl->egl_display, fence);
+}
+
+bool virgl_egl_client_wait_fence(struct virgl_egl *egl, EGLSyncKHR fence, uint64_t timeout)
+{
+   EGLint ret = eglClientWaitSyncKHR(egl->egl_display, fence, 0, timeout);
+   if (ret == EGL_FALSE) {
+      vrend_printf("wait sync failed\n");
+   }
+   return ret != EGL_TIMEOUT_EXPIRED_KHR;
+}

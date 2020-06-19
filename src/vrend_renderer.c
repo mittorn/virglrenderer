@@ -68,7 +68,12 @@ const struct vrend_if_cbs *vrend_clicbs;
 struct vrend_fence {
    uint32_t fence_id;
    uint32_t ctx_id;
-   GLsync syncobj;
+   union {
+      GLsync glsyncobj;
+#ifdef HAVE_EPOXY_EGL_H
+      EGLSyncKHR eglsyncobj;
+#endif
+   };
    struct list_head fences;
 };
 
@@ -283,6 +288,9 @@ struct global_renderer_state {
    bool use_core_profile;
    bool use_external_blob;
    bool use_integer;
+#ifdef HAVE_EPOXY_EGL_H
+   bool use_egl_fence;
+#endif
 
    bool features[feat_last];
 
@@ -5714,10 +5722,20 @@ static bool do_wait(struct vrend_fence *fence, bool can_block)
 {
    bool done = false;
    int timeout = can_block ? 1000000000 : 0;
+
+#ifdef HAVE_EPOXY_EGL_H
+   if (vrend_state.use_egl_fence) {
+      do {
+         done = virgl_egl_client_wait_fence(egl, fence->eglsyncobj, timeout);
+      } while (!done && can_block);
+      return done;
+   }
+#endif
+
    do {
-      GLenum glret = glClientWaitSync(fence->syncobj, 0, timeout);
+      GLenum glret = glClientWaitSync(fence->glsyncobj, 0, timeout);
       if (glret == GL_WAIT_FAILED) {
-         vrend_printf( "wait sync failed: illegal fence object %p\n", fence->syncobj);
+         vrend_printf( "wait sync failed: illegal fence object %p\n", fence->glsyncobj);
       }
       done = glret != GL_TIMEOUT_EXPIRED;
    } while (!done && can_block);
@@ -6045,6 +6063,10 @@ int vrend_renderer_init(const struct vrend_if_cbs *cbs, uint32_t flags)
    }
    if (flags & VREND_USE_EXTERNAL_BLOB)
       vrend_state.use_external_blob = true;
+
+#ifdef HAVE_EPOXY_EGL_H
+   vrend_state.use_egl_fence = virgl_egl_supports_fences(egl);
+#endif
 
    return 0;
 }
@@ -8956,10 +8978,17 @@ int vrend_renderer_create_fence(int client_fence_id, uint32_t ctx_id)
 
    fence->ctx_id = ctx_id;
    fence->fence_id = client_fence_id;
-   fence->syncobj = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+#ifdef HAVE_EPOXY_EGL_H
+   if (vrend_state.use_egl_fence) {
+      fence->eglsyncobj = virgl_egl_fence_create(egl);
+   } else
+#endif
+   {
+      fence->glsyncobj = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+   }
    glFlush();
 
-   if (fence->syncobj == NULL)
+   if (fence->glsyncobj == NULL)
       goto fail;
 
    if (vrend_state.sync_thread) {
@@ -8980,7 +9009,14 @@ int vrend_renderer_create_fence(int client_fence_id, uint32_t ctx_id)
 static void free_fence_locked(struct vrend_fence *fence)
 {
    list_del(&fence->fences);
-   glDeleteSync(fence->syncobj);
+#ifdef HAVE_EPOXY_EGL_H
+   if (vrend_state.use_egl_fence) {
+      virgl_egl_fence_destroy(egl, fence->eglsyncobj);
+   } else
+#endif
+   {
+      glDeleteSync(fence->glsyncobj);
+   }
    free(fence);
 }
 
