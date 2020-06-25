@@ -10309,6 +10309,7 @@ void vrend_renderer_create_sub_ctx(struct vrend_context *ctx, int sub_ctx_id)
    }
 
    glGenFramebuffers(1, &sub->fb_id);
+   glBindFramebuffer(GL_FRAMEBUFFER, sub->fb_id);
    glGenFramebuffers(2, sub->blit_fb_ids);
 
    list_inithead(&sub->programs);
