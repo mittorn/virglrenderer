@@ -6902,6 +6902,12 @@ static void write_transfer_data(struct pipe_resource *res,
    }
 }
 
+static bool check_transfer_iovec(struct vrend_resource *res,
+                                 const struct vrend_transfer_info *info)
+{
+   return (info->iovec && info->iovec_cnt) || res->iov;
+}
+
 static bool check_transfer_bounds(struct vrend_resource *res,
                                   const struct vrend_transfer_info *info)
 {
@@ -7672,18 +7678,13 @@ static int vrend_renderer_transfer_internal(struct vrend_context *ctx,
 
    vrend_hw_switch_context(ctx, true);
 
-   iov = info->iovec;
-   num_iovs = info->iovec_cnt;
-
-   if (res->iov && (!iov || num_iovs == 0)) {
+   assert(check_transfer_iovec(res, info));
+   if (info->iovec && info->iovec_cnt) {
+      iov = info->iovec;
+      num_iovs = info->iovec_cnt;
+   } else {
       iov = res->iov;
       num_iovs = res->num_iovs;
-   }
-
-   if (!iov) {
-      if (ctx != vrend_state.ctx0)
-         vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, res->handle);
-      return EINVAL;
    }
 
 #ifdef ENABLE_MINIGBM_ALLOCATION
@@ -7724,7 +7725,7 @@ int vrend_renderer_transfer_iov(struct vrend_context *ctx,
    struct vrend_resource *res;
 
    res = vrend_renderer_ctx_res_lookup(ctx, dst_handle);
-   if (!res) {
+   if (!res || !check_transfer_iovec(res, info)) {
       vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, dst_handle);
       return EINVAL;
    }
@@ -7738,6 +7739,9 @@ int vrend_renderer_transfer_pipe(struct pipe_resource *pres,
                                  int transfer_mode)
 {
    struct vrend_resource *res = (struct vrend_resource *)pres;
+   if (!check_transfer_iovec(res, info))
+      return EINVAL;
+
    return vrend_renderer_transfer_internal(vrend_state.ctx0, res, info,
                                            transfer_mode);
 }
