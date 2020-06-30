@@ -155,7 +155,14 @@ void virgl_renderer_resource_unref(uint32_t res_handle)
 void virgl_renderer_fill_caps(uint32_t set, uint32_t version,
                               void *caps)
 {
-   vrend_renderer_fill_caps(set, version, (union virgl_caps *)caps);
+   switch (set) {
+   case VIRGL_CAPSET_VIRGL:
+   case VIRGL_CAPSET_VIRGL2:
+      vrend_renderer_fill_caps(set, version, (union virgl_caps *)caps);
+      break;
+   default:
+      break;
+   }
 }
 
 int virgl_renderer_context_create(uint32_t handle, uint32_t nlen, const char *name)
@@ -354,7 +361,16 @@ int virgl_renderer_resource_get_info(int res_handle,
 void virgl_renderer_get_cap_set(uint32_t cap_set, uint32_t *max_ver,
                                 uint32_t *max_size)
 {
-   vrend_renderer_get_cap_set(cap_set, max_ver, max_size);
+   switch (cap_set) {
+   case VIRGL_CAPSET_VIRGL:
+   case VIRGL_CAPSET_VIRGL2:
+      vrend_renderer_get_cap_set(cap_set, max_ver, max_size);
+      break;
+   default:
+      *max_ver = 0;
+      *max_size = 0;
+      break;
+   }
 }
 
 void virgl_renderer_get_rect(int resource_id, struct iovec *iov, unsigned int num_iovs,
