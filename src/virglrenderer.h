@@ -291,6 +291,12 @@ VIRGL_EXPORT int virgl_renderer_resource_unmap(uint32_t res_handle);
 
 VIRGL_EXPORT int virgl_renderer_resource_get_map_info(uint32_t res_handle, uint32_t *map_info);
 
+#define VIRGL_RENDERER_BLOB_FD_TYPE_DMABUF        0x0001
+#define VIRGL_RENDERER_BLOB_FD_TYPE_OPAQUE        0x0002
+
+VIRGL_EXPORT int
+virgl_renderer_resource_export_blob(uint32_t res_id, uint32_t *fd_type, int *fd);
+
 #endif /* VIRGL_RENDERER_UNSTABLE_APIS */
 
 #endif

@@ -751,3 +751,24 @@ int virgl_renderer_resource_get_map_info(uint32_t res_handle, uint32_t *map_info
 
    return vrend_renderer_resource_get_map_info(res->pipe_resource, map_info);
 }
+
+int
+virgl_renderer_resource_export_blob(uint32_t res_id, uint32_t *fd_type, int *fd)
+{
+   struct virgl_resource *res = virgl_resource_lookup(res_id);
+   if (!res)
+      return EINVAL;
+
+   switch (virgl_resource_export_fd(res, fd)) {
+   case VIRGL_RESOURCE_FD_DMABUF:
+      *fd_type = VIRGL_RENDERER_BLOB_FD_TYPE_DMABUF;
+      break;
+   case VIRGL_RESOURCE_FD_OPAQUE:
+      *fd_type = VIRGL_RENDERER_BLOB_FD_TYPE_OPAQUE;
+      break;
+   default:
+      return EINVAL;
+   }
+
+   return 0;
+}
