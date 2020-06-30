@@ -135,6 +135,12 @@ static void
 resource_destroy_func(void *value)
 {
    struct vtest_resource *res = value;
+
+   /* virgl_renderer_ctx_detach_resource and virgl_renderer_resource_detach_iov
+    * are implied
+    */
+   virgl_renderer_resource_unref(res->res_id);
+
    if (res->iov.iov_base)
       munmap(res->iov.iov_base, res->iov.iov_len);
    free(res);
@@ -705,13 +711,8 @@ int vtest_resource_unref(UNUSED uint32_t length_dw)
    }
 
    handle = res_unref_buf[VCMD_RES_UNREF_RES_HANDLE];
-   /* XXX check that handle is owned by ctx */
-   virgl_renderer_ctx_attach_resource(ctx->ctx_id, handle);
-
-   virgl_renderer_resource_detach_iov(handle, NULL, NULL);
    util_hash_table_remove(renderer.resource_table, intptr_to_pointer(handle));
 
-   virgl_renderer_resource_unref(handle);
    return 0;
 }
 
