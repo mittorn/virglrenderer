@@ -687,44 +687,60 @@ int vtest_submit_cmd(uint32_t length_dw)
    return ret ? -1 : 0;
 }
 
-#define DECODE_TRANSFER \
-   do {								\
-      handle = thdr_buf[VCMD_TRANSFER_RES_HANDLE];		\
-      level = thdr_buf[VCMD_TRANSFER_LEVEL];			\
-      stride = thdr_buf[VCMD_TRANSFER_STRIDE];			\
-      layer_stride = thdr_buf[VCMD_TRANSFER_LAYER_STRIDE];	\
-      box.x = thdr_buf[VCMD_TRANSFER_X];			\
-      box.y = thdr_buf[VCMD_TRANSFER_Y];			\
-      box.z = thdr_buf[VCMD_TRANSFER_Z];			\
-      box.w = thdr_buf[VCMD_TRANSFER_WIDTH];			\
-      box.h = thdr_buf[VCMD_TRANSFER_HEIGHT];			\
-      box.d = thdr_buf[VCMD_TRANSFER_DEPTH];			\
-      data_size = thdr_buf[VCMD_TRANSFER_DATA_SIZE];		\
-   } while(0)
+struct vtest_transfer_args {
+   uint32_t handle;
+   uint32_t level;
+   uint32_t stride;
+   uint32_t layer_stride;
+   struct virgl_box box;
+   uint32_t offset;
+};
 
+static int vtest_transfer_decode_args(struct vtest_context *ctx,
+                                      struct vtest_transfer_args *args,
+                                      uint32_t *data_size)
+{
+   uint32_t thdr_buf[VCMD_TRANSFER_HDR_SIZE];
+   int ret;
+
+   ret = ctx->input->read(ctx->input, thdr_buf, sizeof(thdr_buf));
+   if (ret != sizeof(thdr_buf)) {
+      return -1;
+   }
+
+   args->handle = thdr_buf[VCMD_TRANSFER_RES_HANDLE];
+   args->level = thdr_buf[VCMD_TRANSFER_LEVEL];
+   args->stride = thdr_buf[VCMD_TRANSFER_STRIDE];
+   args->layer_stride = thdr_buf[VCMD_TRANSFER_LAYER_STRIDE];
+   args->box.x = thdr_buf[VCMD_TRANSFER_X];
+   args->box.y = thdr_buf[VCMD_TRANSFER_Y];
+   args->box.z = thdr_buf[VCMD_TRANSFER_Z];
+   args->box.w = thdr_buf[VCMD_TRANSFER_WIDTH];
+   args->box.h = thdr_buf[VCMD_TRANSFER_HEIGHT];
+   args->box.d = thdr_buf[VCMD_TRANSFER_DEPTH];
+   args->offset = 0;
+
+   *data_size = thdr_buf[VCMD_TRANSFER_DATA_SIZE];
+
+   if (*data_size > renderer.max_length) {
+      return -ENOMEM;
+   }
+
+   return 0;
+}
 
 int vtest_transfer_get(UNUSED uint32_t length_dw)
 {
    struct vtest_context *ctx = vtest_get_current_context();
-   uint32_t thdr_buf[VCMD_TRANSFER_HDR_SIZE];
    int ret;
-   int level;
-   uint32_t stride, layer_stride, handle;
-   struct virgl_box box;
+   struct vtest_transfer_args args;
    uint32_t data_size;
    void *ptr;
    struct iovec iovec;
 
-   ret = ctx->input->read(ctx->input, thdr_buf,
-                          VCMD_TRANSFER_HDR_SIZE * 4);
-   if (ret != VCMD_TRANSFER_HDR_SIZE * 4) {
+   ret = vtest_transfer_decode_args(ctx, &args, &data_size);
+   if (ret < 0) {
       return ret;
-   }
-
-   DECODE_TRANSFER;
-
-   if (data_size > renderer.max_length) {
-      return -ENOMEM;
    }
 
    ptr = malloc(data_size);
@@ -734,13 +750,13 @@ int vtest_transfer_get(UNUSED uint32_t length_dw)
 
    iovec.iov_len = data_size;
    iovec.iov_base = ptr;
-   ret = virgl_renderer_transfer_read_iov(handle,
+   ret = virgl_renderer_transfer_read_iov(args.handle,
          ctx->ctx_id,
-         level,
-         stride,
-         layer_stride,
-         &box,
-         0,
+         args.level,
+         args.stride,
+         args.layer_stride,
+         &args.box,
+         args.offset,
          &iovec, 1);
    if (ret) {
       fprintf(stderr," transfer read failed %d\n", ret);
@@ -755,24 +771,14 @@ int vtest_transfer_get(UNUSED uint32_t length_dw)
 int vtest_transfer_get_nop(UNUSED uint32_t length_dw)
 {
    struct vtest_context *ctx = vtest_get_current_context();
-   uint32_t thdr_buf[VCMD_TRANSFER_HDR_SIZE];
    int ret;
-   UNUSED int level;
-   UNUSED uint32_t stride, layer_stride, handle;
-   UNUSED struct virgl_box box;
+   struct vtest_transfer_args args;
    uint32_t data_size;
    void *ptr;
 
-   ret = ctx->input->read(ctx->input, thdr_buf,
-                          VCMD_TRANSFER_HDR_SIZE * 4);
-   if (ret != VCMD_TRANSFER_HDR_SIZE * 4) {
+   ret = vtest_transfer_decode_args(ctx, &args, &data_size);
+   if (ret < 0) {
       return ret;
-   }
-
-   DECODE_TRANSFER;
-
-   if (data_size > renderer.max_length) {
-      return -ENOMEM;
    }
 
    ptr = malloc(data_size);
@@ -791,25 +797,15 @@ int vtest_transfer_get_nop(UNUSED uint32_t length_dw)
 int vtest_transfer_put(UNUSED uint32_t length_dw)
 {
    struct vtest_context *ctx = vtest_get_current_context();
-   uint32_t thdr_buf[VCMD_TRANSFER_HDR_SIZE];
    int ret;
-   int level;
-   uint32_t stride, layer_stride, handle;
-   struct virgl_box box;
+   struct vtest_transfer_args args;
    uint32_t data_size;
    void *ptr;
    struct iovec iovec;
 
-   ret = ctx->input->read(ctx->input, thdr_buf,
-                          VCMD_TRANSFER_HDR_SIZE * 4);
-   if (ret != VCMD_TRANSFER_HDR_SIZE * 4) {
+   ret = vtest_transfer_decode_args(ctx, &args, &data_size);
+   if (ret < 0) {
       return ret;
-   }
-
-   DECODE_TRANSFER;
-
-   if (data_size > renderer.max_length) {
-      return -ENOMEM;
    }
 
    ptr = malloc(data_size);
@@ -824,13 +820,13 @@ int vtest_transfer_put(UNUSED uint32_t length_dw)
 
    iovec.iov_len = data_size;
    iovec.iov_base = ptr;
-   ret = virgl_renderer_transfer_write_iov(handle,
+   ret = virgl_renderer_transfer_write_iov(args.handle,
                                            ctx->ctx_id,
-                                           level,
-                                           stride,
-                                           layer_stride,
-                                           &box,
-                                           0,
+                                           args.level,
+                                           args.stride,
+                                           args.layer_stride,
+                                           &args.box,
+                                           args.offset,
                                            &iovec, 1);
    if (ret) {
       fprintf(stderr," transfer write failed %d\n", ret);
@@ -843,24 +839,14 @@ int vtest_transfer_put(UNUSED uint32_t length_dw)
 int vtest_transfer_put_nop(UNUSED uint32_t length_dw)
 {
    struct vtest_context *ctx = vtest_get_current_context();
-   uint32_t thdr_buf[VCMD_TRANSFER_HDR_SIZE];
    int ret;
-   UNUSED int level;
-   UNUSED uint32_t stride, layer_stride, handle;
-   UNUSED struct virgl_box box;
+   struct vtest_transfer_args args;
    uint32_t data_size;
    void *ptr;
 
-   ret = ctx->input->read(ctx->input, thdr_buf,
-                          VCMD_TRANSFER_HDR_SIZE * 4);
-   if (ret != VCMD_TRANSFER_HDR_SIZE * 4) {
+   ret = vtest_transfer_decode_args(ctx, &args, &data_size);
+   if (ret < 0) {
       return ret;
-   }
-
-   DECODE_TRANSFER;
-
-   if (data_size > renderer.max_length) {
-      return -ENOMEM;
    }
 
    ptr = malloc(data_size);
