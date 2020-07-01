@@ -549,6 +549,37 @@ static int vtest_create_resource_decode_args(struct vtest_context *ctx,
    return 0;
 }
 
+static int vtest_create_resource_decode_args2(struct vtest_context *ctx,
+                                              struct virgl_renderer_resource_create_args *args,
+                                              size_t *shm_size)
+{
+   uint32_t res_create_buf[VCMD_RES_CREATE2_SIZE];
+   int ret;
+
+   ret = ctx->input->read(ctx->input, &res_create_buf,
+                          sizeof(res_create_buf));
+   if (ret != sizeof(res_create_buf)) {
+      return -1;
+   }
+
+   args->handle = res_create_buf[VCMD_RES_CREATE2_RES_HANDLE];
+   args->target = res_create_buf[VCMD_RES_CREATE2_TARGET];
+   args->format = res_create_buf[VCMD_RES_CREATE2_FORMAT];
+   args->bind = res_create_buf[VCMD_RES_CREATE2_BIND];
+
+   args->width = res_create_buf[VCMD_RES_CREATE2_WIDTH];
+   args->height = res_create_buf[VCMD_RES_CREATE2_HEIGHT];
+   args->depth = res_create_buf[VCMD_RES_CREATE2_DEPTH];
+   args->array_size = res_create_buf[VCMD_RES_CREATE2_ARRAY_SIZE];
+   args->last_level = res_create_buf[VCMD_RES_CREATE2_LAST_LEVEL];
+   args->nr_samples = res_create_buf[VCMD_RES_CREATE2_NR_SAMPLES];
+   args->flags = 0;
+
+   *shm_size = res_create_buf[VCMD_RES_CREATE2_DATA_SIZE];
+
+   return 0;
+}
+
 int vtest_create_resource(UNUSED uint32_t length_dw)
 {
    struct vtest_context *ctx = vtest_get_current_context();
@@ -570,29 +601,15 @@ int vtest_create_resource(UNUSED uint32_t length_dw)
 int vtest_create_resource2(UNUSED uint32_t length_dw)
 {
    struct vtest_context *ctx = vtest_get_current_context();
-   uint32_t res_create_buf[VCMD_RES_CREATE2_SIZE];
    struct virgl_renderer_resource_create_args args;
+   size_t shm_size;
    struct iovec *iovec;
    int ret, fd;
 
-   ret = ctx->input->read(ctx->input, &res_create_buf,
-                          sizeof(res_create_buf));
-   if (ret != sizeof(res_create_buf)) {
-      return -1;
+   ret = vtest_create_resource_decode_args2(ctx, &args, &shm_size);
+   if (ret < 0) {
+      return ret;
    }
-
-   args.handle = res_create_buf[VCMD_RES_CREATE2_RES_HANDLE];
-   args.target = res_create_buf[VCMD_RES_CREATE2_TARGET];
-   args.format = res_create_buf[VCMD_RES_CREATE2_FORMAT];
-   args.bind = res_create_buf[VCMD_RES_CREATE2_BIND];
-
-   args.width = res_create_buf[VCMD_RES_CREATE2_WIDTH];
-   args.height = res_create_buf[VCMD_RES_CREATE2_HEIGHT];
-   args.depth = res_create_buf[VCMD_RES_CREATE2_DEPTH];
-   args.array_size = res_create_buf[VCMD_RES_CREATE2_ARRAY_SIZE];
-   args.last_level = res_create_buf[VCMD_RES_CREATE2_LAST_LEVEL];
-   args.nr_samples = res_create_buf[VCMD_RES_CREATE2_NR_SAMPLES];
-   args.flags = 0;
 
    // Check that the handle doesn't already exist.
    if (util_hash_table_get(renderer.iovec_hash, intptr_to_pointer(args.handle))) {
@@ -610,7 +627,7 @@ int vtest_create_resource2(UNUSED uint32_t length_dw)
       return -ENOMEM;
    }
 
-   iovec->iov_len = res_create_buf[VCMD_RES_CREATE2_DATA_SIZE];
+   iovec->iov_len = shm_size;
 
    /* Multi-sample textures have no backing store, but an associated GL resource. */
    if (iovec->iov_len == 0) {
