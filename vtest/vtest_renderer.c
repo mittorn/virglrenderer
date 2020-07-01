@@ -614,6 +614,7 @@ int vtest_create_resource(UNUSED uint32_t length_dw)
 {
    struct vtest_context *ctx = vtest_get_current_context();
    struct virgl_renderer_resource_create_args args;
+   struct vtest_resource *res;
    int ret;
 
    ret = vtest_create_resource_decode_args(ctx, &args);
@@ -621,11 +622,23 @@ int vtest_create_resource(UNUSED uint32_t length_dw)
       return ret;
    }
 
-   /* XXX check that args.handle does not already exist */
+   // Check that the handle doesn't already exist.
+   if (util_hash_table_get(renderer.resource_table, intptr_to_pointer(args.handle)))
+      return -EEXIST;
+
    ret = virgl_renderer_resource_create(&args, NULL, 0);
+   if (ret)
+      return report_failed_call("virgl_renderer_resource_create", ret);
 
    virgl_renderer_ctx_attach_resource(ctx->ctx_id, args.handle);
-   return ret;
+
+   res = CALLOC_STRUCT(vtest_resource);
+   if (!res)
+      return -ENOMEM;
+
+   util_hash_table_set(renderer.resource_table, intptr_to_pointer(args.handle), res);
+
+   return 0;
 }
 
 int vtest_create_resource2(UNUSED uint32_t length_dw)
@@ -807,14 +820,25 @@ static int vtest_transfer_get_internal(struct vtest_context *ctx,
                                        struct vtest_transfer_args *args,
                                        uint32_t data_size)
 {
+   struct vtest_resource *res;
    struct iovec data_iov;
    int ret = 0;
+
+   res = util_hash_table_get(renderer.resource_table,
+                             intptr_to_pointer(args->handle));
+   if (!res) {
+      return report_failed_call("util_hash_table_get", -ESRCH);
+   }
 
    if (data_size) {
       data_iov.iov_len = data_size;
       data_iov.iov_base = malloc(data_size);
       if (!data_iov.iov_base) {
          return -ENOMEM;
+      }
+   } else {
+      if (args->offset >= res->iov.iov_len) {
+         return report_failure("offset larger then length of backing store", -EFAULT);
       }
    }
 
@@ -850,8 +874,15 @@ static int vtest_transfer_put_internal(struct vtest_context *ctx,
                                        struct vtest_transfer_args *args,
                                        uint32_t data_size)
 {
+   struct vtest_resource *res;
    struct iovec data_iov;
    int ret = 0;
+
+   res = util_hash_table_get(renderer.resource_table,
+                             intptr_to_pointer(args->handle));
+   if (!res) {
+      return report_failed_call("util_hash_table_get", -ESRCH);
+   }
 
    if (data_size) {
       data_iov.iov_len = data_size;
@@ -953,20 +984,10 @@ int vtest_transfer_get2(UNUSED uint32_t length_dw)
    struct vtest_context *ctx = vtest_get_current_context();
    int ret;
    struct vtest_transfer_args args;
-   struct vtest_resource *res;
 
    ret = vtest_transfer_decode_args2(ctx, &args);
    if (ret < 0) {
       return ret;
-   }
-
-   res = util_hash_table_get(renderer.resource_table, intptr_to_pointer(args.handle));
-   if (!res) {
-      return report_failed_call("util_hash_table_get", -ESRCH);
-   }
-
-   if (args.offset >= res->iov.iov_len) {
-      return report_failure("offset larger then length of backing store", -EFAULT);
    }
 
    return vtest_transfer_get_internal(ctx, &args, 0);
@@ -977,20 +998,10 @@ int vtest_transfer_get2_nop(UNUSED uint32_t length_dw)
    struct vtest_context *ctx = vtest_get_current_context();
    int ret;
    struct vtest_transfer_args args;
-   struct vtest_resource *res;
 
    ret = vtest_transfer_decode_args2(ctx, &args);
    if (ret < 0) {
       return ret;
-   }
-
-   res = util_hash_table_get(renderer.resource_table, intptr_to_pointer(args.handle));
-   if (!res) {
-      return report_failed_call("util_hash_table_get", -ESRCH);
-   }
-
-   if (args.offset >= res->iov.iov_len) {
-      return report_failure("offset larger then length of backing store", -EFAULT);
    }
 
    return vtest_transfer_get_internal(ctx, NULL, 0);
@@ -1001,16 +1012,10 @@ int vtest_transfer_put2(UNUSED uint32_t length_dw)
    struct vtest_context *ctx = vtest_get_current_context();
    int ret;
    struct vtest_transfer_args args;
-   struct vtest_resource *res;
 
    ret = vtest_transfer_decode_args2(ctx, &args);
    if (ret < 0) {
       return ret;
-   }
-
-   res = util_hash_table_get(renderer.resource_table, intptr_to_pointer(args.handle));
-   if (!res) {
-      return report_failed_call("util_hash_table_get", -ESRCH);
    }
 
    return vtest_transfer_put_internal(ctx, &args, 0);
@@ -1021,16 +1026,10 @@ int vtest_transfer_put2_nop(UNUSED uint32_t length_dw)
    struct vtest_context *ctx = vtest_get_current_context();
    int ret;
    struct vtest_transfer_args args;
-   struct vtest_resource *res;
 
    ret = vtest_transfer_decode_args2(ctx, &args);
    if (ret < 0) {
       return ret;
-   }
-
-   res = util_hash_table_get(renderer.resource_table, intptr_to_pointer(args.handle));
-   if (!res) {
-      return report_failed_call("util_hash_table_get", -ESRCH);
    }
 
    return vtest_transfer_put_internal(ctx, NULL, 0);
