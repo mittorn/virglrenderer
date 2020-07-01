@@ -62,10 +62,11 @@ struct vtest_context {
    int out_fd;
 
    unsigned protocol_version;
+
+   struct util_hash_table *resource_table;
 };
 
 struct vtest_renderer {
-   struct util_hash_table *resource_table;
    const char *rendernode_name;
 
    uint32_t max_length;
@@ -255,9 +256,6 @@ int vtest_init_renderer(int ctx_flags, const char *render_device)
 {
    int ret;
 
-   renderer.resource_table = util_hash_table_create(resource_hash_func,
-                                                    resource_compare_func,
-                                                    resource_destroy_func);
    renderer.rendernode_name = render_device;
    list_inithead(&renderer.active_contexts);
    list_inithead(&renderer.free_contexts);
@@ -281,6 +279,7 @@ void vtest_cleanup_renderer(void)
 
       LIST_FOR_EACH_ENTRY_SAFE(ctx, tmp, &renderer.active_contexts, head) {
          virgl_renderer_context_destroy(ctx->ctx_id);
+         util_hash_table_clear(ctx->resource_table);
          vtest_free_context(ctx, true);
       }
       LIST_FOR_EACH_ENTRY_SAFE(ctx, tmp, &renderer.free_contexts, head) {
@@ -294,9 +293,6 @@ void vtest_cleanup_renderer(void)
    }
 
    virgl_renderer_cleanup(&renderer);
-
-   util_hash_table_destroy(renderer.resource_table);
-   renderer.resource_table = NULL;
 }
 
 static struct vtest_context *vtest_new_context(struct vtest_input *input,
@@ -309,6 +305,15 @@ static struct vtest_context *vtest_new_context(struct vtest_input *input,
       if (!ctx) {
          return NULL;
       }
+
+      ctx->resource_table = util_hash_table_create(resource_hash_func,
+                                                   resource_compare_func,
+                                                   resource_destroy_func);
+      if (!ctx->resource_table) {
+         free(ctx);
+         return NULL;
+      }
+
       ctx->ctx_id = renderer.next_context_id++;
    } else {
       ctx = LIST_ENTRY(struct vtest_context, renderer.free_contexts.next, head);
@@ -327,6 +332,7 @@ static struct vtest_context *vtest_new_context(struct vtest_input *input,
 static void vtest_free_context(struct vtest_context *ctx, bool cleanup)
 {
    if (cleanup) {
+      util_hash_table_destroy(ctx->resource_table);
       free(ctx);
    } else {
       list_add(&ctx->head, &renderer.free_contexts);
@@ -384,6 +390,7 @@ void vtest_destroy_context(struct vtest_context *ctx)
    list_del(&ctx->head);
 
    virgl_renderer_context_destroy(ctx->ctx_id);
+   util_hash_table_clear(ctx->resource_table);
    vtest_free_context(ctx, false);
 }
 
@@ -625,7 +632,7 @@ static int vtest_create_resource_internal(struct vtest_context *ctx,
    int ret;
 
    // Check that the handle doesn't already exist.
-   if (util_hash_table_get(renderer.resource_table, intptr_to_pointer(args->handle)))
+   if (util_hash_table_get(ctx->resource_table, intptr_to_pointer(args->handle)))
       return -EEXIST;
 
    ret = virgl_renderer_resource_create(args, NULL, 0);
@@ -663,7 +670,7 @@ static int vtest_create_resource_internal(struct vtest_context *ctx,
       virgl_renderer_resource_attach_iov(args->handle, &res->iov, 1);
    }
 
-   util_hash_table_set(renderer.resource_table, intptr_to_pointer(res->res_id), res);
+   util_hash_table_set(ctx->resource_table, intptr_to_pointer(res->res_id), res);
 
    return 0;
 }
@@ -711,7 +718,7 @@ int vtest_resource_unref(UNUSED uint32_t length_dw)
    }
 
    handle = res_unref_buf[VCMD_RES_UNREF_RES_HANDLE];
-   util_hash_table_remove(renderer.resource_table, intptr_to_pointer(handle));
+   util_hash_table_remove(ctx->resource_table, intptr_to_pointer(handle));
 
    return 0;
 }
@@ -819,7 +826,7 @@ static int vtest_transfer_get_internal(struct vtest_context *ctx,
    struct iovec data_iov;
    int ret = 0;
 
-   res = util_hash_table_get(renderer.resource_table,
+   res = util_hash_table_get(ctx->resource_table,
                              intptr_to_pointer(args->handle));
    if (!res) {
       return report_failed_call("util_hash_table_get", -ESRCH);
@@ -873,7 +880,7 @@ static int vtest_transfer_put_internal(struct vtest_context *ctx,
    struct iovec data_iov;
    int ret = 0;
 
-   res = util_hash_table_get(renderer.resource_table,
+   res = util_hash_table_get(ctx->resource_table,
                              intptr_to_pointer(args->handle));
    if (!res) {
       return report_failed_call("util_hash_table_get", -ESRCH);
