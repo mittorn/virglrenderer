@@ -580,6 +580,29 @@ static int vtest_create_resource_decode_args2(struct vtest_context *ctx,
    return 0;
 }
 
+static int vtest_create_resource_setup_shm(uint32_t res_id,
+                                           struct iovec *iov,
+                                           size_t size)
+{
+   int fd;
+   void *ptr;
+
+   fd = vtest_new_shm(res_id, size);
+   if (fd < 0)
+      return report_failed_call("vtest_new_shm", fd);
+
+   ptr = mmap(NULL, size, PROT_WRITE | PROT_READ, MAP_SHARED, fd, 0);
+   if (ptr == MAP_FAILED) {
+      close(fd);
+      return -1;
+   }
+
+   iov->iov_base = ptr;
+   iov->iov_len = size;
+
+   return fd;
+}
+
 int vtest_create_resource(UNUSED uint32_t length_dw)
 {
    struct vtest_context *ctx = vtest_get_current_context();
@@ -604,7 +627,7 @@ int vtest_create_resource2(UNUSED uint32_t length_dw)
    struct virgl_renderer_resource_create_args args;
    size_t shm_size;
    struct iovec *iovec;
-   int ret, fd;
+   int ret;
 
    ret = vtest_create_resource_decode_args2(ctx, &args, &shm_size);
    if (ret < 0) {
@@ -627,40 +650,28 @@ int vtest_create_resource2(UNUSED uint32_t length_dw)
       return -ENOMEM;
    }
 
-   iovec->iov_len = shm_size;
-
    /* Multi-sample textures have no backing store, but an associated GL resource. */
-   if (iovec->iov_len == 0) {
-      iovec->iov_base = NULL;
-      goto out;
-   }
+   if (shm_size) {
+      int fd;
 
-   fd = vtest_new_shm(args.handle, iovec->iov_len);
-   if (fd < 0) {
-      FREE(iovec);
-      return report_failed_call("vtest_new_shm", fd);
-   }
+      fd = vtest_create_resource_setup_shm(args.handle, iovec, shm_size);
+      if (fd < 0) {
+         FREE(iovec);
+         return -ENOMEM;
+      }
 
-   iovec->iov_base = mmap(NULL, iovec->iov_len, PROT_WRITE | PROT_READ,
-                          MAP_SHARED, fd, 0);
+      ret = vtest_send_fd(ctx->out_fd, fd);
+      if (ret < 0) {
+         munmap(iovec->iov_base, iovec->iov_len);
+         close(fd);
+         FREE(iovec);
+         return report_failed_call("vtest_send_fd", ret);
+      }
 
-   if (iovec->iov_base == MAP_FAILED) {
+      /* Closing the file descriptor does not unmap the region. */
       close(fd);
-      FREE(iovec);
-      return -ENOMEM;
    }
 
-   ret = vtest_send_fd(ctx->out_fd, fd);
-   if (ret < 0) {
-      close(fd);
-      munmap(iovec->iov_base, iovec->iov_len);
-      return report_failed_call("vtest_send_fd", ret);
-   }
-
-   /* Closing the file descriptor does not unmap the region. */
-   close(fd);
-
-out:
    virgl_renderer_resource_attach_iov(args.handle, iovec, 1);
    util_hash_table_set(renderer.iovec_hash, intptr_to_pointer(args.handle), iovec);
    return 0;
