@@ -606,6 +606,7 @@ static const struct vtest_command {
 
    /* since protocol version 3 */
    [VCMD_GET_PARAM]             = { vtest_get_param,             false },
+   [VCMD_GET_CAPSET]            = { vtest_get_capset,            false },
 };
 
 static int vtest_client_dispatch_commands(struct vtest_client *client)

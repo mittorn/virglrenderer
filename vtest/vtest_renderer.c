@@ -521,6 +521,55 @@ int vtest_get_param(UNUSED uint32_t length_dw)
    return 0;
 }
 
+int vtest_get_capset(UNUSED uint32_t length_dw)
+{
+   struct vtest_context *ctx = vtest_get_current_context();
+   uint32_t get_capset_buf[VCMD_GET_CAPSET_SIZE];
+   uint32_t resp_buf[VTEST_HDR_SIZE + 1];
+   uint32_t id;
+   uint32_t version;
+   uint32_t max_version;
+   uint32_t max_size;
+   void *caps;
+   int ret;
+
+   ret = ctx->input->read(ctx->input, get_capset_buf, sizeof(get_capset_buf));
+   if (ret != sizeof(get_capset_buf))
+      return -1;
+
+   id = get_capset_buf[VCMD_GET_CAPSET_ID];
+   version = get_capset_buf[VCMD_GET_CAPSET_VERSION];
+
+   virgl_renderer_get_cap_set(id, &max_version, &max_size);
+
+   /* unsupported id or version */
+   if ((!max_version && !max_size) || version > max_version) {
+      resp_buf[VTEST_CMD_LEN] = 1;
+      resp_buf[VTEST_CMD_ID] = VCMD_GET_CAPSET;
+      resp_buf[VTEST_CMD_DATA_START] = false;
+      return vtest_block_write(ctx->out_fd, resp_buf, sizeof(resp_buf));
+   }
+
+   if (max_size % 4)
+      return -EINVAL;
+
+   caps = malloc(max_size);
+   if (!caps)
+      return -ENOMEM;
+
+   virgl_renderer_fill_caps(id, version, caps);
+
+   resp_buf[VTEST_CMD_LEN] = 1 + max_size / 4;
+   resp_buf[VTEST_CMD_ID] = VCMD_GET_CAPSET;
+   resp_buf[VTEST_CMD_DATA_START] = true;
+   ret = vtest_block_write(ctx->out_fd, resp_buf, sizeof(resp_buf));
+   if (ret >= 0)
+      ret = vtest_block_write(ctx->out_fd, caps, max_size);
+
+   free(caps);
+   return ret >= 0 ? 0 : ret;
+}
+
 int vtest_send_caps2(UNUSED uint32_t length_dw)
 {
    struct vtest_context *ctx = vtest_get_current_context();

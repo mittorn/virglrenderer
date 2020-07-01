@@ -67,6 +67,7 @@
 #ifdef VIRGL_RENDERER_UNSTABLE_APIS
 /* since protocol version 3 */
 #define VCMD_GET_PARAM 15
+#define VCMD_GET_CAPSET 16
 #endif /* VIRGL_RENDERER_UNSTABLE_APIS */
 
 #define VCMD_RES_CREATE_SIZE 10
@@ -138,6 +139,11 @@
 #define VCMD_GET_PARAM_SIZE 1
 #define VCMD_GET_PARAM_PARAM 0
 /* resp param validity and value */
+
+#define VCMD_GET_CAPSET_SIZE 2
+#define VCMD_GET_CAPSET_ID 0
+#define VCMD_GET_CAPSET_VERSION 1
+/* resp capset validity and contents */
 
 #endif /* VIRGL_RENDERER_UNSTABLE_APIS */
 
