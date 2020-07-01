@@ -64,6 +64,7 @@ struct vtest_context {
    char *debug_name;
 
    unsigned protocol_version;
+   unsigned capset_id;
    bool context_initialized;
 
    struct util_hash_table *resource_table;
@@ -327,6 +328,7 @@ static struct vtest_context *vtest_new_context(struct vtest_input *input,
    ctx->debug_name = NULL;
    /* By default we support version 0 unless VCMD_PROTOCOL_VERSION is sent */
    ctx->protocol_version = 0;
+   ctx->capset_id = 0;
    ctx->context_initialized = false;
 
    return ctx;
@@ -390,9 +392,16 @@ int vtest_lazy_init_context(struct vtest_context *ctx)
    if (ctx->context_initialized)
       return 0;
 
-   ret = virgl_renderer_context_create(ctx->ctx_id,
-                                       strlen(ctx->debug_name),
-                                       ctx->debug_name);
+   if (ctx->capset_id) {
+      ret = virgl_renderer_context_create_with_flags(ctx->ctx_id,
+                                                     ctx->capset_id,
+                                                     strlen(ctx->debug_name),
+                                                     ctx->debug_name);
+   } else {
+      ret = virgl_renderer_context_create(ctx->ctx_id,
+                                          strlen(ctx->debug_name),
+                                          ctx->debug_name);
+   }
    ctx->context_initialized = (ret == 0);
 
    return ret;
@@ -568,6 +577,30 @@ int vtest_get_capset(UNUSED uint32_t length_dw)
 
    free(caps);
    return ret >= 0 ? 0 : ret;
+}
+
+int vtest_context_init(UNUSED uint32_t length_dw)
+{
+   struct vtest_context *ctx = vtest_get_current_context();
+   uint32_t context_init_buf[VCMD_CONTEXT_INIT_SIZE];
+   uint32_t capset_id;
+   int ret;
+
+   ret = ctx->input->read(ctx->input, context_init_buf, sizeof(context_init_buf));
+   if (ret != sizeof(context_init_buf))
+      return -1;
+
+   capset_id = context_init_buf[VCMD_CONTEXT_INIT_CAPSET_ID];
+   if (!capset_id)
+      return -EINVAL;
+
+   if (ctx->context_initialized) {
+      return ctx->capset_id == capset_id ? 0 : -EINVAL;
+   }
+
+   ctx->capset_id = capset_id;
+
+   return vtest_lazy_init_context(ctx);
 }
 
 int vtest_send_caps2(UNUSED uint32_t length_dw)
