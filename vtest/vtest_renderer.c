@@ -521,11 +521,10 @@ end:
    return 0;
 }
 
-int vtest_create_resource(UNUSED uint32_t length_dw)
+static int vtest_create_resource_decode_args(struct vtest_context *ctx,
+                                             struct virgl_renderer_resource_create_args *args)
 {
-   struct vtest_context *ctx = vtest_get_current_context();
    uint32_t res_create_buf[VCMD_RES_CREATE_SIZE];
-   struct virgl_renderer_resource_create_args args;
    int ret;
 
    ret = ctx->input->read(ctx->input, &res_create_buf,
@@ -534,18 +533,32 @@ int vtest_create_resource(UNUSED uint32_t length_dw)
       return -1;
    }
 
-   args.handle = res_create_buf[VCMD_RES_CREATE_RES_HANDLE];
-   args.target = res_create_buf[VCMD_RES_CREATE_TARGET];
-   args.format = res_create_buf[VCMD_RES_CREATE_FORMAT];
-   args.bind = res_create_buf[VCMD_RES_CREATE_BIND];
+   args->handle = res_create_buf[VCMD_RES_CREATE_RES_HANDLE];
+   args->target = res_create_buf[VCMD_RES_CREATE_TARGET];
+   args->format = res_create_buf[VCMD_RES_CREATE_FORMAT];
+   args->bind = res_create_buf[VCMD_RES_CREATE_BIND];
 
-   args.width = res_create_buf[VCMD_RES_CREATE_WIDTH];
-   args.height = res_create_buf[VCMD_RES_CREATE_HEIGHT];
-   args.depth = res_create_buf[VCMD_RES_CREATE_DEPTH];
-   args.array_size = res_create_buf[VCMD_RES_CREATE_ARRAY_SIZE];
-   args.last_level = res_create_buf[VCMD_RES_CREATE_LAST_LEVEL];
-   args.nr_samples = res_create_buf[VCMD_RES_CREATE_NR_SAMPLES];
-   args.flags = 0;
+   args->width = res_create_buf[VCMD_RES_CREATE_WIDTH];
+   args->height = res_create_buf[VCMD_RES_CREATE_HEIGHT];
+   args->depth = res_create_buf[VCMD_RES_CREATE_DEPTH];
+   args->array_size = res_create_buf[VCMD_RES_CREATE_ARRAY_SIZE];
+   args->last_level = res_create_buf[VCMD_RES_CREATE_LAST_LEVEL];
+   args->nr_samples = res_create_buf[VCMD_RES_CREATE_NR_SAMPLES];
+   args->flags = 0;
+
+   return 0;
+}
+
+int vtest_create_resource(UNUSED uint32_t length_dw)
+{
+   struct vtest_context *ctx = vtest_get_current_context();
+   struct virgl_renderer_resource_create_args args;
+   int ret;
+
+   ret = vtest_create_resource_decode_args(ctx, &args);
+   if (ret < 0) {
+      return ret;
+   }
 
    /* XXX check that args.handle does not already exist */
    ret = virgl_renderer_resource_create(&args, NULL, 0);
