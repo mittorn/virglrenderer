@@ -636,6 +636,11 @@ static int vtest_client_dispatch_commands(struct vtest_client *client)
       return VTEST_CLIENT_ERROR_COMMAND_UNEXPECTED;
    }
 
+   ret = vtest_lazy_init_context(client->context);
+   if (ret) {
+      return VTEST_CLIENT_ERROR_CONTEXT_FAILED;
+   }
+
    vtest_set_current_context(client->context);
 
    ret = vtest_commands[header[1]](header[0]);

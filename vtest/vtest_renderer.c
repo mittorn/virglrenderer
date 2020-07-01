@@ -61,7 +61,10 @@ struct vtest_context {
    struct vtest_input *input;
    int out_fd;
 
+   char *debug_name;
+
    unsigned protocol_version;
+   bool context_initialized;
 
    struct util_hash_table *resource_table;
 };
@@ -321,8 +324,10 @@ static struct vtest_context *vtest_new_context(struct vtest_input *input,
    ctx->input = input;
    ctx->out_fd = out_fd;
 
+   ctx->debug_name = NULL;
    /* By default we support version 0 unless VCMD_PROTOCOL_VERSION is sent */
    ctx->protocol_version = 0;
+   ctx->context_initialized = false;
 
    return ctx;
 }
@@ -356,26 +361,39 @@ int vtest_create_context(struct vtest_input *input, int out_fd,
    vtestname = calloc(1, length + 1);
    if (!vtestname) {
       ret = -1;
-      goto end;
+      goto err;
    }
 
    ret = ctx->input->read(ctx->input, vtestname, length);
    if (ret != (int)length) {
       ret = -1;
-      goto end;
+      goto err;
    }
 
-   ret = virgl_renderer_context_create(ctx->ctx_id, strlen(vtestname), vtestname);
+   ctx->debug_name = vtestname;
 
-end:
+   list_addtail(&ctx->head, &renderer.active_contexts);
+   *out_ctx = ctx;
+
+   return 0;
+
+err:
    free(vtestname);
+   vtest_free_context(ctx, false);
+   return ret;
+}
 
-   if (ret) {
-      vtest_free_context(ctx, false);
-   } else {
-      list_addtail(&ctx->head, &renderer.active_contexts);
-      *out_ctx = ctx;
-   }
+int vtest_lazy_init_context(struct vtest_context *ctx)
+{
+   int ret;
+
+   if (ctx->context_initialized)
+      return 0;
+
+   ret = virgl_renderer_context_create(ctx->ctx_id,
+                                       strlen(ctx->debug_name),
+                                       ctx->debug_name);
+   ctx->context_initialized = (ret == 0);
 
    return ret;
 }
@@ -387,7 +405,9 @@ void vtest_destroy_context(struct vtest_context *ctx)
    }
    list_del(&ctx->head);
 
-   virgl_renderer_context_destroy(ctx->ctx_id);
+   free(ctx->debug_name);
+   if (ctx->context_initialized)
+      virgl_renderer_context_destroy(ctx->ctx_id);
    util_hash_table_clear(ctx->resource_table);
    vtest_free_context(ctx, false);
 }

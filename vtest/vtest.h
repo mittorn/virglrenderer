@@ -47,6 +47,7 @@ void vtest_cleanup_renderer(void);
 
 int vtest_create_context(struct vtest_input *input, int out_fd,
                          uint32_t length_dw, struct vtest_context **out_ctx);
+int vtest_lazy_init_context(struct vtest_context *ctx);
 void vtest_destroy_context(struct vtest_context *ctx);
 
 void vtest_set_current_context(struct vtest_context *ctx);
