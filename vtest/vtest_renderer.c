@@ -729,6 +729,32 @@ static int vtest_transfer_decode_args(struct vtest_context *ctx,
    return 0;
 }
 
+static int vtest_transfer_decode_args2(struct vtest_context *ctx,
+                                       struct vtest_transfer_args *args)
+{
+   uint32_t thdr_buf[VCMD_TRANSFER2_HDR_SIZE];
+   int ret;
+
+   ret = ctx->input->read(ctx->input, thdr_buf, sizeof(thdr_buf));
+   if (ret != sizeof(thdr_buf)) {
+      return -1;
+   }
+
+   args->handle = thdr_buf[VCMD_TRANSFER2_RES_HANDLE];
+   args->level = thdr_buf[VCMD_TRANSFER2_LEVEL];
+   args->stride = 0;
+   args->layer_stride = 0;
+   args->box.x = thdr_buf[VCMD_TRANSFER2_X];
+   args->box.y = thdr_buf[VCMD_TRANSFER2_Y];
+   args->box.z = thdr_buf[VCMD_TRANSFER2_Z];
+   args->box.w = thdr_buf[VCMD_TRANSFER2_WIDTH];
+   args->box.h = thdr_buf[VCMD_TRANSFER2_HEIGHT];
+   args->box.d = thdr_buf[VCMD_TRANSFER2_DEPTH];
+   args->offset = thdr_buf[VCMD_TRANSFER2_OFFSET];
+
+   return 0;
+}
+
 int vtest_transfer_get(UNUSED uint32_t length_dw)
 {
    struct vtest_context *ctx = vtest_get_current_context();
@@ -863,55 +889,34 @@ int vtest_transfer_put_nop(UNUSED uint32_t length_dw)
    return 0;
 }
 
-
-#define DECODE_TRANSFER2 \
-   do {							\
-      handle = thdr_buf[VCMD_TRANSFER2_RES_HANDLE];	\
-      level = thdr_buf[VCMD_TRANSFER2_LEVEL];		\
-      box.x = thdr_buf[VCMD_TRANSFER2_X];		\
-      box.y = thdr_buf[VCMD_TRANSFER2_Y];		\
-      box.z = thdr_buf[VCMD_TRANSFER2_Z];		\
-      box.w = thdr_buf[VCMD_TRANSFER2_WIDTH];		\
-      box.h = thdr_buf[VCMD_TRANSFER2_HEIGHT];		\
-      box.d = thdr_buf[VCMD_TRANSFER2_DEPTH];		\
-      offset = thdr_buf[VCMD_TRANSFER2_OFFSET];		\
-   } while(0)
-
-
 int vtest_transfer_get2(UNUSED uint32_t length_dw)
 {
    struct vtest_context *ctx = vtest_get_current_context();
-   uint32_t thdr_buf[VCMD_TRANSFER2_HDR_SIZE];
    int ret;
-   int level;
-   uint32_t handle;
-   struct virgl_box box;
-   uint32_t offset;
+   struct vtest_transfer_args args;
    struct iovec *iovec;
 
-   ret = ctx->input->read(ctx->input, thdr_buf, sizeof(thdr_buf));
-   if (ret != sizeof(thdr_buf)) {
+   ret = vtest_transfer_decode_args2(ctx, &args);
+   if (ret < 0) {
       return ret;
    }
 
-   DECODE_TRANSFER2;
-
-   iovec = util_hash_table_get(renderer.iovec_hash, intptr_to_pointer(handle));
+   iovec = util_hash_table_get(renderer.iovec_hash, intptr_to_pointer(args.handle));
    if (!iovec) {
       return report_failed_call("util_hash_table_get", -ESRCH);
    }
 
-   if (offset >= iovec->iov_len) {
+   if (args.offset >= iovec->iov_len) {
       return report_failure("offset larger then length of backing store", -EFAULT);
    }
 
-   ret = virgl_renderer_transfer_read_iov(handle,
+   ret = virgl_renderer_transfer_read_iov(args.handle,
                                           ctx->ctx_id,
-                                          level,
-                                          0,
-                                          0,
-                                          &box,
-                                          offset,
+                                          args.level,
+                                          args.stride,
+                                          args.layer_stride,
+                                          &args.box,
+                                          args.offset,
                                           NULL, 0);
    if (ret) {
       return report_failed_call("virgl_renderer_transfer_read_iov", ret);
@@ -923,27 +928,21 @@ int vtest_transfer_get2(UNUSED uint32_t length_dw)
 int vtest_transfer_get2_nop(UNUSED uint32_t length_dw)
 {
    struct vtest_context *ctx = vtest_get_current_context();
-   uint32_t thdr_buf[VCMD_TRANSFER2_HDR_SIZE];
    int ret;
-   UNUSED int level;
-   uint32_t handle;
-   UNUSED struct virgl_box box;
-   uint32_t offset;
+   struct vtest_transfer_args args;
    struct iovec *iovec;
 
-   ret = ctx->input->read(ctx->input, thdr_buf, sizeof(thdr_buf));
-   if (ret != sizeof(thdr_buf)) {
+   ret = vtest_transfer_decode_args2(ctx, &args);
+   if (ret < 0) {
       return ret;
    }
 
-   DECODE_TRANSFER2;
-
-   iovec = util_hash_table_get(renderer.iovec_hash, intptr_to_pointer(handle));
+   iovec = util_hash_table_get(renderer.iovec_hash, intptr_to_pointer(args.handle));
    if (!iovec) {
       return report_failed_call("util_hash_table_get", -ESRCH);
    }
 
-   if (offset >= iovec->iov_len) {
+   if (args.offset >= iovec->iov_len) {
       return report_failure("offset larger then length of backing store", -EFAULT);
    }
 
@@ -953,34 +952,27 @@ int vtest_transfer_get2_nop(UNUSED uint32_t length_dw)
 int vtest_transfer_put2(UNUSED uint32_t length_dw)
 {
    struct vtest_context *ctx = vtest_get_current_context();
-   uint32_t thdr_buf[VCMD_TRANSFER2_HDR_SIZE];
    int ret;
-   int level;
-   uint32_t handle;
-   struct virgl_box box;
-   UNUSED uint32_t data_size;
-   uint32_t offset;
+   struct vtest_transfer_args args;
    struct iovec *iovec;
 
-   ret = ctx->input->read(ctx->input, thdr_buf, sizeof(thdr_buf));
-   if (ret != sizeof(thdr_buf)) {
+   ret = vtest_transfer_decode_args2(ctx, &args);
+   if (ret < 0) {
       return ret;
    }
 
-   DECODE_TRANSFER2;
-
-   iovec = util_hash_table_get(renderer.iovec_hash, intptr_to_pointer(handle));
+   iovec = util_hash_table_get(renderer.iovec_hash, intptr_to_pointer(args.handle));
    if (!iovec) {
       return report_failed_call("util_hash_table_get", -ESRCH);
    }
 
-   ret = virgl_renderer_transfer_write_iov(handle,
+   ret = virgl_renderer_transfer_write_iov(args.handle,
                                            ctx->ctx_id,
-                                           level,
-                                           0,
-                                           0,
-                                           &box,
-                                           offset,
+                                           args.level,
+                                           args.stride,
+                                           args.layer_stride,
+                                           &args.box,
+                                           args.offset,
                                            NULL, 0);
    if (ret) {
       return report_failed_call("virgl_renderer_transfer_write_iov", ret);
@@ -992,23 +984,16 @@ int vtest_transfer_put2(UNUSED uint32_t length_dw)
 int vtest_transfer_put2_nop(UNUSED uint32_t length_dw)
 {
    struct vtest_context *ctx = vtest_get_current_context();
-   uint32_t thdr_buf[VCMD_TRANSFER2_HDR_SIZE];
    int ret;
-   UNUSED int level;
-   uint32_t handle;
-   UNUSED struct virgl_box box;
-   UNUSED uint32_t data_size;
-   UNUSED uint32_t offset;
+   struct vtest_transfer_args args;
    struct iovec *iovec;
 
-   ret = ctx->input->read(ctx->input, thdr_buf, sizeof(thdr_buf));
-   if (ret != sizeof(thdr_buf)) {
+   ret = vtest_transfer_decode_args2(ctx, &args);
+   if (ret < 0) {
       return ret;
    }
 
-   DECODE_TRANSFER2;
-
-   iovec = util_hash_table_get(renderer.iovec_hash, intptr_to_pointer(handle));
+   iovec = util_hash_table_get(renderer.iovec_hash, intptr_to_pointer(args.handle));
    if (!iovec) {
       return report_failed_call("util_hash_table_get", -ESRCH);
    }
