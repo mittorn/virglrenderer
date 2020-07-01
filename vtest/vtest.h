@@ -78,6 +78,9 @@ int vtest_poll(void);
 int vtest_ping_protocol_version(uint32_t length_dw);
 int vtest_protocol_version(uint32_t length_dw);
 
+/* since protocol version 3 */
+int vtest_get_param(uint32_t length_dw);
+
 void vtest_set_max_length(uint32_t length);
 
 #endif

@@ -603,6 +603,9 @@ static const struct vtest_command {
    [VCMD_RESOURCE_CREATE2]      = { vtest_create_resource2,      true  },
    [VCMD_TRANSFER_GET2]         = { vtest_transfer_get2,         true  },
    [VCMD_TRANSFER_PUT2]         = { vtest_transfer_put2,         true  },
+
+   /* since protocol version 3 */
+   [VCMD_GET_PARAM]             = { vtest_get_param,             false },
 };
 
 static int vtest_client_dispatch_commands(struct vtest_client *client)

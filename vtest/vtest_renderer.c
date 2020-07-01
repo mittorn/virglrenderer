@@ -489,6 +489,38 @@ int vtest_protocol_version(UNUSED uint32_t length_dw)
    return 0;
 }
 
+int vtest_get_param(UNUSED uint32_t length_dw)
+{
+   struct vtest_context *ctx = vtest_get_current_context();
+   uint32_t get_param_buf[VCMD_GET_PARAM_SIZE];
+   uint32_t resp_buf[VTEST_HDR_SIZE + 2];
+   uint32_t param;
+   uint32_t *resp;
+   int ret;
+
+   ret = ctx->input->read(ctx->input, get_param_buf, sizeof(get_param_buf));
+   if (ret != sizeof(get_param_buf))
+      return -1;
+
+   param = get_param_buf[VCMD_GET_PARAM_PARAM];
+
+   resp_buf[VTEST_CMD_LEN] = 2;
+   resp_buf[VTEST_CMD_ID] = VCMD_GET_PARAM;
+   resp = &resp_buf[VTEST_CMD_DATA_START];
+   switch (param) {
+   default:
+      resp[0] = false;
+      resp[1] = 0;
+      break;
+   }
+
+   ret = vtest_block_write(ctx->out_fd, resp_buf, sizeof(resp_buf));
+   if (ret < 0)
+      return -1;
+
+   return 0;
+}
+
 int vtest_send_caps2(UNUSED uint32_t length_dw)
 {
    struct vtest_context *ctx = vtest_get_current_context();
