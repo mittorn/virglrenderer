@@ -58,3 +58,10 @@ option(
   value : 'false',
   description : 'enable running unit tests with valgrind'
 )
+
+option(
+  'unstable_apis',
+  type : 'boolean',
+  value : 'false',
+  description : 'enable unstable apis'
+)

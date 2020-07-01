@@ -69,6 +69,8 @@ struct virgl_renderer_callbacks {
 #define VIRGL_RENDERER_USE_GLX (1 << 2)
 #define VIRGL_RENDERER_USE_SURFACELESS (1 << 3)
 #define VIRGL_RENDERER_USE_GLES (1 << 4)
+
+#ifdef VIRGL_RENDERER_UNSTABLE_APIS
 /*
  * Blob resources used with the 3D driver must be able to be represented as file descriptors.
  * The typical use case is the virtual machine manager (or vtest) is running in a multiprocess
@@ -79,6 +81,8 @@ struct virgl_renderer_callbacks {
  * a multi-process mode *must* specify this flag.
  */
 #define VIRGL_RENDERER_USE_EXTERNAL_BLOB (1 << 5)
+
+#endif /* VIRGL_RENDERER_UNSTABLE_APIS */
 
 VIRGL_EXPORT int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks *cb);
 VIRGL_EXPORT void virgl_renderer_poll(void); /* force fences */
@@ -246,6 +250,12 @@ VIRGL_EXPORT int virgl_renderer_get_poll_fd(void);
 
 VIRGL_EXPORT int virgl_renderer_execute(void *execute_args, uint32_t execute_size);
 
+/*
+ * These are unstable APIs for development only. Use these for development/testing purposes
+ * only, not in production
+ */
+#ifdef VIRGL_RENDERER_UNSTABLE_APIS
+
 #define VIRGL_RENDERER_BLOB_MEM_GUEST             0x0001
 #define VIRGL_RENDERER_BLOB_MEM_HOST3D            0x0002
 #define VIRGL_RENDERER_BLOB_MEM_HOST3D_GUEST      0x0003
@@ -280,5 +290,7 @@ VIRGL_EXPORT int virgl_renderer_resource_unmap(uint32_t res_handle);
 #define VIRGL_RENDERER_MAP_CACHE_WC        0x03
 
 VIRGL_EXPORT int virgl_renderer_resource_get_map_info(uint32_t res_handle, uint32_t *map_info);
+
+#endif /* VIRGL_RENDERER_UNSTABLE_APIS */
 
 #endif

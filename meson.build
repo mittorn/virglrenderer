@@ -147,6 +147,11 @@ if with_glx
    endif
 endif
 
+with_unstable_apis = get_option('unstable_apis')
+if with_unstable_apis
+   conf_data.set('VIRGL_RENDERER_UNSTABLE_APIS', 1)
+endif
+
 if cc.compiles('void __attribute__((hidden)) func() {}')
    conf_data.set('HAVE_FUNC_ATTRIBUTE_VISIBILITY', 1)
 endif
@@ -198,6 +203,7 @@ lines += 'minigbm_alloc: ' + (with_minigbm_allocation ? 'yes' : 'no' )
 lines += ''
 lines += 'tests:     ' + (with_tests ? 'yes' : 'no' )
 lines += 'fuzzer:    ' + (with_fuzzer ? 'yes' : 'no' )
+lines += 'unstable apis: ' + (with_unstable_apis ? 'yes' : 'no' )
 
 indent = '   '
 summary = indent + ('\n' + indent).join(lines)

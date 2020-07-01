@@ -538,8 +538,10 @@ int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks
 
    if (flags & VIRGL_RENDERER_THREAD_SYNC)
       renderer_flags |= VREND_USE_THREAD_SYNC;
+#ifdef VIRGL_RENDERER_UNSTABLE_APIS
    if (flags & VIRGL_RENDERER_USE_EXTERNAL_BLOB)
       renderer_flags |= VREND_USE_EXTERNAL_BLOB;
+#endif /* VIRGL_RENDERER_UNSTABLE_APIS */
 
    return vrend_renderer_init(&virgl_cbs, renderer_flags);
 }
@@ -636,8 +638,11 @@ int virgl_renderer_execute(void *execute_args, uint32_t execute_size)
    }
 }
 
+#ifdef VIRGL_RENDERER_UNSTABLE_APIS
+
 int virgl_renderer_resource_create_blob(const struct virgl_renderer_resource_create_blob_args *args)
 {
+
    int ret;
    uint32_t blob_mem = args->blob_mem;
    uint64_t blob_id = args->blob_id;
@@ -705,3 +710,5 @@ int virgl_renderer_resource_get_map_info(uint32_t res_handle, uint32_t *map_info
 
    return vrend_renderer_resource_get_map_info(res->pipe_resource, map_info);
 }
+
+#endif /* VIRGL_RENDERER_UNSTABLE_APIS */
