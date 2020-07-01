@@ -48,6 +48,8 @@
 #include "util/u_hash_table.h"
 
 struct vtest_resource {
+   uint32_t res_id;
+
    struct iovec iov;
 };
 
@@ -587,14 +589,13 @@ static int vtest_create_resource_decode_args2(struct vtest_context *ctx,
    return 0;
 }
 
-static int vtest_create_resource_setup_shm(uint32_t res_id,
-                                           struct vtest_resource *res,
+static int vtest_create_resource_setup_shm(struct vtest_resource *res,
                                            size_t size)
 {
    int fd;
    void *ptr;
 
-   fd = vtest_new_shm(res_id, size);
+   fd = vtest_new_shm(res->res_id, size);
    if (fd < 0)
       return report_failed_call("vtest_new_shm", fd);
 
@@ -630,12 +631,13 @@ static int vtest_create_resource_internal(struct vtest_context *ctx,
    res = CALLOC_STRUCT(vtest_resource);
    if (!res)
       return -ENOMEM;
+   res->res_id = args->handle;
 
    /* no shm for v1 resources or v2 multi-sample resources */
    if (shm_size) {
       int fd;
 
-      fd = vtest_create_resource_setup_shm(args->handle, res, shm_size);
+      fd = vtest_create_resource_setup_shm(res, shm_size);
       if (fd < 0) {
          FREE(res);
          return -ENOMEM;
@@ -655,7 +657,7 @@ static int vtest_create_resource_internal(struct vtest_context *ctx,
       virgl_renderer_resource_attach_iov(args->handle, &res->iov, 1);
    }
 
-   util_hash_table_set(renderer.resource_table, intptr_to_pointer(args->handle), res);
+   util_hash_table_set(renderer.resource_table, intptr_to_pointer(res->res_id), res);
 
    return 0;
 }
@@ -835,7 +837,7 @@ static int vtest_transfer_get_internal(struct vtest_context *ctx,
    }
 
    if (args) {
-      ret = virgl_renderer_transfer_read_iov(args->handle,
+      ret = virgl_renderer_transfer_read_iov(res->res_id,
                                              ctx->ctx_id,
                                              args->level,
                                              args->stride,
@@ -890,7 +892,7 @@ static int vtest_transfer_put_internal(struct vtest_context *ctx,
    }
 
    if (args) {
-      ret = virgl_renderer_transfer_write_iov(args->handle,
+      ret = virgl_renderer_transfer_write_iov(res->res_id,
                                               ctx->ctx_id,
                                               args->level,
                                               args->stride,
