@@ -29,8 +29,6 @@
 #define VIRGL_QUERY_STATE_DONE 1
 #define VIRGL_QUERY_STATE_WAIT_HOST 2
 
-#include <stdint.h>
-
 struct virgl_host_query_state {
    uint32_t query_state;
    uint32_t result_size;
@@ -114,6 +112,7 @@ enum virgl_context_cmd {
 */
 
 #define VIRGL_CMD0(cmd, obj, len) ((cmd) | ((obj) << 8) | ((len) << 16))
+#define VIRGL_CMD0_MAX_DWORDS (((1ULL << 16) - 1) / 4) * 4
 
 /* hw specification */
 #define VIRGL_MAX_COLOR_BUFS 8
@@ -460,6 +459,7 @@ enum virgl_context_cmd {
 
 #define VIRGL_QUERY_END_HANDLE 1
 
+#define VIRGL_QUERY_RESULT_SIZE 2
 #define VIRGL_QUERY_RESULT_HANDLE 1
 #define VIRGL_QUERY_RESULT_WAIT 2
 
