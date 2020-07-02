@@ -6726,6 +6726,14 @@ static void set_strbuffers(MAYBE_UNUSED const struct vrend_context *rctx, struct
    VREND_DEBUG(dbg_shader_glsl, rctx, "\n");
 }
 
+static bool vrend_patch_vertex_shader_interpolants(MAYBE_UNUSED const struct vrend_context *rctx,
+                                            const struct vrend_shader_cfg *cfg,
+                                            struct vrend_strarray *prog_strings,
+                                            const struct vrend_shader_info *vs_info,
+                                            const struct vrend_shader_info *fs_info,
+                                            const char *oprefix,
+                                            bool flatshade);
+
 bool vrend_convert_shader(const struct vrend_context *rctx,
                           const struct vrend_shader_cfg *cfg,
                           const struct tgsi_token *tokens,
@@ -6818,6 +6826,31 @@ bool vrend_convert_shader(const struct vrend_context *rctx,
    fill_sinfo(&ctx, sinfo);
    set_strbuffers(rctx, &ctx, shader);
 
+   if (ctx.prog_type == TGSI_PROCESSOR_GEOMETRY) {
+       vrend_patch_vertex_shader_interpolants(rctx,
+					      cfg,
+					      shader,
+					      sinfo,
+					      key->fs_info, "gso",
+					      key->flatshade);
+   } else if (!key->gs_present &&
+              ctx.prog_type == TGSI_PROCESSOR_TESS_EVAL) {
+       vrend_patch_vertex_shader_interpolants(rctx,
+					      cfg,
+					      shader,
+					      sinfo,
+					      key->fs_info, "teo",
+					      key->flatshade);
+   } else if (!key->gs_present && !key->tes_present &&
+	      ctx.prog_type == TGSI_PROCESSOR_VERTEX) {
+       vrend_patch_vertex_shader_interpolants(rctx,
+					      cfg,
+					      shader,
+					      sinfo,
+					      key->fs_info, "vso",
+					      key->flatshade);
+   }
+
    return true;
  fail:
    strbuf_free(&ctx.glsl_main);
@@ -6866,7 +6899,7 @@ static void require_gpu_shader5_and_msinterp(struct vrend_strarray *program)
    strbuf_append(&program->strings[SHADER_STRING_VER_EXT], gpu_shader5_and_msinterp_string);
 }
 
-bool vrend_patch_vertex_shader_interpolants(MAYBE_UNUSED const struct vrend_context *rctx,
+static bool vrend_patch_vertex_shader_interpolants(MAYBE_UNUSED const struct vrend_context *rctx,
                                             const struct vrend_shader_cfg *cfg,
                                             struct vrend_strarray *prog_strings,
                                             const struct vrend_shader_info *vs_info,

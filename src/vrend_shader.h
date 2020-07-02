@@ -125,6 +125,9 @@ struct vrend_shader_key {
    uint32_t generic_outputs_expected_mask;
    uint8_t fs_swizzle_output_rgb_to_bgr;
    uint64_t force_invariant_inputs;
+
+   uint32_t compiled_fs_uid;
+   struct vrend_shader_info *fs_info;
 };
 
 struct vrend_shader_cfg {
@@ -144,14 +147,6 @@ struct vrend_context;
 #define SHADER_MAX_STRINGS 3
 #define SHADER_STRING_VER_EXT 0
 #define SHADER_STRING_HDR 1
-
-
-bool vrend_patch_vertex_shader_interpolants(const struct vrend_context *rctx,
-                                            const struct vrend_shader_cfg *cfg,
-                                            struct vrend_strarray *shader,
-                                            const struct vrend_shader_info *vs_info,
-                                            const struct vrend_shader_info *fs_info,
-                                            const char *oprefix, bool flatshade);
 
 bool vrend_convert_shader(const struct vrend_context *rctx,
                           const struct vrend_shader_cfg *cfg,

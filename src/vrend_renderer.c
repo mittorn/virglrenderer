@@ -379,7 +379,7 @@ struct vrend_shader {
 
    struct vrend_strarray glsl_strings;
    GLuint id;
-   GLuint compiled_fs_id;
+   uint32_t uid;
    struct vrend_shader_key key;
    struct list_head programs;
 };
@@ -1481,46 +1481,8 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
    GLint lret;
    int id;
    int last_shader;
-   bool do_patch = false;
    if (!sprog)
       return NULL;
-
-   /* need to rewrite VS code to add interpolation params */
-   if (gs && gs->compiled_fs_id != fs->id)
-      do_patch = true;
-   if (!gs && tes && tes->compiled_fs_id != fs->id)
-      do_patch = true;
-   if (!gs && !tes && vs->compiled_fs_id != fs->id)
-      do_patch = true;
-
-   if (do_patch) {
-      bool ret;
-
-      if (gs)
-         vrend_patch_vertex_shader_interpolants(ctx, &ctx->shader_cfg, &gs->glsl_strings,
-                                                &gs->sel->sinfo,
-                                                &fs->sel->sinfo, "gso", fs->key.flatshade);
-      else if (tes)
-         vrend_patch_vertex_shader_interpolants(ctx, &ctx->shader_cfg, &tes->glsl_strings,
-                                                &tes->sel->sinfo,
-                                                &fs->sel->sinfo, "teo", fs->key.flatshade);
-      else
-         vrend_patch_vertex_shader_interpolants(ctx, &ctx->shader_cfg, &vs->glsl_strings,
-                                                &vs->sel->sinfo,
-                                                &fs->sel->sinfo, "vso", fs->key.flatshade);
-      ret = vrend_compile_shader(ctx, gs ? gs : (tes ? tes : vs));
-      if (ret == false) {
-         glDeleteShader(gs ? gs->id : (tes ? tes->id : vs->id));
-         free(sprog);
-         return NULL;
-      }
-      if (gs)
-         gs->compiled_fs_id = fs->id;
-      else if (tes)
-         tes->compiled_fs_id = fs->id;
-      else
-         vs->compiled_fs_id = fs->id;
-   }
 
    prog_id = glCreateProgram();
    glAttachShader(prog_id, vs->id);
@@ -3267,6 +3229,14 @@ static inline void vrend_fill_shader_key(struct vrend_context *ctx,
       key->num_indirect_patch_outputs = ctx->sub->shaders[next_type]->sinfo.num_indirect_patch_inputs;
       key->generic_outputs_expected_mask = ctx->sub->shaders[next_type]->sinfo.generic_inputs_emitted_mask;
    }
+
+   if (type != PIPE_SHADER_FRAGMENT &&
+       ctx->sub->shaders[PIPE_SHADER_FRAGMENT]) {
+      struct vrend_shader *fs =
+	      ctx->sub->shaders[PIPE_SHADER_FRAGMENT]->current;
+      key->compiled_fs_uid = fs->uid;
+      key->fs_info = &fs->sel->sinfo;
+   }
 }
 
 static inline int conv_shader_type(int type)
@@ -3287,9 +3257,10 @@ static int vrend_shader_create(struct vrend_context *ctx,
                                struct vrend_shader *shader,
                                struct vrend_shader_key *key)
 {
+   static uint32_t uid;
 
    shader->id = glCreateShader(conv_shader_type(shader->sel->type));
-   shader->compiled_fs_id = 0;
+   shader->uid = ++uid;
 
    if (shader->sel->tokens) {
       bool ret = vrend_convert_shader(ctx, &ctx->shader_cfg, shader->sel->tokens,
