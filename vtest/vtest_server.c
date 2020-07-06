@@ -580,28 +580,34 @@ static void vtest_server_run(void)
    vtest_server_close_socket();
 }
 
-typedef int (*vtest_cmd_fptr_t)(uint32_t);
+static const struct vtest_command {
+   int (*dispatch)(uint32_t);
+   bool init_context;
+} vtest_commands[] = {
+   /* CMD ids starts at 1 */
+   [0]                          = { NULL,                        false },
+   [VCMD_GET_CAPS]              = { vtest_send_caps,             false },
+   [VCMD_RESOURCE_CREATE]       = { vtest_create_resource,       true  },
+   [VCMD_RESOURCE_UNREF]        = { vtest_resource_unref,        true  },
+   [VCMD_TRANSFER_GET]          = { vtest_transfer_get,          true  },
+   [VCMD_TRANSFER_PUT]          = { vtest_transfer_put,          true  },
+   [VCMD_SUBMIT_CMD]            = { vtest_submit_cmd,            true  },
+   [VCMD_RESOURCE_BUSY_WAIT]    = { vtest_resource_busy_wait,    false },
+   /* VCMD_CREATE_RENDERER is a special case */
+   [VCMD_CREATE_RENDERER]       = { NULL,                        false },
+   [VCMD_GET_CAPS2]             = { vtest_send_caps2,            false },
+   [VCMD_PING_PROTOCOL_VERSION] = { vtest_ping_protocol_version, false },
+   [VCMD_PROTOCOL_VERSION]      = { vtest_protocol_version,      false },
 
-static const vtest_cmd_fptr_t vtest_commands[] = {
-   NULL /* CMD ids starts at 1 */,
-   vtest_send_caps,
-   vtest_create_resource,
-   vtest_resource_unref,
-   vtest_transfer_get,
-   vtest_transfer_put,
-   vtest_submit_cmd,
-   vtest_resource_busy_wait,
-   NULL, /* VCMD_CREATE_RENDERER is a specific case */
-   vtest_send_caps2,
-   vtest_ping_protocol_version,
-   vtest_protocol_version,
-   vtest_create_resource2,
-   vtest_transfer_get2,
-   vtest_transfer_put2,
+   /* since protocol version 2 */
+   [VCMD_RESOURCE_CREATE2]      = { vtest_create_resource2,      true  },
+   [VCMD_TRANSFER_GET2]         = { vtest_transfer_get2,         true  },
+   [VCMD_TRANSFER_PUT2]         = { vtest_transfer_put2,         true  },
 };
 
 static int vtest_client_dispatch_commands(struct vtest_client *client)
 {
+   const struct vtest_command *cmd;
    int ret;
    uint32_t header[VTEST_HDR_SIZE];
 
@@ -632,18 +638,22 @@ static int vtest_client_dispatch_commands(struct vtest_client *client)
       return VTEST_CLIENT_ERROR_COMMAND_ID;
    }
 
-   if (vtest_commands[header[1]] == NULL) {
+   cmd = &vtest_commands[header[1]];
+   if (cmd->dispatch == NULL) {
       return VTEST_CLIENT_ERROR_COMMAND_UNEXPECTED;
    }
 
-   ret = vtest_lazy_init_context(client->context);
-   if (ret) {
-      return VTEST_CLIENT_ERROR_CONTEXT_FAILED;
+   /* we should consider per-context dispatch table to get rid of if's */
+   if (cmd->init_context) {
+      ret = vtest_lazy_init_context(client->context);
+      if (ret) {
+         return VTEST_CLIENT_ERROR_CONTEXT_FAILED;
+      }
    }
 
    vtest_set_current_context(client->context);
 
-   ret = vtest_commands[header[1]](header[0]);
+   ret = cmd->dispatch(header[0]);
    if (ret < 0) {
       return VTEST_CLIENT_ERROR_COMMAND_DISPATCH;
    }

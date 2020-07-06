@@ -1072,6 +1072,14 @@ int vtest_resource_busy_wait(UNUSED uint32_t length_dw)
       return -1;
    }
 
+   /* clients often send VCMD_PING_PROTOCOL_VERSION followed by
+    * VCMD_RESOURCE_BUSY_WAIT with handle 0 to figure out if
+    * VCMD_PING_PROTOCOL_VERSION is supported.  We need to make a special case
+    * for that.
+    */
+   if (!ctx->context_initialized && bw_buf[VCMD_BUSY_WAIT_HANDLE])
+      return -1;
+
    /*  handle = bw_buf[VCMD_BUSY_WAIT_HANDLE]; unused as of now */
    flags = bw_buf[VCMD_BUSY_WAIT_FLAGS];
 
