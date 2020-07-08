@@ -798,6 +798,48 @@ static int vtest_transfer_get_internal(struct vtest_context *ctx,
    return ret;
 }
 
+static int vtest_transfer_put_internal(struct vtest_context *ctx,
+                                       struct vtest_transfer_args *args,
+                                       uint32_t data_size)
+{
+   struct iovec data_iov;
+   int ret = 0;
+
+   if (data_size) {
+      data_iov.iov_len = data_size;
+      data_iov.iov_base = malloc(data_size);
+      if (!data_iov.iov_base) {
+         return -ENOMEM;
+      }
+
+      ret = ctx->input->read(ctx->input, data_iov.iov_base, data_iov.iov_len);
+      if (ret < 0) {
+         return ret;
+      }
+   }
+
+   if (args) {
+      ret = virgl_renderer_transfer_write_iov(args->handle,
+                                              ctx->ctx_id,
+                                              args->level,
+                                              args->stride,
+                                              args->layer_stride,
+                                              &args->box,
+                                              args->offset,
+                                              data_size ? &data_iov : NULL,
+                                              data_size ? 1 : 0);
+      if (ret) {
+         report_failed_call("virgl_renderer_transfer_write_iov", ret);
+      }
+   }
+
+   if (data_size) {
+      free(data_iov.iov_base);
+   }
+
+   return ret;
+}
+
 int vtest_transfer_get(UNUSED uint32_t length_dw)
 {
    struct vtest_context *ctx = vtest_get_current_context();
@@ -834,40 +876,13 @@ int vtest_transfer_put(UNUSED uint32_t length_dw)
    int ret;
    struct vtest_transfer_args args;
    uint32_t data_size;
-   void *ptr;
-   struct iovec iovec;
 
    ret = vtest_transfer_decode_args(ctx, &args, &data_size);
    if (ret < 0) {
       return ret;
    }
 
-   ptr = malloc(data_size);
-   if (!ptr) {
-      return -ENOMEM;
-   }
-
-   ret = ctx->input->read(ctx->input, ptr, data_size);
-   if (ret < 0) {
-      return ret;
-   }
-
-   iovec.iov_len = data_size;
-   iovec.iov_base = ptr;
-   ret = virgl_renderer_transfer_write_iov(args.handle,
-                                           ctx->ctx_id,
-                                           args.level,
-                                           args.stride,
-                                           args.layer_stride,
-                                           &args.box,
-                                           args.offset,
-                                           &iovec, 1);
-   if (ret) {
-      fprintf(stderr," transfer write failed %d\n", ret);
-   }
-
-   free(ptr);
-   return 0;
+   return vtest_transfer_put_internal(ctx, &args, data_size);
 }
 
 int vtest_transfer_put_nop(UNUSED uint32_t length_dw)
@@ -876,25 +891,13 @@ int vtest_transfer_put_nop(UNUSED uint32_t length_dw)
    int ret;
    struct vtest_transfer_args args;
    uint32_t data_size;
-   void *ptr;
 
    ret = vtest_transfer_decode_args(ctx, &args, &data_size);
    if (ret < 0) {
       return ret;
    }
 
-   ptr = malloc(data_size);
-   if (!ptr) {
-      return -ENOMEM;
-   }
-
-   ret = ctx->input->read(ctx->input, ptr, data_size);
-   if (ret < 0) {
-      return ret;
-   }
-
-   free(ptr);
-   return 0;
+   return vtest_transfer_put_internal(ctx, NULL, data_size);
 }
 
 int vtest_transfer_get2(UNUSED uint32_t length_dw)
@@ -962,19 +965,7 @@ int vtest_transfer_put2(UNUSED uint32_t length_dw)
       return report_failed_call("util_hash_table_get", -ESRCH);
    }
 
-   ret = virgl_renderer_transfer_write_iov(args.handle,
-                                           ctx->ctx_id,
-                                           args.level,
-                                           args.stride,
-                                           args.layer_stride,
-                                           &args.box,
-                                           args.offset,
-                                           NULL, 0);
-   if (ret) {
-      return report_failed_call("virgl_renderer_transfer_write_iov", ret);
-   }
-
-   return 0;
+   return vtest_transfer_put_internal(ctx, &args, 0);
 }
 
 int vtest_transfer_put2_nop(UNUSED uint32_t length_dw)
@@ -994,7 +985,7 @@ int vtest_transfer_put2_nop(UNUSED uint32_t length_dw)
       return report_failed_call("util_hash_table_get", -ESRCH);
    }
 
-   return 0;
+   return vtest_transfer_put_internal(ctx, NULL, 0);
 }
 
 int vtest_resource_busy_wait(UNUSED uint32_t length_dw)
