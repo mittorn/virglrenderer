@@ -10042,6 +10042,9 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
 #endif
 
 #endif
+
+   if (has_feature(feat_blend_equation_advanced))
+      caps->v2.capability_bits_v2 |= VIRGL_CAP_V2_BLEND_EQUATION;
 }
 
 void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
