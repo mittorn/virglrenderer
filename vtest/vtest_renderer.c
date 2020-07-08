@@ -610,71 +610,32 @@ static int vtest_create_resource_setup_shm(uint32_t res_id,
    return fd;
 }
 
-int vtest_create_resource(UNUSED uint32_t length_dw)
+static int vtest_create_resource_internal(struct vtest_context *ctx,
+                                          struct virgl_renderer_resource_create_args *args,
+                                          size_t shm_size)
 {
-   struct vtest_context *ctx = vtest_get_current_context();
-   struct virgl_renderer_resource_create_args args;
    struct vtest_resource *res;
    int ret;
 
-   ret = vtest_create_resource_decode_args(ctx, &args);
-   if (ret < 0) {
-      return ret;
-   }
-
    // Check that the handle doesn't already exist.
-   if (util_hash_table_get(renderer.resource_table, intptr_to_pointer(args.handle)))
+   if (util_hash_table_get(renderer.resource_table, intptr_to_pointer(args->handle)))
       return -EEXIST;
 
-   ret = virgl_renderer_resource_create(&args, NULL, 0);
+   ret = virgl_renderer_resource_create(args, NULL, 0);
    if (ret)
       return report_failed_call("virgl_renderer_resource_create", ret);
 
-   virgl_renderer_ctx_attach_resource(ctx->ctx_id, args.handle);
+   virgl_renderer_ctx_attach_resource(ctx->ctx_id, args->handle);
 
    res = CALLOC_STRUCT(vtest_resource);
    if (!res)
       return -ENOMEM;
 
-   util_hash_table_set(renderer.resource_table, intptr_to_pointer(args.handle), res);
-
-   return 0;
-}
-
-int vtest_create_resource2(UNUSED uint32_t length_dw)
-{
-   struct vtest_context *ctx = vtest_get_current_context();
-   struct virgl_renderer_resource_create_args args;
-   size_t shm_size;
-   struct vtest_resource *res;
-   int ret;
-
-   ret = vtest_create_resource_decode_args2(ctx, &args, &shm_size);
-   if (ret < 0) {
-      return ret;
-   }
-
-   // Check that the handle doesn't already exist.
-   if (util_hash_table_get(renderer.resource_table, intptr_to_pointer(args.handle))) {
-      return -EEXIST;
-   }
-
-   ret = virgl_renderer_resource_create(&args, NULL, 0);
-   if (ret)
-      return report_failed_call("virgl_renderer_resource_create", ret);
-
-   virgl_renderer_ctx_attach_resource(ctx->ctx_id, args.handle);
-
-   res = CALLOC_STRUCT(vtest_resource);
-   if (!res) {
-      return -ENOMEM;
-   }
-
-   /* Multi-sample textures have no backing store, but an associated GL resource. */
+   /* no shm for v1 resources or v2 multi-sample resources */
    if (shm_size) {
       int fd;
 
-      fd = vtest_create_resource_setup_shm(args.handle, res, shm_size);
+      fd = vtest_create_resource_setup_shm(args->handle, res, shm_size);
       if (fd < 0) {
          FREE(res);
          return -ENOMEM;
@@ -690,11 +651,42 @@ int vtest_create_resource2(UNUSED uint32_t length_dw)
 
       /* Closing the file descriptor does not unmap the region. */
       close(fd);
+
+      virgl_renderer_resource_attach_iov(args->handle, &res->iov, 1);
    }
 
-   virgl_renderer_resource_attach_iov(args.handle, &res->iov, 1);
-   util_hash_table_set(renderer.resource_table, intptr_to_pointer(args.handle), res);
+   util_hash_table_set(renderer.resource_table, intptr_to_pointer(args->handle), res);
+
    return 0;
+}
+
+int vtest_create_resource(UNUSED uint32_t length_dw)
+{
+   struct vtest_context *ctx = vtest_get_current_context();
+   struct virgl_renderer_resource_create_args args;
+   int ret;
+
+   ret = vtest_create_resource_decode_args(ctx, &args);
+   if (ret < 0) {
+      return ret;
+   }
+
+   return vtest_create_resource_internal(ctx, &args, 0);
+}
+
+int vtest_create_resource2(UNUSED uint32_t length_dw)
+{
+   struct vtest_context *ctx = vtest_get_current_context();
+   struct virgl_renderer_resource_create_args args;
+   size_t shm_size;
+   int ret;
+
+   ret = vtest_create_resource_decode_args2(ctx, &args, &shm_size);
+   if (ret < 0) {
+      return ret;
+   }
+
+   return vtest_create_resource_internal(ctx, &args, shm_size);
 }
 
 int vtest_resource_unref(UNUSED uint32_t length_dw)
