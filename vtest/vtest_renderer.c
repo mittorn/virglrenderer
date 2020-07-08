@@ -755,43 +755,62 @@ static int vtest_transfer_decode_args2(struct vtest_context *ctx,
    return 0;
 }
 
+static int vtest_transfer_get_internal(struct vtest_context *ctx,
+                                       struct vtest_transfer_args *args,
+                                       uint32_t data_size)
+{
+   struct iovec data_iov;
+   int ret = 0;
+
+   if (data_size) {
+      data_iov.iov_len = data_size;
+      data_iov.iov_base = malloc(data_size);
+      if (!data_iov.iov_base) {
+         return -ENOMEM;
+      }
+   }
+
+   if (args) {
+      ret = virgl_renderer_transfer_read_iov(args->handle,
+                                             ctx->ctx_id,
+                                             args->level,
+                                             args->stride,
+                                             args->layer_stride,
+                                             &args->box,
+                                             args->offset,
+                                             data_size ? &data_iov : NULL,
+                                             data_size ? 1 : 0);
+      if (ret) {
+         report_failed_call("virgl_renderer_transfer_read_iov", ret);
+      }
+   } else if (data_size) {
+      memset(data_iov.iov_base, 0, data_iov.iov_len);
+   }
+
+   if (data_size) {
+      ret = vtest_block_write(ctx->out_fd, data_iov.iov_base, data_iov.iov_len);
+      if (ret > 0)
+         ret = 0;
+
+      free(data_iov.iov_base);
+   }
+
+   return ret;
+}
+
 int vtest_transfer_get(UNUSED uint32_t length_dw)
 {
    struct vtest_context *ctx = vtest_get_current_context();
    int ret;
    struct vtest_transfer_args args;
    uint32_t data_size;
-   void *ptr;
-   struct iovec iovec;
 
    ret = vtest_transfer_decode_args(ctx, &args, &data_size);
    if (ret < 0) {
       return ret;
    }
 
-   ptr = malloc(data_size);
-   if (!ptr) {
-      return -ENOMEM;
-   }
-
-   iovec.iov_len = data_size;
-   iovec.iov_base = ptr;
-   ret = virgl_renderer_transfer_read_iov(args.handle,
-         ctx->ctx_id,
-         args.level,
-         args.stride,
-         args.layer_stride,
-         &args.box,
-         args.offset,
-         &iovec, 1);
-   if (ret) {
-      fprintf(stderr," transfer read failed %d\n", ret);
-   }
-
-   ret = vtest_block_write(ctx->out_fd, ptr, data_size);
-
-   free(ptr);
-   return ret < 0 ? ret : 0;
+   return vtest_transfer_get_internal(ctx, &args, data_size);
 }
 
 int vtest_transfer_get_nop(UNUSED uint32_t length_dw)
@@ -800,24 +819,13 @@ int vtest_transfer_get_nop(UNUSED uint32_t length_dw)
    int ret;
    struct vtest_transfer_args args;
    uint32_t data_size;
-   void *ptr;
 
    ret = vtest_transfer_decode_args(ctx, &args, &data_size);
    if (ret < 0) {
       return ret;
    }
 
-   ptr = malloc(data_size);
-   if (!ptr) {
-      return -ENOMEM;
-   }
-
-   memset(ptr, 0, data_size);
-
-   ret = vtest_block_write(ctx->out_fd, ptr, data_size);
-
-   free(ptr);
-   return ret < 0 ? ret : 0;
+   return vtest_transfer_get_internal(ctx, NULL, data_size);
 }
 
 int vtest_transfer_put(UNUSED uint32_t length_dw)
@@ -910,19 +918,7 @@ int vtest_transfer_get2(UNUSED uint32_t length_dw)
       return report_failure("offset larger then length of backing store", -EFAULT);
    }
 
-   ret = virgl_renderer_transfer_read_iov(args.handle,
-                                          ctx->ctx_id,
-                                          args.level,
-                                          args.stride,
-                                          args.layer_stride,
-                                          &args.box,
-                                          args.offset,
-                                          NULL, 0);
-   if (ret) {
-      return report_failed_call("virgl_renderer_transfer_read_iov", ret);
-   }
-
-   return 0;
+   return vtest_transfer_get_internal(ctx, &args, 0);
 }
 
 int vtest_transfer_get2_nop(UNUSED uint32_t length_dw)
@@ -946,7 +942,7 @@ int vtest_transfer_get2_nop(UNUSED uint32_t length_dw)
       return report_failure("offset larger then length of backing store", -EFAULT);
    }
 
-   return 0;
+   return vtest_transfer_get_internal(ctx, NULL, 0);
 }
 
 int vtest_transfer_put2(UNUSED uint32_t length_dw)
