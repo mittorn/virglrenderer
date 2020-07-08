@@ -6527,12 +6527,10 @@ static void vrend_resource_gbm_init(struct vrend_resource *gr, uint32_t format)
    gr->gbm_bo = bo;
    gr->storage_bits |= VREND_STORAGE_GBM_BUFFER;
    /* This is true so far, but maybe gbm_bo_get_caching_type is needed in the future. */
-#ifdef VIRGL_RENDERER_UNSTABLE_APIS
    if (!strcmp(gbm_device_get_backend_name(gbm->device), "i915"))
       gr->map_info = VIRGL_MAP_CACHE_CACHED;
    else
       gr->map_info = VIRGL_MAP_CACHE_WC;
-#endif
 
    if (!virgl_gbm_gpu_import_required(gr->base.bind))
       return;
@@ -10007,7 +10005,6 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
    caps->v2.capability_bits |= VIRGL_CAP_COPY_TRANSFER;
 
 
-#ifdef VIRGL_RENDERER_UNSTABLE_APIS
    if (has_feature(feat_arb_buffer_storage) && !vrend_state.use_external_blob) {
       const char *vendor = (const char *)glGetString(GL_VENDOR);
       const char *renderer = (const char*)glGetString(GL_RENDERER);
@@ -10039,8 +10036,6 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
 #ifdef ENABLE_MINIGBM_ALLOCATION
    if (has_feature(feat_memory_object) && has_feature(feat_memory_object_fd))
       caps->v2.capability_bits |= VIRGL_CAP_ARB_BUFFER_STORAGE;
-#endif
-
 #endif
 
    if (has_feature(feat_blend_equation_advanced))
