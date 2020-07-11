@@ -26,6 +26,7 @@
 
 #include <assert.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -211,4 +212,25 @@ virgl_resource_detach_iov(struct virgl_resource *res)
 
    res->iov = NULL;
    res->iov_count = 0;
+}
+
+enum virgl_resource_fd_type
+virgl_resource_export_fd(struct virgl_resource *res, int *fd)
+{
+   if (res->fd_type != VIRGL_RESOURCE_FD_INVALID) {
+#ifdef F_DUPFD_CLOEXEC
+      *fd = fcntl(res->fd, F_DUPFD_CLOEXEC, 0);
+      if (*fd < 0)
+         *fd = dup(res->fd);
+#else
+      *fd = dup(res->fd);
+#endif
+      return *fd >= 0 ? res->fd_type : VIRGL_RESOURCE_FD_INVALID;
+   } else if (res->pipe_resource) {
+      return pipe_callbacks.export_fd(res->pipe_resource,
+                                      fd,
+                                      pipe_callbacks.data);
+   }
+
+   return VIRGL_RESOURCE_FD_INVALID;
 }

@@ -5862,6 +5862,24 @@ static void vrend_pipe_resource_detach_iov(struct pipe_resource *pres,
    res->num_iovs = 0;
 }
 
+static enum virgl_resource_fd_type vrend_pipe_resource_export_fd(UNUSED struct pipe_resource *pres,
+                                                                 UNUSED int *fd,
+                                                                 UNUSED void *data)
+{
+#ifdef ENABLE_MINIGBM_ALLOCATION
+   struct vrend_resource *res = (struct vrend_resource *)pres;
+
+   if (res->storage_bits & VREND_STORAGE_GBM_BUFFER) {
+      int ret = virgl_gbm_export_fd(gbm->device,
+                                    gbm_bo_get_handle(res->gbm_bo).u32, fd);
+      if (!ret)
+         return VIRGL_RESOURCE_FD_DMABUF;
+   }
+#endif
+
+   return VIRGL_RESOURCE_FD_INVALID;
+}
+
 static const struct virgl_resource_pipe_callbacks *
 vrend_renderer_get_pipe_callbacks(void)
 {
@@ -5869,6 +5887,7 @@ vrend_renderer_get_pipe_callbacks(void)
       .unref = vrend_pipe_resource_unref,
       .attach_iov = vrend_pipe_resource_attach_iov,
       .detach_iov = vrend_pipe_resource_detach_iov,
+      .export_fd = vrend_pipe_resource_export_fd,
    };
 
    return &callbacks;

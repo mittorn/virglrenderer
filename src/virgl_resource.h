@@ -69,6 +69,10 @@ struct virgl_resource_pipe_callbacks {
                       int iov_count,
                       void *data);
    void (*detach_iov)(struct pipe_resource *pres, void *data);
+
+   enum virgl_resource_fd_type (*export_fd)(struct pipe_resource *pres,
+                                            int *fd,
+                                            void *data);
 };
 
 int
@@ -111,5 +115,8 @@ virgl_resource_attach_iov(struct virgl_resource *res,
 
 void
 virgl_resource_detach_iov(struct virgl_resource *res);
+
+enum virgl_resource_fd_type
+virgl_resource_export_fd(struct virgl_resource *res, int *fd);
 
 #endif /* VIRGL_RESOURCE_H */
