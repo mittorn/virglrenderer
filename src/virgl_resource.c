@@ -97,7 +97,10 @@ virgl_resource_create(uint32_t res_id)
 }
 
 int
-virgl_resource_create_from_pipe(uint32_t res_id, struct pipe_resource *pres)
+virgl_resource_create_from_pipe(uint32_t res_id,
+                                struct pipe_resource *pres,
+                                const struct iovec *iov,
+                                int iov_count)
 {
    struct virgl_resource *res;
 
@@ -107,6 +110,9 @@ virgl_resource_create_from_pipe(uint32_t res_id, struct pipe_resource *pres)
 
    /* take ownership */
    res->pipe_resource = pres;
+
+   res->iov = iov;
+   res->iov_count = iov_count;
 
    return 0;
 }

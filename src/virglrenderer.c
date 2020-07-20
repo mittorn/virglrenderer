@@ -80,18 +80,10 @@ static int virgl_renderer_resource_create_internal(struct virgl_renderer_resourc
    if (!pipe_res)
       return EINVAL;
 
-   ret = virgl_resource_create_from_pipe(args->handle, pipe_res);
+   ret = virgl_resource_create_from_pipe(args->handle, pipe_res, iov, num_iovs);
    if (ret) {
       vrend_renderer_resource_destroy((struct vrend_resource *)pipe_res);
       return ret;
-   }
-
-   if (!ret && num_iovs) {
-      ret = virgl_renderer_resource_attach_iov(args->handle, iov, num_iovs);
-      if (ret) {
-         virgl_resource_remove(args->handle);
-         return ret;
-      }
    }
 
    return 0;
@@ -706,18 +698,13 @@ int virgl_renderer_resource_create_blob(const struct virgl_renderer_resource_cre
    if (!pipe_res)
       return -EINVAL;
 
-   ret = virgl_resource_create_from_pipe(args->res_handle, pipe_res);
+   ret = virgl_resource_create_from_pipe(args->res_handle,
+                                         pipe_res,
+                                         args->iovecs,
+                                         args->num_iovs);
    if (ret) {
       vrend_renderer_resource_destroy((struct vrend_resource *)pipe_res);
       return ret;
-   }
-
-   if (has_guest_storage) {
-      ret = virgl_renderer_resource_attach_iov(args->res_handle, args->iovecs, args->num_iovs);
-      if (ret) {
-         virgl_resource_remove(args->res_handle);
-         return ret;
-      }
    }
 
    return 0;

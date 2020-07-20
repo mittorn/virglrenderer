@@ -41,12 +41,12 @@ struct pipe_resource;
 struct virgl_resource {
    uint32_t res_id;
 
+   struct pipe_resource *pipe_resource;
+
    const struct iovec *iov;
    int iov_count;
 
    void *private_data;
-
-   struct pipe_resource *pipe_resource;
 };
 
 struct virgl_resource_pipe_callbacks {
@@ -71,7 +71,10 @@ void
 virgl_resource_table_reset(void);
 
 int
-virgl_resource_create_from_pipe(uint32_t res_id, struct pipe_resource *pres);
+virgl_resource_create_from_pipe(uint32_t res_id,
+                                struct pipe_resource *pres,
+                                const struct iovec *iov,
+                                int iov_count);
 
 int
 virgl_resource_create_from_iov(uint32_t res_id,
