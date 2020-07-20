@@ -43,8 +43,8 @@
 #include "virgl_resource.h"
 
 #ifdef HAVE_EPOXY_EGL_H
-#include "virgl_gbm.h"
-#include "virgl_egl.h"
+#include "vrend_winsys_gbm.h"
+#include "vrend_winsys_egl.h"
 #endif
 
 #ifdef HAVE_EPOXY_GLX_H

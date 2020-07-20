@@ -36,7 +36,7 @@
 #include <string.h>
 
 #include "virgl_hw.h"
-#include "virgl_egl.h"
+#include "vrend_winsys_egl.h"
 #include "virglrenderer.h"
 #include "virgl_protocol.h"
 #include "os/os_misc.h"

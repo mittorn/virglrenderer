@@ -40,9 +40,9 @@
 #include "util/u_memory.h"
 
 #include "virglrenderer.h"
-#include "virgl_egl.h"
+#include "vrend_winsys_egl.h"
 #include "virgl_hw.h"
-#include "virgl_gbm.h"
+#include "vrend_winsys_gbm.h"
 #include "virgl_util.h"
 
 #define EGL_KHR_SURFACELESS_CONTEXT            BIT(0)

@@ -38,7 +38,7 @@
 #include "util/u_memory.h"
 #include "pipe/p_state.h"
 
-#include "virgl_gbm.h"
+#include "vrend_winsys_gbm.h"
 #include "virgl_hw.h"
 #include "vrend_debug.h"
 
