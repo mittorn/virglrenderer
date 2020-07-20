@@ -677,6 +677,21 @@ int virgl_renderer_resource_create_blob(const struct virgl_renderer_resource_cre
       return -EINVAL;
    }
 
+   /* user resource id must be greater than 0 */
+   if (args->res_handle == 0)
+      return -EINVAL;
+
+   if (args->size == 0)
+      return -EINVAL;
+   if (has_guest_storage) {
+      const size_t iov_size = vrend_get_iovec_size(args->iovecs, args->num_iovs);
+      if (iov_size < args->size)
+         return -EINVAL;
+   } else {
+      if (args->num_iovs)
+         return -EINVAL;
+   }
+
    if (!has_host_storage) {
       return virgl_resource_create_from_iov(args->res_handle,
                                             args->iovecs,
