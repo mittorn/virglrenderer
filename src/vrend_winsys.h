@@ -63,4 +63,6 @@ int vrend_winsys_make_context_current(virgl_renderer_gl_context ctx);
 
 int vrend_winsys_has_gl_colorspace(void);
 
+int vrend_winsys_get_fourcc_for_texture(uint32_t tex_id, uint32_t format, int *fourcc);
+
 #endif /* VREND_WINSYS_H */

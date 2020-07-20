@@ -418,8 +418,8 @@ struct vrend_renderer_resource_info {
    uint32_t stride;
 };
 
-int vrend_renderer_resource_get_info(struct pipe_resource *pres,
-                                     struct vrend_renderer_resource_info *info);
+void vrend_renderer_resource_get_info(struct pipe_resource *pres,
+                                      struct vrend_renderer_resource_info *info);
 
 #define VREND_CAP_SET 1
 #define VREND_CAP_SET2 2

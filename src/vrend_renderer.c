@@ -10302,8 +10302,8 @@ void vrend_context_set_debug_flags(struct vrend_context *ctx, const char *flagst
    }
 }
 
-int vrend_renderer_resource_get_info(struct pipe_resource *pres,
-                                     struct vrend_renderer_resource_info *info)
+void vrend_renderer_resource_get_info(struct pipe_resource *pres,
+                                      struct vrend_renderer_resource_info *info)
 {
    struct vrend_resource *res = (struct vrend_resource *)pres;
    int elsize;
@@ -10317,8 +10317,6 @@ int vrend_renderer_resource_get_info(struct pipe_resource *pres,
    info->format = res->base.format;
    info->flags = res->y_0_top ? VIRGL_RESOURCE_Y_0_TOP : 0;
    info->stride = util_format_get_nblocksx(res->base.format, u_minify(res->base.width0, 0)) * elsize;
-
-   return 0;
 }
 
 void vrend_renderer_get_cap_set(uint32_t cap_set, uint32_t *max_ver,

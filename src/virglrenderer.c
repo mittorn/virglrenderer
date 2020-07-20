@@ -326,22 +326,19 @@ int virgl_renderer_resource_get_info(int res_handle,
                                      struct virgl_renderer_resource_info *info)
 {
    struct virgl_resource *res = virgl_resource_lookup(res_handle);
-   int ret;
 
    if (!res || !res->pipe_resource)
       return EINVAL;
    if (!info)
       return EINVAL;
 
-   ret = vrend_renderer_resource_get_info(res->pipe_resource,
-                                          (struct vrend_renderer_resource_info *)info);
+   vrend_renderer_resource_get_info(res->pipe_resource,
+                                    (struct vrend_renderer_resource_info *)info);
    info->handle = res_handle;
-#ifdef HAVE_EPOXY_EGL_H
-   if (ret == 0 && use_context == CONTEXT_EGL)
-      return virgl_egl_get_fourcc_for_texture(egl, info->tex_id, info->virgl_format, &info->drm_fourcc);
-#endif
 
-   return ret;
+   return vrend_winsys_get_fourcc_for_texture(info->tex_id,
+                                              info->virgl_format,
+                                              &info->drm_fourcc);
 }
 
 void virgl_renderer_get_cap_set(uint32_t cap_set, uint32_t *max_ver,
