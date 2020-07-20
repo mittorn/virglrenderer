@@ -36,11 +36,15 @@
 #include "vrend_winsys_glx.h"
 #endif
 
+#include "virglrenderer.h"
+
 enum {
    CONTEXT_NONE,
    CONTEXT_EGL,
    CONTEXT_GLX
 };
+
+struct virgl_gl_ctx_param;
 
 extern int use_context;
 
@@ -52,6 +56,10 @@ extern struct virgl_gbm *gbm;
 #ifdef HAVE_EPOXY_GLX_H
 extern struct virgl_glx *glx_info;
 #endif
+
+virgl_renderer_gl_context vrend_winsys_create_context(struct virgl_gl_ctx_param *param);
+void vrend_winsys_destroy_context(virgl_renderer_gl_context ctx);
+int vrend_winsys_make_context_current(virgl_renderer_gl_context ctx);
 
 int vrend_winsys_has_gl_colorspace(void);
 

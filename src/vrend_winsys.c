@@ -37,6 +37,48 @@ struct virgl_gbm *gbm = NULL;
 struct virgl_glx *glx_info = NULL;
 #endif
 
+virgl_renderer_gl_context vrend_winsys_create_context(struct virgl_gl_ctx_param *param)
+{
+#ifdef HAVE_EPOXY_EGL_H
+   if (use_context == CONTEXT_EGL)
+      return virgl_egl_create_context(egl, param);
+#endif
+#ifdef HAVE_EPOXY_GLX_H
+   if (use_context == CONTEXT_GLX)
+      return virgl_glx_create_context(glx_info, param);
+#endif
+   return NULL;
+}
+
+void vrend_winsys_destroy_context(virgl_renderer_gl_context ctx)
+{
+#ifdef HAVE_EPOXY_EGL_H
+   if (use_context == CONTEXT_EGL) {
+      virgl_egl_destroy_context(egl, ctx);
+      return;
+   }
+#endif
+#ifdef HAVE_EPOXY_GLX_H
+   if (use_context == CONTEXT_GLX) {
+      virgl_glx_destroy_context(glx_info, ctx);
+      return;
+   }
+#endif
+}
+
+int vrend_winsys_make_context_current(virgl_renderer_gl_context ctx)
+{
+#ifdef HAVE_EPOXY_EGL_H
+   if (use_context == CONTEXT_EGL)
+      return virgl_egl_make_context_current(egl, ctx);
+#endif
+#ifdef HAVE_EPOXY_GLX_H
+   if (use_context == CONTEXT_GLX)
+      return virgl_glx_make_context_current(glx_info, ctx);
+#endif
+   return -1;
+}
+
 int vrend_winsys_has_gl_colorspace(void)
 {
    bool egl_colorspace = false;

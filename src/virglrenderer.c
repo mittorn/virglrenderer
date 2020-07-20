@@ -388,14 +388,9 @@ static virgl_renderer_gl_context create_gl_context(int scanout_idx, struct virgl
 {
    struct virgl_renderer_gl_ctx_param vparam;
 
-#ifdef HAVE_EPOXY_EGL_H
-   if (use_context == CONTEXT_EGL)
-      return virgl_egl_create_context(egl, param);
-#endif
-#ifdef HAVE_EPOXY_GLX_H
-   if (use_context == CONTEXT_GLX)
-      return virgl_glx_create_context(glx_info, param);
-#endif
+   if (use_context != CONTEXT_NONE)
+      return vrend_winsys_create_context(param);
+
    vparam.version = 1;
    vparam.shared = param->shared;
    vparam.major_ver = param->major_ver;
@@ -405,31 +400,19 @@ static virgl_renderer_gl_context create_gl_context(int scanout_idx, struct virgl
 
 static void destroy_gl_context(virgl_renderer_gl_context ctx)
 {
-#ifdef HAVE_EPOXY_EGL_H
-   if (use_context == CONTEXT_EGL) {
-      virgl_egl_destroy_context(egl, ctx);
+   if (use_context != CONTEXT_NONE) {
+      vrend_winsys_destroy_context(ctx);
       return;
    }
-#endif
-#ifdef HAVE_EPOXY_GLX_H
-   if (use_context == CONTEXT_GLX) {
-      virgl_glx_destroy_context(glx_info, ctx);
-      return;
-   }
-#endif
+
    rcbs->destroy_gl_context(dev_cookie, ctx);
 }
 
 static int make_current(virgl_renderer_gl_context ctx)
 {
-#ifdef HAVE_EPOXY_EGL_H
-   if (use_context == CONTEXT_EGL)
-      return virgl_egl_make_context_current(egl, ctx);
-#endif
-#ifdef HAVE_EPOXY_GLX_H
-   if (use_context == CONTEXT_GLX)
-      return virgl_glx_make_context_current(glx_info, ctx);
-#endif
+   if (use_context != CONTEXT_NONE)
+      return vrend_winsys_make_context_current(ctx);
+
    return rcbs->make_current(dev_cookie, 0, ctx);
 }
 
