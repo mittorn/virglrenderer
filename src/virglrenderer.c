@@ -89,11 +89,7 @@ int virgl_renderer_resource_create(struct virgl_renderer_resource_create_args *a
 
 int virgl_renderer_resource_import_eglimage(struct virgl_renderer_resource_create_args *args, void *image)
 {
-#ifdef HAVE_EPOXY_EGL_H
    return virgl_renderer_resource_create_internal(args, NULL, 0, image);
-#else
-   return EINVAL;
-#endif
 }
 
 void virgl_renderer_resource_set_priv(uint32_t res_handle, void *priv)
