@@ -62,19 +62,6 @@ struct vrend_context;
 #define VREND_STORAGE_GL_IMMUTABLE       BIT(6)
 #define VREND_STORAGE_GL_MEMOBJ          BIT(7)
 
-enum {
-   CONTEXT_NONE,
-   CONTEXT_EGL,
-   CONTEXT_GLX
-};
-
-extern int use_context;
-#ifdef HAVE_EPOXY_EGL_H
-extern struct virgl_egl *egl;
-extern struct virgl_gbm *gbm;
-#endif
-
-
 struct vrend_resource {
    struct pipe_resource base;
    uint32_t storage_bits;

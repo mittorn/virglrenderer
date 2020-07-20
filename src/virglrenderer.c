@@ -35,22 +35,13 @@
 #include "util/u_format.h"
 #include "util/u_math.h"
 #include "vrend_renderer.h"
+#include "vrend_winsys.h"
 
 #include "virglrenderer.h"
 #include "virglrenderer_hw.h"
 
 #include "virgl_context.h"
 #include "virgl_resource.h"
-
-#ifdef HAVE_EPOXY_EGL_H
-#include "vrend_winsys_gbm.h"
-#include "vrend_winsys_egl.h"
-#endif
-
-#ifdef HAVE_EPOXY_GLX_H
-#include "vrend_winsys_glx.h"
-static struct virgl_glx *glx_info;
-#endif
 
 /* new API - just wrap internal API for now */
 

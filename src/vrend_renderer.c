@@ -47,6 +47,7 @@
 
 #include "vrend_renderer.h"
 #include "vrend_debug.h"
+#include "vrend_winsys.h"
 
 #include "virgl_util.h"
 
@@ -59,15 +60,6 @@
 #ifdef HAVE_EVENTFD
 #include <sys/eventfd.h>
 #endif
-
-#ifdef HAVE_EPOXY_EGL_H
-#include "vrend_winsys_gbm.h"
-#include "vrend_winsys_egl.h"
-extern struct virgl_gbm *gbm;
-extern struct virgl_egl *egl;
-#endif
-
-int use_context = CONTEXT_NONE;
 
 static const uint32_t fake_occlusion_query_samples_passed_default = 1024;
 
@@ -10419,11 +10411,6 @@ void vrend_print_context_name(const struct vrend_context *ctx)
    else
       vrend_printf("HOST: ");
 }
-
-#ifdef HAVE_EPOXY_EGL_H
-struct virgl_egl *egl = NULL;
-struct virgl_gbm *gbm = NULL;
-#endif
 
 int virgl_has_gl_colorspace(void)
 {

@@ -52,6 +52,8 @@ vrend_sources = [
    'vrend_strbuf.h',
    'vrend_tweaks.c',
    'vrend_tweaks.h',
+   'vrend_winsys.c',
+   'vrend_winsys.h',
 ]
 
 virglrenderer_sources = [
