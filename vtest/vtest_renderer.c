@@ -820,7 +820,8 @@ static int vtest_transfer_decode_args2(struct vtest_context *ctx,
 
 static int vtest_transfer_get_internal(struct vtest_context *ctx,
                                        struct vtest_transfer_args *args,
-                                       uint32_t data_size)
+                                       uint32_t data_size,
+                                       bool do_transfer)
 {
    struct vtest_resource *res;
    struct iovec data_iov;
@@ -844,7 +845,7 @@ static int vtest_transfer_get_internal(struct vtest_context *ctx,
       }
    }
 
-   if (args) {
+   if (do_transfer) {
       ret = virgl_renderer_transfer_read_iov(res->res_id,
                                              ctx->ctx_id,
                                              args->level,
@@ -874,7 +875,8 @@ static int vtest_transfer_get_internal(struct vtest_context *ctx,
 
 static int vtest_transfer_put_internal(struct vtest_context *ctx,
                                        struct vtest_transfer_args *args,
-                                       uint32_t data_size)
+                                       uint32_t data_size,
+                                       bool do_transfer)
 {
    struct vtest_resource *res;
    struct iovec data_iov;
@@ -899,7 +901,7 @@ static int vtest_transfer_put_internal(struct vtest_context *ctx,
       }
    }
 
-   if (args) {
+   if (do_transfer) {
       ret = virgl_renderer_transfer_write_iov(res->res_id,
                                               ctx->ctx_id,
                                               args->level,
@@ -933,7 +935,7 @@ int vtest_transfer_get(UNUSED uint32_t length_dw)
       return ret;
    }
 
-   return vtest_transfer_get_internal(ctx, &args, data_size);
+   return vtest_transfer_get_internal(ctx, &args, data_size, true);
 }
 
 int vtest_transfer_get_nop(UNUSED uint32_t length_dw)
@@ -948,7 +950,7 @@ int vtest_transfer_get_nop(UNUSED uint32_t length_dw)
       return ret;
    }
 
-   return vtest_transfer_get_internal(ctx, NULL, data_size);
+   return vtest_transfer_get_internal(ctx, &args, data_size, false);
 }
 
 int vtest_transfer_put(UNUSED uint32_t length_dw)
@@ -963,7 +965,7 @@ int vtest_transfer_put(UNUSED uint32_t length_dw)
       return ret;
    }
 
-   return vtest_transfer_put_internal(ctx, &args, data_size);
+   return vtest_transfer_put_internal(ctx, &args, data_size, true);
 }
 
 int vtest_transfer_put_nop(UNUSED uint32_t length_dw)
@@ -978,7 +980,7 @@ int vtest_transfer_put_nop(UNUSED uint32_t length_dw)
       return ret;
    }
 
-   return vtest_transfer_put_internal(ctx, NULL, data_size);
+   return vtest_transfer_put_internal(ctx, &args, data_size, false);
 }
 
 int vtest_transfer_get2(UNUSED uint32_t length_dw)
@@ -992,7 +994,7 @@ int vtest_transfer_get2(UNUSED uint32_t length_dw)
       return ret;
    }
 
-   return vtest_transfer_get_internal(ctx, &args, 0);
+   return vtest_transfer_get_internal(ctx, &args, 0, true);
 }
 
 int vtest_transfer_get2_nop(UNUSED uint32_t length_dw)
@@ -1006,7 +1008,7 @@ int vtest_transfer_get2_nop(UNUSED uint32_t length_dw)
       return ret;
    }
 
-   return vtest_transfer_get_internal(ctx, NULL, 0);
+   return vtest_transfer_get_internal(ctx, &args, 0, false);
 }
 
 int vtest_transfer_put2(UNUSED uint32_t length_dw)
@@ -1020,7 +1022,7 @@ int vtest_transfer_put2(UNUSED uint32_t length_dw)
       return ret;
    }
 
-   return vtest_transfer_put_internal(ctx, &args, 0);
+   return vtest_transfer_put_internal(ctx, &args, 0, true);
 }
 
 int vtest_transfer_put2_nop(UNUSED uint32_t length_dw)
@@ -1034,7 +1036,7 @@ int vtest_transfer_put2_nop(UNUSED uint32_t length_dw)
       return ret;
    }
 
-   return vtest_transfer_put_internal(ctx, NULL, 0);
+   return vtest_transfer_put_internal(ctx, &args, 0, false);
 }
 
 int vtest_resource_busy_wait(UNUSED uint32_t length_dw)
