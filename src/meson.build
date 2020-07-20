@@ -33,6 +33,9 @@ virgl_sources = [
    'virgl_resource.h',
    'virgl_util.c',
    'virgl_util.h',
+]
+
+vrend_sources = [
    'vrend_blitter.c',
    'vrend_blitter.h',
    'vrend_debug.c',
@@ -77,6 +80,8 @@ virgl_depends = [
    thread_dep,
    m_dep
 ]
+
+virgl_sources += vrend_sources
 
 if have_egl
    virgl_sources += virgl_egl_sources
