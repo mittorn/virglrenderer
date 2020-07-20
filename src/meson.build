@@ -67,9 +67,9 @@ vrend_winsys_egl_sources = [
    'vrend_winsys_egl.h',
 ]
 
-virgl_glx_sources = [
-   'virgl_glx_context.c',
-   'virgl_glx.h',
+vrend_winsys_glx_sources = [
+   'vrend_winsys_glx.c',
+   'vrend_winsys_glx.h',
 ]
 
 virgl_depends = [
@@ -88,7 +88,7 @@ if have_egl
 endif
 
 if have_glx
-   virgl_sources += virgl_glx_sources
+   virgl_sources += vrend_winsys_glx_sources
    virgl_depends += [glx_dep]
 endif
 

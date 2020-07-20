@@ -29,7 +29,7 @@
 
 #include <epoxy/glx.h>
 #include "virglrenderer.h"
-#include "virgl_glx.h"
+#include "vrend_winsys_glx.h"
 
 struct virgl_glx {
    Display *display;

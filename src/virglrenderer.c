@@ -48,7 +48,7 @@
 #endif
 
 #ifdef HAVE_EPOXY_GLX_H
-#include "virgl_glx.h"
+#include "vrend_winsys_glx.h"
 static struct virgl_glx *glx_info;
 #endif
 
