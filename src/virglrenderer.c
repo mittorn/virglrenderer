@@ -437,25 +437,7 @@ void virgl_renderer_cleanup(UNUSED void *cookie)
 {
    vrend_renderer_fini();
    virgl_context_table_cleanup();
-
-#ifdef HAVE_EPOXY_EGL_H
-   if (use_context == CONTEXT_EGL) {
-      virgl_egl_destroy(egl);
-      egl = NULL;
-      use_context = CONTEXT_NONE;
-      if (gbm) {
-         virgl_gbm_fini(gbm);
-         gbm = NULL;
-      }
-   }
-#endif
-#ifdef HAVE_EPOXY_GLX_H
-   if (use_context == CONTEXT_GLX) {
-      virgl_glx_destroy(glx_info);
-      glx_info = NULL;
-      use_context = CONTEXT_NONE;
-   }
-#endif
+   vrend_winsys_cleanup();
 }
 
 int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks *cbs)

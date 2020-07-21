@@ -37,6 +37,28 @@ struct virgl_gbm *gbm = NULL;
 struct virgl_glx *glx_info = NULL;
 #endif
 
+void vrend_winsys_cleanup(void)
+{
+#ifdef HAVE_EPOXY_EGL_H
+   if (use_context == CONTEXT_EGL) {
+      virgl_egl_destroy(egl);
+      egl = NULL;
+      use_context = CONTEXT_NONE;
+      if (gbm) {
+         virgl_gbm_fini(gbm);
+         gbm = NULL;
+      }
+   }
+#endif
+#ifdef HAVE_EPOXY_GLX_H
+   if (use_context == CONTEXT_GLX) {
+      virgl_glx_destroy(glx_info);
+      glx_info = NULL;
+      use_context = CONTEXT_NONE;
+   }
+#endif
+}
+
 virgl_renderer_gl_context vrend_winsys_create_context(struct virgl_gl_ctx_param *param)
 {
 #ifdef HAVE_EPOXY_EGL_H
