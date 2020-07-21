@@ -53,4 +53,6 @@ extern struct virgl_gbm *gbm;
 extern struct virgl_glx *glx_info;
 #endif
 
+int vrend_winsys_has_gl_colorspace(void);
+
 #endif /* VREND_WINSYS_H */

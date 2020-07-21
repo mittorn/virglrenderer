@@ -5996,7 +5996,7 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
    init_features(gles ? 0 : gl_ver,
                  gles ? gl_ver : 0);
 
-   vrend_state.features[feat_srgb_write_control] &= virgl_has_gl_colorspace();
+   vrend_state.features[feat_srgb_write_control] &= vrend_winsys_has_gl_colorspace();
 
    glGetIntegerv(GL_MAX_DRAW_BUFFERS, (GLint *) &vrend_state.max_draw_buffers);
 
@@ -10410,18 +10410,6 @@ void vrend_print_context_name(const struct vrend_context *ctx)
       vrend_printf("%s: ", ctx->debug_name);
    else
       vrend_printf("HOST: ");
-}
-
-int virgl_has_gl_colorspace(void)
-{
-   bool egl_colorspace = false;
-#ifdef HAVE_EPOXY_EGL_H
-   if (egl)
-      egl_colorspace = virgl_has_egl_khr_gl_colorspace(egl);
-#endif
-   return use_context == CONTEXT_NONE ||
-         use_context == CONTEXT_GLX ||
-         (use_context == CONTEXT_EGL && egl_colorspace);
 }
 
 
