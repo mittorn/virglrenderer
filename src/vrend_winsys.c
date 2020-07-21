@@ -37,6 +37,49 @@ struct virgl_gbm *gbm = NULL;
 struct virgl_glx *glx_info = NULL;
 #endif
 
+int vrend_winsys_init(uint32_t flags, int preferred_fd)
+{
+   if (flags & VIRGL_RENDERER_USE_EGL) {
+#ifdef HAVE_EPOXY_EGL_H
+      /*
+       * If the user specifies a preferred DRM fd and we can't use it, fail. If the user doesn't
+       * specify an fd, it's possible to initialize EGL without one.
+       */
+      gbm = virgl_gbm_init(preferred_fd);
+      if (preferred_fd > 0 && !gbm)
+         return -1;
+
+      egl = virgl_egl_init(gbm, flags & VIRGL_RENDERER_USE_SURFACELESS,
+                           flags & VIRGL_RENDERER_USE_GLES);
+      if (!egl) {
+         if (gbm) {
+            virgl_gbm_fini(gbm);
+            gbm = NULL;
+         }
+
+         return -1;
+      }
+
+      use_context = CONTEXT_EGL;
+#else
+      vrend_printf( "EGL is not supported on this platform\n");
+      return -1;
+#endif
+   } else if (flags & VIRGL_RENDERER_USE_GLX) {
+#ifdef HAVE_EPOXY_GLX_H
+      glx_info = virgl_glx_init();
+      if (!glx_info)
+         return -1;
+      use_context = CONTEXT_GLX;
+#else
+      vrend_printf( "GLX is not supported on this platform\n");
+      return -1;
+#endif
+   }
+
+   return 0;
+}
+
 void vrend_winsys_cleanup(void)
 {
 #ifdef HAVE_EPOXY_EGL_H

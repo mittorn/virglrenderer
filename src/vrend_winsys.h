@@ -57,6 +57,7 @@ extern struct virgl_gbm *gbm;
 extern struct virgl_glx *glx_info;
 #endif
 
+int vrend_winsys_init(uint32_t flags, int preferred_fd);
 void vrend_winsys_cleanup(void);
 
 virgl_renderer_gl_context vrend_winsys_create_context(struct virgl_gl_ctx_param *param);

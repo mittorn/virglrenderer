@@ -442,7 +442,10 @@ void virgl_renderer_cleanup(UNUSED void *cookie)
 
 int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks *cbs)
 {
+   int drm_fd = -1;
    uint32_t renderer_flags = 0;
+   int ret;
+
    if (!cookie || !cbs)
       return -1;
 
@@ -453,47 +456,13 @@ int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks
    rcbs = cbs;
 
    if (flags & VIRGL_RENDERER_USE_EGL) {
-#ifdef HAVE_EPOXY_EGL_H
-      int fd = -1;
       if (cbs->version >= 2 && cbs->get_drm_fd) {
-         fd = cbs->get_drm_fd(cookie);
+         drm_fd = cbs->get_drm_fd(cookie);
       }
-
-      /*
-       * If the user specifies a preferred DRM fd and we can't use it, fail. If the user doesn't
-       * specify an fd, it's possible to initialize EGL without one.
-       */
-      gbm = virgl_gbm_init(fd);
-      if (fd > 0 && !gbm)
-         return -1;
-
-      egl = virgl_egl_init(gbm, flags & VIRGL_RENDERER_USE_SURFACELESS,
-                           flags & VIRGL_RENDERER_USE_GLES);
-      if (!egl) {
-         if (gbm) {
-            virgl_gbm_fini(gbm);
-            gbm = NULL;
-         }
-
-         return -1;
-      }
-
-      use_context = CONTEXT_EGL;
-#else
-      vrend_printf( "EGL is not supported on this platform\n");
-      return -1;
-#endif
-   } else if (flags & VIRGL_RENDERER_USE_GLX) {
-#ifdef HAVE_EPOXY_GLX_H
-      glx_info = virgl_glx_init();
-      if (!glx_info)
-         return -1;
-      use_context = CONTEXT_GLX;
-#else
-      vrend_printf( "GLX is not supported on this platform\n");
-      return -1;
-#endif
    }
+   ret = vrend_winsys_init(flags, drm_fd);
+   if (ret)
+      return ret;
 
    if (virgl_context_table_init())
       return -1;
