@@ -530,26 +530,12 @@ int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks
 
 int virgl_renderer_get_fd_for_texture(uint32_t tex_id, int *fd)
 {
-#ifdef HAVE_EPOXY_EGL_H
-   if (!egl)
-      return -1;
-
-   return virgl_egl_get_fd_for_texture(egl, tex_id, fd);
-#else
-   return -1;
-#endif
+   return vrend_winsys_get_fd_for_texture(tex_id, fd);
 }
 
 int virgl_renderer_get_fd_for_texture2(uint32_t tex_id, int *fd, int *stride, int *offset)
 {
-#ifdef HAVE_EPOXY_EGL_H
-   if (!egl)
-      return -1;
-
-   return virgl_egl_get_fd_for_texture2(egl, tex_id, fd, stride, offset);
-#else
-   return -1;
-#endif
+   return vrend_winsys_get_fd_for_texture2(tex_id, fd, stride, offset);
 }
 
 void virgl_renderer_reset(void)
