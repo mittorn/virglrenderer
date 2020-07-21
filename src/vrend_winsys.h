@@ -32,10 +32,6 @@
 #include "vrend_winsys_egl.h"
 #endif
 
-#ifdef HAVE_EPOXY_GLX_H
-#include "vrend_winsys_glx.h"
-#endif
-
 #include "virglrenderer.h"
 
 enum {
@@ -51,10 +47,6 @@ extern int use_context;
 #ifdef HAVE_EPOXY_EGL_H
 extern struct virgl_egl *egl;
 extern struct virgl_gbm *gbm;
-#endif
-
-#ifdef HAVE_EPOXY_GLX_H
-extern struct virgl_glx *glx_info;
 #endif
 
 int vrend_winsys_init(uint32_t flags, int preferred_fd);

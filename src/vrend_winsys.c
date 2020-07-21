@@ -24,6 +24,10 @@
 
 #include "vrend_winsys.h"
 
+#ifdef HAVE_EPOXY_GLX_H
+#include "vrend_winsys_glx.h"
+#endif
+
 #include <stddef.h>
 
 int use_context = CONTEXT_NONE;
@@ -34,7 +38,7 @@ struct virgl_gbm *gbm = NULL;
 #endif
 
 #ifdef HAVE_EPOXY_GLX_H
-struct virgl_glx *glx_info = NULL;
+static struct virgl_glx *glx_info = NULL;
 #endif
 
 int vrend_winsys_init(uint32_t flags, int preferred_fd)
