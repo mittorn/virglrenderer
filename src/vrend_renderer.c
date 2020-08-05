@@ -7572,7 +7572,18 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
    else
       glUseProgram(0);
 
-   enum virgl_formats fmt = vrend_format_replace_emulated(res->base.bind, res->base.format);
+   /* If the emubgra tweak is active then reading back the BGRA format emulated
+    * by swizzling a RGBA format will take a performance hit because mesa will
+    * manually swizzling the RGBA data. This can be avoided by setting the
+    * tweak bgraswz that does this swizzling already on the GPU when blitting
+    * or rendering to an emulated BGRA surface and reading back the data as
+    * RGBA. The check whether we are on gles and emugbra is active is done
+    * in vrend_format_replace_emulated, so no need to repeat the test here */
+   enum virgl_formats fmt = res->base.format;
+   if (vrend_get_tweak_is_active(&ctx->sub->tweaks,
+                                 virgl_tweak_gles_brga_apply_dest_swizzle))
+      fmt = vrend_format_replace_emulated(res->base.bind, res->base.format);
+
    format = tex_conv_table[fmt].glformat;
    type = tex_conv_table[fmt].gltype;
    /* if we are asked to invert and reading from a front then don't */
