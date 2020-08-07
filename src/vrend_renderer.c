@@ -6596,9 +6596,9 @@ static void vrend_resource_gbm_init(struct vrend_resource *gr, uint32_t format)
    gr->storage_bits |= VREND_STORAGE_GBM_BUFFER;
    /* This is true so far, but maybe gbm_bo_get_caching_type is needed in the future. */
    if (!strcmp(gbm_device_get_backend_name(gbm->device), "i915"))
-      gr->map_info = VIRGL_MAP_CACHE_CACHED;
+      gr->map_info = VIRGL_RENDERER_MAP_CACHE_CACHED;
    else
-      gr->map_info = VIRGL_MAP_CACHE_WC;
+      gr->map_info = VIRGL_RENDERER_MAP_CACHE_WC;
 
    if (!virgl_gbm_gpu_import_required(gr->base.bind))
       return;
