@@ -54,6 +54,7 @@ virgl_sources = [
 virglrenderer_sources = [
    'virglrenderer.c',
    'virglrenderer.h',
+   'virglrenderer_hw.h',
 ]
 
 
