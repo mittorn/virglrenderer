@@ -37,6 +37,7 @@
 #include "vrend_renderer.h"
 
 #include "virglrenderer.h"
+#include "virglrenderer_hw.h"
 
 #include "virgl_context.h"
 #include "virgl_resource.h"
@@ -148,10 +149,10 @@ void virgl_renderer_fill_caps(uint32_t set, uint32_t version,
                               void *caps)
 {
    switch (set) {
-   case VIRGL_CAPSET_VIRGL:
+   case VIRGL_RENDERER_CAPSET_VIRGL:
       vrend_renderer_fill_caps(VREND_CAP_SET, version, (union virgl_caps *)caps);
       break;
-   case VIRGL_CAPSET_VIRGL2:
+   case VIRGL_RENDERER_CAPSET_VIRGL2:
       vrend_renderer_fill_caps(VREND_CAP_SET2, version, (union virgl_caps *)caps);
       break;
    default:
@@ -356,10 +357,10 @@ void virgl_renderer_get_cap_set(uint32_t cap_set, uint32_t *max_ver,
                                 uint32_t *max_size)
 {
    switch (cap_set) {
-   case VIRGL_CAPSET_VIRGL:
+   case VIRGL_RENDERER_CAPSET_VIRGL:
       vrend_renderer_get_cap_set(VREND_CAP_SET, max_ver, max_size);
       break;
-   case VIRGL_CAPSET_VIRGL2:
+   case VIRGL_RENDERER_CAPSET_VIRGL2:
       vrend_renderer_get_cap_set(VREND_CAP_SET2, max_ver, max_size);
       break;
    default:

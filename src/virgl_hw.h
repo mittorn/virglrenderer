@@ -370,13 +370,6 @@ enum virgl_formats {
    VIRGL_FORMAT_MAX_EXTENDED
 };
 
-#ifdef VIRGL_RENDERER_UNSTABLE_APIS
-enum virgl_capsets {
-   VIRGL_CAPSET_VIRGL                   = 1,
-   VIRGL_CAPSET_VIRGL2                  = 2,
-};
-#endif
-
 /* These are used by the capability_bits field in virgl_caps_v2. */
 #define VIRGL_CAP_NONE 0
 #define VIRGL_CAP_TGSI_INVARIANT       (1 << 0)
