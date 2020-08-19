@@ -10332,11 +10332,11 @@ void vrend_renderer_get_cap_set(uint32_t cap_set, uint32_t *max_ver,
                                 uint32_t *max_size)
 {
    switch (cap_set) {
-   case VIRGL_CAPSET_VIRGL:
+   case VREND_CAP_SET:
       *max_ver = 1;
       *max_size = sizeof(struct virgl_caps_v1);
       break;
-   case VIRGL_CAPSET_VIRGL2:
+   case VREND_CAP_SET2:
       /* we should never need to increase this - it should be possible to just grow virgl_caps */
       *max_ver = 2;
       *max_size = sizeof(struct virgl_caps_v2);

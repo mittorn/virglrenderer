@@ -149,8 +149,10 @@ void virgl_renderer_fill_caps(uint32_t set, uint32_t version,
 {
    switch (set) {
    case VIRGL_CAPSET_VIRGL:
+      vrend_renderer_fill_caps(VREND_CAP_SET, version, (union virgl_caps *)caps);
+      break;
    case VIRGL_CAPSET_VIRGL2:
-      vrend_renderer_fill_caps(set, version, (union virgl_caps *)caps);
+      vrend_renderer_fill_caps(VREND_CAP_SET2, version, (union virgl_caps *)caps);
       break;
    default:
       break;
@@ -355,8 +357,10 @@ void virgl_renderer_get_cap_set(uint32_t cap_set, uint32_t *max_ver,
 {
    switch (cap_set) {
    case VIRGL_CAPSET_VIRGL:
+      vrend_renderer_get_cap_set(VREND_CAP_SET, max_ver, max_size);
+      break;
    case VIRGL_CAPSET_VIRGL2:
-      vrend_renderer_get_cap_set(cap_set, max_ver, max_size);
+      vrend_renderer_get_cap_set(VREND_CAP_SET2, max_ver, max_size);
       break;
    default:
       *max_ver = 0;

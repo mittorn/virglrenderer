@@ -434,6 +434,9 @@ struct vrend_renderer_resource_info {
 int vrend_renderer_resource_get_info(struct pipe_resource *pres,
                                      struct vrend_renderer_resource_info *info);
 
+#define VREND_CAP_SET 1
+#define VREND_CAP_SET2 2
+
 void vrend_renderer_get_cap_set(uint32_t cap_set, uint32_t *max_ver,
                                 uint32_t *max_size);
 
