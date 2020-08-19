@@ -56,8 +56,4 @@ int virgl_egl_get_fd_for_texture2(struct virgl_egl *egl, uint32_t tex_id, int *f
 void *virgl_egl_image_from_dmabuf(struct virgl_egl *egl, struct gbm_bo *bo);
 void *virgl_egl_aux_plane_image_from_dmabuf(struct virgl_egl *egl, struct gbm_bo *bo, int plane);
 void virgl_egl_image_destroy(struct virgl_egl *egl, void *image);
-
-bool virgl_egl_need_fence_and_wait_external(struct virgl_egl *egl);
-void *virgl_egl_fence(struct virgl_egl *egl);
-void virgl_egl_wait_fence(struct virgl_egl *egl, void* fence);
 #endif

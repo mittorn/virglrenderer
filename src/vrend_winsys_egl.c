@@ -75,7 +75,6 @@ struct virgl_egl {
    EGLConfig egl_conf;
    EGLContext egl_ctx;
    uint32_t extension_bits;
-   bool need_fence_and_wait_external;
 };
 
 static bool virgl_egl_has_extension_in_string(const char *haystack, const char *needle)
@@ -217,10 +216,6 @@ struct virgl_egl *virgl_egl_init(struct virgl_gbm *gbm, bool surfaceless, bool g
 
    if (virgl_egl_init_extensions(egl, extensions))
       goto fail;
-
-   // ARM Mali platforms need explicit synchronization prior to mapping.
-   if (!strcmp(eglQueryString(egl->egl_display, EGL_VENDOR), "ARM"))
-      egl->need_fence_and_wait_external = true;
 
    if (gles)
       api = EGL_OPENGL_ES_API;
@@ -512,31 +507,3 @@ void virgl_egl_image_destroy(struct virgl_egl *egl, void *image)
    eglDestroyImageKHR(egl->egl_display, image);
 }
 #endif
-
-bool virgl_egl_need_fence_and_wait_external(struct virgl_egl *egl)
-{
-   return (egl && egl->need_fence_and_wait_external);
-}
-
-void *virgl_egl_fence(struct virgl_egl *egl)
-{
-   const EGLint attrib_list[] = {EGL_SYNC_CONDITION_KHR,
-                                 EGL_SYNC_PRIOR_COMMANDS_COMPLETE_KHR,
-                                 EGL_NONE};
-   EGLSyncKHR fence = EGL_NO_SYNC_KHR;
-
-   if (!egl || !has_bit(egl->extension_bits, EGL_KHR_FENCE_SYNC)) {
-      return (void *)fence;
-   }
-
-   return (void *)eglCreateSyncKHR(egl->egl_display, EGL_SYNC_FENCE_KHR, attrib_list);
-}
-
-void virgl_egl_wait_fence(struct virgl_egl *egl, void* sync)
-{
-   EGLSyncKHR fence = (EGLSyncKHR) sync;
-   if (fence == EGL_NO_SYNC_KHR)
-      return;
-   eglWaitSyncKHR(egl->egl_display, fence, 0);
-   eglDestroySyncKHR(egl->egl_display, fence);
-}
