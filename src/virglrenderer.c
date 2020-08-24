@@ -46,6 +46,8 @@
 struct global_state {
    void *cookie;
    const struct virgl_renderer_callbacks *cbs;
+
+   bool vrend_initialized;
 };
 
 static struct global_state state;
@@ -431,20 +433,24 @@ void *virgl_renderer_get_cursor_data(uint32_t resource_id, uint32_t *width, uint
 
 void virgl_renderer_poll(void)
 {
-   vrend_renderer_check_fences();
+   if (state.vrend_initialized)
+      vrend_renderer_check_fences();
 }
 
 void virgl_renderer_cleanup(UNUSED void *cookie)
 {
-   vrend_renderer_fini();
+   if (state.vrend_initialized)
+      vrend_renderer_fini();
+
    virgl_context_table_cleanup();
    vrend_winsys_cleanup();
+
+   memset(&state, 0, sizeof(state));
 }
 
 int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks *cbs)
 {
    int drm_fd = -1;
-   uint32_t renderer_flags = 0;
    int ret;
 
    if (!cookie || !cbs)
@@ -468,12 +474,21 @@ int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks
    if (virgl_context_table_init())
       return -1;
 
-   if (flags & VIRGL_RENDERER_THREAD_SYNC)
-      renderer_flags |= VREND_USE_THREAD_SYNC;
-   if (flags & VIRGL_RENDERER_USE_EXTERNAL_BLOB)
-      renderer_flags |= VREND_USE_EXTERNAL_BLOB;
+   if (!state.vrend_initialized) {
+      uint32_t renderer_flags = 0;
 
-   return vrend_renderer_init(&vrend_cbs, renderer_flags);
+      if (flags & VIRGL_RENDERER_THREAD_SYNC)
+         renderer_flags |= VREND_USE_THREAD_SYNC;
+      if (flags & VIRGL_RENDERER_USE_EXTERNAL_BLOB)
+         renderer_flags |= VREND_USE_EXTERNAL_BLOB;
+
+      ret = vrend_renderer_init(&vrend_cbs, renderer_flags);
+      if (ret)
+         return ret;
+      state.vrend_initialized = true;
+   }
+
+   return 0;
 }
 
 int virgl_renderer_get_fd_for_texture(uint32_t tex_id, int *fd)
@@ -488,12 +503,16 @@ int virgl_renderer_get_fd_for_texture2(uint32_t tex_id, int *fd, int *stride, in
 
 void virgl_renderer_reset(void)
 {
-   vrend_renderer_reset();
+   if (state.vrend_initialized)
+      vrend_renderer_reset();
 }
 
 int virgl_renderer_get_poll_fd(void)
 {
-   return vrend_renderer_get_poll_fd();
+   if (state.vrend_initialized)
+      return vrend_renderer_get_poll_fd();
+
+   return -1;
 }
 
 virgl_debug_callback_type virgl_set_debug_callback(virgl_debug_callback_type cb)

@@ -278,7 +278,6 @@ struct global_renderer_state {
    struct vrend_context *current_hw_ctx;
    struct list_head waiting_query_list;
 
-   bool inited;
    bool finishing;
    bool use_gles;
    bool use_core_profile;
@@ -5938,10 +5937,6 @@ int vrend_renderer_init(const struct vrend_if_cbs *cbs, uint32_t flags)
    virgl_gl_context gl_context;
    struct virgl_gl_ctx_param ctx_params;
 
-   if (vrend_state.inited)
-      return 0;
-
-   vrend_state.inited = true;
    virgl_resource_table_init(vrend_renderer_get_pipe_callbacks());
    vrend_clicbs = cbs;
 
@@ -6057,9 +6052,6 @@ int vrend_renderer_init(const struct vrend_if_cbs *cbs, uint32_t flags)
 void
 vrend_renderer_fini(void)
 {
-   if (!vrend_state.inited)
-      return;
-
    vrend_state.finishing = true;
 
    vrend_free_sync_thread();
@@ -6077,7 +6069,6 @@ vrend_renderer_fini(void)
 
    vrend_state.current_ctx = NULL;
    vrend_state.current_hw_ctx = NULL;
-   vrend_state.inited = false;
 
    vrend_state.finishing = false;
 }
@@ -8972,9 +8963,6 @@ void vrend_renderer_check_fences(void)
    uint32_t latest_id = 0;
    GLenum glret;
 
-   if (!vrend_state.inited)
-      return;
-
    if (vrend_state.sync_thread) {
       flush_eventfd(vrend_state.eventfd);
       pipe_mutex_lock(vrend_state.fence_mutex);
@@ -10470,9 +10458,6 @@ static void vrend_reset_fences(void)
 
 void vrend_renderer_reset(void)
 {
-   if (!vrend_state.inited)
-      return;
-
    if (vrend_state.sync_thread) {
       vrend_free_sync_thread();
       vrend_state.stop_sync_thread = false;
@@ -10490,9 +10475,6 @@ void vrend_renderer_reset(void)
 
 int vrend_renderer_get_poll_fd(void)
 {
-   if (!vrend_state.inited)
-      return -1;
-
    return vrend_state.eventfd;
 }
 
