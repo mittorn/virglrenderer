@@ -480,14 +480,14 @@ int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks
    if (!state.resource_initialized) {
       ret = virgl_resource_table_init(vrend_renderer_get_pipe_callbacks());
       if (ret)
-         return ret;
+         goto fail;
       state.resource_initialized = true;
    }
 
    if (!state.context_initialized) {
       ret = virgl_context_table_init();
       if (ret)
-         return ret;
+         goto fail;
       state.context_initialized = true;
    }
 
@@ -501,8 +501,11 @@ int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks
       }
 
       ret = vrend_winsys_init(flags, drm_fd);
-      if (ret)
-         return ret;
+      if (ret) {
+         if (drm_fd >= 0)
+            close(drm_fd);
+         goto fail;
+      }
       state.winsys_initialized = true;
    }
 
@@ -516,11 +519,15 @@ int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks
 
       ret = vrend_renderer_init(&vrend_cbs, renderer_flags);
       if (ret)
-         return ret;
+         goto fail;
       state.vrend_initialized = true;
    }
 
    return 0;
+
+fail:
+   virgl_renderer_cleanup(NULL);
+   return ret;
 }
 
 int virgl_renderer_get_fd_for_texture(uint32_t tex_id, int *fd)
