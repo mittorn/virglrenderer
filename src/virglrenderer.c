@@ -439,8 +439,12 @@ void virgl_renderer_poll(void)
 
 void virgl_renderer_cleanup(UNUSED void *cookie)
 {
-   if (state.vrend_initialized)
+   if (state.vrend_initialized) {
+      vrend_renderer_prepare_reset();
+      virgl_context_table_reset();
+      virgl_resource_table_cleanup();
       vrend_renderer_fini();
+   }
 
    virgl_context_table_cleanup();
    vrend_winsys_cleanup();
@@ -503,8 +507,12 @@ int virgl_renderer_get_fd_for_texture2(uint32_t tex_id, int *fd, int *stride, in
 
 void virgl_renderer_reset(void)
 {
-   if (state.vrend_initialized)
+   if (state.vrend_initialized) {
+      vrend_renderer_prepare_reset();
+      virgl_context_table_reset();
+      virgl_resource_table_reset();
       vrend_renderer_reset();
+   }
 }
 
 int virgl_renderer_get_poll_fd(void)

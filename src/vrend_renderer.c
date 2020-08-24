@@ -6054,10 +6054,6 @@ vrend_renderer_fini(void)
 {
    vrend_state.finishing = true;
 
-   vrend_renderer_prepare_reset();
-   vrend_decode_reset();
-   virgl_resource_table_cleanup();
-
    if (vrend_state.eventfd != -1) {
       close(vrend_state.eventfd);
       vrend_state.eventfd = -1;
@@ -10465,10 +10461,6 @@ void vrend_renderer_prepare_reset(void)
 
 void vrend_renderer_reset(void)
 {
-   vrend_renderer_prepare_reset();
-   vrend_decode_reset();
-   virgl_resource_table_reset();
-
    vrend_reset_fences();
    vrend_blitter_fini();
 

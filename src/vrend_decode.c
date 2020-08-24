@@ -1722,8 +1722,3 @@ static void vrend_decode_ctx_init_base(struct vrend_decode_ctx *dctx,
    ctx->get_blob_done = NULL;
    ctx->submit_cmd = vrend_decode_ctx_submit_cmd;
 }
-
-void vrend_decode_reset(void)
-{
-   virgl_context_table_reset();
-}

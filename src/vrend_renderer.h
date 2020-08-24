@@ -461,7 +461,6 @@ void vrend_blitter_fini(void);
 void vrend_renderer_prepare_reset(void);
 void vrend_renderer_reset(void);
 int vrend_renderer_get_poll_fd(void);
-void vrend_decode_reset(void);
 
 unsigned vrend_context_has_debug_flag(const struct vrend_context *ctx,
                                       enum virgl_debug_flags flag);
