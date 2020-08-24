@@ -44,7 +44,9 @@
 #include "virgl_resource.h"
 
 struct global_state {
+   bool client_initialized;
    void *cookie;
+   int flags;
    const struct virgl_renderer_callbacks *cbs;
 
    bool resource_initialized;
@@ -468,14 +470,22 @@ int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks
 {
    int ret;
 
-   if (!cookie || !cbs)
-      return -1;
+   if (state.client_initialized && (state.cookie != cookie ||
+                                    state.flags != flags ||
+                                    state.cbs != cbs))
+      return -EBUSY;
 
-   if (cbs->version < 1 || cbs->version > VIRGL_RENDERER_CALLBACKS_VERSION)
-      return -1;
+   if (!state.client_initialized) {
+      if (!cookie || !cbs)
+         return -1;
+      if (cbs->version < 1 || cbs->version > VIRGL_RENDERER_CALLBACKS_VERSION)
+         return -1;
 
-   state.cookie = cookie;
-   state.cbs = cbs;
+      state.cookie = cookie;
+      state.flags = flags;
+      state.cbs = cbs;
+      state.client_initialized = true;
+   }
 
    if (!state.resource_initialized) {
       ret = virgl_resource_table_init(vrend_renderer_get_pipe_callbacks());
