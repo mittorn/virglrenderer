@@ -63,7 +63,7 @@
 
 static const uint32_t fake_occlusion_query_samples_passed_default = 1024;
 
-struct vrend_if_cbs *vrend_clicbs;
+const struct vrend_if_cbs *vrend_clicbs;
 
 struct vrend_fence {
    uint32_t fence_id;
@@ -5931,7 +5931,7 @@ static bool use_integer() {
    return false;
 }
 
-int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
+int vrend_renderer_init(const struct vrend_if_cbs *cbs, uint32_t flags)
 {
    bool gles;
    int gl_ver;

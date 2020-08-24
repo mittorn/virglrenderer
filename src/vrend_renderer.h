@@ -122,7 +122,7 @@ struct vrend_if_cbs {
 #define VREND_USE_THREAD_SYNC 1
 #define VREND_USE_EXTERNAL_BLOB 2
 
-int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags);
+int vrend_renderer_init(const struct vrend_if_cbs *cbs, uint32_t flags);
 
 void vrend_insert_format(struct vrend_format_table *entry, uint32_t bindings, uint32_t flags);
 bool vrend_check_framebuffer_mixed_color_attachements(void);
@@ -476,7 +476,7 @@ struct gl_version {
 static const struct gl_version gl_versions[] = { {4,6}, {4,5}, {4,4}, {4,3}, {4,2}, {4,1}, {4,0},
                                                  {3,3}, {3,2}, {3,1}, {3,0} };
 
-extern struct vrend_if_cbs *vrend_clicbs;
+extern const struct vrend_if_cbs *vrend_clicbs;
 
 int vrend_renderer_export_query(struct pipe_resource *pres,
                                 struct virgl_renderer_export_query *export_query);

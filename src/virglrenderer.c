@@ -370,8 +370,6 @@ static struct virgl_renderer_callbacks *rcbs;
 
 static void *dev_cookie;
 
-static struct vrend_if_cbs virgl_cbs;
-
 static void virgl_write_fence(uint32_t fence_id)
 {
    rcbs->write_fence(dev_cookie, fence_id);
@@ -409,7 +407,7 @@ static int make_current(virgl_renderer_gl_context ctx)
    return rcbs->make_current(dev_cookie, 0, ctx);
 }
 
-static struct vrend_if_cbs virgl_cbs = {
+static const struct vrend_if_cbs vrend_cbs = {
    virgl_write_fence,
    create_gl_context,
    destroy_gl_context,
@@ -472,7 +470,7 @@ int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks
    if (flags & VIRGL_RENDERER_USE_EXTERNAL_BLOB)
       renderer_flags |= VREND_USE_EXTERNAL_BLOB;
 
-   return vrend_renderer_init(&virgl_cbs, renderer_flags);
+   return vrend_renderer_init(&vrend_cbs, renderer_flags);
 }
 
 int virgl_renderer_get_fd_for_texture(uint32_t tex_id, int *fd)
