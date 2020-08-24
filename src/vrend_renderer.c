@@ -5938,15 +5938,17 @@ int vrend_renderer_init(const struct vrend_if_cbs *cbs, uint32_t flags)
    virgl_gl_context gl_context;
    struct virgl_gl_ctx_param ctx_params;
 
-   if (!vrend_state.inited) {
-      vrend_state.inited = true;
-      virgl_resource_table_init(vrend_renderer_get_pipe_callbacks());
-      vrend_clicbs = cbs;
-      /* Give some defaults to be able to run the tests */
-      vrend_state.max_texture_2d_size =
-            vrend_state.max_texture_3d_size =
-            vrend_state.max_texture_cube_size = 16384;
-   }
+   if (vrend_state.inited)
+      return 0;
+
+   vrend_state.inited = true;
+   virgl_resource_table_init(vrend_renderer_get_pipe_callbacks());
+   vrend_clicbs = cbs;
+
+   /* Give some defaults to be able to run the tests */
+   vrend_state.max_texture_2d_size =
+         vrend_state.max_texture_3d_size =
+         vrend_state.max_texture_cube_size = 16384;
 
 #ifndef NDEBUG
    vrend_init_debug_flags();
@@ -10468,6 +10470,9 @@ static void vrend_reset_fences(void)
 
 void vrend_renderer_reset(void)
 {
+   if (!vrend_state.inited)
+      return;
+
    if (vrend_state.sync_thread) {
       vrend_free_sync_thread();
       vrend_state.stop_sync_thread = false;
