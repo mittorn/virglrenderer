@@ -5907,7 +5907,7 @@ static enum virgl_resource_fd_type vrend_pipe_resource_export_fd(UNUSED struct p
    return VIRGL_RESOURCE_FD_INVALID;
 }
 
-static const struct virgl_resource_pipe_callbacks *
+const struct virgl_resource_pipe_callbacks *
 vrend_renderer_get_pipe_callbacks(void)
 {
    static const struct virgl_resource_pipe_callbacks callbacks = {
@@ -5937,7 +5937,6 @@ int vrend_renderer_init(const struct vrend_if_cbs *cbs, uint32_t flags)
    virgl_gl_context gl_context;
    struct virgl_gl_ctx_param ctx_params;
 
-   virgl_resource_table_init(vrend_renderer_get_pipe_callbacks());
    vrend_clicbs = cbs;
 
    /* Give some defaults to be able to run the tests */

@@ -122,6 +122,9 @@ struct vrend_if_cbs {
 #define VREND_USE_THREAD_SYNC 1
 #define VREND_USE_EXTERNAL_BLOB 2
 
+const struct virgl_resource_pipe_callbacks *
+vrend_renderer_get_pipe_callbacks(void);
+
 int vrend_renderer_init(const struct vrend_if_cbs *cbs, uint32_t flags);
 
 void vrend_insert_format(struct vrend_format_table *entry, uint32_t bindings, uint32_t flags);

@@ -439,14 +439,15 @@ void virgl_renderer_poll(void)
 
 void virgl_renderer_cleanup(UNUSED void *cookie)
 {
-   if (state.vrend_initialized) {
+   if (state.vrend_initialized)
       vrend_renderer_prepare_reset();
-      virgl_context_table_reset();
-      virgl_resource_table_cleanup();
-      vrend_renderer_fini();
-   }
 
    virgl_context_table_cleanup();
+   virgl_resource_table_cleanup();
+
+   if (state.vrend_initialized)
+      vrend_renderer_fini();
+
    vrend_winsys_cleanup();
 
    memset(&state, 0, sizeof(state));
@@ -475,8 +476,13 @@ int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks
    if (ret)
       return ret;
 
-   if (virgl_context_table_init())
-      return -1;
+   ret = virgl_resource_table_init(vrend_renderer_get_pipe_callbacks());
+   if (ret)
+      return ret;
+
+   ret = virgl_context_table_init();
+   if (ret)
+      return ret;
 
    if (!state.vrend_initialized) {
       uint32_t renderer_flags = 0;
@@ -507,12 +513,14 @@ int virgl_renderer_get_fd_for_texture2(uint32_t tex_id, int *fd, int *stride, in
 
 void virgl_renderer_reset(void)
 {
-   if (state.vrend_initialized) {
+   if (state.vrend_initialized)
       vrend_renderer_prepare_reset();
-      virgl_context_table_reset();
-      virgl_resource_table_reset();
+
+   virgl_context_table_reset();
+   virgl_resource_table_reset();
+
+   if (state.vrend_initialized)
       vrend_renderer_reset();
-   }
 }
 
 int virgl_renderer_get_poll_fd(void)
