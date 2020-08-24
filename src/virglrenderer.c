@@ -43,6 +43,13 @@
 #include "virgl_context.h"
 #include "virgl_resource.h"
 
+struct global_state {
+   void *cookie;
+   const struct virgl_renderer_callbacks *cbs;
+};
+
+static struct global_state state;
+
 /* new API - just wrap internal API for now */
 
 static int virgl_renderer_resource_create_internal(struct virgl_renderer_resource_create_args *args,
@@ -366,13 +373,9 @@ void virgl_renderer_get_rect(int resource_id, struct iovec *iov, unsigned int nu
 }
 
 
-static struct virgl_renderer_callbacks *rcbs;
-
-static void *dev_cookie;
-
 static void virgl_write_fence(uint32_t fence_id)
 {
-   rcbs->write_fence(dev_cookie, fence_id);
+   state.cbs->write_fence(state.cookie, fence_id);
 }
 
 static virgl_renderer_gl_context create_gl_context(int scanout_idx, struct virgl_gl_ctx_param *param)
@@ -386,7 +389,7 @@ static virgl_renderer_gl_context create_gl_context(int scanout_idx, struct virgl
    vparam.shared = param->shared;
    vparam.major_ver = param->major_ver;
    vparam.minor_ver = param->minor_ver;
-   return rcbs->create_gl_context(dev_cookie, scanout_idx, &vparam);
+   return state.cbs->create_gl_context(state.cookie, scanout_idx, &vparam);
 }
 
 static void destroy_gl_context(virgl_renderer_gl_context ctx)
@@ -396,7 +399,7 @@ static void destroy_gl_context(virgl_renderer_gl_context ctx)
       return;
    }
 
-   rcbs->destroy_gl_context(dev_cookie, ctx);
+   state.cbs->destroy_gl_context(state.cookie, ctx);
 }
 
 static int make_current(virgl_renderer_gl_context ctx)
@@ -404,7 +407,7 @@ static int make_current(virgl_renderer_gl_context ctx)
    if (use_context != CONTEXT_NONE)
       return vrend_winsys_make_context_current(ctx);
 
-   return rcbs->make_current(dev_cookie, 0, ctx);
+   return state.cbs->make_current(state.cookie, 0, ctx);
 }
 
 static const struct vrend_if_cbs vrend_cbs = {
@@ -450,8 +453,8 @@ int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks
    if (cbs->version < 1 || cbs->version > VIRGL_RENDERER_CALLBACKS_VERSION)
       return -1;
 
-   dev_cookie = cookie;
-   rcbs = cbs;
+   state.cookie = cookie;
+   state.cbs = cbs;
 
    if (flags & VIRGL_RENDERER_USE_EGL) {
       if (cbs->version >= 2 && cbs->get_drm_fd) {
