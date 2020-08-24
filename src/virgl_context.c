@@ -52,10 +52,7 @@ virgl_context_table_init(void)
 void
 virgl_context_table_cleanup(void)
 {
-   if (virgl_context_table) {
-      util_hash_table_destroy(virgl_context_table);
-      virgl_context_table = NULL;
-   }
+   util_hash_table_destroy(virgl_context_table);
 }
 
 void

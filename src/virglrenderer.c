@@ -47,6 +47,8 @@ struct global_state {
    void *cookie;
    const struct virgl_renderer_callbacks *cbs;
 
+   bool resource_initialized;
+   bool context_initialized;
    bool vrend_initialized;
 };
 
@@ -442,8 +444,11 @@ void virgl_renderer_cleanup(UNUSED void *cookie)
    if (state.vrend_initialized)
       vrend_renderer_prepare_reset();
 
-   virgl_context_table_cleanup();
-   virgl_resource_table_cleanup();
+   if (state.context_initialized)
+      virgl_context_table_cleanup();
+
+   if (state.resource_initialized)
+      virgl_resource_table_cleanup();
 
    if (state.vrend_initialized)
       vrend_renderer_fini();
@@ -476,13 +481,19 @@ int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks
    if (ret)
       return ret;
 
-   ret = virgl_resource_table_init(vrend_renderer_get_pipe_callbacks());
-   if (ret)
-      return ret;
+   if (!state.resource_initialized) {
+      ret = virgl_resource_table_init(vrend_renderer_get_pipe_callbacks());
+      if (ret)
+         return ret;
+      state.resource_initialized = true;
+   }
 
-   ret = virgl_context_table_init();
-   if (ret)
-      return ret;
+   if (!state.context_initialized) {
+      ret = virgl_context_table_init();
+      if (ret)
+         return ret;
+      state.context_initialized = true;
+   }
 
    if (!state.vrend_initialized) {
       uint32_t renderer_flags = 0;
@@ -516,8 +527,11 @@ void virgl_renderer_reset(void)
    if (state.vrend_initialized)
       vrend_renderer_prepare_reset();
 
-   virgl_context_table_reset();
-   virgl_resource_table_reset();
+   if (state.context_initialized)
+      virgl_context_table_reset();
+
+   if (state.resource_initialized)
+      virgl_resource_table_reset();
 
    if (state.vrend_initialized)
       vrend_renderer_reset();
