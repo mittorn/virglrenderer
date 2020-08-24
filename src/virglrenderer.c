@@ -49,6 +49,7 @@ struct global_state {
 
    bool resource_initialized;
    bool context_initialized;
+   bool winsys_initialized;
    bool vrend_initialized;
 };
 
@@ -343,9 +344,13 @@ int virgl_renderer_resource_get_info(int res_handle,
                                     (struct vrend_renderer_resource_info *)info);
    info->handle = res_handle;
 
-   return vrend_winsys_get_fourcc_for_texture(info->tex_id,
-                                              info->virgl_format,
-                                              &info->drm_fourcc);
+   if (state.winsys_initialized) {
+      return vrend_winsys_get_fourcc_for_texture(info->tex_id,
+                                                 info->virgl_format,
+                                                 &info->drm_fourcc);
+   }
+
+   return 0;
 }
 
 void virgl_renderer_get_cap_set(uint32_t cap_set, uint32_t *max_ver,
@@ -386,7 +391,7 @@ static virgl_renderer_gl_context create_gl_context(int scanout_idx, struct virgl
 {
    struct virgl_renderer_gl_ctx_param vparam;
 
-   if (use_context != CONTEXT_NONE)
+   if (state.winsys_initialized)
       return vrend_winsys_create_context(param);
 
    vparam.version = 1;
@@ -398,7 +403,7 @@ static virgl_renderer_gl_context create_gl_context(int scanout_idx, struct virgl
 
 static void destroy_gl_context(virgl_renderer_gl_context ctx)
 {
-   if (use_context != CONTEXT_NONE) {
+   if (state.winsys_initialized) {
       vrend_winsys_destroy_context(ctx);
       return;
    }
@@ -408,7 +413,7 @@ static void destroy_gl_context(virgl_renderer_gl_context ctx)
 
 static int make_current(virgl_renderer_gl_context ctx)
 {
-   if (use_context != CONTEXT_NONE)
+   if (state.winsys_initialized)
       return vrend_winsys_make_context_current(ctx);
 
    return state.cbs->make_current(state.cookie, 0, ctx);
@@ -453,14 +458,14 @@ void virgl_renderer_cleanup(UNUSED void *cookie)
    if (state.vrend_initialized)
       vrend_renderer_fini();
 
-   vrend_winsys_cleanup();
+   if (state.winsys_initialized)
+      vrend_winsys_cleanup();
 
    memset(&state, 0, sizeof(state));
 }
 
 int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks *cbs)
 {
-   int drm_fd = -1;
    int ret;
 
    if (!cookie || !cbs)
@@ -471,15 +476,6 @@ int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks
 
    state.cookie = cookie;
    state.cbs = cbs;
-
-   if (flags & VIRGL_RENDERER_USE_EGL) {
-      if (cbs->version >= 2 && cbs->get_drm_fd) {
-         drm_fd = cbs->get_drm_fd(cookie);
-      }
-   }
-   ret = vrend_winsys_init(flags, drm_fd);
-   if (ret)
-      return ret;
 
    if (!state.resource_initialized) {
       ret = virgl_resource_table_init(vrend_renderer_get_pipe_callbacks());
@@ -493,6 +489,21 @@ int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks
       if (ret)
          return ret;
       state.context_initialized = true;
+   }
+
+   if (!state.winsys_initialized && (flags & (VIRGL_RENDERER_USE_EGL |
+                                              VIRGL_RENDERER_USE_GLX))) {
+      int drm_fd = -1;
+
+      if (flags & VIRGL_RENDERER_USE_EGL) {
+         if (cbs->version >= 2 && cbs->get_drm_fd)
+            drm_fd = cbs->get_drm_fd(cookie);
+      }
+
+      ret = vrend_winsys_init(flags, drm_fd);
+      if (ret)
+         return ret;
+      state.winsys_initialized = true;
    }
 
    if (!state.vrend_initialized) {
@@ -514,12 +525,16 @@ int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks
 
 int virgl_renderer_get_fd_for_texture(uint32_t tex_id, int *fd)
 {
-   return vrend_winsys_get_fd_for_texture(tex_id, fd);
+   if (state.winsys_initialized)
+      return vrend_winsys_get_fd_for_texture(tex_id, fd);
+   return -1;
 }
 
 int virgl_renderer_get_fd_for_texture2(uint32_t tex_id, int *fd, int *stride, int *offset)
 {
-   return vrend_winsys_get_fd_for_texture2(tex_id, fd, stride, offset);
+   if (state.winsys_initialized)
+      return vrend_winsys_get_fd_for_texture2(tex_id, fd, stride, offset);
+   return -1;
 }
 
 void virgl_renderer_reset(void)

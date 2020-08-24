@@ -34,15 +34,7 @@
 
 #include "virglrenderer.h"
 
-enum {
-   CONTEXT_NONE,
-   CONTEXT_EGL,
-   CONTEXT_GLX
-};
-
 struct virgl_gl_ctx_param;
-
-extern int use_context;
 
 #ifdef HAVE_EPOXY_EGL_H
 extern struct virgl_egl *egl;

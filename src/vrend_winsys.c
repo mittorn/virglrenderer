@@ -30,7 +30,13 @@
 
 #include <stddef.h>
 
-int use_context = CONTEXT_NONE;
+enum {
+   CONTEXT_NONE,
+   CONTEXT_EGL,
+   CONTEXT_GLX
+};
+
+static int use_context = CONTEXT_NONE;
 
 #ifdef HAVE_EPOXY_EGL_H
 struct virgl_egl *egl = NULL;
