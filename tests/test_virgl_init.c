@@ -70,6 +70,18 @@ START_TEST(virgl_init_cbs_wrong_ver)
 }
 END_TEST
 
+START_TEST(virgl_init_cleanup_without_init)
+{
+  virgl_renderer_cleanup(&mystruct);
+}
+END_TEST
+
+START_TEST(virgl_init_reset_without_init)
+{
+  virgl_renderer_reset();
+}
+END_TEST
+
 START_TEST(virgl_init_egl)
 {
   int ret;
@@ -79,6 +91,43 @@ START_TEST(virgl_init_egl)
   virgl_renderer_cleanup(&mystruct);
 }
 
+END_TEST
+
+START_TEST(virgl_init_egl_double_init)
+{
+  int ret;
+  test_cbs.version = 1;
+  ret = virgl_renderer_init(&mystruct, context_flags, &test_cbs);
+  ck_assert_int_eq(ret, 0);
+  ret = virgl_renderer_init(&mystruct, context_flags, &test_cbs);
+  ck_assert_int_eq(ret, 0);
+  virgl_renderer_cleanup(&mystruct);
+}
+END_TEST
+
+START_TEST(virgl_init_egl_double_init_conflict_args)
+{
+  struct myinfo_struct local_struct;
+  struct virgl_renderer_callbacks local_cbs;
+  int ret;
+
+  test_cbs.version = 1;
+  ret = virgl_renderer_init(&mystruct, context_flags, &test_cbs);
+  ck_assert_int_eq(ret, 0);
+
+  ret = virgl_renderer_init(&local_struct, context_flags, &test_cbs);
+  ck_assert_int_eq(ret, -EBUSY);
+
+  ret = virgl_renderer_init(&mystruct, 0, &test_cbs);
+  ck_assert_int_eq(ret, -EBUSY);
+
+  memset(&local_cbs, 0, sizeof(local_cbs));
+  local_cbs.version = 1;
+  ret = virgl_renderer_init(&mystruct, context_flags, &local_cbs);
+  ck_assert_int_eq(ret, -EBUSY);
+
+  virgl_renderer_cleanup(&mystruct);
+}
 END_TEST
 
 START_TEST(virgl_init_egl_create_ctx)
@@ -456,7 +505,11 @@ static Suite *virgl_init_suite(void)
   tcase_add_test(tc_core, virgl_init_no_cbs);
   tcase_add_test(tc_core, virgl_init_no_cookie);
   tcase_add_test(tc_core, virgl_init_cbs_wrong_ver);
+  tcase_add_test(tc_core, virgl_init_cleanup_without_init);
+  tcase_add_test(tc_core, virgl_init_reset_without_init);
   tcase_add_test(tc_core, virgl_init_egl);
+  tcase_add_test(tc_core, virgl_init_egl_double_init);
+  tcase_add_test(tc_core, virgl_init_egl_double_init_conflict_args);
   tcase_add_test(tc_core, virgl_init_egl_create_ctx);
   tcase_add_test(tc_core, virgl_init_egl_create_ctx_0);
   tcase_add_test(tc_core, virgl_init_egl_destroy_ctx_illegal);
