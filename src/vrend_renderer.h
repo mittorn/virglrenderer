@@ -458,6 +458,7 @@ void vrend_renderer_blit_gl(struct vrend_context *ctx,
                             bool skip_dest_swizzle);
 void vrend_blitter_fini(void);
 
+void vrend_renderer_prepare_reset(void);
 void vrend_renderer_reset(void);
 int vrend_renderer_get_poll_fd(void);
 void vrend_decode_reset(void);

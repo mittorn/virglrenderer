@@ -6054,7 +6054,10 @@ vrend_renderer_fini(void)
 {
    vrend_state.finishing = true;
 
-   vrend_free_sync_thread();
+   vrend_renderer_prepare_reset();
+   vrend_decode_reset();
+   virgl_resource_table_cleanup();
+
    if (vrend_state.eventfd != -1) {
       close(vrend_state.eventfd);
       vrend_state.eventfd = -1;
@@ -6062,9 +6065,6 @@ vrend_renderer_fini(void)
 
    vrend_blitter_fini();
 
-   vrend_hw_switch_context(vrend_state.ctx0, true);
-   vrend_decode_reset();
-   virgl_resource_table_cleanup();
    vrend_destroy_context(vrend_state.ctx0);
 
    vrend_state.current_ctx = NULL;
@@ -10456,21 +10456,26 @@ static void vrend_reset_fences(void)
       pipe_mutex_unlock(vrend_state.fence_mutex);
 }
 
+void vrend_renderer_prepare_reset(void)
+{
+   /* make sure user contexts are no longer accessed */
+   vrend_free_sync_thread();
+   vrend_hw_switch_context(vrend_state.ctx0, true);
+}
+
 void vrend_renderer_reset(void)
 {
-   if (vrend_state.sync_thread) {
-      vrend_free_sync_thread();
-      vrend_state.stop_sync_thread = false;
-   }
+   vrend_renderer_prepare_reset();
+   vrend_decode_reset();
+   virgl_resource_table_reset();
+
    vrend_reset_fences();
    vrend_blitter_fini();
 
-   vrend_hw_switch_context(vrend_state.ctx0, true);
-   vrend_decode_reset();
-   virgl_resource_table_reset();
    vrend_destroy_context(vrend_state.ctx0);
 
    vrend_state.ctx0 = vrend_create_context(0, strlen("HOST"), "HOST");
+   /* TODO respawn sync thread */
 }
 
 int vrend_renderer_get_poll_fd(void)
