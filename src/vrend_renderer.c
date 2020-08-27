@@ -6237,6 +6237,7 @@ struct vrend_context *vrend_create_context(int id, uint32_t nlen, const char *de
    grctx->shader_cfg.has_es31_compat = has_feature(feat_gles31_compatibility);
    grctx->shader_cfg.has_conservative_depth = has_feature(feat_conservative_depth);
    grctx->shader_cfg.use_integer = vrend_state.use_integer;
+   grctx->shader_cfg.has_dual_src_blend = has_feature(feat_dual_src_blend);
 
    vrend_renderer_create_sub_ctx(grctx, 0);
    vrend_renderer_set_sub_ctx(grctx, 0);

@@ -6336,7 +6336,8 @@ static void emit_ios_fs(struct dump_ctx *ctx)
             char prefix[64] = "";
 
             if (ctx->cfg->use_gles &&
-                ctx->outputs[i].name == TGSI_SEMANTIC_COLOR)
+                ctx->outputs[i].name == TGSI_SEMANTIC_COLOR &&
+                !ctx->cfg->has_dual_src_blend)
                sprintf(prefix, "layout(location = %d)", ctx->outputs[i].sid);
 
             emit_ios_generic(ctx, io_out, prefix, &ctx->outputs[i],

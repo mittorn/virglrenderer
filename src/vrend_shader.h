@@ -169,6 +169,7 @@ struct vrend_shader_cfg {
    bool has_es31_compat;
    bool has_conservative_depth;
    bool use_integer;
+   bool has_dual_src_blend;
 };
 
 struct vrend_context;
