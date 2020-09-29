@@ -57,7 +57,7 @@
 
 #include "tgsi/tgsi_text.h"
 
-#ifdef HAVE_EVENTFD
+#ifdef HAVE_EVENTFD_H
 #include <sys/eventfd.h>
 #endif
 
@@ -5743,7 +5743,7 @@ static bool do_wait(struct vrend_fence *fence, bool can_block)
    return done;
 }
 
-#ifdef HAVE_EVENTFD
+#ifdef HAVE_EVENTFD_H
 static ssize_t
 write_full(int fd, const void *ptr, size_t count)
 {
