@@ -5718,6 +5718,33 @@ static void vrend_free_sync_thread(void)
    pipe_mutex_destroy(vrend_state.fence_mutex);
 }
 
+static void free_fence_locked(struct vrend_fence *fence)
+{
+   list_del(&fence->fences);
+#ifdef HAVE_EPOXY_EGL_H
+   if (vrend_state.use_egl_fence) {
+      virgl_egl_fence_destroy(egl, fence->eglsyncobj);
+   } else
+#endif
+   {
+      glDeleteSync(fence->glsyncobj);
+   }
+   free(fence);
+}
+
+static void vrend_free_fences(void)
+{
+   struct vrend_fence *fence, *stor;
+
+   /* this is called after vrend_free_sync_thread */
+   assert(!vrend_state.sync_thread);
+
+   LIST_FOR_EACH_ENTRY_SAFE(fence, stor, &vrend_state.fence_list, fences)
+      free_fence_locked(fence);
+   LIST_FOR_EACH_ENTRY_SAFE(fence, stor, &vrend_state.fence_wait_list, fences)
+      free_fence_locked(fence);
+}
+
 static bool do_wait(struct vrend_fence *fence, bool can_block)
 {
    bool done = false;
@@ -6081,6 +6108,7 @@ vrend_renderer_fini(void)
       vrend_state.eventfd = -1;
    }
 
+   vrend_free_fences();
    vrend_blitter_fini();
 
    vrend_destroy_context(vrend_state.ctx0);
@@ -9006,20 +9034,6 @@ int vrend_renderer_create_fence(int client_fence_id, uint32_t ctx_id)
    return ENOMEM;
 }
 
-static void free_fence_locked(struct vrend_fence *fence)
-{
-   list_del(&fence->fences);
-#ifdef HAVE_EPOXY_EGL_H
-   if (vrend_state.use_egl_fence) {
-      virgl_egl_fence_destroy(egl, fence->eglsyncobj);
-   } else
-#endif
-   {
-      glDeleteSync(fence->glsyncobj);
-   }
-   free(fence);
-}
-
 static void flush_eventfd(int fd)
 {
     ssize_t len;
@@ -10515,21 +10529,6 @@ void vrend_renderer_set_sub_ctx(struct vrend_context *ctx, int sub_ctx_id)
    }
 }
 
-static void vrend_reset_fences(void)
-{
-   struct vrend_fence *fence, *stor;
-
-   if (vrend_state.sync_thread)
-      pipe_mutex_lock(vrend_state.fence_mutex);
-
-   LIST_FOR_EACH_ENTRY_SAFE(fence, stor, &vrend_state.fence_list, fences) {
-      free_fence_locked(fence);
-   }
-
-   if (vrend_state.sync_thread)
-      pipe_mutex_unlock(vrend_state.fence_mutex);
-}
-
 void vrend_renderer_prepare_reset(void)
 {
    /* make sure user contexts are no longer accessed */
@@ -10539,7 +10538,7 @@ void vrend_renderer_prepare_reset(void)
 
 void vrend_renderer_reset(void)
 {
-   vrend_reset_fences();
+   vrend_free_fences();
    vrend_blitter_fini();
 
    vrend_destroy_context(vrend_state.ctx0);
