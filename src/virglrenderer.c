@@ -763,3 +763,9 @@ virgl_renderer_resource_export_blob(uint32_t res_id, uint32_t *fd_type, int *fd)
 
    return 0;
 }
+
+int
+virgl_renderer_export_fence(uint32_t client_fence_id, uint32_t *fd)
+{
+   return vrend_renderer_export_fence(client_fence_id, fd);
+}

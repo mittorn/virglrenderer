@@ -347,6 +347,8 @@ int vrend_renderer_create_fence(int client_fence_id, uint32_t ctx_id);
 
 void vrend_renderer_check_fences(void);
 
+int vrend_renderer_export_fence(uint32_t fence_id, int* out_fd);
+
 bool vrend_hw_switch_context(struct vrend_context *ctx, bool now);
 uint32_t vrend_renderer_object_insert(struct vrend_context *ctx, void *data,
                                       uint32_t handle, enum virgl_object_type type);

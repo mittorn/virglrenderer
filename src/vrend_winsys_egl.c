@@ -74,6 +74,7 @@ struct virgl_egl {
    EGLConfig egl_conf;
    EGLContext egl_ctx;
    uint32_t extension_bits;
+   EGLSyncKHR signaled_fence;
 };
 
 static bool virgl_egl_has_extension_in_string(const char *haystack, const char *needle)
@@ -236,6 +237,16 @@ struct virgl_egl *virgl_egl_init(struct virgl_gbm *gbm, bool surfaceless, bool g
 
    eglMakeCurrent(egl->egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE,
                   egl->egl_ctx);
+
+   if (virgl_egl_supports_fences(egl)) {
+      egl->signaled_fence = eglCreateSyncKHR(egl->egl_display,
+                                             EGL_SYNC_NATIVE_FENCE_ANDROID, NULL);
+      if (!egl->signaled_fence) {
+         vrend_printf("Failed to create signaled fence");
+         goto fail;
+      }
+   }
+
    return egl;
 
  fail:
@@ -245,6 +256,9 @@ struct virgl_egl *virgl_egl_init(struct virgl_gbm *gbm, bool surfaceless, bool g
 
 void virgl_egl_destroy(struct virgl_egl *egl)
 {
+   if (egl->signaled_fence) {
+      eglDestroySyncKHR(egl->egl_display, egl->signaled_fence);
+   }
    eglMakeCurrent(egl->egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE,
                   EGL_NO_CONTEXT);
    eglDestroyContext(egl->egl_display, egl->egl_ctx);
@@ -532,4 +546,13 @@ bool virgl_egl_client_wait_fence(struct virgl_egl *egl, EGLSyncKHR fence, uint64
       vrend_printf("wait sync failed\n");
    }
    return ret != EGL_TIMEOUT_EXPIRED_KHR;
+}
+
+bool virgl_egl_export_signaled_fence(struct virgl_egl *egl, int *out_fd) {
+   return virgl_egl_export_fence(egl, egl->signaled_fence, out_fd);
+}
+
+bool virgl_egl_export_fence(struct virgl_egl *egl, EGLSyncKHR fence, int *out_fd) {
+   *out_fd = eglDupNativeFenceFDANDROID(egl->egl_display, fence);
+   return *out_fd != EGL_NO_NATIVE_FENCE_FD_ANDROID;
 }

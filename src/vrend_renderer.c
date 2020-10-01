@@ -10645,3 +10645,55 @@ int vrend_renderer_resource_unmap(struct pipe_resource *pres)
    glBindBufferARB(res->target, 0);
    return 0;
 }
+
+int vrend_renderer_export_fence(uint32_t fence_id, int* out_fd) {
+#ifdef HAVE_EPOXY_EGL_H
+   if (!vrend_state.use_egl_fence) {
+      return -EINVAL;
+   }
+
+   if (vrend_state.sync_thread)
+      pipe_mutex_lock(vrend_state.fence_mutex);
+
+   struct vrend_fence *fence = NULL;
+   struct vrend_fence *iter;
+   uint32_t min_fence_id = UINT_MAX;
+
+   if (!LIST_IS_EMPTY(&vrend_state.fence_list)) {
+      min_fence_id = LIST_ENTRY(struct vrend_fence, vrend_state.fence_list.next, fences)->fence_id;
+   } else if (!LIST_IS_EMPTY(&vrend_state.fence_wait_list)) {
+      min_fence_id =
+            LIST_ENTRY(struct vrend_fence, vrend_state.fence_wait_list.next, fences)->fence_id;
+   }
+
+   if (fence_id < min_fence_id) {
+      if (vrend_state.sync_thread)
+         pipe_mutex_unlock(vrend_state.fence_mutex);
+      return virgl_egl_export_signaled_fence(egl, out_fd) ? 0 : -EINVAL;
+   }
+
+   LIST_FOR_EACH_ENTRY(iter, &vrend_state.fence_list, fences) {
+      if (iter->fence_id == fence_id) {
+         fence = iter;
+         break;
+      }
+   }
+
+   if (!fence) {
+      LIST_FOR_EACH_ENTRY(iter, &vrend_state.fence_wait_list, fences) {
+         if (iter->fence_id == fence_id) {
+            fence = iter;
+            break;
+         }
+      }
+   }
+
+   if (vrend_state.sync_thread)
+      pipe_mutex_unlock(vrend_state.fence_mutex);
+
+   if (fence && virgl_egl_export_fence(egl, fence->eglsyncobj, out_fd)) {
+      return 0;
+   }
+#endif
+   return -EINVAL;
+}

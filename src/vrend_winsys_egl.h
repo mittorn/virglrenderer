@@ -64,4 +64,6 @@ bool virgl_egl_supports_fences(struct virgl_egl *egl);
 EGLSyncKHR virgl_egl_fence_create(struct virgl_egl *egl);
 void virgl_egl_fence_destroy(struct virgl_egl *egl, EGLSyncKHR fence);
 bool virgl_egl_client_wait_fence(struct virgl_egl *egl, EGLSyncKHR fence, uint64_t timeout);
+bool virgl_egl_export_signaled_fence(struct virgl_egl *egl, int *out_fd);
+bool virgl_egl_export_fence(struct virgl_egl *egl, EGLSyncKHR fence, int *out_fd);
 #endif
