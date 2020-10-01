@@ -5710,6 +5710,21 @@ static void vrend_free_sync_thread(void)
    pipe_mutex_destroy(vrend_state.fence_mutex);
 }
 
+static bool do_wait(struct vrend_fence *fence, bool can_block)
+{
+   bool done = false;
+   int timeout = can_block ? 1000000000 : 0;
+   do {
+      GLenum glret = glClientWaitSync(fence->syncobj, 0, timeout);
+      if (glret == GL_WAIT_FAILED) {
+         vrend_printf( "wait sync failed: illegal fence object %p\n", fence->syncobj);
+      }
+      done = glret != GL_TIMEOUT_EXPIRED;
+   } while (!done && can_block);
+
+   return done;
+}
+
 #ifdef HAVE_EVENTFD
 static ssize_t
 write_full(int fd, const void *ptr, size_t count)
@@ -5734,24 +5749,10 @@ write_full(int fd, const void *ptr, size_t count)
 
 static void wait_sync(struct vrend_fence *fence)
 {
-   GLenum glret;
    ssize_t n;
    uint64_t value = 1;
 
-   do {
-      glret = glClientWaitSync(fence->syncobj, 0, 1000000000);
-
-      switch (glret) {
-      case GL_WAIT_FAILED:
-         vrend_printf( "wait sync failed: illegal fence object %p\n", fence->syncobj);
-         break;
-      case GL_ALREADY_SIGNALED:
-      case GL_CONDITION_SATISFIED:
-         break;
-      default:
-         break;
-      }
-   } while (glret == GL_TIMEOUT_EXPIRED);
+   do_wait(fence, /* can_block */ true);
 
    pipe_mutex_lock(vrend_state.fence_mutex);
    list_addtail(&fence->fences, &vrend_state.fence_list);
@@ -9013,13 +9014,11 @@ void vrend_renderer_check_fences(void)
       vrend_renderer_force_ctx_0();
 
       LIST_FOR_EACH_ENTRY_SAFE(fence, stor, &vrend_state.fence_list, fences) {
-         glret = glClientWaitSync(fence->syncobj, 0, 0);
-         if (glret == GL_ALREADY_SIGNALED){
+         if (do_wait(fence, /* can_block */ false)) {
             latest_id = fence->fence_id;
             free_fence_locked(fence);
-         }
-         /* don't bother checking any subsequent ones */
-         else if (glret == GL_TIMEOUT_EXPIRED) {
+         } else {
+            /* don't bother checking any subsequent ones */
             break;
          }
       }
