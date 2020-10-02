@@ -6482,6 +6482,7 @@ static void vrend_create_buffer(struct vrend_resource *gr, uint32_t width, uint3
    if (buffer_storage_flags) {
       if (has_feature(feat_arb_buffer_storage)) {
          glBufferStorage(gr->target, width, NULL, buffer_storage_flags);
+         gr->map_info = vrend_state.inferred_gl_caching_type;
       }
 #ifdef ENABLE_MINIGBM_ALLOCATION
       else if (has_feature(feat_memory_object_fd) && has_feature(feat_memory_object)) {
@@ -6509,6 +6510,11 @@ static void vrend_create_buffer(struct vrend_resource *gr, uint32_t width, uint3
          gr->gbm_bo = bo;
          gr->memobj = memobj;
          gr->storage_bits |= VREND_STORAGE_GBM_BUFFER | VREND_STORAGE_GL_MEMOBJ;
+
+         if (!strcmp(gbm_device_get_backend_name(gbm->device), "i915"))
+            gr->map_info = VIRGL_RENDERER_MAP_CACHE_CACHED;
+         else
+            gr->map_info = VIRGL_RENDERER_MAP_CACHE_WC;
       }
 #endif
       else {
@@ -6518,7 +6524,6 @@ static void vrend_create_buffer(struct vrend_resource *gr, uint32_t width, uint3
 
       gr->storage_bits |= VREND_STORAGE_GL_IMMUTABLE;
       gr->buffer_storage_flags = buffer_storage_flags;
-      gr->map_info = vrend_state.inferred_gl_caching_type;
       gr->size = width;
    } else
       glBufferData(gr->target, width, NULL, GL_STREAM_DRAW);
