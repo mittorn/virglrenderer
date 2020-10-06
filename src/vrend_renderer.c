@@ -57,10 +57,6 @@
 
 #include "tgsi/tgsi_text.h"
 
-#ifdef HAVE_EVENTFD_H
-#include <sys/eventfd.h>
-#endif
-
 static const uint32_t fake_occlusion_query_samples_passed_default = 1024;
 
 const struct vrend_if_cbs *vrend_clicbs;
@@ -5771,40 +5767,15 @@ static bool do_wait(struct vrend_fence *fence, bool can_block)
 }
 
 #ifdef HAVE_EVENTFD_H
-static ssize_t
-write_full(int fd, const void *ptr, size_t count)
-{
-   const char *buf = ptr;
-   ssize_t ret = 0;
-   ssize_t total = 0;
-
-   while (count) {
-      ret = write(fd, buf, count);
-      if (ret < 0) {
-         if (errno == EINTR)
-            continue;
-         break;
-      }
-      count -= ret;
-      buf += ret;
-      total += ret;
-   }
-   return total;
-}
-
 static void wait_sync(struct vrend_fence *fence)
 {
-   ssize_t n;
-   uint64_t value = 1;
-
    do_wait(fence, /* can_block */ true);
 
    pipe_mutex_lock(vrend_state.fence_mutex);
    list_addtail(&fence->fences, &vrend_state.fence_list);
    pipe_mutex_unlock(vrend_state.fence_mutex);
 
-   n = write_full(vrend_state.eventfd, &value, sizeof(value));
-   if (n != sizeof(value)) {
+   if (write_eventfd(vrend_state.eventfd, 1)) {
       perror("failed to write to eventfd\n");
    }
 }
@@ -5860,7 +5831,7 @@ static void vrend_renderer_use_threaded_sync(void)
       return;
    }
 
-   vrend_state.eventfd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
+   vrend_state.eventfd = create_eventfd(0);
    if (vrend_state.eventfd == -1) {
       vrend_printf( "Failed to create eventfd\n");
       vrend_clicbs->destroy_gl_context(vrend_state.sync_context);
@@ -9032,15 +9003,6 @@ int vrend_renderer_create_fence(int client_fence_id, uint32_t ctx_id)
    vrend_printf( "failed to create fence sync object\n");
    free(fence);
    return ENOMEM;
-}
-
-static void flush_eventfd(int fd)
-{
-    ssize_t len;
-    uint64_t value;
-    do {
-       len = read(fd, &value, sizeof(value));
-    } while ((len == -1 && errno == EINTR) || len == sizeof(value));
 }
 
 static void vrend_renderer_check_queries(void);

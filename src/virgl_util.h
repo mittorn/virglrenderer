@@ -49,4 +49,9 @@ unsigned hash_func_u32(void *key);
 
 int compare_func(void *key1, void *key2);
 
+bool has_eventfd(void);
+int create_eventfd(unsigned int initval);
+int write_eventfd(int fd, uint64_t val);
+void flush_eventfd(int fd);
+
 #endif /* VIRGL_UTIL_H */

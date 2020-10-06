@@ -22,7 +22,17 @@
  *
     **************************************************************************/
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "virgl_util.h"
+
+#include <errno.h>
+#ifdef HAVE_EVENTFD_H
+#include <sys/eventfd.h>
+#endif
+#include <unistd.h>
 
 #include "util/u_pointer.h"
 
@@ -40,4 +50,51 @@ int compare_func(void *key1, void *key2)
       return 1;
    else
       return 0;
+}
+
+bool has_eventfd(void)
+{
+#ifdef HAVE_EVENTFD_H
+   return true;
+#else
+   return false;
+#endif
+}
+
+int create_eventfd(unsigned int initval)
+{
+#ifdef HAVE_EVENTFD_H
+   return eventfd(initval, EFD_CLOEXEC | EFD_NONBLOCK);
+#else
+   return -1;
+#endif
+}
+
+int write_eventfd(int fd, uint64_t val)
+{
+   const char *buf = (const char *)&val;
+   size_t count = sizeof(val);
+   ssize_t ret = 0;
+
+   while (count) {
+      ret = write(fd, buf, count);
+      if (ret < 0) {
+         if (errno == EINTR)
+            continue;
+         break;
+      }
+      count -= ret;
+      buf += ret;
+   }
+
+   return count ? -1 : 0;
+}
+
+void flush_eventfd(int fd)
+{
+    ssize_t len;
+    uint64_t value;
+    do {
+       len = read(fd, &value, sizeof(value));
+    } while ((len == -1 && errno == EINTR) || len == sizeof(value));
 }
