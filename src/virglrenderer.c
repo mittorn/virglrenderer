@@ -42,6 +42,7 @@
 
 #include "virgl_context.h"
 #include "virgl_resource.h"
+#include "virgl_util.h"
 
 struct global_state {
    bool client_initialized;
@@ -469,6 +470,10 @@ void virgl_renderer_cleanup(UNUSED void *cookie)
 int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks *cbs)
 {
    int ret;
+
+   /* VIRGL_RENDERER_THREAD_SYNC is a hint and can be silently ignored */
+   if (!has_eventfd() || getenv("VIRGL_DISABLE_MT"))
+      flags &= ~VIRGL_RENDERER_THREAD_SYNC;
 
    if (state.client_initialized && (state.cookie != cookie ||
                                     state.flags != flags ||

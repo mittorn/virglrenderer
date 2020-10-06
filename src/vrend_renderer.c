@@ -5766,7 +5766,6 @@ static bool do_wait(struct vrend_fence *fence, bool can_block)
    return done;
 }
 
-#ifdef HAVE_EVENTFD_H
 static void wait_sync(struct vrend_fence *fence)
 {
    do_wait(fence, /* can_block */ true);
@@ -5816,9 +5815,6 @@ static void vrend_renderer_use_threaded_sync(void)
 {
    struct virgl_gl_ctx_param ctx_params;
 
-   if (getenv("VIRGL_DISABLE_MT"))
-      return;
-
    ctx_params.shared = true;
    ctx_params.major_ver = vrend_state.gl_major_ver;
    ctx_params.minor_ver = vrend_state.gl_minor_ver;
@@ -5850,11 +5846,6 @@ static void vrend_renderer_use_threaded_sync(void)
       pipe_mutex_destroy(vrend_state.fence_mutex);
    }
 }
-#else
-static void vrend_renderer_use_threaded_sync(void)
-{
-}
-#endif
 
 static void vrend_debug_cb(UNUSED GLenum source, GLenum type, UNUSED GLuint id,
                            UNUSED GLenum severity, UNUSED GLsizei length,
