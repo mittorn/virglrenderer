@@ -9782,7 +9782,8 @@ static void vrend_renderer_fill_caps_v1(int gl_ver, int gles_ver, union virgl_ca
      caps->v1.bset.transform_feedback_overflow_query = 1;
 
    if (epoxy_has_gl_extension("GL_EXT_texture_mirror_clamp") ||
-       epoxy_has_gl_extension("GL_ARB_texture_mirror_clamp_to_edge")) {
+       epoxy_has_gl_extension("GL_ARB_texture_mirror_clamp_to_edge") ||
+       epoxy_has_gl_extension("GL_EXT_texture_mirror_clamp_to_edge")) {
       caps->v1.bset.mirror_clamp = true;
    }
 
