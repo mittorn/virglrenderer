@@ -599,10 +599,9 @@ static const char *get_stage_output_name_prefix(int processor)
    return name_prefix;
 }
 
-static void require_glsl_ver(struct dump_ctx *ctx, int glsl_ver)
+static int require_glsl_ver(const struct dump_ctx *ctx, int glsl_ver)
 {
-   if (glsl_ver > ctx->glsl_ver_required)
-      ctx->glsl_ver_required = glsl_ver;
+   return glsl_ver > ctx->glsl_ver_required ? glsl_ver : ctx->glsl_ver_required;
 }
 
 static void emit_indent(struct vrend_glsl_strbufs *glsl_strbufs)
@@ -998,7 +997,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
       }
 
       if (ctx->inputs[i].first != ctx->inputs[i].last)
-         require_glsl_ver(ctx, 150);
+         ctx->glsl_ver_required = require_glsl_ver(ctx, 150);
 
       switch (ctx->inputs[i].name) {
       case TGSI_SEMANTIC_COLOR:
@@ -1066,7 +1065,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
             name_prefix = "gl_PrimitiveID";
             ctx->inputs[i].glsl_predefined_no_emit = true;
             ctx->inputs[i].glsl_no_index = true;
-            require_glsl_ver(ctx, 150);
+            ctx->glsl_ver_required = require_glsl_ver(ctx, 150);
             ctx->shader_req_bits |= SHADER_REQ_GEOMETRY_SHADER;
             break;
          }
@@ -1296,7 +1295,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
          ctx->num_clip_dist += 4 * (ctx->outputs[i].last - ctx->outputs[i].first + 1);
          if (iter->processor.Processor == TGSI_PROCESSOR_VERTEX &&
              (ctx->key->gs_present || ctx->key->tcs_present))
-            require_glsl_ver(ctx, 150);
+            ctx->glsl_ver_required = require_glsl_ver(ctx, 150);
          if (iter->processor.Processor == TGSI_PROCESSOR_TESS_CTRL)
             ctx->outputs[i].glsl_gl_block = true;
          if (ctx->outputs[i].last != ctx->outputs[i].first)
@@ -1680,7 +1679,7 @@ iter_property(struct tgsi_iterate_context *iter,
    case TGSI_PROPERTY_FS_EARLY_DEPTH_STENCIL:
       ctx->early_depth_stencil = prop->u[0].Data > 0;
       if (ctx->early_depth_stencil) {
-         require_glsl_ver(ctx, 150);
+         ctx->glsl_ver_required = require_glsl_ver(ctx, 150);
          ctx->shader_req_bits |= SHADER_REQ_IMAGE_LOAD_STORE;
       }
       break;
@@ -1696,7 +1695,7 @@ iter_property(struct tgsi_iterate_context *iter,
    case TGSI_PROPERTY_FS_BLEND_EQUATION_ADVANCED:
       ctx->fs_blend_equation_advanced = prop->u[0].Data;
       if (!ctx->cfg->use_gles || ctx->cfg->glsl_version < 320) {
-         require_glsl_ver(ctx, 150);
+         ctx->glsl_ver_required = require_glsl_ver(ctx, 150);
          ctx->shader_req_bits |= SHADER_REQ_BLEND_EQUATION_ADVANCED;
       }
       break;
@@ -2220,7 +2219,7 @@ static void set_texture_reqs(struct dump_ctx *ctx,
    if (ctx->cfg->glsl_version >= 140)
       if (ctx->shader_req_bits & (SHADER_REQ_SAMPLER_RECT |
                                   SHADER_REQ_SAMPLER_BUF))
-         require_glsl_ver(ctx, 140);
+         ctx->glsl_ver_required = require_glsl_ver(ctx, 140);
 }
 
 /* size queries are pretty much separate */
@@ -4408,7 +4407,7 @@ void rewrite_io_ranged(struct dump_ctx *ctx)
       ctx->patch_ios.input_range.io.swizzle_offset = 0;
 
       if (prefer_generic_io_block(ctx, io_in))
-          require_glsl_ver(ctx, 150);
+          ctx->glsl_ver_required = require_glsl_ver(ctx, 150);
    }
 
    if ((ctx->info.indirect_files & (1 << TGSI_FILE_OUTPUT)) ||
@@ -4463,7 +4462,7 @@ void rewrite_io_ranged(struct dump_ctx *ctx)
 
 
       if (prefer_generic_io_block(ctx, io_out))
-          require_glsl_ver(ctx, 150);
+          ctx->glsl_ver_required = require_glsl_ver(ctx, 150);
    }
 }
 
@@ -4544,7 +4543,7 @@ void rewrite_vs_pos_array(struct dump_ctx *ctx)
       ctx->inputs[io_idx].first = range_start;
       ctx->inputs[io_idx].last = range_end;
       ctx->inputs[io_idx].glsl_predefined_no_emit = false;
-      require_glsl_ver(ctx, 150);
+      ctx->glsl_ver_required = require_glsl_ver(ctx, 150);
    }
 }
 
@@ -5377,7 +5376,7 @@ prolog(struct tgsi_iterate_context *iter)
 
    if (iter->processor.Processor == TGSI_PROCESSOR_VERTEX &&
        ctx->key->gs_present)
-      require_glsl_ver(ctx, 150);
+      ctx->glsl_ver_required = require_glsl_ver(ctx, 150);
 
    return true;
 }
@@ -5812,11 +5811,12 @@ static void emit_image_decl(const struct dump_ctx *ctx,
                access, volatile_str, precision, ptc, stc, sname, i);
 }
 
-static void emit_ios_common(struct dump_ctx *ctx,
-                            struct vrend_glsl_strbufs *glsl_strbufs)
+static int emit_ios_common(struct dump_ctx *ctx,
+                           struct vrend_glsl_strbufs *glsl_strbufs)
 {
    uint i;
    const char *sname = tgsi_proc_to_prefix(ctx->prog_type);
+   int glsl_ver_required = ctx->glsl_ver_required;
 
    for (i = 0; i < ctx->num_temp_ranges; i++) {
       emit_hdrf(glsl_strbufs, "vec4 temp%d[%d];\n", ctx->temp_ranges[i].first, ctx->temp_ranges[i].last - ctx->temp_ranges[i].first + 1);
@@ -5853,7 +5853,7 @@ static void emit_ios_common(struct dump_ctx *ctx,
       const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
 
       if (ctx->info.dimension_indirect_files & (1 << TGSI_FILE_CONSTANT)) {
-         require_glsl_ver(ctx, 150);
+         glsl_ver_required = require_glsl_ver(ctx, 150);
          int first = ffs(ctx->ubo_used_mask) - 1;
          unsigned num_ubo = util_bitcount(ctx->ubo_used_mask);
          emit_hdrf(glsl_strbufs, "uniform %subo { vec4 ubocontents[%d]; } %suboarr[%d];\n", cname, ctx->ubo_sizes[first], cname, num_ubo);
@@ -5923,6 +5923,7 @@ static void emit_ios_common(struct dump_ctx *ctx,
       }
    }
 
+   return glsl_ver_required;
 }
 
 static void emit_ios_streamout(const struct dump_ctx *ctx,
@@ -6638,16 +6639,17 @@ static void emit_ios_cs(const struct dump_ctx *ctx,
    }
 }
 
-static void emit_ios(struct dump_ctx *ctx,
-                     struct vrend_glsl_strbufs *glsl_strbufs,
-                     struct vrend_generic_ios *generic_ios)
+static int emit_ios(struct dump_ctx *ctx,
+                    struct vrend_glsl_strbufs *glsl_strbufs,
+                    struct vrend_generic_ios *generic_ios)
 {
    ctx->num_interps = 0;
+   int glsl_ver_required = ctx->glsl_ver_required;
 
    if (ctx->so && ctx->so->num_outputs >= PIPE_MAX_SO_OUTPUTS) {
       vrend_printf( "Num outputs exceeded, max is %u\n", PIPE_MAX_SO_OUTPUTS);
       set_hdr_error(glsl_strbufs);
-      return;
+      return glsl_ver_required;
    }
 
    switch (ctx->prog_type) {
@@ -6672,7 +6674,7 @@ static void emit_ios(struct dump_ctx *ctx,
    default:
       fprintf(stderr, "Unknown shader processor %d\n", ctx->prog_type);
       set_hdr_error(glsl_strbufs);
-      return;
+      return glsl_ver_required;
    }
 
    if (generic_ios->outputs_expected_mask &&
@@ -6688,12 +6690,14 @@ static void emit_ios(struct dump_ctx *ctx,
    }
 
    emit_ios_streamout(ctx, glsl_strbufs);
-   emit_ios_common(ctx, glsl_strbufs);
+   glsl_ver_required = emit_ios_common(ctx, glsl_strbufs);
 
    if (ctx->prog_type == TGSI_PROCESSOR_FRAGMENT &&
        ctx->key->pstipple_tex == true) {
       emit_hdr(glsl_strbufs, "uniform sampler2D pstipple_sampler;\nfloat stip_temp;\n");
    }
+
+   return glsl_ver_required;
 }
 
 static boolean fill_fragment_interpolants(struct dump_ctx *ctx, struct vrend_shader_info *sinfo)
@@ -6939,7 +6943,7 @@ bool vrend_convert_shader(const struct vrend_context *rctx,
    tgsi_scan_shader(tokens, &ctx.info);
    /* if we are in core profile mode we should use GLSL 1.40 */
    if (cfg->use_core_profile && cfg->glsl_version >= 140)
-      require_glsl_ver(&ctx, 140);
+      ctx.glsl_ver_required = require_glsl_ver(&ctx, 140);
 
    if (sinfo->so_info.num_outputs) {
       ctx.so = &sinfo->so_info;
@@ -6950,11 +6954,11 @@ bool vrend_convert_shader(const struct vrend_context *rctx,
       ctx.so_names = NULL;
 
    if (ctx.info.dimension_indirect_files & (1 << TGSI_FILE_CONSTANT))
-      require_glsl_ver(&ctx, 150);
+      ctx.glsl_ver_required = require_glsl_ver(&ctx, 150);
 
    if (ctx.info.indirect_files & (1 << TGSI_FILE_BUFFER) ||
        ctx.info.indirect_files & (1 << TGSI_FILE_IMAGE)) {
-      require_glsl_ver(&ctx, 150);
+      ctx.glsl_ver_required = require_glsl_ver(&ctx, 150);
       ctx.shader_req_bits |= SHADER_REQ_GPU_SHADER5;
    }
    if (ctx.info.indirect_files & (1 << TGSI_FILE_SAMPLER))
@@ -6971,7 +6975,7 @@ bool vrend_convert_shader(const struct vrend_context *rctx,
       strbuf_free(ctx.src_bufs + i);
 
    emit_header(&ctx, &ctx.glsl_strbufs);
-   emit_ios(&ctx, &ctx.glsl_strbufs, &ctx.generic_ios);
+   ctx.glsl_ver_required = emit_ios(&ctx, &ctx.glsl_strbufs, &ctx.generic_ios);
 
    if (strbuf_get_error(&ctx.glsl_strbufs.glsl_hdr))
       goto fail;
@@ -7280,7 +7284,7 @@ bool vrend_shader_create_passthrough_tcs(const struct vrend_context *rctx,
    handle_io_arrays(&ctx);
 
    emit_header(&ctx, &ctx.glsl_strbufs);
-   emit_ios(&ctx, &ctx.glsl_strbufs, &ctx.generic_ios);
+   ctx.glsl_ver_required = emit_ios(&ctx, &ctx.glsl_strbufs, &ctx.generic_ios);
 
    emit_buf(&ctx.glsl_strbufs, "void main() {\n");
 
