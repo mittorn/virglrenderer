@@ -4598,7 +4598,9 @@ void emit_fs_clipdistance_load(const struct dump_ctx *ctx,
  * previous shader stage to the according inputs.
  */
 
-static bool apply_prev_layout(struct dump_ctx *ctx)
+static bool apply_prev_layout(const struct vrend_shader_key *key,
+                              struct vrend_shader_io inputs[],
+                              uint32_t *num_inputs)
 {
    bool require_enhanced_layouts = false;
 
@@ -4606,14 +4608,14 @@ static bool apply_prev_layout(struct dump_ctx *ctx)
     * the previous shader that uses a different layout. It may even be that one
     * input be the combination of two inputs. */
 
-   for (unsigned i = 0; i < ctx->num_inputs; ++i ) {
+   for (unsigned i = 0; i < *num_inputs; ++i ) {
       unsigned i_input = i;
-      struct vrend_shader_io *io = &ctx->inputs[i];
+      struct vrend_shader_io *io = &inputs[i];
 
       if (io->name == TGSI_SEMANTIC_GENERIC || io->name == TGSI_SEMANTIC_PATCH) {
 
-         const struct vrend_layout_info *layout = ctx->key->prev_stage_generic_and_patch_outputs_layout;
-         for (unsigned generic_index = 0; generic_index  < ctx->key->num_prev_generic_and_patch_outputs; ++generic_index, ++layout) {
+         const struct vrend_layout_info *layout = key->prev_stage_generic_and_patch_outputs_layout;
+         for (unsigned generic_index = 0; generic_index  < key->num_prev_generic_and_patch_outputs; ++generic_index, ++layout) {
 
             bool already_found_one = false;
 
@@ -4623,8 +4625,8 @@ static bool apply_prev_layout(struct dump_ctx *ctx)
 
                /* We have already one IO with the same SID and arrays ID, so we need to duplicate it */
                if (already_found_one) {
-                  memmove(io + 1, io, (ctx->num_inputs - i_input) * sizeof(struct vrend_shader_io));
-                  ctx->num_inputs++;
+                  memmove(io + 1, io, (*num_inputs - i_input) * sizeof(struct vrend_shader_io));
+                  (*num_inputs)++;
                   ++io;
                   ++i_input;
 
@@ -4643,7 +4645,7 @@ static bool apply_prev_layout(struct dump_ctx *ctx)
                   require_enhanced_layouts |= io->swizzle_offset > 0;
                   if (io->num_components == 1)
                      io->override_no_wm = true;
-                  if (i_input < ctx->num_inputs - 1) {
+                  if (i_input < *num_inputs - 1) {
                      already_found_one = (io[1].sid != layout->sid || io[1].array_id != layout->array_id);
                   }
                }
@@ -4742,7 +4744,7 @@ static void handle_io_arrays(struct dump_ctx *ctx)
    if (ctx->prog_type == TGSI_PROCESSOR_GEOMETRY ||
        ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL ||
        ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL)
-      require_enhanced_layouts |= apply_prev_layout(ctx);
+      require_enhanced_layouts |= apply_prev_layout(ctx->key, ctx->inputs, &ctx->num_inputs);
 
    if (ctx->guest_sent_io_arrays)  {
       if (ctx->num_inputs > 0)
