@@ -5615,8 +5615,9 @@ static const char *get_aux_string(unsigned location)
    }
 }
 
-static void emit_sampler_decl(struct dump_ctx *ctx,
+static void emit_sampler_decl(const struct dump_ctx *ctx,
                               struct vrend_glsl_strbufs *glsl_strbufs,
+                              uint32_t *shadow_samp_mask,
                               uint32_t i, uint32_t range,
                               const struct vrend_shader_sampler *sampler)
 {
@@ -5640,7 +5641,7 @@ static void emit_sampler_decl(struct dump_ctx *ctx,
    if (is_shad) {
       emit_hdrf(glsl_strbufs, "uniform %s vec4 %sshadmask%d;\n", precision, sname, i);
       emit_hdrf(glsl_strbufs, "uniform %s vec4 %sshadadd%d;\n", precision, sname, i);
-      ctx->shadow_samp_mask |= (1 << i);
+      *shadow_samp_mask |= (1 << i);
    }
 }
 
@@ -5815,7 +5816,8 @@ static void emit_image_decl(const struct dump_ctx *ctx,
 }
 
 static int emit_ios_common(struct dump_ctx *ctx,
-                           struct vrend_glsl_strbufs *glsl_strbufs)
+                           struct vrend_glsl_strbufs *glsl_strbufs,
+                           uint32_t *shadow_samp_mask)
 {
    uint i;
    const char *sname = tgsi_proc_to_prefix(ctx->prog_type);
@@ -5873,7 +5875,7 @@ static int emit_ios_common(struct dump_ctx *ctx,
       for (i = 0; i < ctx->num_sampler_arrays; i++) {
          uint32_t first = ctx->sampler_arrays[i].first;
          uint32_t range = ctx->sampler_arrays[i].array_size;
-         emit_sampler_decl(ctx, glsl_strbufs, first, range, ctx->samplers + first);
+         emit_sampler_decl(ctx, glsl_strbufs, shadow_samp_mask, first, range, ctx->samplers + first);
       }
    } else {
       uint nsamp = util_last_bit(ctx->samplers_used);
@@ -5882,7 +5884,7 @@ static int emit_ios_common(struct dump_ctx *ctx,
          if ((ctx->samplers_used & (1 << i)) == 0)
             continue;
 
-         emit_sampler_decl(ctx, glsl_strbufs, i, 0, ctx->samplers + i);
+         emit_sampler_decl(ctx, glsl_strbufs, shadow_samp_mask, i, 0, ctx->samplers + i);
       }
    }
 
@@ -6644,7 +6646,8 @@ static void emit_ios_cs(const struct dump_ctx *ctx,
 
 static int emit_ios(struct dump_ctx *ctx,
                     struct vrend_glsl_strbufs *glsl_strbufs,
-                    struct vrend_generic_ios *generic_ios)
+                    struct vrend_generic_ios *generic_ios,
+                    uint32_t *shadow_samp_mask)
 {
    ctx->num_interps = 0;
    int glsl_ver_required = ctx->glsl_ver_required;
@@ -6693,7 +6696,7 @@ static int emit_ios(struct dump_ctx *ctx,
    }
 
    emit_ios_streamout(ctx, glsl_strbufs);
-   glsl_ver_required = emit_ios_common(ctx, glsl_strbufs);
+   glsl_ver_required = emit_ios_common(ctx, glsl_strbufs, shadow_samp_mask);
 
    if (ctx->prog_type == TGSI_PROCESSOR_FRAGMENT &&
        ctx->key->pstipple_tex == true) {
@@ -6978,7 +6981,7 @@ bool vrend_convert_shader(const struct vrend_context *rctx,
       strbuf_free(ctx.src_bufs + i);
 
    emit_header(&ctx, &ctx.glsl_strbufs);
-   ctx.glsl_ver_required = emit_ios(&ctx, &ctx.glsl_strbufs, &ctx.generic_ios);
+   ctx.glsl_ver_required = emit_ios(&ctx, &ctx.glsl_strbufs, &ctx.generic_ios, &ctx.shadow_samp_mask);
 
    if (strbuf_get_error(&ctx.glsl_strbufs.glsl_hdr))
       goto fail;
@@ -7287,7 +7290,7 @@ bool vrend_shader_create_passthrough_tcs(const struct vrend_context *rctx,
    handle_io_arrays(&ctx);
 
    emit_header(&ctx, &ctx.glsl_strbufs);
-   ctx.glsl_ver_required = emit_ios(&ctx, &ctx.glsl_strbufs, &ctx.generic_ios);
+   ctx.glsl_ver_required = emit_ios(&ctx, &ctx.glsl_strbufs, &ctx.generic_ios, &ctx.shadow_samp_mask);
 
    emit_buf(&ctx.glsl_strbufs, "void main() {\n");
 
