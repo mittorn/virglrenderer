@@ -875,7 +875,7 @@ static bool add_samplers(struct dump_ctx *ctx, int first, int last, int sview_ty
    return true;
 }
 
-static struct vrend_array *lookup_image_array_ptr(struct dump_ctx *ctx, int index)
+static struct vrend_array *lookup_image_array_ptr(const struct dump_ctx *ctx, int index)
 {
    uint32_t i;
    for (i = 0; i < ctx->num_image_arrays; i++) {
@@ -887,7 +887,7 @@ static struct vrend_array *lookup_image_array_ptr(struct dump_ctx *ctx, int inde
    return NULL;
 }
 
-static int lookup_image_array(struct dump_ctx *ctx, int index)
+static int lookup_image_array(const struct dump_ctx *ctx, int index)
 {
    struct vrend_array *image = lookup_image_array_ptr(ctx, index);
    return image ? image->first : -1;
@@ -2983,7 +2983,7 @@ static enum vrend_type_qualifier get_coord_prefix(int resource, bool *is_ms, boo
    }
 }
 
-static bool is_integer_memory(struct dump_ctx *ctx, enum tgsi_file_type file_type, uint32_t index)
+static bool is_integer_memory(const struct dump_ctx *ctx, enum tgsi_file_type file_type, uint32_t index)
 {
    switch(file_type) {
    case TGSI_FILE_BUFFER:
@@ -2997,18 +2997,17 @@ static bool is_integer_memory(struct dump_ctx *ctx, enum tgsi_file_type file_typ
    return false;
 }
 
-static void set_memory_qualifier(struct dump_ctx *ctx,
+static void set_memory_qualifier(uint8_t ssbo_memory_qualifier[],
+                                 uint32_t ssbo_used_mask,
                                  struct tgsi_full_instruction *inst,
                                  uint32_t reg_index, bool indirect)
 {
    if (inst->Memory.Qualifier == TGSI_MEMORY_COHERENT) {
       if (indirect) {
-         uint32_t mask = ctx->ssbo_used_mask;
-         while (mask)
-            ctx->ssbo_memory_qualifier[u_bit_scan(&mask)] = TGSI_MEMORY_COHERENT;
+         while (ssbo_used_mask)
+            ssbo_memory_qualifier[u_bit_scan(&ssbo_used_mask)] = TGSI_MEMORY_COHERENT;
       } else
-         ctx->ssbo_memory_qualifier[reg_index] = TGSI_MEMORY_COHERENT;
-
+         ssbo_memory_qualifier[reg_index] = TGSI_MEMORY_COHERENT;
    }
 }
 
@@ -3025,8 +3024,9 @@ static void emit_store_mem(struct vrend_glsl_strbufs *glsl_strbufs, const char *
 }
 
 static void
-translate_store(struct dump_ctx *ctx,
+translate_store(const struct dump_ctx *ctx,
                 struct vrend_glsl_strbufs *glsl_strbufs,
+                uint8_t ssbo_memory_qualifier[],
                 struct tgsi_full_instruction *inst,
                 struct source_info *sinfo,
                 const char *srcs[4],
@@ -3080,7 +3080,7 @@ translate_store(struct dump_ctx *ctx,
    } else if (dst_reg->Register.File == TGSI_FILE_BUFFER ||
               dst_reg->Register.File == TGSI_FILE_MEMORY) {
       enum vrend_type_qualifier dtypeprefix;
-      set_memory_qualifier(ctx, inst, dst_reg->Register.Index,
+      set_memory_qualifier(ssbo_memory_qualifier, ctx->ssbo_used_mask, inst, dst_reg->Register.Index,
                            dst_reg->Register.Indirect);
       dtypeprefix = is_integer_memory(ctx, dst_reg->Register.File, dst_reg->Register.Index) ?
                     FLOAT_BITS_TO_INT : FLOAT_BITS_TO_UINT;
@@ -3130,6 +3130,7 @@ static void emit_load_mem(struct vrend_glsl_strbufs *glsl_strbufs, const char *d
 static void
 translate_load(struct dump_ctx *ctx,
                struct vrend_glsl_strbufs *glsl_strbufs,
+               uint8_t ssbo_memory_qualifier[],
                struct tgsi_full_instruction *inst,
                struct source_info *sinfo,
                struct dest_info *dinfo,
@@ -3202,7 +3203,7 @@ translate_load(struct dump_ctx *ctx,
       char mydst[255], atomic_op[9], atomic_src[10];
       enum vrend_type_qualifier dtypeprefix;
 
-      set_memory_qualifier(ctx, inst, inst->Src[0].Register.Index, inst->Src[0].Register.Indirect);
+      set_memory_qualifier(ssbo_memory_qualifier, ctx->ssbo_used_mask, inst, inst->Src[0].Register.Index, inst->Src[0].Register.Indirect);
 
       strcpy(mydst, dst);
       char *wmp = strchr(mydst, '.');
@@ -5312,7 +5313,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
             return false;
          srcs[1] = ctx->src_bufs[1].buf;
       }
-      translate_store(ctx, &ctx->glsl_strbufs, inst, &sinfo, srcs, dsts[0]);
+      translate_store(ctx, &ctx->glsl_strbufs, ctx->ssbo_memory_qualifier, inst, &sinfo, srcs, dsts[0]);
       break;
    case TGSI_OPCODE_LOAD:
       if (ctx->cfg->use_gles) {
@@ -5320,7 +5321,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
             return false;
          srcs[1] = ctx->src_bufs[1].buf;
       }
-      translate_load(ctx, &ctx->glsl_strbufs, inst, &sinfo, &dinfo, srcs, dsts[0], writemask);
+      translate_load(ctx, &ctx->glsl_strbufs, ctx->ssbo_memory_qualifier, inst, &sinfo, &dinfo, srcs, dsts[0], writemask);
       break;
    case TGSI_OPCODE_ATOMUADD:
    case TGSI_OPCODE_ATOMXCHG:
