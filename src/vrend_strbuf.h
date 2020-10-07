@@ -175,7 +175,7 @@ static inline bool strarray_alloc(struct vrend_strarray *sa, int init_alloc)
    return true;
 }
 
-static inline bool strarray_addstrbuf(struct vrend_strarray *sa, struct vrend_strbuf *sb)
+static inline bool strarray_addstrbuf(struct vrend_strarray *sa, const struct vrend_strbuf *sb)
 {
    assert(sa->num_strings < sa->num_alloced_strings);
    if (sa->num_strings >= sa->num_alloced_strings)

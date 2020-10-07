@@ -150,16 +150,20 @@ struct vrend_io_range {
    bool used;
 };
 
+struct vrend_glsl_strbufs {
+   int indent_level;
+   struct vrend_strbuf glsl_main;
+   struct vrend_strbuf glsl_hdr;
+   struct vrend_strbuf glsl_ver_ext;
+};
+
 struct dump_ctx {
    struct tgsi_iterate_context iter;
    const struct vrend_shader_cfg *cfg;
    struct tgsi_shader_info info;
    int prog_type;
    int size;
-   struct vrend_strbuf glsl_main;
-   int indent_level;
-   struct vrend_strbuf glsl_hdr;
-   struct vrend_strbuf glsl_ver_ext;
+   struct vrend_glsl_strbufs glsl_strbufs;
    uint instno;
 
    struct vrend_strbuf src_bufs[4];
@@ -367,7 +371,7 @@ enum io_type {
 /* We prefer arrays of arrays, but if this is not available then TCS, GEOM, and TES
  * inputs must be blocks, but FS input should not because interpolateAt* doesn't
  * support dereferencing block members. */
-static inline bool prefer_generic_io_block(struct dump_ctx *ctx, enum io_type io)
+static inline bool prefer_generic_io_block(const struct dump_ctx *ctx, enum io_type io)
 {
    if (ctx->cfg->has_arrays_of_arrays && !ctx->cfg->use_gles)
       return false;
@@ -513,7 +517,7 @@ static inline int gs_input_prim_to_size(int prim)
    };
 }
 
-static inline bool fs_emit_layout(struct dump_ctx *ctx)
+static inline bool fs_emit_layout(const struct dump_ctx *ctx)
 {
    if (ctx->fs_pixel_center)
       return true;
@@ -526,7 +530,7 @@ static inline bool fs_emit_layout(struct dump_ctx *ctx)
    return false;
 }
 
-static const char *get_stage_input_name_prefix(struct dump_ctx *ctx, int processor)
+static const char *get_stage_input_name_prefix(const struct dump_ctx *ctx, int processor)
 {
    const char *name_prefix;
    switch (processor) {
@@ -593,83 +597,83 @@ static void require_glsl_ver(struct dump_ctx *ctx, int glsl_ver)
       ctx->glsl_ver_required = glsl_ver;
 }
 
-static void emit_indent(struct dump_ctx *ctx)
+static void emit_indent(struct vrend_glsl_strbufs *glsl_strbufs)
 {
-   if (ctx->indent_level > 0) {
+   if (glsl_strbufs->indent_level > 0) {
       /* very high levels of indentation doesn't improve readability */
-      int indent_level = MIN2(ctx->indent_level, 15);
+      int indent_level = MIN2(glsl_strbufs->indent_level, 15);
       char buf[16];
       memset(buf, '\t', indent_level);
       buf[indent_level] = '\0';
-      strbuf_append(&ctx->glsl_main, buf);
+      strbuf_append(&glsl_strbufs->glsl_main, buf);
    }
 }
 
-static void emit_buf(struct dump_ctx *ctx, const char *buf)
+static void emit_buf(struct vrend_glsl_strbufs *glsl_strbufs, const char *buf)
 {
-   emit_indent(ctx);
-   strbuf_append(&ctx->glsl_main, buf);
+   emit_indent(glsl_strbufs);
+   strbuf_append(&glsl_strbufs->glsl_main, buf);
 }
 
-static void indent_buf(struct dump_ctx *ctx)
+static void indent_buf(struct vrend_glsl_strbufs *glsl_strbufs)
 {
-   ctx->indent_level++;
+   glsl_strbufs->indent_level++;
 }
 
-static void outdent_buf(struct dump_ctx *ctx)
+static void outdent_buf(struct vrend_glsl_strbufs *glsl_strbufs)
 {
-   if (ctx->indent_level <= 0) {
-      strbuf_set_error(&ctx->glsl_main);
+   if (glsl_strbufs->indent_level <= 0) {
+      strbuf_set_error(&glsl_strbufs->glsl_main);
       return;
    }
-   ctx->indent_level--;
+   glsl_strbufs->indent_level--;
 }
 
-static void set_buf_error(struct dump_ctx *ctx)
+static void set_buf_error(struct vrend_glsl_strbufs *glsl_strbufs)
 {
-   strbuf_set_error(&ctx->glsl_main);
+   strbuf_set_error(&glsl_strbufs->glsl_main);
 }
 
 __attribute__((format(printf, 2, 3)))
-static void emit_buff(struct dump_ctx *ctx, const char *fmt, ...)
+static void emit_buff(struct vrend_glsl_strbufs *glsl_strbufs, const char *fmt, ...)
 {
    va_list va;
    va_start(va, fmt);
-   emit_indent(ctx);
-   strbuf_vappendf(&ctx->glsl_main, fmt, va);
+   emit_indent(glsl_strbufs);
+   strbuf_vappendf(&glsl_strbufs->glsl_main, fmt, va);
    va_end(va);
 }
 
-static void emit_hdr(struct dump_ctx *ctx, const char *buf)
+static void emit_hdr(struct vrend_glsl_strbufs *glsl_strbufs, const char *buf)
 {
-   strbuf_append(&ctx->glsl_hdr, buf);
+   strbuf_append(&glsl_strbufs->glsl_hdr, buf);
 }
 
-static void set_hdr_error(struct dump_ctx *ctx)
+static void set_hdr_error(struct vrend_glsl_strbufs *glsl_strbufs)
 {
-   strbuf_set_error(&ctx->glsl_hdr);
+   strbuf_set_error(&glsl_strbufs->glsl_hdr);
 }
 
 __attribute__((format(printf, 2, 3)))
-static void emit_hdrf(struct dump_ctx *ctx, const char *fmt, ...)
+static void emit_hdrf(struct vrend_glsl_strbufs *glsl_strbufs, const char *fmt, ...)
 {
    va_list va;
    va_start(va, fmt);
-   strbuf_vappendf(&ctx->glsl_hdr, fmt, va);
+   strbuf_vappendf(&glsl_strbufs->glsl_hdr, fmt, va);
    va_end(va);
 }
 
-static void emit_ver_ext(struct dump_ctx *ctx, const char *buf)
+static void emit_ver_ext(struct vrend_glsl_strbufs *glsl_strbufs, const char *buf)
 {
-   strbuf_append(&ctx->glsl_ver_ext, buf);
+   strbuf_append(&glsl_strbufs->glsl_ver_ext, buf);
 }
 
 __attribute__((format(printf, 2, 3)))
-static void emit_ver_extf(struct dump_ctx *ctx, const char *fmt, ...)
+static void emit_ver_extf(struct vrend_glsl_strbufs *glsl_strbufs, const char *fmt, ...)
 {
    va_list va;
    va_start(va, fmt);
-   strbuf_vappendf(&ctx->glsl_ver_ext, fmt, va);
+   strbuf_vappendf(&glsl_strbufs->glsl_ver_ext, fmt, va);
    va_end(va);
 }
 
@@ -1738,18 +1742,19 @@ static char get_swiz_char(int swiz)
    }
 }
 
-static void emit_cbuf_writes(struct dump_ctx *ctx)
+static void emit_cbuf_writes(const struct dump_ctx *ctx,
+                             struct vrend_glsl_strbufs *glsl_strbufs)
 {
    int i;
 
    for (i = ctx->num_outputs; i < ctx->cfg->max_draw_buffers; i++) {
-      emit_buff(ctx, "fsout_c%d = fsout_c0;\n", i);
+      emit_buff(glsl_strbufs, "fsout_c%d = fsout_c0;\n", i);
    }
 }
 
-static void emit_a8_swizzle(struct dump_ctx *ctx)
+static void emit_a8_swizzle(struct vrend_glsl_strbufs *glsl_strbufs)
 {
-   emit_buf(ctx, "fsout_c0.x = fsout_c0.w;\n");
+   emit_buf(glsl_strbufs, "fsout_c0.x = fsout_c0.w;\n");
 }
 
 static const char *atests[PIPE_FUNC_ALWAYS + 1] = {
@@ -1763,7 +1768,8 @@ static const char *atests[PIPE_FUNC_ALWAYS + 1] = {
    "true"
 };
 
-static void emit_alpha_test(struct dump_ctx *ctx)
+static void emit_alpha_test(const struct dump_ctx *ctx,
+                            struct vrend_glsl_strbufs *glsl_strbufs)
 {
    char comp_buf[128];
 
@@ -1790,34 +1796,35 @@ static void emit_alpha_test(struct dump_ctx *ctx)
       break;
    default:
       vrend_printf( "invalid alpha-test: %x\n", ctx->key->alpha_test);
-      set_buf_error(ctx);
+      set_buf_error(glsl_strbufs);
       return;
    }
 
-   emit_buff(ctx, "if (!(%s)) {\n\tdiscard;\n}\n", comp_buf);
+   emit_buff(glsl_strbufs, "if (!(%s)) {\n\tdiscard;\n}\n", comp_buf);
 }
 
-static void emit_pstipple_pass(struct dump_ctx *ctx)
+static void emit_pstipple_pass(struct vrend_glsl_strbufs *glsl_strbufs)
 {
-   emit_buf(ctx, "stip_temp = texture(pstipple_sampler, vec2(gl_FragCoord.x / 32.0, gl_FragCoord.y / 32.0)).x;\n");
-   emit_buf(ctx, "if (stip_temp > 0.0) {\n\tdiscard;\n}\n");
+   emit_buf(glsl_strbufs, "stip_temp = texture(pstipple_sampler, vec2(gl_FragCoord.x / 32.0, gl_FragCoord.y / 32.0)).x;\n");
+   emit_buf(glsl_strbufs, "if (stip_temp > 0.0) {\n\tdiscard;\n}\n");
 }
 
-static void emit_color_select(struct dump_ctx *ctx)
+static void emit_color_select(const struct dump_ctx *ctx,
+                              struct vrend_glsl_strbufs *glsl_strbufs)
 {
    if (!ctx->key->color_two_side || !(ctx->color_in_mask & 0x3))
       return;
 
    if (ctx->color_in_mask & 1)
-      emit_buf(ctx, "realcolor0 = gl_FrontFacing ? ex_c0 : ex_bc0;\n");
+      emit_buf(glsl_strbufs, "realcolor0 = gl_FrontFacing ? ex_c0 : ex_bc0;\n");
 
    if (ctx->color_in_mask & 2)
-      emit_buf(ctx, "realcolor1 = gl_FrontFacing ? ex_c1 : ex_bc1;\n");
+      emit_buf(glsl_strbufs, "realcolor1 = gl_FrontFacing ? ex_c1 : ex_bc1;\n");
 }
 
-static void emit_prescale(struct dump_ctx *ctx)
+static void emit_prescale(struct vrend_glsl_strbufs *glsl_strbufs)
 {
-   emit_buf(ctx, "gl_Position.y = gl_Position.y * winsys_adjust_y;\n");
+   emit_buf(glsl_strbufs, "gl_Position.y = gl_Position.y * winsys_adjust_y;\n");
 }
 
 static void prepare_so_movs(struct dump_ctx *ctx)
@@ -1865,7 +1872,7 @@ get_blockvarname(char outvar[64], const char *stage_prefix, const struct vrend_s
    snprintf(outvar, 64, "%sg%dA%d_%x%s", stage_prefix, io->first, io->array_id, io->usage_mask, postfix);
 }
 
-static void get_so_name(struct dump_ctx *ctx, bool from_block, const struct vrend_shader_io *output, int index, char out_var[255], char *wm)
+static void get_so_name(const struct dump_ctx *ctx, bool from_block, const struct vrend_shader_io *output, int index, char out_var[255], char *wm)
 {
    if (output->first == output->last || output->name != TGSI_SEMANTIC_GENERIC)
       snprintf(out_var, 255, "%s%s", output->glsl_name, wm);
@@ -1884,7 +1891,9 @@ static void get_so_name(struct dump_ctx *ctx, bool from_block, const struct vren
    }
 }
 
-static void emit_so_movs(struct dump_ctx *ctx)
+static void emit_so_movs(const struct dump_ctx *ctx,
+                         struct vrend_glsl_strbufs *glsl_strbufs,
+                         bool *has_clipvertex_so)
 {
    uint32_t i, j;
    char outtype[15] = "";
@@ -1892,7 +1901,7 @@ static void emit_so_movs(struct dump_ctx *ctx)
 
    if (ctx->so->num_outputs >= PIPE_MAX_SO_OUTPUTS) {
       vrend_printf( "Num outputs exceeded, max is %u\n", PIPE_MAX_SO_OUTPUTS);
-      set_buf_error(ctx);
+      set_buf_error(glsl_strbufs);
       return;
    }
 
@@ -1921,7 +1930,7 @@ static void emit_so_movs(struct dump_ctx *ctx)
             ctx->so_names[i] = NULL;
          else if (ctx->outputs[ctx->so->output[i].register_index].name == TGSI_SEMANTIC_CLIPVERTEX && ctx->has_clipvertex) {
             ctx->so_names[i] = strdup("clipv_tmp");
-            ctx->has_clipvertex_so = true;
+            *has_clipvertex_so = true;
          } else {
             char out_var[255];
             get_so_name(ctx, true, output, ctx->so->output[i].register_index, out_var, "");
@@ -1945,10 +1954,10 @@ static void emit_so_movs(struct dump_ctx *ctx)
 
       if (output->name == TGSI_SEMANTIC_CLIPDIST) {
          if (output->first == output->last)
-            emit_buff(ctx, "tfout%d = %s(clip_dist_temp[%d]%s);\n", i, outtype, output->sid,
+            emit_buff(glsl_strbufs, "tfout%d = %s(clip_dist_temp[%d]%s);\n", i, outtype, output->sid,
                       writemask);
          else
-            emit_buff(ctx, "tfout%d = %s(clip_dist_temp[%d]%s);\n", i, outtype,
+            emit_buff(glsl_strbufs, "tfout%d = %s(clip_dist_temp[%d]%s);\n", i, outtype,
                       output->sid + ctx->so->output[i].register_index - output->first,
                       writemask);
       } else {
@@ -1957,7 +1966,7 @@ static void emit_so_movs(struct dump_ctx *ctx)
             if (ctx->so->output[i].need_temp || ctx->prog_type == TGSI_PROCESSOR_GEOMETRY ||
                 output->glsl_predefined_no_emit) {
                get_so_name(ctx, false, output, ctx->so->output[i].register_index, out_var, writemask);
-               emit_buff(ctx, "tfout%d = %s(%s);\n", i, outtype, out_var);
+               emit_buff(glsl_strbufs, "tfout%d = %s(%s);\n", i, outtype, out_var);
             } else {
                get_so_name(ctx, true, output, ctx->so->output[i].register_index, out_var, writemask);
                free(ctx->so_names[i]);
@@ -1968,7 +1977,8 @@ static void emit_so_movs(struct dump_ctx *ctx)
    }
 }
 
-static void emit_clip_dist_movs(struct dump_ctx *ctx)
+static void emit_clip_dist_movs(const struct dump_ctx *ctx,
+                                struct vrend_glsl_strbufs *glsl_strbufs)
 {
    int i;
    bool has_prop = (ctx->num_clip_dist_prop + ctx->num_cull_dist_prop) > 0;
@@ -1979,7 +1989,7 @@ static void emit_clip_dist_movs(struct dump_ctx *ctx)
       prefix = "gl_out[gl_InvocationID].";
    if (ctx->num_clip_dist == 0 && ctx->key->clip_plane_enable) {
       for (i = 0; i < 8; i++) {
-         emit_buff(ctx, "%sgl_ClipDistance[%d] = dot(%s, clipp[%d]);\n", prefix, i, ctx->has_clipvertex ? "clipv_tmp" : "gl_Position", i);
+         emit_buff(glsl_strbufs, "%sgl_ClipDistance[%d] = dot(%s, clipp[%d]);\n", prefix, i, ctx->has_clipvertex ? "clipv_tmp" : "gl_Position", i);
       }
       return;
    }
@@ -2003,29 +2013,32 @@ static void emit_clip_dist_movs(struct dump_ctx *ctx)
             is_cull = true;
       }
       const char *clip_cull = is_cull ? "Cull" : "Clip";
-      emit_buff(ctx, "%sgl_%sDistance[%d] = clip_dist_temp[%d].%c;\n", prefix, clip_cull,
+      emit_buff(glsl_strbufs, "%sgl_%sDistance[%d] = clip_dist_temp[%d].%c;\n", prefix, clip_cull,
                is_cull ? i - ctx->num_clip_dist_prop : i, clipidx, wm);
    }
 }
 
-#define emit_arit_op2(op) emit_buff(ctx, "%s = %s(%s((%s %s %s))%s);\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0], op, srcs[1], writemask)
-#define emit_op1(op) emit_buff(ctx, "%s = %s(%s(%s(%s))%s);\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), op, srcs[0], writemask)
-#define emit_compare(op) emit_buff(ctx, "%s = %s(%s((%s(%s(%s), %s(%s))))%s);\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), op, get_string(sinfo.svec4), srcs[0], get_string(sinfo.svec4), srcs[1], writemask)
+#define emit_arit_op2(op) emit_buff(&ctx->glsl_strbufs, "%s = %s(%s((%s %s %s))%s);\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0], op, srcs[1], writemask)
+#define emit_op1(op) emit_buff(&ctx->glsl_strbufs, "%s = %s(%s(%s(%s))%s);\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), op, srcs[0], writemask)
+#define emit_compare(op) emit_buff(&ctx->glsl_strbufs, "%s = %s(%s((%s(%s(%s), %s(%s))))%s);\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), op, get_string(sinfo.svec4), srcs[0], get_string(sinfo.svec4), srcs[1], writemask)
 
-#define emit_ucompare(op) emit_buff(ctx, "%s = %s(uintBitsToFloat(%s(%s(%s(%s), %s(%s))%s) * %s(0xffffffff)));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.udstconv), op, get_string(sinfo.svec4), srcs[0], get_string(sinfo.svec4), srcs[1], writemask, get_string(dinfo.udstconv))
+#define emit_ucompare(op) emit_buff(&ctx->glsl_strbufs, "%s = %s(uintBitsToFloat(%s(%s(%s(%s), %s(%s))%s) * %s(0xffffffff)));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.udstconv), op, get_string(sinfo.svec4), srcs[0], get_string(sinfo.svec4), srcs[1], writemask, get_string(dinfo.udstconv))
 
-static void handle_vertex_proc_exit(struct dump_ctx *ctx)
+static void handle_vertex_proc_exit(const struct dump_ctx *ctx,
+                                    struct vrend_glsl_strbufs *glsl_strbufs,
+                                    bool *has_clipvertex_so)
 {
     if (ctx->so && !ctx->key->gs_present && !ctx->key->tes_present)
-       emit_so_movs(ctx);
+       emit_so_movs(ctx, glsl_strbufs, has_clipvertex_so);
 
-    emit_clip_dist_movs(ctx);
+    emit_clip_dist_movs(ctx, glsl_strbufs);
 
     if (!ctx->key->gs_present && !ctx->key->tes_present)
-       emit_prescale(ctx);
+       emit_prescale(glsl_strbufs);
 }
 
-static void emit_fragment_logicop(struct dump_ctx *ctx)
+static void emit_fragment_logicop(const struct dump_ctx *ctx,
+                                  struct vrend_glsl_strbufs *glsl_strbufs)
 {
    char src[PIPE_MAX_COLOR_BUFS][64];
    char src_fb[PIPE_MAX_COLOR_BUFS][64];
@@ -2141,43 +2154,45 @@ static void emit_fragment_logicop(struct dump_ctx *ctx)
       case PIPE_LOGICOP_COPY:
       case PIPE_LOGICOP_CLEAR:
       case PIPE_LOGICOP_SET:
-         emit_buff(ctx, "fsout_c%d = %s;\n", i, full_op[i]);
+         emit_buff(glsl_strbufs, "fsout_c%d = %s;\n", i, full_op[i]);
          break;
       default:
-         emit_buff(ctx, "fsout_c%d = vec4((%s) & %d) / %f;\n", i, full_op[i], mask[i], scale[i]);
+         emit_buff(glsl_strbufs, "fsout_c%d = vec4((%s) & %d) / %f;\n", i, full_op[i], mask[i], scale[i]);
       }
    }
 }
 
-static void emit_cbuf_swizzle(struct dump_ctx *ctx)
+static void emit_cbuf_swizzle(const struct dump_ctx *ctx,
+                              struct vrend_glsl_strbufs *glsl_strbufs)
 {
    for (uint i = 0; i < ctx->num_outputs; i++) {
       if (ctx->key->fs_swizzle_output_rgb_to_bgr & (1 << i)) {
-         emit_buff(ctx, "fsout_c%d = fsout_c%d.zyxw;\n", i, i);
+         emit_buff(glsl_strbufs, "fsout_c%d = fsout_c%d.zyxw;\n", i, i);
       }
    }
 }
 
-static void handle_fragment_proc_exit(struct dump_ctx *ctx)
+static void handle_fragment_proc_exit(const struct dump_ctx *ctx,
+                                      struct vrend_glsl_strbufs *glsl_strbufs)
 {
     if (ctx->key->pstipple_tex)
-       emit_pstipple_pass(ctx);
+       emit_pstipple_pass(glsl_strbufs);
 
     if (ctx->key->cbufs_are_a8_bitmask)
-       emit_a8_swizzle(ctx);
+       emit_a8_swizzle(glsl_strbufs);
 
     if (ctx->key->add_alpha_test)
-       emit_alpha_test(ctx);
+       emit_alpha_test(ctx, glsl_strbufs);
 
 
     if (ctx->key->fs_logicop_enabled)
-       emit_fragment_logicop(ctx);
+       emit_fragment_logicop(ctx, glsl_strbufs);
 
     if (ctx->key->fs_swizzle_output_rgb_to_bgr)
-       emit_cbuf_swizzle(ctx);
+       emit_cbuf_swizzle(ctx, glsl_strbufs);
 
     if (ctx->write_all_cbufs)
-       emit_cbuf_writes(ctx);
+       emit_cbuf_writes(ctx, glsl_strbufs);
 
 }
 
@@ -2187,7 +2202,7 @@ static void set_texture_reqs(struct dump_ctx *ctx,
 {
    if (sreg_index >= ARRAY_SIZE(ctx->samplers)) {
       vrend_printf( "Sampler view exceeded, max is %lu\n", ARRAY_SIZE(ctx->samplers));
-      set_buf_error(ctx);
+      set_buf_error(&ctx->glsl_strbufs);
       return;
    }
    ctx->samplers[sreg_index].tgsi_sampler_type = inst->Texture.Texture;
@@ -2243,7 +2258,7 @@ static void emit_txq(struct dump_ctx *ctx,
          ctx->shader_req_bits |= SHADER_REQ_TXQ_LEVELS;
          if (inst->Dst[0].Register.WriteMask & 0x7)
             twm = TGSI_WRITEMASK_W;
-         emit_buff(ctx, "%s%s = %s(textureQueryLevels(%s));\n", dst,
+         emit_buff(&ctx->glsl_strbufs, "%s%s = %s(textureQueryLevels(%s));\n", dst,
                    get_wm_string(twm), get_string(dtypeprefix),
                    srcs[sampler_index]);
       }
@@ -2290,7 +2305,7 @@ static void emit_txq(struct dump_ctx *ctx,
          writemask = ".xz";
       }
 
-      emit_buff(ctx, "%s%s = %s(textureSize(%s%s))%s;\n", dst,
+      emit_buff(&ctx->glsl_strbufs, "%s%s = %s(textureSize(%s%s))%s;\n", dst,
                 get_wm_string(twm), get_string(dtypeprefix),
                 srcs[sampler_index], bias, txq_returns_vec ? writemask : "");
    }
@@ -2311,11 +2326,11 @@ static void emit_txqs(struct dump_ctx *ctx,
 
    if (inst->Texture.Texture != TGSI_TEXTURE_2D_MSAA &&
        inst->Texture.Texture != TGSI_TEXTURE_2D_ARRAY_MSAA) {
-      set_buf_error(ctx);
+      set_buf_error(&ctx->glsl_strbufs);
       return;
    }
 
-   emit_buff(ctx, "%s = %s(textureSamples(%s));\n", dst,
+   emit_buff(&ctx->glsl_strbufs, "%s = %s(textureSamples(%s));\n", dst,
             get_string(dtypeprefix), srcs[sampler_index]);
 }
 
@@ -2682,12 +2697,12 @@ static void translate_tex(struct dump_ctx *ctx,
    if (inst->Texture.NumOffsets == 1) {
       if (inst->TexOffsets[0].Index >= (int)ARRAY_SIZE(ctx->imm)) {
          vrend_printf( "Immediate exceeded, max is %lu\n", ARRAY_SIZE(ctx->imm));
-         set_buf_error(ctx);
+         set_buf_error(&ctx->glsl_strbufs);
          return;
       }
 
       if (!fill_offset_buffer(ctx, inst, offbuf)) {
-         set_buf_error(ctx);
+         set_buf_error(&ctx->glsl_strbufs);
          return;
       }
 
@@ -2733,27 +2748,27 @@ static void translate_tex(struct dump_ctx *ctx,
            inst->Texture.Texture == TGSI_TEXTURE_1D_ARRAY ||
            inst->Texture.Texture == TGSI_TEXTURE_RECT)) {
          if (inst->Texture.Texture == TGSI_TEXTURE_1D)
-            emit_buff(ctx, "%s = %s(%s(texelFetch%s(%s, ivec2(%s(%s%s), 0)%s%s)%s));\n",
+            emit_buff(&ctx->glsl_strbufs, "%s = %s(%s(texelFetch%s(%s, ivec2(%s(%s%s), 0)%s%s)%s));\n",
                       dst, get_string(dinfo->dstconv), get_string(dtypeprefix),
                       tex_ext, srcs[sampler_index], get_string(txfi), srcs[0],
                       get_wm_string(twm), bias, offbuf,
                       dinfo->dst_override_no_wm[0] ? "" : writemask);
          else if (inst->Texture.Texture == TGSI_TEXTURE_1D_ARRAY) {
             /* the y coordinate must go into the z element and the y must be zero */
-            emit_buff(ctx, "%s = %s(%s(texelFetch%s(%s, ivec3(%s(%s%s), 0).xzy%s%s)%s));\n",
+            emit_buff(&ctx->glsl_strbufs, "%s = %s(%s(texelFetch%s(%s, ivec3(%s(%s%s), 0).xzy%s%s)%s));\n",
                       dst, get_string(dinfo->dstconv), get_string(dtypeprefix),
                       tex_ext, srcs[sampler_index], get_string(txfi), srcs[0],
                       get_wm_string(twm), bias, offbuf,
                       dinfo->dst_override_no_wm[0] ? "" : writemask);
          } else {
-            emit_buff(ctx, "%s = %s(%s(texelFetch%s(%s, %s(%s%s), 0%s)%s));\n",
+            emit_buff(&ctx->glsl_strbufs, "%s = %s(%s(texelFetch%s(%s, %s(%s%s), 0%s)%s));\n",
                       dst, get_string(dinfo->dstconv), get_string(dtypeprefix),
                       tex_ext, srcs[sampler_index], get_string(txfi), srcs[0],
                       get_wm_string(twm), offbuf,
                       dinfo->dst_override_no_wm[0] ? "" : writemask);
          }
       } else {
-         emit_buff(ctx, "%s = %s(%s(texelFetch%s(%s, %s(%s%s)%s%s)%s));\n",
+         emit_buff(&ctx->glsl_strbufs, "%s = %s(%s(texelFetch%s(%s, %s(%s%s)%s%s)%s));\n",
                    dst, get_string(dinfo->dstconv), get_string(dtypeprefix),
                    tex_ext, srcs[sampler_index], get_string(txfi), srcs[0],
                    get_wm_string(twm), bias, offbuf,
@@ -2762,10 +2777,10 @@ static void translate_tex(struct dump_ctx *ctx,
    } else if (ctx->cfg->glsl_version < 140 && (ctx->shader_req_bits & SHADER_REQ_SAMPLER_RECT)) {
       /* rect is special in GLSL 1.30 */
       if (inst->Texture.Texture == TGSI_TEXTURE_RECT)
-         emit_buff(ctx, "%s = texture2DRect(%s, %s.xy)%s;\n",
+         emit_buff(&ctx->glsl_strbufs, "%s = texture2DRect(%s, %s.xy)%s;\n",
                    dst, srcs[sampler_index], srcs[0], writemask);
       else if (inst->Texture.Texture == TGSI_TEXTURE_SHADOWRECT)
-         emit_buff(ctx, "%s = shadow2DRect(%s, %s.xyz)%s;\n",
+         emit_buff(&ctx->glsl_strbufs, "%s = shadow2DRect(%s, %s.xyz)%s;\n",
                    dst, srcs[sampler_index], srcs[0], writemask);
    } else if (is_shad && inst->Instruction.Opcode != TGSI_OPCODE_TG4) { /* TGSI returns 1.0 in alpha */
       const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
@@ -2776,21 +2791,21 @@ static void translate_tex(struct dump_ctx *ctx,
            inst->Texture.Texture == TGSI_TEXTURE_SHADOW1D_ARRAY)) {
          if (inst->Texture.Texture == TGSI_TEXTURE_SHADOW1D) {
             if (inst->Instruction.Opcode == TGSI_OPCODE_TXP)
-               emit_buff(ctx, "%s = %s(%s(vec4(vec4(texture%s(%s, vec4(%s%s.xzw, 0).xwyz %s%s)) * %sshadmask%d + %sshadadd%d)%s));\n",
+               emit_buff(&ctx->glsl_strbufs, "%s = %s(%s(vec4(vec4(texture%s(%s, vec4(%s%s.xzw, 0).xwyz %s%s)) * %sshadmask%d + %sshadadd%d)%s));\n",
                          dst, get_string(dinfo->dstconv),
                          get_string(dtypeprefix), tex_ext, srcs[sampler_index],
                          srcs[0], get_wm_string(twm), offbuf, bias, cname,
                          src->Register.Index, cname,
                          src->Register.Index, writemask);
             else
-               emit_buff(ctx, "%s = %s(%s(vec4(vec4(texture%s(%s, vec3(%s%s.xz, 0).xzy %s%s)) * %sshadmask%d + %sshadadd%d)%s));\n",
+               emit_buff(&ctx->glsl_strbufs, "%s = %s(%s(vec4(vec4(texture%s(%s, vec3(%s%s.xz, 0).xzy %s%s)) * %sshadmask%d + %sshadadd%d)%s));\n",
                          dst, get_string(dinfo->dstconv),
                          get_string(dtypeprefix), tex_ext, srcs[sampler_index],
                          srcs[0], get_wm_string(twm), offbuf, bias, cname,
                          src->Register.Index, cname,
                          src->Register.Index, writemask);
          } else if (inst->Texture.Texture == TGSI_TEXTURE_SHADOW1D_ARRAY) {
-            emit_buff(ctx, "%s = %s(%s(vec4(vec4(texture%s(%s, vec4(%s%s, 0).xwyz %s%s)) * %sshadmask%d + %sshadadd%d)%s));\n",
+            emit_buff(&ctx->glsl_strbufs, "%s = %s(%s(vec4(vec4(texture%s(%s, vec4(%s%s, 0).xwyz %s%s)) * %sshadmask%d + %sshadadd%d)%s));\n",
                       dst, get_string(dinfo->dstconv), get_string(dtypeprefix),
                       tex_ext, srcs[sampler_index], srcs[0],
                       get_wm_string(twm), offbuf, bias, cname,
@@ -2798,7 +2813,7 @@ static void translate_tex(struct dump_ctx *ctx,
                       src->Register.Index, writemask);
          }
       } else
-         emit_buff(ctx, "%s = %s(%s(vec4(vec4(texture%s(%s, %s%s%s%s)) * %sshadmask%d + %sshadadd%d)%s));\n",
+         emit_buff(&ctx->glsl_strbufs, "%s = %s(%s(vec4(vec4(texture%s(%s, %s%s%s%s)) * %sshadmask%d + %sshadadd%d)%s));\n",
                    dst, get_string(dinfo->dstconv), get_string(dtypeprefix),
                    tex_ext, srcs[sampler_index], srcs[0],
                    get_wm_string(twm), offbuf, bias, cname,
@@ -2813,33 +2828,33 @@ static void translate_tex(struct dump_ctx *ctx,
            inst->Texture.Texture == TGSI_TEXTURE_1D_ARRAY)) {
          if (inst->Texture.Texture == TGSI_TEXTURE_1D) {
             if (inst->Instruction.Opcode == TGSI_OPCODE_TXP)
-               emit_buff(ctx, "%s = %s(%s(texture%s(%s, vec3(%s.xw, 0).xzy %s%s)%s));\n",
+               emit_buff(&ctx->glsl_strbufs, "%s = %s(%s(texture%s(%s, vec3(%s.xw, 0).xzy %s%s)%s));\n",
                          dst, get_string(dinfo->dstconv),
                          get_string(dtypeprefix), tex_ext, srcs[sampler_index],
                          srcs[0], offbuf, bias,
                          dinfo->dst_override_no_wm[0] ? "" : writemask);
             else
-               emit_buff(ctx, "%s = %s(%s(texture%s(%s, vec2(%s%s, 0.5) %s%s)%s));\n",
+               emit_buff(&ctx->glsl_strbufs, "%s = %s(%s(texture%s(%s, vec2(%s%s, 0.5) %s%s)%s));\n",
                          dst, get_string(dinfo->dstconv),
                          get_string(dtypeprefix), tex_ext, srcs[sampler_index],
                          srcs[0], get_wm_string(twm), offbuf, bias,
                          dinfo->dst_override_no_wm[0] ? "" : writemask);
          } else if (inst->Texture.Texture == TGSI_TEXTURE_1D_ARRAY) {
             if (inst->Instruction.Opcode == TGSI_OPCODE_TXP)
-               emit_buff(ctx, "%s = %s(%s(texture%s(%s, vec3(%s.x / %s.w, 0, %s.y) %s%s)%s));\n",
+               emit_buff(&ctx->glsl_strbufs, "%s = %s(%s(texture%s(%s, vec3(%s.x / %s.w, 0, %s.y) %s%s)%s));\n",
                          dst, get_string(dinfo->dstconv),
                          get_string(dtypeprefix), tex_ext, srcs[sampler_index],
                          srcs[0], srcs[0], srcs[0], offbuf, bias,
                          dinfo->dst_override_no_wm[0] ? "" : writemask);
             else
-               emit_buff(ctx, "%s = %s(%s(texture%s(%s, vec3(%s%s, 0).xzy %s%s)%s));\n",
+               emit_buff(&ctx->glsl_strbufs, "%s = %s(%s(texture%s(%s, vec3(%s%s, 0).xzy %s%s)%s));\n",
                          dst, get_string(dinfo->dstconv),
                          get_string(dtypeprefix), tex_ext, srcs[sampler_index],
                          srcs[0], get_wm_string(twm), offbuf, bias,
                          dinfo->dst_override_no_wm[0] ? "" : writemask);
          }
       } else {
-         emit_buff(ctx, "%s = %s(%s(texture%s(%s, %s%s%s%s)%s));\n",
+         emit_buff(&ctx->glsl_strbufs, "%s = %s(%s(texture%s(%s, %s%s%s%s)%s));\n",
                    dst, get_string(dinfo->dstconv), get_string(dtypeprefix),
                    tex_ext, srcs[sampler_index], srcs[0], get_wm_string(twm),
                    offbuf, bias, dinfo->dst_override_no_wm[0] ? "" : writemask);
@@ -2990,13 +3005,13 @@ static void set_memory_qualifier(struct dump_ctx *ctx,
    }
 }
 
-static void emit_store_mem(struct dump_ctx *ctx, const char *dst, int writemask,
+static void emit_store_mem(struct vrend_glsl_strbufs *glsl_strbufs, const char *dst, int writemask,
                            const char *srcs[4], const char *conversion)
 {
    static const char swizzle_char[] = "xyzw";
    for (int i = 0; i < 4; ++i) {
       if (writemask & (1 << i)) {
-         emit_buff(ctx, "%s[(uint(floatBitsToUint(%s)) >> 2) + %du] = %s(%s).%c;\n",
+         emit_buff(glsl_strbufs, "%s[(uint(floatBitsToUint(%s)) >> 2) + %du] = %s(%s).%c;\n",
                    dst, srcs[0], i, conversion, srcs[1], swizzle_char[i]);
       }
    }
@@ -3004,6 +3019,7 @@ static void emit_store_mem(struct dump_ctx *ctx, const char *dst, int writemask,
 
 static void
 translate_store(struct dump_ctx *ctx,
+                struct vrend_glsl_strbufs *glsl_strbufs,
                 struct tgsi_full_instruction *inst,
                 struct source_info *sinfo,
                 const char *srcs[4],
@@ -3033,7 +3049,7 @@ translate_store(struct dump_ctx *ctx,
          break;
       }
       if (!ctx->cfg->use_gles || !dst_reg->Register.Indirect) {
-         emit_buff(ctx, "imageStore(%s,%s(%s(%s)),%s%s(%s));\n",
+         emit_buff(glsl_strbufs, "imageStore(%s,%s(%s(%s)),%s%s(%s));\n",
                    dst, get_string(coord_prefix), conversion, srcs[0],
                    ms_str, get_string(stypeprefix), srcs[1]);
       } else {
@@ -3041,17 +3057,17 @@ translate_store(struct dump_ctx *ctx,
          if (image) {
             int basearrayidx = image->first;
             int array_size = image->array_size;
-            emit_buff(ctx, "switch (addr%d + %d) {\n", dst_reg->Indirect.Index,
+            emit_buff(glsl_strbufs, "switch (addr%d + %d) {\n", dst_reg->Indirect.Index,
                       dst_reg->Register.Index - basearrayidx);
             const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
 
             for (int i = 0; i < array_size; ++i) {
-               emit_buff(ctx, "case %d: imageStore(%simg%d[%d],%s(%s(%s)),%s%s(%s)); break;\n",
+               emit_buff(glsl_strbufs, "case %d: imageStore(%simg%d[%d],%s(%s(%s)),%s%s(%s)); break;\n",
                          i, cname, basearrayidx, i, get_string(coord_prefix),
                          conversion, srcs[0], ms_str, get_string(stypeprefix),
                          srcs[1]);
             }
-            emit_buff(ctx, "}\n");
+            emit_buff(glsl_strbufs, "}\n");
          }
       }
    } else if (dst_reg->Register.File == TGSI_FILE_BUFFER ||
@@ -3064,7 +3080,7 @@ translate_store(struct dump_ctx *ctx,
       const char *conversion = sinfo->override_no_cast[1] ? "" : get_string(dtypeprefix);
 
       if (!ctx->cfg->use_gles || !dst_reg->Register.Indirect) {
-         emit_store_mem(ctx, dst, dst_reg->Register.WriteMask, srcs,
+         emit_store_mem(glsl_strbufs, dst, dst_reg->Register.WriteMask, srcs,
                         conversion);
       } else {
          const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
@@ -3074,30 +3090,30 @@ translate_store(struct dump_ctx *ctx,
          int start, array_count;
          u_bit_scan_consecutive_range(&mask, &start, &array_count);
          int basearrayidx = lookup_image_array(ctx, dst_reg->Register.Index);
-         emit_buff(ctx, "switch (addr%d + %d) {\n", dst_reg->Indirect.Index,
+         emit_buff(glsl_strbufs, "switch (addr%d + %d) {\n", dst_reg->Indirect.Index,
                    dst_reg->Register.Index - base);
 
          for (int i = 0; i < array_count; ++i)  {
             char dst_tmp[128];
-            emit_buff(ctx, "case %d:\n", i);
+            emit_buff(glsl_strbufs, "case %d:\n", i);
             snprintf(dst_tmp, 128, "%simg%d[%d]", cname, basearrayidx, i);
-            emit_store_mem(ctx, dst_tmp, dst_reg->Register.WriteMask, srcs,
+            emit_store_mem(glsl_strbufs, dst_tmp, dst_reg->Register.WriteMask, srcs,
                            conversion);
-            emit_buff(ctx, "break;\n");
+            emit_buff(glsl_strbufs, "break;\n");
          }
-         emit_buf(ctx, "}\n");
+         emit_buf(glsl_strbufs, "}\n");
       }
    }
 }
 
-static void emit_load_mem(struct dump_ctx *ctx, const char *dst, int writemask,
+static void emit_load_mem(struct vrend_glsl_strbufs *glsl_strbufs, const char *dst, int writemask,
                           const char *conversion, const char *atomic_op, const char *src0,
                           const char *atomic_src)
 {
    static const char swizzle_char[] = "xyzw";
    for (int i = 0; i < 4; ++i) {
       if (writemask & (1 << i)) {
-         emit_buff(ctx, "%s.%c = (%s(%s(%s[ssbo_addr_temp + %du]%s)));\n", dst,
+         emit_buff(glsl_strbufs, "%s.%c = (%s(%s(%s[ssbo_addr_temp + %du]%s)));\n", dst,
                    swizzle_char[i], conversion, atomic_op, src0, i, atomic_src);
       }
    }
@@ -3106,6 +3122,7 @@ static void emit_load_mem(struct dump_ctx *ctx, const char *dst, int writemask,
 
 static void
 translate_load(struct dump_ctx *ctx,
+               struct vrend_glsl_strbufs *glsl_strbufs,
                struct tgsi_full_instruction *inst,
                struct source_info *sinfo,
                struct dest_info *dinfo,
@@ -3150,7 +3167,7 @@ translate_load(struct dump_ctx *ctx,
          ctx->images[sinfo->sreg_index].decl.Writable = 0;
 
       if (!ctx->cfg->use_gles || !inst->Src[0].Register.Indirect) {
-         emit_buff(ctx, "%s = %s(imageLoad(%s, %s(%s(%s))%s)%s);\n",
+         emit_buff(glsl_strbufs, "%s = %s(imageLoad(%s, %s(%s(%s))%s)%s);\n",
                dst, get_string(dtypeprefix),
                srcs[0], get_string(coord_prefix), conversion, srcs[1],
                ms_str, wm);
@@ -3160,17 +3177,17 @@ translate_load(struct dump_ctx *ctx,
          if (image) {
             int basearrayidx = image->first;
             int array_size = image->array_size;
-            emit_buff(ctx, "switch (addr%d + %d) {\n", inst->Src[0].Indirect.Index, inst->Src[0].Register.Index - basearrayidx);
+            emit_buff(glsl_strbufs, "switch (addr%d + %d) {\n", inst->Src[0].Indirect.Index, inst->Src[0].Register.Index - basearrayidx);
             const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
 
             for (int i = 0; i < array_size; ++i) {
                snprintf(src, 32, "%simg%d[%d]", cname, basearrayidx, i);
-               emit_buff(ctx, "case %d: %s = %s(imageLoad(%s, %s(%s(%s))%s)%s);break;\n",
+               emit_buff(glsl_strbufs, "case %d: %s = %s(imageLoad(%s, %s(%s(%s))%s)%s);break;\n",
                          i, dst, get_string(dtypeprefix),
                          src, get_string(coord_prefix), conversion, srcs[1],
                          ms_str, wm);
             }
-            emit_buff(ctx, "}\n");
+            emit_buff(glsl_strbufs, "}\n");
          }
       }
    } else if (src->Register.File == TGSI_FILE_BUFFER ||
@@ -3185,7 +3202,7 @@ translate_load(struct dump_ctx *ctx,
 
       if (wmp)
          wmp[0] = 0;
-      emit_buff(ctx, "ssbo_addr_temp = uint(floatBitsToUint(%s)) >> 2;\n", srcs[1]);
+      emit_buff(glsl_strbufs, "ssbo_addr_temp = uint(floatBitsToUint(%s)) >> 2;\n", srcs[1]);
 
       atomic_op[0] = atomic_src[0] = '\0';
       if (ctx->ssbo_atomic_mask & (1 << src->Register.Index)) {
@@ -3197,7 +3214,7 @@ translate_load(struct dump_ctx *ctx,
       dtypeprefix = (is_integer_memory(ctx, src->Register.File, src->Register.Index)) ? INT_BITS_TO_FLOAT : UINT_BITS_TO_FLOAT;
 
       if (!ctx->cfg->use_gles || !inst->Src[0].Register.Indirect) {
-         emit_load_mem(ctx, mydst, inst->Dst[0].Register.WriteMask, get_string(dtypeprefix), atomic_op, srcs[0], atomic_src);
+         emit_load_mem(glsl_strbufs, mydst, inst->Dst[0].Register.WriteMask, get_string(dtypeprefix), atomic_op, srcs[0], atomic_src);
       } else {
          char src[128] = "";
          const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
@@ -3208,17 +3225,17 @@ translate_load(struct dump_ctx *ctx,
          uint32_t mask = ctx->ssbo_used_mask;
          u_bit_scan_consecutive_range(&mask, &start, &array_count);
 
-         emit_buff(ctx, "switch (addr%d + %d) {\n", inst->Src[0].Indirect.Index, inst->Src[0].Register.Index - base);
+         emit_buff(glsl_strbufs, "switch (addr%d + %d) {\n", inst->Src[0].Indirect.Index, inst->Src[0].Register.Index - base);
          for (int i = 0; i < array_count; ++i) {
-            emit_buff(ctx, "case %d:\n", i);
+            emit_buff(glsl_strbufs, "case %d:\n", i);
             snprintf(src, 128,"%sssboarr%s[%d].%sssbocontents%d", cname, atomic_str, i, cname, base);
-            emit_load_mem(ctx, mydst, inst->Dst[0].Register.WriteMask, get_string(dtypeprefix), atomic_op, src, atomic_src);
-            emit_buff(ctx, "  break;\n");
+            emit_load_mem(glsl_strbufs, mydst, inst->Dst[0].Register.WriteMask, get_string(dtypeprefix), atomic_op, src, atomic_src);
+            emit_buff(glsl_strbufs, "  break;\n");
          }
-         emit_buf(ctx, "}\n");
+         emit_buf(glsl_strbufs, "}\n");
       }
    } else if (src->Register.File == TGSI_FILE_HW_ATOMIC) {
-      emit_buff(ctx, "%s = uintBitsToFloat(atomicCounter(%s));\n", dst, srcs[0]);
+      emit_buff(glsl_strbufs, "%s = uintBitsToFloat(atomicCounter(%s));\n", dst, srcs[0]);
    }
 }
 
@@ -3274,7 +3291,7 @@ translate_resq(struct dump_ctx *ctx, struct tgsi_full_instruction *inst,
    if (src->Register.File == TGSI_FILE_IMAGE) {
       if (inst->Dst[0].Register.WriteMask & 0x8) {
          ctx->shader_req_bits |= SHADER_REQ_TXQS | SHADER_REQ_INTS;
-         emit_buff(ctx, "%s = %s(imageSamples(%s));\n",
+         emit_buff(&ctx->glsl_strbufs, "%s = %s(imageSamples(%s));\n",
                    dst, get_string(INT_BITS_TO_FLOAT), srcs[0]);
       }
       if (inst->Dst[0].Register.WriteMask & 0x7) {
@@ -3284,12 +3301,12 @@ translate_resq(struct dump_ctx *ctx, struct tgsi_full_instruction *inst,
          bool skip_emit_writemask = inst->Memory.Texture == TGSI_TEXTURE_BUFFER ||
                                     (!ctx->cfg->use_gles && inst->Memory.Texture == TGSI_TEXTURE_1D);
 
-         emit_buff(ctx, "%s = %s(imageSize(%s)%s%s);\n",
+         emit_buff(&ctx->glsl_strbufs, "%s = %s(imageSize(%s)%s%s);\n",
                    dst, get_string(INT_BITS_TO_FLOAT), srcs[0],
                    swizzle_mask, skip_emit_writemask ? "" : writemask);
       }
    } else if (src->Register.File == TGSI_FILE_BUFFER) {
-      emit_buff(ctx, "%s = %s(int(%s.length()) << 2);\n",
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(int(%s.length()) << 2);\n",
                 dst, get_string(INT_BITS_TO_FLOAT), srcs[0]);
    }
 }
@@ -3340,7 +3357,7 @@ translate_atomic(struct dump_ctx *ctx,
 
    opname = get_atomic_opname(inst->Instruction.Opcode, &is_cas);
    if (!opname) {
-      set_buf_error(ctx);
+      set_buf_error(&ctx->glsl_strbufs);
       return;
    }
 
@@ -3357,7 +3374,7 @@ translate_atomic(struct dump_ctx *ctx,
       }
 
       if (!ctx->cfg->use_gles || !inst->Src[0].Register.Indirect) {
-         emit_buff(ctx, "%s = %s(imageAtomic%s(%s, %s(%s(%s))%s, %s(%s(%s))%s));\n",
+         emit_buff(&ctx->glsl_strbufs, "%s = %s(imageAtomic%s(%s, %s(%s(%s))%s, %s(%s(%s))%s));\n",
                    dst, get_string(dtypeprefix), opname, srcs[0],
                    get_string(coord_prefix), conversion, srcs[1], ms_str,
                    get_string(stypecast), get_string(stypeprefix), srcs[2],
@@ -3368,18 +3385,18 @@ translate_atomic(struct dump_ctx *ctx,
          if (image) {
             int basearrayidx = image->first;
             int array_size = image->array_size;
-            emit_buff(ctx, "switch (addr%d + %d) {\n", inst->Src[0].Indirect.Index, inst->Src[0].Register.Index - basearrayidx);
+            emit_buff(&ctx->glsl_strbufs, "switch (addr%d + %d) {\n", inst->Src[0].Indirect.Index, inst->Src[0].Register.Index - basearrayidx);
             const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
 
             for (int i = 0; i < array_size; ++i) {
                snprintf(src, 32, "%simg%d[%d]", cname, basearrayidx, i);
-               emit_buff(ctx, "case %d: %s = %s(imageAtomic%s(%s, %s(%s(%s))%s, %s(%s(%s))%s));\n",
+               emit_buff(&ctx->glsl_strbufs, "case %d: %s = %s(imageAtomic%s(%s, %s(%s(%s))%s, %s(%s(%s))%s));\n",
                          i, dst, get_string(dtypeprefix), opname, src,
                          get_string(coord_prefix), conversion, srcs[1],
                          ms_str, get_string(stypecast),
                          get_string(stypeprefix), srcs[2], cas_str);
             }
-            emit_buff(ctx, "}\n");
+            emit_buff(&ctx->glsl_strbufs, "}\n");
          }
       }
       ctx->shader_req_bits |= SHADER_REQ_IMAGE_ATOMIC;
@@ -3396,19 +3413,19 @@ translate_atomic(struct dump_ctx *ctx,
 	 stypeprefix = FLOAT_BITS_TO_UINT;
       }
 
-      emit_buff(ctx, "%s = %s(atomic%s(%s[int(floatBitsToInt(%s)) >> 2], %s(%s(%s).x)%s));\n",
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(atomic%s(%s[int(floatBitsToInt(%s)) >> 2], %s(%s(%s).x)%s));\n",
                 dst, get_string(dtypeprefix), opname, srcs[0], srcs[1],
                 get_string(type), get_string(stypeprefix), srcs[2], cas_str);
    }
    if(src->Register.File == TGSI_FILE_HW_ATOMIC) {
       if (sinfo->imm_value == -1)
-         emit_buff(ctx, "%s = %s(atomicCounterDecrement(%s) + 1u);\n",
+         emit_buff(&ctx->glsl_strbufs, "%s = %s(atomicCounterDecrement(%s) + 1u);\n",
                    dst, get_string(dtypeprefix), srcs[0]);
       else if (sinfo->imm_value == 1)
-         emit_buff(ctx, "%s = %s(atomicCounterIncrement(%s));\n",
+         emit_buff(&ctx->glsl_strbufs, "%s = %s(atomicCounterIncrement(%s));\n",
                    dst, get_string(dtypeprefix), srcs[0]);
       else
-         emit_buff(ctx, "%s = %s(atomicCounter%sARB(%s, floatBitsToUint(%s).x%s));\n",
+         emit_buff(&ctx->glsl_strbufs, "%s = %s(atomicCounter%sARB(%s, floatBitsToUint(%s).x%s));\n",
                    dst, get_string(dtypeprefix), opname, srcs[0], srcs[2],
                    cas_str);
    }
@@ -4294,7 +4311,7 @@ get_source_info(struct dump_ctx *ctx,
          boolean isabsolute = src->Register.Absolute;
          strcpy(fp64_src, src_buf->buf);
          strbuf_fmt(src_buf, "fp64_src[%d]", i);
-         emit_buff(ctx, "%s.x = %spackDouble2x32(uvec2(%s%s))%s;\n", src_buf->buf, isabsolute ? "abs(" : "", fp64_src, swizzle, isabsolute ? ")" : "");
+         emit_buff(&ctx->glsl_strbufs, "%s.x = %spackDouble2x32(uvec2(%s%s))%s;\n", src_buf->buf, isabsolute ? "abs(" : "", fp64_src, swizzle, isabsolute ? ")" : "");
       }
    }
 
@@ -4525,7 +4542,8 @@ void rewrite_vs_pos_array(struct dump_ctx *ctx)
 
 
 static
-void emit_fs_clipdistance_load(struct dump_ctx *ctx)
+void emit_fs_clipdistance_load(const struct dump_ctx *ctx,
+                               struct vrend_glsl_strbufs *glsl_strbufs)
 {
    int i;
 
@@ -4560,7 +4578,7 @@ void emit_fs_clipdistance_load(struct dump_ctx *ctx)
             is_cull = true;
       }
       const char *clip_cull = is_cull ? "Cull" : "Clip";
-      emit_buff(ctx, "clip_dist_temp[%d].%c = %sgl_%sDistance[%d];\n", clipidx, wm, prefix, clip_cull,
+      emit_buff(glsl_strbufs, "clip_dist_temp[%d].%c = %sgl_%sDistance[%d];\n", clipidx, wm, prefix, clip_cull,
                 is_cull ? i - ctx->key->prev_stage_num_clip_out : i);
    }
 }
@@ -4779,11 +4797,11 @@ iter_instruction(struct tgsi_iterate_context *iter,
          rewrite_vs_pos_array(ctx);
       }
 
-      emit_buf(ctx, "void main(void)\n{\n");
+      emit_buf(&ctx->glsl_strbufs, "void main(void)\n{\n");
       if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
-         emit_color_select(ctx);
+         emit_color_select(ctx, &ctx->glsl_strbufs);
          if (ctx->fs_uses_clipdist_input)
-            emit_fs_clipdistance_load(ctx);
+            emit_fs_clipdistance_load(ctx, &ctx->glsl_strbufs);
       }
       if (ctx->so)
          prepare_so_movs(ctx);
@@ -4812,34 +4830,34 @@ iter_instruction(struct tgsi_iterate_context *iter,
    switch (inst->Instruction.Opcode) {
    case TGSI_OPCODE_SQRT:
    case TGSI_OPCODE_DSQRT:
-      emit_buff(ctx, "%s = sqrt(vec4(%s))%s;\n", dsts[0], srcs[0], writemask);
+      emit_buff(&ctx->glsl_strbufs, "%s = sqrt(vec4(%s))%s;\n", dsts[0], srcs[0], writemask);
       break;
    case TGSI_OPCODE_LRP:
-      emit_buff(ctx, "%s = mix(vec4(%s), vec4(%s), vec4(%s))%s;\n", dsts[0], srcs[2], srcs[1], srcs[0], writemask);
+      emit_buff(&ctx->glsl_strbufs, "%s = mix(vec4(%s), vec4(%s), vec4(%s))%s;\n", dsts[0], srcs[2], srcs[1], srcs[0], writemask);
       break;
    case TGSI_OPCODE_DP2:
-      emit_buff(ctx, "%s = %s(dot(vec2(%s), vec2(%s)));\n", dsts[0], get_string(dinfo.dstconv), srcs[0], srcs[1]);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(dot(vec2(%s), vec2(%s)));\n", dsts[0], get_string(dinfo.dstconv), srcs[0], srcs[1]);
       break;
    case TGSI_OPCODE_DP3:
-      emit_buff(ctx, "%s = %s(dot(vec3(%s), vec3(%s)));\n", dsts[0], get_string(dinfo.dstconv), srcs[0], srcs[1]);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(dot(vec3(%s), vec3(%s)));\n", dsts[0], get_string(dinfo.dstconv), srcs[0], srcs[1]);
       break;
    case TGSI_OPCODE_DP4:
-      emit_buff(ctx, "%s = %s(dot(vec4(%s), vec4(%s)));\n", dsts[0], get_string(dinfo.dstconv), srcs[0], srcs[1]);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(dot(vec4(%s), vec4(%s)));\n", dsts[0], get_string(dinfo.dstconv), srcs[0], srcs[1]);
       break;
    case TGSI_OPCODE_DPH:
-      emit_buff(ctx, "%s = %s(dot(vec4(vec3(%s), 1.0), vec4(%s)));\n", dsts[0], get_string(dinfo.dstconv), srcs[0], srcs[1]);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(dot(vec4(vec3(%s), 1.0), vec4(%s)));\n", dsts[0], get_string(dinfo.dstconv), srcs[0], srcs[1]);
       break;
    case TGSI_OPCODE_MAX:
    case TGSI_OPCODE_DMAX:
    case TGSI_OPCODE_IMAX:
    case TGSI_OPCODE_UMAX:
-      emit_buff(ctx, "%s = %s(%s(max(%s, %s))%s);\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0], srcs[1], writemask);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(%s(max(%s, %s))%s);\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0], srcs[1], writemask);
       break;
    case TGSI_OPCODE_MIN:
    case TGSI_OPCODE_DMIN:
    case TGSI_OPCODE_IMIN:
    case TGSI_OPCODE_UMIN:
-      emit_buff(ctx, "%s = %s(%s(min(%s, %s))%s);\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0], srcs[1], writemask);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(%s(min(%s, %s))%s);\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0], srcs[1], writemask);
       break;
    case TGSI_OPCODE_ABS:
    case TGSI_OPCODE_IABS:
@@ -4847,31 +4865,31 @@ iter_instruction(struct tgsi_iterate_context *iter,
       emit_op1("abs");
       break;
    case TGSI_OPCODE_KILL_IF:
-      emit_buff(ctx, "if (any(lessThan(%s, vec4(0.0))))\ndiscard;\n", srcs[0]);
+      emit_buff(&ctx->glsl_strbufs, "if (any(lessThan(%s, vec4(0.0))))\ndiscard;\n", srcs[0]);
       break;
    case TGSI_OPCODE_IF:
    case TGSI_OPCODE_UIF:
-      emit_buff(ctx, "if (any(bvec4(%s))) {\n", srcs[0]);
-      indent_buf(ctx);
+      emit_buff(&ctx->glsl_strbufs, "if (any(bvec4(%s))) {\n", srcs[0]);
+      indent_buf(&ctx->glsl_strbufs);
       break;
    case TGSI_OPCODE_ELSE:
-      outdent_buf(ctx);
-      emit_buf(ctx, "} else {\n");
-      indent_buf(ctx);
+      outdent_buf(&ctx->glsl_strbufs);
+      emit_buf(&ctx->glsl_strbufs, "} else {\n");
+      indent_buf(&ctx->glsl_strbufs);
       break;
    case TGSI_OPCODE_ENDIF:
-      emit_buf(ctx, "}\n");
-      outdent_buf(ctx);
+      emit_buf(&ctx->glsl_strbufs, "}\n");
+      outdent_buf(&ctx->glsl_strbufs);
       break;
    case TGSI_OPCODE_KILL:
-      emit_buff(ctx, "discard;\n");
+      emit_buff(&ctx->glsl_strbufs, "discard;\n");
       break;
    case TGSI_OPCODE_DST:
-      emit_buff(ctx, "%s = vec4(1.0, %s.y * %s.y, %s.z, %s.w);\n", dsts[0],
+      emit_buff(&ctx->glsl_strbufs, "%s = vec4(1.0, %s.y * %s.y, %s.z, %s.w);\n", dsts[0],
                srcs[0], srcs[1], srcs[0], srcs[1]);
       break;
    case TGSI_OPCODE_LIT:
-      emit_buff(ctx, "%s = %s(vec4(1.0, max(%s.x, 0.0), step(0.0, %s.x) * pow(max(0.0, %s.y), clamp(%s.w, -128.0, 128.0)), 1.0)%s);\n", dsts[0], get_string(dinfo.dstconv), srcs[0], srcs[0], srcs[0], srcs[0], writemask);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(vec4(1.0, max(%s.x, 0.0), step(0.0, %s.x) * pow(max(0.0, %s.y), clamp(%s.w, -128.0, 128.0)), 1.0)%s);\n", dsts[0], get_string(dinfo.dstconv), srcs[0], srcs[0], srcs[0], srcs[0], writemask);
       break;
    case TGSI_OPCODE_EX2:
       emit_op1("exp2");
@@ -4880,10 +4898,10 @@ iter_instruction(struct tgsi_iterate_context *iter,
       emit_op1("log2");
       break;
    case TGSI_OPCODE_EXP:
-      emit_buff(ctx, "%s = %s(vec4(pow(2.0, floor(%s.x)), %s.x - floor(%s.x), exp2(%s.x), 1.0)%s);\n", dsts[0], get_string(dinfo.dstconv), srcs[0], srcs[0], srcs[0], srcs[0], writemask);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(vec4(pow(2.0, floor(%s.x)), %s.x - floor(%s.x), exp2(%s.x), 1.0)%s);\n", dsts[0], get_string(dinfo.dstconv), srcs[0], srcs[0], srcs[0], srcs[0], writemask);
       break;
    case TGSI_OPCODE_LOG:
-      emit_buff(ctx, "%s = %s(vec4(floor(log2(%s.x)), %s.x / pow(2.0, floor(log2(%s.x))), log2(%s.x), 1.0)%s);\n", dsts[0], get_string(dinfo.dstconv), srcs[0], srcs[0], srcs[0], srcs[0], writemask);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(vec4(floor(log2(%s.x)), %s.x / pow(2.0, floor(log2(%s.x))), log2(%s.x), 1.0)%s);\n", dsts[0], get_string(dinfo.dstconv), srcs[0], srcs[0], srcs[0], srcs[0], writemask);
       break;
    case TGSI_OPCODE_COS:
       emit_op1("cos");
@@ -4892,7 +4910,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
       emit_op1("sin");
       break;
    case TGSI_OPCODE_SCS:
-      emit_buff(ctx, "%s = %s(vec4(cos(%s.x), sin(%s.x), 0, 1)%s);\n", dsts[0], get_string(dinfo.dstconv),
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(vec4(cos(%s.x), sin(%s.x), 0, 1)%s);\n", dsts[0], get_string(dinfo.dstconv),
                srcs[0], srcs[0], writemask);
       break;
    case TGSI_OPCODE_DDX:
@@ -4910,10 +4928,10 @@ iter_instruction(struct tgsi_iterate_context *iter,
       emit_op1("dFdyFine");
       break;
    case TGSI_OPCODE_RCP:
-      emit_buff(ctx, "%s = %s(1.0/(%s));\n", dsts[0], get_string(dinfo.dstconv), srcs[0]);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(1.0/(%s));\n", dsts[0], get_string(dinfo.dstconv), srcs[0]);
       break;
    case TGSI_OPCODE_DRCP:
-      emit_buff(ctx, "%s = %s(1.0LF/(%s));\n", dsts[0], get_string(dinfo.dstconv), srcs[0]);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(1.0LF/(%s));\n", dsts[0], get_string(dinfo.dstconv), srcs[0]);
       break;
    case TGSI_OPCODE_FLR:
       emit_op1("floor");
@@ -4945,18 +4963,18 @@ iter_instruction(struct tgsi_iterate_context *iter,
       break;
    case TGSI_OPCODE_RSQ:
    case TGSI_OPCODE_DRSQ:
-      emit_buff(ctx, "%s = %s(inversesqrt(%s.x));\n", dsts[0], get_string(dinfo.dstconv), srcs[0]);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(inversesqrt(%s.x));\n", dsts[0], get_string(dinfo.dstconv), srcs[0]);
       break;
    case TGSI_OPCODE_FBFETCH:
    case TGSI_OPCODE_MOV:
-      emit_buff(ctx, "%s = %s(%s(%s%s));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0], sinfo.override_no_wm[0] ? "" : writemask);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(%s(%s%s));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0], sinfo.override_no_wm[0] ? "" : writemask);
       break;
    case TGSI_OPCODE_ADD:
    case TGSI_OPCODE_DADD:
       emit_arit_op2("+");
       break;
    case TGSI_OPCODE_UADD:
-      emit_buff(ctx, "%s = %s(%s(ivec4((uvec4(%s) + uvec4(%s))))%s);\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0], srcs[1], writemask);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(%s(ivec4((uvec4(%s) + uvec4(%s))))%s);\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0], srcs[1], writemask);
       break;
    case TGSI_OPCODE_SUB:
       emit_arit_op2("-");
@@ -4970,16 +4988,16 @@ iter_instruction(struct tgsi_iterate_context *iter,
       emit_arit_op2("/");
       break;
    case TGSI_OPCODE_UMUL:
-      emit_buff(ctx, "%s = %s(%s((uvec4(%s) * uvec4(%s)))%s);\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0], srcs[1], writemask);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(%s((uvec4(%s) * uvec4(%s)))%s);\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0], srcs[1], writemask);
       break;
    case TGSI_OPCODE_UMOD:
-      emit_buff(ctx, "%s = %s(%s((uvec4(%s) %% uvec4(%s)))%s);\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0], srcs[1], writemask);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(%s((uvec4(%s) %% uvec4(%s)))%s);\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0], srcs[1], writemask);
       break;
    case TGSI_OPCODE_IDIV:
-      emit_buff(ctx, "%s = %s(%s((ivec4(%s) / ivec4(%s)))%s);\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0], srcs[1], writemask);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(%s((ivec4(%s) / ivec4(%s)))%s);\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0], srcs[1], writemask);
       break;
    case TGSI_OPCODE_UDIV:
-      emit_buff(ctx, "%s = %s(%s((uvec4(%s) / uvec4(%s)))%s);\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0], srcs[1], writemask);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(%s((uvec4(%s) / uvec4(%s)))%s);\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0], srcs[1], writemask);
       break;
    case TGSI_OPCODE_ISHR:
    case TGSI_OPCODE_USHR:
@@ -4989,11 +5007,11 @@ iter_instruction(struct tgsi_iterate_context *iter,
       emit_arit_op2("<<");
       break;
    case TGSI_OPCODE_MAD:
-      emit_buff(ctx, "%s = %s((%s * %s + %s)%s);\n", dsts[0], get_string(dinfo.dstconv), srcs[0], srcs[1], srcs[2], writemask);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s((%s * %s + %s)%s);\n", dsts[0], get_string(dinfo.dstconv), srcs[0], srcs[1], srcs[2], writemask);
       break;
    case TGSI_OPCODE_UMAD:
    case TGSI_OPCODE_DMAD:
-      emit_buff(ctx, "%s = %s(%s((%s * %s + %s)%s));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0], srcs[1], srcs[2], writemask);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(%s((%s * %s + %s)%s));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0], srcs[1], srcs[2], writemask);
       break;
    case TGSI_OPCODE_OR:
       emit_arit_op2("|");
@@ -5027,43 +5045,43 @@ iter_instruction(struct tgsi_iterate_context *iter,
       emit_txqs(ctx, inst, sinfo.sreg_index, srcs, dsts[0]);
       break;
    case TGSI_OPCODE_I2F:
-      emit_buff(ctx, "%s = %s(ivec4(%s)%s);\n", dsts[0], get_string(dinfo.dstconv), srcs[0], writemask);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(ivec4(%s)%s);\n", dsts[0], get_string(dinfo.dstconv), srcs[0], writemask);
       break;
    case TGSI_OPCODE_I2D:
-      emit_buff(ctx, "%s = %s(ivec4(%s));\n", dsts[0], get_string(dinfo.dstconv), srcs[0]);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(ivec4(%s));\n", dsts[0], get_string(dinfo.dstconv), srcs[0]);
       break;
    case TGSI_OPCODE_D2F:
-      emit_buff(ctx, "%s = %s(%s);\n", dsts[0], get_string(dinfo.dstconv), srcs[0]);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(%s);\n", dsts[0], get_string(dinfo.dstconv), srcs[0]);
       break;
    case TGSI_OPCODE_U2F:
-      emit_buff(ctx, "%s = %s(uvec4(%s)%s);\n", dsts[0], get_string(dinfo.dstconv), srcs[0], writemask);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(uvec4(%s)%s);\n", dsts[0], get_string(dinfo.dstconv), srcs[0], writemask);
       break;
    case TGSI_OPCODE_U2D:
-      emit_buff(ctx, "%s = %s(uvec4(%s));\n", dsts[0], get_string(dinfo.dstconv), srcs[0]);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(uvec4(%s));\n", dsts[0], get_string(dinfo.dstconv), srcs[0]);
       break;
    case TGSI_OPCODE_F2I:
-      emit_buff(ctx, "%s = %s(%s(ivec4(%s))%s);\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0], writemask);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(%s(ivec4(%s))%s);\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0], writemask);
       break;
    case TGSI_OPCODE_D2I:
-      emit_buff(ctx, "%s = %s(%s(%s(%s)));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), get_string(dinfo.idstconv), srcs[0]);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(%s(%s(%s)));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), get_string(dinfo.idstconv), srcs[0]);
       break;
    case TGSI_OPCODE_F2U:
-      emit_buff(ctx, "%s = %s(%s(uvec4(%s))%s);\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0], writemask);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(%s(uvec4(%s))%s);\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0], writemask);
       break;
    case TGSI_OPCODE_D2U:
-      emit_buff(ctx, "%s = %s(%s(%s(%s)));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), get_string(dinfo.udstconv), srcs[0]);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(%s(%s(%s)));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), get_string(dinfo.udstconv), srcs[0]);
       break;
    case TGSI_OPCODE_F2D:
-      emit_buff(ctx, "%s = %s(%s(%s));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0]);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(%s(%s));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0]);
       break;
    case TGSI_OPCODE_NOT:
-      emit_buff(ctx, "%s = %s(uintBitsToFloat(~(uvec4(%s))));\n", dsts[0], get_string(dinfo.dstconv), srcs[0]);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(uintBitsToFloat(~(uvec4(%s))));\n", dsts[0], get_string(dinfo.dstconv), srcs[0]);
       break;
    case TGSI_OPCODE_INEG:
-      emit_buff(ctx, "%s = %s(intBitsToFloat(-(ivec4(%s))));\n", dsts[0], get_string(dinfo.dstconv), srcs[0]);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(intBitsToFloat(-(ivec4(%s))));\n", dsts[0], get_string(dinfo.dstconv), srcs[0]);
       break;
    case TGSI_OPCODE_DNEG:
-      emit_buff(ctx, "%s = %s(-%s);\n", dsts[0], get_string(dinfo.dstconv), srcs[0]);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(-%s);\n", dsts[0], get_string(dinfo.dstconv), srcs[0]);
       break;
    case TGSI_OPCODE_SEQ:
       emit_compare("equal");
@@ -5108,96 +5126,96 @@ iter_instruction(struct tgsi_iterate_context *iter,
       emit_ucompare("greaterThanEqual");
       break;
    case TGSI_OPCODE_POW:
-      emit_buff(ctx, "%s = %s(pow(%s, %s));\n", dsts[0], get_string(dinfo.dstconv), srcs[0], srcs[1]);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(pow(%s, %s));\n", dsts[0], get_string(dinfo.dstconv), srcs[0], srcs[1]);
       break;
    case TGSI_OPCODE_CMP:
-      emit_buff(ctx, "%s = mix(%s, %s, greaterThanEqual(%s, vec4(0.0)))%s;\n", dsts[0], srcs[1], srcs[2], srcs[0], writemask);
+      emit_buff(&ctx->glsl_strbufs, "%s = mix(%s, %s, greaterThanEqual(%s, vec4(0.0)))%s;\n", dsts[0], srcs[1], srcs[2], srcs[0], writemask);
       break;
    case TGSI_OPCODE_UCMP:
-      emit_buff(ctx, "%s = mix(%s, %s, notEqual(floatBitsToUint(%s), uvec4(0.0)))%s;\n", dsts[0], srcs[2], srcs[1], srcs[0], writemask);
+      emit_buff(&ctx->glsl_strbufs, "%s = mix(%s, %s, notEqual(floatBitsToUint(%s), uvec4(0.0)))%s;\n", dsts[0], srcs[2], srcs[1], srcs[0], writemask);
       break;
    case TGSI_OPCODE_END:
       if (iter->processor.Processor == TGSI_PROCESSOR_VERTEX) {
-         handle_vertex_proc_exit(ctx);
+         handle_vertex_proc_exit(ctx, &ctx->glsl_strbufs, &ctx->has_clipvertex_so);
       } else if (iter->processor.Processor == TGSI_PROCESSOR_TESS_CTRL) {
-         emit_clip_dist_movs(ctx);
+         emit_clip_dist_movs(ctx, &ctx->glsl_strbufs);
       } else if (iter->processor.Processor == TGSI_PROCESSOR_TESS_EVAL) {
 	 if (ctx->so && !ctx->key->gs_present)
-            emit_so_movs(ctx);
-         emit_clip_dist_movs(ctx);
+            emit_so_movs(ctx, &ctx->glsl_strbufs, &ctx->has_clipvertex_so);
+         emit_clip_dist_movs(ctx, &ctx->glsl_strbufs);
          if (!ctx->key->gs_present) {
-            emit_prescale(ctx);
+            emit_prescale(&ctx->glsl_strbufs);
          }
       } else if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
-         handle_fragment_proc_exit(ctx);
+         handle_fragment_proc_exit(ctx, &ctx->glsl_strbufs);
       }
-      emit_buf(ctx, "}\n");
+      emit_buf(&ctx->glsl_strbufs, "}\n");
       break;
    case TGSI_OPCODE_RET:
       if (iter->processor.Processor == TGSI_PROCESSOR_VERTEX) {
-         handle_vertex_proc_exit(ctx);
+         handle_vertex_proc_exit(ctx, &ctx->glsl_strbufs, &ctx->has_clipvertex_so);
       } else if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
-         handle_fragment_proc_exit(ctx);
+         handle_fragment_proc_exit(ctx, &ctx->glsl_strbufs);
       }
-      emit_buf(ctx, "return;\n");
+      emit_buf(&ctx->glsl_strbufs, "return;\n");
       break;
    case TGSI_OPCODE_ARL:
-      emit_buff(ctx, "%s = int(floor(%s)%s);\n", dsts[0], srcs[0], writemask);
+      emit_buff(&ctx->glsl_strbufs, "%s = int(floor(%s)%s);\n", dsts[0], srcs[0], writemask);
       break;
    case TGSI_OPCODE_UARL:
-      emit_buff(ctx, "%s = int(%s);\n", dsts[0], srcs[0]);
+      emit_buff(&ctx->glsl_strbufs, "%s = int(%s);\n", dsts[0], srcs[0]);
       break;
    case TGSI_OPCODE_XPD:
-      emit_buff(ctx, "%s = %s(cross(vec3(%s), vec3(%s)));\n", dsts[0], get_string(dinfo.dstconv), srcs[0], srcs[1]);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(cross(vec3(%s), vec3(%s)));\n", dsts[0], get_string(dinfo.dstconv), srcs[0], srcs[1]);
       break;
    case TGSI_OPCODE_BGNLOOP:
-      emit_buf(ctx, "do {\n");
-      indent_buf(ctx);
+      emit_buf(&ctx->glsl_strbufs, "do {\n");
+      indent_buf(&ctx->glsl_strbufs);
       break;
    case TGSI_OPCODE_ENDLOOP:
-      outdent_buf(ctx);
-      emit_buf(ctx, "} while(true);\n");
+      outdent_buf(&ctx->glsl_strbufs);
+      emit_buf(&ctx->glsl_strbufs, "} while(true);\n");
       break;
    case TGSI_OPCODE_BRK:
-      emit_buf(ctx, "break;\n");
+      emit_buf(&ctx->glsl_strbufs, "break;\n");
       break;
    case TGSI_OPCODE_EMIT: {
       struct immed *imd = &ctx->imm[(inst->Src[0].Register.Index)];
       if (ctx->so && ctx->key->gs_present)
-         emit_so_movs(ctx);
-      emit_clip_dist_movs(ctx);
-      emit_prescale(ctx);
+         emit_so_movs(ctx, &ctx->glsl_strbufs, &ctx->has_clipvertex_so);
+      emit_clip_dist_movs(ctx, &ctx->glsl_strbufs);
+      emit_prescale(&ctx->glsl_strbufs);
       if (imd->val[inst->Src[0].Register.SwizzleX].ui > 0) {
          ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
-         emit_buff(ctx, "EmitStreamVertex(%d);\n", imd->val[inst->Src[0].Register.SwizzleX].ui);
+         emit_buff(&ctx->glsl_strbufs, "EmitStreamVertex(%d);\n", imd->val[inst->Src[0].Register.SwizzleX].ui);
       } else
-         emit_buf(ctx, "EmitVertex();\n");
+         emit_buf(&ctx->glsl_strbufs, "EmitVertex();\n");
       break;
    }
    case TGSI_OPCODE_ENDPRIM: {
       struct immed *imd = &ctx->imm[(inst->Src[0].Register.Index)];
       if (imd->val[inst->Src[0].Register.SwizzleX].ui > 0) {
          ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
-         emit_buff(ctx, "EndStreamPrimitive(%d);\n", imd->val[inst->Src[0].Register.SwizzleX].ui);
+         emit_buff(&ctx->glsl_strbufs, "EndStreamPrimitive(%d);\n", imd->val[inst->Src[0].Register.SwizzleX].ui);
       } else
-         emit_buf(ctx, "EndPrimitive();\n");
+         emit_buf(&ctx->glsl_strbufs, "EndPrimitive();\n");
       break;
    }
    case TGSI_OPCODE_INTERP_CENTROID:
-      emit_buff(ctx, "%s = %s(%s(vec4(interpolateAtCentroid(%s)%s)));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0], src_swizzle0);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(%s(vec4(interpolateAtCentroid(%s)%s)));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0], src_swizzle0);
       ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
       break;
    case TGSI_OPCODE_INTERP_SAMPLE:
-      emit_buff(ctx, "%s = %s(%s(vec4(interpolateAtSample(%s, %s.x)%s)));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0], srcs[1], src_swizzle0);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(%s(vec4(interpolateAtSample(%s, %s.x)%s)));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0], srcs[1], src_swizzle0);
       ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
       break;
    case TGSI_OPCODE_INTERP_OFFSET:
-      emit_buff(ctx, "%s = %s(%s(vec4(interpolateAtOffset(%s, %s.xy)%s)));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0], srcs[1], src_swizzle0);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(%s(vec4(interpolateAtOffset(%s, %s.xy)%s)));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0], srcs[1], src_swizzle0);
       ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
       break;
    case TGSI_OPCODE_UMUL_HI:
-      emit_buff(ctx, "umulExtended(%s, %s, umul_temp, mul_utemp);\n", srcs[0], srcs[1]);
-      emit_buff(ctx, "%s = %s(%s(umul_temp%s));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), writemask);
+      emit_buff(&ctx->glsl_strbufs, "umulExtended(%s, %s, umul_temp, mul_utemp);\n", srcs[0], srcs[1]);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(%s(umul_temp%s));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), writemask);
       if (!ctx->cfg->use_gles) {
          if (ctx->cfg->has_gpu_shader5)
             ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
@@ -5207,8 +5225,8 @@ iter_instruction(struct tgsi_iterate_context *iter,
       ctx->write_mul_utemp = true;
       break;
    case TGSI_OPCODE_IMUL_HI:
-      emit_buff(ctx, "imulExtended(%s, %s, imul_temp, mul_itemp);\n", srcs[0], srcs[1]);
-      emit_buff(ctx, "%s = %s(%s(imul_temp%s));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), writemask);
+      emit_buff(&ctx->glsl_strbufs, "imulExtended(%s, %s, imul_temp, mul_itemp);\n", srcs[0], srcs[1]);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(%s(imul_temp%s));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), writemask);
       if (!ctx->cfg->use_gles) {
          if (ctx->cfg->has_gpu_shader5)
             ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
@@ -5219,36 +5237,36 @@ iter_instruction(struct tgsi_iterate_context *iter,
       break;
 
    case TGSI_OPCODE_IBFE:
-      emit_buff(ctx, "%s = %s(%s(bitfieldExtract(%s, int(%s.x), int(%s.x))));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0], srcs[1], srcs[2]);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(%s(bitfieldExtract(%s, int(%s.x), int(%s.x))));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0], srcs[1], srcs[2]);
       ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
       break;
    case TGSI_OPCODE_UBFE:
-      emit_buff(ctx, "%s = %s(%s(bitfieldExtract(%s, int(%s.x), int(%s.x))));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0], srcs[1], srcs[2]);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(%s(bitfieldExtract(%s, int(%s.x), int(%s.x))));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0], srcs[1], srcs[2]);
       ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
       break;
    case TGSI_OPCODE_BFI:
-      emit_buff(ctx, "%s = %s(uintBitsToFloat(bitfieldInsert(%s, %s, int(%s), int(%s))));\n", dsts[0], get_string(dinfo.dstconv), srcs[0], srcs[1], srcs[2], srcs[3]);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(uintBitsToFloat(bitfieldInsert(%s, %s, int(%s), int(%s))));\n", dsts[0], get_string(dinfo.dstconv), srcs[0], srcs[1], srcs[2], srcs[3]);
       ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
       break;
    case TGSI_OPCODE_BREV:
-      emit_buff(ctx, "%s = %s(%s(bitfieldReverse(%s)));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0]);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(%s(bitfieldReverse(%s)));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0]);
       ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
       break;
    case TGSI_OPCODE_POPC:
-      emit_buff(ctx, "%s = %s(%s(bitCount(%s)));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0]);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(%s(bitCount(%s)));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0]);
       ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
       break;
    case TGSI_OPCODE_LSB:
-      emit_buff(ctx, "%s = %s(%s(findLSB(%s)));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0]);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(%s(findLSB(%s)));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0]);
       ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
       break;
    case TGSI_OPCODE_IMSB:
    case TGSI_OPCODE_UMSB:
-      emit_buff(ctx, "%s = %s(%s(findMSB(%s)));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0]);
+      emit_buff(&ctx->glsl_strbufs, "%s = %s(%s(findMSB(%s)));\n", dsts[0], get_string(dinfo.dstconv), get_string(dinfo.dtypeprefix), srcs[0]);
       ctx->shader_req_bits |= SHADER_REQ_GPU_SHADER5;
       break;
    case TGSI_OPCODE_BARRIER:
-      emit_buf(ctx, "barrier();\n");
+      emit_buf(&ctx->glsl_strbufs, "barrier();\n");
       break;
    case TGSI_OPCODE_MEMBAR: {
       struct immed *imd = &ctx->imm[(inst->Src[0].Register.Index)];
@@ -5259,23 +5277,23 @@ iter_instruction(struct tgsi_iterate_context *iter,
                           TGSI_MEMBAR_SHARED);
 
       if (val & TGSI_MEMBAR_THREAD_GROUP) {
-         emit_buf(ctx, "groupMemoryBarrier();\n");
+         emit_buf(&ctx->glsl_strbufs, "groupMemoryBarrier();\n");
       } else {
          if ((val & all_val) == all_val) {
-            emit_buf(ctx, "memoryBarrier();\n");
+            emit_buf(&ctx->glsl_strbufs, "memoryBarrier();\n");
             ctx->shader_req_bits |= SHADER_REQ_IMAGE_LOAD_STORE;
          } else {
             if (val & TGSI_MEMBAR_SHADER_BUFFER) {
-               emit_buf(ctx, "memoryBarrierBuffer();\n");
+               emit_buf(&ctx->glsl_strbufs, "memoryBarrierBuffer();\n");
             }
             if (val & TGSI_MEMBAR_ATOMIC_BUFFER) {
-               emit_buf(ctx, "memoryBarrierAtomic();\n");
+               emit_buf(&ctx->glsl_strbufs, "memoryBarrierAtomic();\n");
             }
             if (val & TGSI_MEMBAR_SHADER_IMAGE) {
-               emit_buf(ctx, "memoryBarrierImage();\n");
+               emit_buf(&ctx->glsl_strbufs, "memoryBarrierImage();\n");
             }
             if (val & TGSI_MEMBAR_SHARED) {
-               emit_buf(ctx, "memoryBarrierShared();\n");
+               emit_buf(&ctx->glsl_strbufs, "memoryBarrierShared();\n");
             }
          }
       }
@@ -5287,7 +5305,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
             return false;
          srcs[1] = ctx->src_bufs[1].buf;
       }
-      translate_store(ctx, inst, &sinfo, srcs, dsts[0]);
+      translate_store(ctx, &ctx->glsl_strbufs, inst, &sinfo, srcs, dsts[0]);
       break;
    case TGSI_OPCODE_LOAD:
       if (ctx->cfg->use_gles) {
@@ -5295,7 +5313,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
             return false;
          srcs[1] = ctx->src_bufs[1].buf;
       }
-      translate_load(ctx, inst, &sinfo, &dinfo, srcs, dsts[0], writemask);
+      translate_load(ctx, &ctx->glsl_strbufs, inst, &sinfo, &dinfo, srcs, dsts[0], writemask);
       break;
    case TGSI_OPCODE_ATOMUADD:
    case TGSI_OPCODE_ATOMXCHG:
@@ -5319,7 +5337,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
       break;
    case TGSI_OPCODE_CLOCK:
       ctx->shader_req_bits |= SHADER_REQ_SHADER_CLOCK;
-      emit_buff(ctx, "%s = uintBitsToFloat(clock2x32ARB());\n", dsts[0]);
+      emit_buff(&ctx->glsl_strbufs, "%s = uintBitsToFloat(clock2x32ARB());\n", dsts[0]);
       break;
    default:
       vrend_printf("failed to convert opcode %d\n", inst->Instruction.Opcode);
@@ -5329,14 +5347,14 @@ iter_instruction(struct tgsi_iterate_context *iter,
    for (uint32_t i = 0; i < 1; i++) {
       enum tgsi_opcode_type dtype = tgsi_opcode_infer_dst_type(inst->Instruction.Opcode);
       if (dtype == TGSI_TYPE_DOUBLE) {
-         emit_buff(ctx, "%s = uintBitsToFloat(unpackDouble2x32(%s));\n", fp64_dsts[0], dsts[0]);
+         emit_buff(&ctx->glsl_strbufs, "%s = uintBitsToFloat(unpackDouble2x32(%s));\n", fp64_dsts[0], dsts[0]);
       }
    }
    if (inst->Instruction.Saturate) {
-      emit_buff(ctx, "%s = clamp(%s, 0.0, 1.0);\n", dsts[0], dsts[0]);
+      emit_buff(&ctx->glsl_strbufs, "%s = clamp(%s, 0.0, 1.0);\n", dsts[0], dsts[0]);
    }
 
-   if (strbuf_get_error(&ctx->glsl_main))
+   if (strbuf_get_error(&ctx->glsl_strbufs.glsl_main))
        return false;
    return true;
 }
@@ -5356,138 +5374,138 @@ prolog(struct tgsi_iterate_context *iter)
    return true;
 }
 
-static void emit_ext(struct dump_ctx *ctx, const char *name,
+static void emit_ext(struct vrend_glsl_strbufs *glsl_strbufs, const char *name,
                      const char *verb)
 {
-   emit_ver_extf(ctx, "#extension GL_%s : %s\n", name, verb);
+   emit_ver_extf(glsl_strbufs, "#extension GL_%s : %s\n", name, verb);
 }
 
-static void emit_header(struct dump_ctx *ctx)
+static void emit_header(const struct dump_ctx *ctx, struct vrend_glsl_strbufs *glsl_strbufs)
 {
    if (ctx->cfg->use_gles) {
-      emit_ver_extf(ctx, "#version %d es\n", ctx->cfg->glsl_version);
+      emit_ver_extf(glsl_strbufs, "#version %d es\n", ctx->cfg->glsl_version);
 
       if ((ctx->shader_req_bits & SHADER_REQ_CLIP_DISTANCE)||
           (ctx->num_clip_dist == 0 && ctx->key->clip_plane_enable)) {
-         emit_ext(ctx, "EXT_clip_cull_distance", "require");
+         emit_ext(glsl_strbufs, "EXT_clip_cull_distance", "require");
       }
 
       if (ctx->shader_req_bits & SHADER_REQ_SAMPLER_MS)
-         emit_ext(ctx, "OES_texture_storage_multisample_2d_array", "require");
+         emit_ext(glsl_strbufs, "OES_texture_storage_multisample_2d_array", "require");
 
       if (ctx->shader_req_bits & SHADER_REQ_CONSERVATIVE_DEPTH)
-         emit_ext(ctx, "EXT_conservative_depth", "require");
+         emit_ext(glsl_strbufs, "EXT_conservative_depth", "require");
 
       if (ctx->prog_type == TGSI_PROCESSOR_FRAGMENT) {
          if (ctx->shader_req_bits & SHADER_REQ_FBFETCH)
-            emit_ext(ctx, "EXT_shader_framebuffer_fetch", "require");
+            emit_ext(glsl_strbufs, "EXT_shader_framebuffer_fetch", "require");
          if (ctx->shader_req_bits & SHADER_REQ_BLEND_EQUATION_ADVANCED)
-            emit_ext(ctx, "KHR_blend_equation_advanced", "require");
+            emit_ext(glsl_strbufs, "KHR_blend_equation_advanced", "require");
       }
 
       if (ctx->shader_req_bits & SHADER_REQ_VIEWPORT_IDX)
-         emit_ext(ctx, "OES_viewport_array", "require");
+         emit_ext(glsl_strbufs, "OES_viewport_array", "require");
 
       if (ctx->prog_type == TGSI_PROCESSOR_GEOMETRY) {
-         emit_ext(ctx, "EXT_geometry_shader", "require");
+         emit_ext(glsl_strbufs, "EXT_geometry_shader", "require");
          if (ctx->shader_req_bits & SHADER_REQ_PSIZE)
-            emit_ext(ctx, "OES_geometry_point_size", "enable");
+            emit_ext(glsl_strbufs, "OES_geometry_point_size", "enable");
       }
 
       if (ctx->shader_req_bits & SHADER_REQ_NV_IMAGE_FORMATS)
-         emit_ext(ctx, "NV_image_formats", "require");
+         emit_ext(glsl_strbufs, "NV_image_formats", "require");
 
       if ((ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL ||
            ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL)) {
          if (ctx->cfg->glsl_version < 320)
-            emit_ext(ctx, "OES_tessellation_shader", "require");
-         emit_ext(ctx, "OES_tessellation_point_size", "enable");
+            emit_ext(glsl_strbufs, "OES_tessellation_shader", "require");
+         emit_ext(glsl_strbufs, "OES_tessellation_point_size", "enable");
       }
 
       if (ctx->cfg->glsl_version < 320) {
          if (ctx->shader_req_bits & SHADER_REQ_SAMPLER_BUF)
-            emit_ext(ctx, "EXT_texture_buffer", "require");
+            emit_ext(glsl_strbufs, "EXT_texture_buffer", "require");
          if (prefer_generic_io_block(ctx, io_in) || prefer_generic_io_block(ctx, io_out)) {
-            emit_ext(ctx, "OES_shader_io_blocks", "require");
+            emit_ext(glsl_strbufs, "OES_shader_io_blocks", "require");
          }
          if (ctx->shader_req_bits & SHADER_REQ_SAMPLE_SHADING)
-            emit_ext(ctx, "OES_sample_variables", "require");
+            emit_ext(glsl_strbufs, "OES_sample_variables", "require");
          if (ctx->shader_req_bits & SHADER_REQ_GPU_SHADER5) {
-            emit_ext(ctx, "OES_gpu_shader5", "require");
-            emit_ext(ctx, "OES_shader_multisample_interpolation",
+            emit_ext(glsl_strbufs, "OES_gpu_shader5", "require");
+            emit_ext(glsl_strbufs, "OES_shader_multisample_interpolation",
                            "require");
          }
          if (ctx->shader_req_bits & SHADER_REQ_CUBE_ARRAY)
-            emit_ext(ctx, "OES_texture_cube_map_array", "require");
+            emit_ext(glsl_strbufs, "OES_texture_cube_map_array", "require");
          if (ctx->shader_req_bits & SHADER_REQ_LAYER)
-            emit_ext(ctx, "EXT_geometry_shader", "require");
+            emit_ext(glsl_strbufs, "EXT_geometry_shader", "require");
          if (ctx->shader_req_bits & SHADER_REQ_IMAGE_ATOMIC)
-            emit_ext(ctx, "OES_shader_image_atomic", "require");
+            emit_ext(glsl_strbufs, "OES_shader_image_atomic", "require");
 
          if (ctx->shader_req_bits & SHADER_REQ_GEOMETRY_SHADER)
-            emit_ext(ctx, "EXT_geometry_shader", "require");
+            emit_ext(glsl_strbufs, "EXT_geometry_shader", "require");
       }
 
       if (logiop_require_inout(ctx->key)) {
          if (ctx->key->fs_logicop_emulate_coherent)
-            emit_ext(ctx, "EXT_shader_framebuffer_fetch", "require");
+            emit_ext(glsl_strbufs, "EXT_shader_framebuffer_fetch", "require");
          else
-            emit_ext(ctx, "EXT_shader_framebuffer_fetch_non_coherent", "require");
+            emit_ext(glsl_strbufs, "EXT_shader_framebuffer_fetch_non_coherent", "require");
 
       }
 
       if (ctx->shader_req_bits & SHADER_REQ_LODQ)
-         emit_ext(ctx, "EXT_texture_query_lod", "require");
+         emit_ext(glsl_strbufs, "EXT_texture_query_lod", "require");
 
-      emit_hdr(ctx, "precision highp float;\n");
-      emit_hdr(ctx, "precision highp int;\n");
+      emit_hdr(glsl_strbufs, "precision highp float;\n");
+      emit_hdr(glsl_strbufs, "precision highp int;\n");
    } else {
       if (ctx->prog_type == TGSI_PROCESSOR_COMPUTE) {
-         emit_ver_ext(ctx, "#version 330\n");
-         emit_ext(ctx, "ARB_compute_shader", "require");
+         emit_ver_ext(glsl_strbufs, "#version 330\n");
+         emit_ext(glsl_strbufs, "ARB_compute_shader", "require");
       } else {
          if (ctx->glsl_ver_required > 150)
-            emit_ver_extf(ctx, "#version %d\n", ctx->glsl_ver_required);
+            emit_ver_extf(glsl_strbufs, "#version %d\n", ctx->glsl_ver_required);
          else if (ctx->prog_type == TGSI_PROCESSOR_GEOMETRY ||
              ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL ||
              ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL ||
              ctx->glsl_ver_required == 150)
-            emit_ver_ext(ctx, "#version 150\n");
+            emit_ver_ext(glsl_strbufs, "#version 150\n");
          else if (ctx->glsl_ver_required == 140)
-            emit_ver_ext(ctx, "#version 140\n");
+            emit_ver_ext(glsl_strbufs, "#version 140\n");
          else
-            emit_ver_ext(ctx, "#version 130\n");
+            emit_ver_ext(glsl_strbufs, "#version 130\n");
       }
 
       if (ctx->shader_req_bits & SHADER_REQ_ENHANCED_LAYOUTS)
-         emit_ext(ctx, "ARB_enhanced_layouts", "require");
+         emit_ext(glsl_strbufs, "ARB_enhanced_layouts", "require");
 
       if (ctx->shader_req_bits & SHADER_REQ_SEPERATE_SHADER_OBJECTS)
-         emit_ext(ctx, "ARB_separate_shader_objects", "require");
+         emit_ext(glsl_strbufs, "ARB_separate_shader_objects", "require");
 
       if (ctx->shader_req_bits & SHADER_REQ_ARRAYS_OF_ARRAYS)
-         emit_ext(ctx, "ARB_arrays_of_arrays", "require");
+         emit_ext(glsl_strbufs, "ARB_arrays_of_arrays", "require");
 
       if (ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL ||
           ctx->prog_type == TGSI_PROCESSOR_TESS_EVAL)
-         emit_ext(ctx, "ARB_tessellation_shader", "require");
+         emit_ext(glsl_strbufs, "ARB_tessellation_shader", "require");
 
       if (ctx->prog_type == TGSI_PROCESSOR_VERTEX && ctx->cfg->use_explicit_locations)
-         emit_ext(ctx, "ARB_explicit_attrib_location", "require");
+         emit_ext(glsl_strbufs, "ARB_explicit_attrib_location", "require");
       if (ctx->prog_type == TGSI_PROCESSOR_FRAGMENT && fs_emit_layout(ctx))
-         emit_ext(ctx, "ARB_fragment_coord_conventions", "require");
+         emit_ext(glsl_strbufs, "ARB_fragment_coord_conventions", "require");
 
       if (ctx->ubo_used_mask)
-         emit_ext(ctx, "ARB_uniform_buffer_object", "require");
+         emit_ext(glsl_strbufs, "ARB_uniform_buffer_object", "require");
 
       if (ctx->num_cull_dist_prop || ctx->key->prev_stage_num_cull_out)
-         emit_ext(ctx, "ARB_cull_distance", "require");
+         emit_ext(glsl_strbufs, "ARB_cull_distance", "require");
       if (ctx->ssbo_used_mask)
-         emit_ext(ctx, "ARB_shader_storage_buffer_object", "require");
+         emit_ext(glsl_strbufs, "ARB_shader_storage_buffer_object", "require");
 
       if (ctx->num_abo) {
-         emit_ext(ctx, "ARB_shader_atomic_counters", "require");
-         emit_ext(ctx, "ARB_shader_atomic_counter_ops", "require");
+         emit_ext(glsl_strbufs, "ARB_shader_atomic_counters", "require");
+         emit_ext(glsl_strbufs, "ARB_shader_atomic_counter_ops", "require");
       }
 
       for (uint32_t i = 0; i < ARRAY_SIZE(shader_req_table); i++) {
@@ -5495,7 +5513,7 @@ static void emit_header(struct dump_ctx *ctx)
             continue;
 
          if (ctx->shader_req_bits & shader_req_table[i].key) {
-            emit_ext(ctx, shader_req_table[i].string, "require");
+            emit_ext(glsl_strbufs, shader_req_table[i].string, "require");
          }
       }
    }
@@ -5588,6 +5606,7 @@ static const char *get_aux_string(unsigned location)
 }
 
 static void emit_sampler_decl(struct dump_ctx *ctx,
+                              struct vrend_glsl_strbufs *glsl_strbufs,
                               uint32_t i, uint32_t range,
                               const struct vrend_shader_sampler *sampler)
 {
@@ -5604,13 +5623,13 @@ static void emit_sampler_decl(struct dump_ctx *ctx,
    is_shad = samplertype_is_shadow(sampler->tgsi_sampler_type);
 
    if (range)
-      emit_hdrf(ctx, "uniform %s %csampler%s %ssamp%d[%d];\n", precision, ptc, stc, sname, i, range);
+      emit_hdrf(glsl_strbufs, "uniform %s %csampler%s %ssamp%d[%d];\n", precision, ptc, stc, sname, i, range);
    else
-      emit_hdrf(ctx, "uniform %s %csampler%s %ssamp%d;\n", precision, ptc, stc, sname, i);
+      emit_hdrf(glsl_strbufs, "uniform %s %csampler%s %ssamp%d;\n", precision, ptc, stc, sname, i);
 
    if (is_shad) {
-      emit_hdrf(ctx, "uniform %s vec4 %sshadmask%d;\n", precision, sname, i);
-      emit_hdrf(ctx, "uniform %s vec4 %sshadadd%d;\n", precision, sname, i);
+      emit_hdrf(glsl_strbufs, "uniform %s vec4 %sshadmask%d;\n", precision, sname, i);
+      emit_hdrf(glsl_strbufs, "uniform %s vec4 %sshadadd%d;\n", precision, sname, i);
       ctx->shadow_samp_mask |= (1 << i);
    }
 }
@@ -5745,7 +5764,8 @@ const char *get_internalformat_string(int virgl_format, enum tgsi_return_type *s
    }
 }
 
-static void emit_image_decl(struct dump_ctx *ctx,
+static void emit_image_decl(const struct dump_ctx *ctx,
+                            struct vrend_glsl_strbufs *glsl_strbufs,
                             uint32_t i, uint32_t range,
                             const struct vrend_shader_image *image)
 {
@@ -5770,54 +5790,55 @@ static void emit_image_decl(struct dump_ctx *ctx,
       access = "writeonly ";
 
    if (ctx->cfg->use_gles) { /* TODO: enable on OpenGL 4.2 and up also */
-      emit_hdrf(ctx, "layout(binding=%d%s%s) ",
+      emit_hdrf(glsl_strbufs, "layout(binding=%d%s%s) ",
                i, formatstr[0] != '\0' ? ", " : ", rgba32f", formatstr);
    } else if (formatstr[0] != '\0') {
-      emit_hdrf(ctx, "layout(%s) ", formatstr);
+      emit_hdrf(glsl_strbufs, "layout(%s) ", formatstr);
    }
 
    if (range)
-      emit_hdrf(ctx, "%s%suniform %s%cimage%s %simg%d[%d];\n",
+      emit_hdrf(glsl_strbufs, "%s%suniform %s%cimage%s %simg%d[%d];\n",
                access, volatile_str, precision, ptc, stc, sname, i, range);
    else
-      emit_hdrf(ctx, "%s%suniform %s%cimage%s %simg%d;\n",
+      emit_hdrf(glsl_strbufs, "%s%suniform %s%cimage%s %simg%d;\n",
                access, volatile_str, precision, ptc, stc, sname, i);
 }
 
-static void emit_ios_common(struct dump_ctx *ctx)
+static void emit_ios_common(struct dump_ctx *ctx,
+                            struct vrend_glsl_strbufs *glsl_strbufs)
 {
    uint i;
    const char *sname = tgsi_proc_to_prefix(ctx->prog_type);
 
    for (i = 0; i < ctx->num_temp_ranges; i++) {
-      emit_hdrf(ctx, "vec4 temp%d[%d];\n", ctx->temp_ranges[i].first, ctx->temp_ranges[i].last - ctx->temp_ranges[i].first + 1);
+      emit_hdrf(glsl_strbufs, "vec4 temp%d[%d];\n", ctx->temp_ranges[i].first, ctx->temp_ranges[i].last - ctx->temp_ranges[i].first + 1);
    }
 
    if (ctx->write_mul_utemp) {
-      emit_hdr(ctx, "uvec4 mul_utemp;\n");
-      emit_hdr(ctx, "uvec4 umul_temp;\n");
+      emit_hdr(glsl_strbufs, "uvec4 mul_utemp;\n");
+      emit_hdr(glsl_strbufs, "uvec4 umul_temp;\n");
    }
 
    if (ctx->write_mul_itemp) {
-      emit_hdr(ctx, "ivec4 mul_itemp;\n");
-      emit_hdr(ctx, "ivec4 imul_temp;\n");
+      emit_hdr(glsl_strbufs, "ivec4 mul_itemp;\n");
+      emit_hdr(glsl_strbufs, "ivec4 imul_temp;\n");
    }
 
    if (ctx->ssbo_used_mask || ctx->has_file_memory) {
-     emit_hdr(ctx, "uint ssbo_addr_temp;\n");
+     emit_hdr(glsl_strbufs, "uint ssbo_addr_temp;\n");
    }
 
    if (ctx->shader_req_bits & SHADER_REQ_FP64) {
-      emit_hdr(ctx, "dvec2 fp64_dst[3];\n");
-      emit_hdr(ctx, "dvec2 fp64_src[4];\n");
+      emit_hdr(glsl_strbufs, "dvec2 fp64_dst[3];\n");
+      emit_hdr(glsl_strbufs, "dvec2 fp64_src[4];\n");
    }
 
    for (i = 0; i < ctx->num_address; i++) {
-      emit_hdrf(ctx, "int addr%d;\n", i);
+      emit_hdrf(glsl_strbufs, "int addr%d;\n", i);
    }
    if (ctx->num_consts) {
       const char *cname = tgsi_proc_to_prefix(ctx->prog_type);
-      emit_hdrf(ctx, "uniform uvec4 %sconst0[%d];\n", cname, ctx->num_consts);
+      emit_hdrf(glsl_strbufs, "uniform uvec4 %sconst0[%d];\n", cname, ctx->num_consts);
    }
 
    if (ctx->ubo_used_mask) {
@@ -5827,12 +5848,12 @@ static void emit_ios_common(struct dump_ctx *ctx)
          require_glsl_ver(ctx, 150);
          int first = ffs(ctx->ubo_used_mask) - 1;
          unsigned num_ubo = util_bitcount(ctx->ubo_used_mask);
-         emit_hdrf(ctx, "uniform %subo { vec4 ubocontents[%d]; } %suboarr[%d];\n", cname, ctx->ubo_sizes[first], cname, num_ubo);
+         emit_hdrf(glsl_strbufs, "uniform %subo { vec4 ubocontents[%d]; } %suboarr[%d];\n", cname, ctx->ubo_sizes[first], cname, num_ubo);
       } else {
          unsigned mask = ctx->ubo_used_mask;
          while (mask) {
             uint32_t i = u_bit_scan(&mask);
-            emit_hdrf(ctx, "uniform %subo%d { vec4 %subo%dcontents[%d]; };\n", cname, i, cname, i, ctx->ubo_sizes[i]);
+            emit_hdrf(glsl_strbufs, "uniform %subo%d { vec4 %subo%dcontents[%d]; };\n", cname, i, cname, i, ctx->ubo_sizes[i]);
          }
       }
    }
@@ -5841,7 +5862,7 @@ static void emit_ios_common(struct dump_ctx *ctx)
       for (i = 0; i < ctx->num_sampler_arrays; i++) {
          uint32_t first = ctx->sampler_arrays[i].first;
          uint32_t range = ctx->sampler_arrays[i].array_size;
-         emit_sampler_decl(ctx, first, range, ctx->samplers + first);
+         emit_sampler_decl(ctx, glsl_strbufs, first, range, ctx->samplers + first);
       }
    } else {
       uint nsamp = util_last_bit(ctx->samplers_used);
@@ -5850,7 +5871,7 @@ static void emit_ios_common(struct dump_ctx *ctx)
          if ((ctx->samplers_used & (1 << i)) == 0)
             continue;
 
-         emit_sampler_decl(ctx, i, 0, ctx->samplers + i);
+         emit_sampler_decl(ctx, glsl_strbufs, i, 0, ctx->samplers + i);
       }
    }
 
@@ -5858,21 +5879,21 @@ static void emit_ios_common(struct dump_ctx *ctx)
       for (i = 0; i < ctx->num_image_arrays; i++) {
          uint32_t first = ctx->image_arrays[i].first;
          uint32_t range = ctx->image_arrays[i].array_size;
-         emit_image_decl(ctx, first, range, ctx->images + first);
+         emit_image_decl(ctx, glsl_strbufs, first, range, ctx->images + first);
       }
    } else {
       uint32_t mask = ctx->images_used_mask;
       while (mask) {
          i = u_bit_scan(&mask);
-         emit_image_decl(ctx, i, 0, ctx->images + i);
+         emit_image_decl(ctx, glsl_strbufs, i, 0, ctx->images + i);
       }
    }
 
    for (i = 0; i < ctx->num_abo; i++){
       if (ctx->abo_sizes[i] > 1)
-         emit_hdrf(ctx, "layout (binding = %d, offset = %d) uniform atomic_uint ac%d[%d];\n", ctx->abo_idx[i], ctx->abo_offsets[i] * 4, i, ctx->abo_sizes[i]);
+         emit_hdrf(glsl_strbufs, "layout (binding = %d, offset = %d) uniform atomic_uint ac%d[%d];\n", ctx->abo_idx[i], ctx->abo_offsets[i] * 4, i, ctx->abo_sizes[i]);
       else
-         emit_hdrf(ctx, "layout (binding = %d, offset = %d) uniform atomic_uint ac%d;\n", ctx->abo_idx[i], ctx->abo_offsets[i] * 4, i);
+         emit_hdrf(glsl_strbufs, "layout (binding = %d, offset = %d) uniform atomic_uint ac%d;\n", ctx->abo_idx[i], ctx->abo_offsets[i] * 4, i);
    }
 
    if (ctx->info.indirect_files & (1 << TGSI_FILE_BUFFER)) {
@@ -5881,7 +5902,7 @@ static void emit_ios_common(struct dump_ctx *ctx)
          int start, count;
          u_bit_scan_consecutive_range(&mask, &start, &count);
          const char *atomic = (ctx->ssbo_atomic_mask & (1 << start)) ? "atomic" : "";
-         emit_hdrf(ctx, "layout (binding = %d, std430) buffer %sssbo%d { uint %sssbocontents%d[]; } %sssboarr%s[%d];\n", start, sname, start, sname, start, sname, atomic, count);
+         emit_hdrf(glsl_strbufs, "layout (binding = %d, std430) buffer %sssbo%d { uint %sssbocontents%d[]; } %sssboarr%s[%d];\n", start, sname, start, sname, start, sname, atomic, count);
       }
    } else {
       uint32_t mask = ctx->ssbo_used_mask;
@@ -5889,14 +5910,15 @@ static void emit_ios_common(struct dump_ctx *ctx)
          uint32_t id = u_bit_scan(&mask);
          enum vrend_type_qualifier type = (ctx->ssbo_integer_mask & (1 << id)) ? INT : UINT;
          char *coherent = ctx->ssbo_memory_qualifier[id] == TGSI_MEMORY_COHERENT ? "coherent" : "";
-         emit_hdrf(ctx, "layout (binding = %d, std430) %s buffer %sssbo%d { %s %sssbocontents%d[]; };\n", id, coherent, sname, id,
+         emit_hdrf(glsl_strbufs, "layout (binding = %d, std430) %s buffer %sssbo%d { %s %sssbocontents%d[]; };\n", id, coherent, sname, id,
                   get_string(type), sname, id);
       }
    }
 
 }
 
-static void emit_ios_streamout(struct dump_ctx *ctx)
+static void emit_ios_streamout(const struct dump_ctx *ctx,
+                               struct vrend_glsl_strbufs *glsl_strbufs)
 {
    if (ctx->so) {
       char outtype[6] = "";
@@ -5909,7 +5931,7 @@ static void emit_ios_streamout(struct dump_ctx *ctx)
             snprintf(outtype, 6, "vec%d", ctx->so->output[i].num_components);
 
          if (ctx->so->output[i].stream && ctx->prog_type == TGSI_PROCESSOR_GEOMETRY)
-            emit_hdrf(ctx, "layout (stream=%d) out %s tfout%d;\n", ctx->so->output[i].stream, outtype, i);
+            emit_hdrf(glsl_strbufs, "layout (stream=%d) out %s tfout%d;\n", ctx->so->output[i].stream, outtype, i);
          else  {
             const struct vrend_shader_io *output = get_io_slot(&ctx->outputs[0], ctx->num_outputs,
                   ctx->so->output[i].register_index);
@@ -5917,21 +5939,23 @@ static void emit_ios_streamout(struct dump_ctx *ctx)
                 output->glsl_predefined_no_emit) {
 
                if (ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL)
-                  emit_hdrf(ctx, "out %s tfout%d[];\n", outtype, i);
+                  emit_hdrf(glsl_strbufs, "out %s tfout%d[];\n", outtype, i);
                else
-                  emit_hdrf(ctx, "out %s tfout%d;\n", outtype, i);
+                  emit_hdrf(glsl_strbufs, "out %s tfout%d;\n", outtype, i);
             }
          }
       }
    }
 }
 
-static inline void emit_winsys_correction(struct dump_ctx *ctx)
+static inline void emit_winsys_correction(struct vrend_glsl_strbufs *glsl_strbufs)
 {
-   emit_hdr(ctx, "uniform float winsys_adjust_y;\n");
+   emit_hdr(glsl_strbufs, "uniform float winsys_adjust_y;\n");
 }
 
-static void emit_ios_indirect_generics_output(struct dump_ctx *ctx, const char *postfix)
+static void emit_ios_indirect_generics_output(const struct dump_ctx *ctx,
+                                              struct vrend_glsl_strbufs *glsl_strbufs,
+                                              const char *postfix)
 {
    if (ctx->generic_output_range.used) {
       int size = ctx->generic_output_range.io.last - ctx->generic_output_range.io.sid + 1;
@@ -5943,17 +5967,19 @@ static void emit_ios_indirect_generics_output(struct dump_ctx *ctx, const char *
          char blockvarame[64];
          get_blockvarname(blockvarame, stage_prefix, &ctx->generic_output_range.io, postfix);
 
-         emit_hdrf(ctx, "out %s {\n  vec4 %s[%d]; \n} %s;\n", blockname,
+         emit_hdrf(glsl_strbufs, "out %s {\n  vec4 %s[%d]; \n} %s;\n", blockname,
                    ctx->generic_output_range.io.glsl_name, size, blockvarame);
       } else
-         emit_hdrf(ctx, "out vec4 %s%s[%d];\n",
+         emit_hdrf(glsl_strbufs, "out vec4 %s%s[%d];\n",
                    ctx->generic_output_range.io.glsl_name,
                    postfix,
                    size);
    }
 }
 
-static void emit_ios_indirect_generics_input(struct dump_ctx *ctx, const char *postfix)
+static void emit_ios_indirect_generics_input(const struct dump_ctx *ctx,
+                                             struct vrend_glsl_strbufs *glsl_strbufs,
+                                             const char *postfix)
 {
    if (ctx->generic_input_range.used) {
       int size = ctx->generic_input_range.io.last - ctx->generic_input_range.io.sid + 1;
@@ -5974,11 +6000,11 @@ static void emit_ios_indirect_generics_input(struct dump_ctx *ctx, const char *p
          get_blockvarname(blockvarame, stage_prefix, &ctx->generic_input_range.io,
                           postfix);
 
-         emit_hdrf(ctx, "in %s {\n        vec4 %s[%d]; \n} %s;\n",
+         emit_hdrf(glsl_strbufs, "in %s {\n        vec4 %s[%d]; \n} %s;\n",
                    blockname, ctx->generic_input_range.io.glsl_name,
                    size, blockvarame);
       } else
-         emit_hdrf(ctx, "in vec4 %s%s[%d];\n",
+         emit_hdrf(glsl_strbufs, "in vec4 %s%s[%d];\n",
                    ctx->generic_input_range.io.glsl_name,
                    postfix,
                    size);
@@ -5986,7 +6012,9 @@ static void emit_ios_indirect_generics_input(struct dump_ctx *ctx, const char *p
 }
 
 static void
-emit_ios_generic(struct dump_ctx *ctx, enum io_type iot,  const char *prefix,
+emit_ios_generic(struct dump_ctx *ctx,
+                 struct vrend_glsl_strbufs *glsl_strbufs,
+                 enum io_type iot,  const char *prefix,
                  const struct vrend_shader_io *io, const char *inout,
                  const char *postfix)
 {
@@ -6013,9 +6041,9 @@ emit_ios_generic(struct dump_ctx *ctx, enum io_type iot,  const char *prefix,
       t = type[io->num_components - 1];
 
    if (io->first == io->last) {
-      emit_hdr(ctx, layout);
+      emit_hdr(glsl_strbufs, layout);
       /* ugly leave spaces to patch interp in later */
-      emit_hdrf(ctx, "%s%s\n%s  %s %s %s%s;\n",
+      emit_hdrf(glsl_strbufs, "%s%s\n%s  %s %s %s%s;\n",
                 io->precise ? "precise" : "",
                 io->invariant ? "invariant" : "",
                 prefix,
@@ -6042,9 +6070,9 @@ emit_ios_generic(struct dump_ctx *ctx, enum io_type iot,  const char *prefix,
          char blockvarame[64];
          get_blockvarname(blockvarame, stage_prefix, io, postfix);
 
-         emit_hdrf(ctx, "%s %s {\n", inout, blockname);
-         emit_hdr(ctx, layout);
-         emit_hdrf(ctx, "%s%s\n%s     %s %s[%d]; \n} %s;\n",
+         emit_hdrf(glsl_strbufs, "%s %s {\n", inout, blockname);
+         emit_hdr(glsl_strbufs, layout);
+         emit_hdrf(glsl_strbufs, "%s%s\n%s     %s %s[%d]; \n} %s;\n",
                    io->precise ? "precise" : "",
                    io->invariant ? "invariant" : "",
                    prefix,
@@ -6053,8 +6081,8 @@ emit_ios_generic(struct dump_ctx *ctx, enum io_type iot,  const char *prefix,
                    io->last - io->first +1,
                    blockvarame);
       } else {
-         emit_hdr(ctx, layout);
-         emit_hdrf(ctx, "%s%s\n%s       %s %s %s%s[%d];\n",
+         emit_hdr(glsl_strbufs, layout);
+         emit_hdrf(glsl_strbufs, "%s%s\n%s       %s %s %s%s[%d];\n",
                    io->precise ? "precise" : "",
                    io->invariant ? "invariant" : "",
                    prefix,
@@ -6072,6 +6100,7 @@ typedef bool (*can_emit_generic_callback)(const struct vrend_shader_io *io);
 
 static void
 emit_ios_generic_outputs(struct dump_ctx *ctx,
+                         struct vrend_glsl_strbufs *glsl_strbufs,
                          const can_emit_generic_callback can_emit_generic)
 {
    uint32_t i;
@@ -6104,10 +6133,10 @@ emit_ios_generic_outputs(struct dump_ctx *ctx,
             bc_emitted |= 1ull << ctx->outputs[i].sid;
          }
 
-         emit_ios_generic(ctx, io_out, prefix, &ctx->outputs[i],
+         emit_ios_generic(ctx, glsl_strbufs, io_out, prefix, &ctx->outputs[i],
                           ctx->outputs[i].fbfetch_used ? "inout" : "out", "");
       } else if (ctx->outputs[i].invariant || ctx->outputs[i].precise) {
-         emit_hdrf(ctx, "%s%s;\n",
+         emit_hdrf(glsl_strbufs, "%s%s;\n",
                    ctx->outputs[i].precise ? "precise " :
                    (ctx->outputs[i].invariant ? "invariant " : ""),
                    ctx->outputs[i].glsl_name);
@@ -6122,7 +6151,8 @@ emit_ios_generic_outputs(struct dump_ctx *ctx,
 }
 
 static void
-emit_ios_patch(struct dump_ctx *ctx, const char *prefix, const struct vrend_shader_io *io,
+emit_ios_patch(struct vrend_glsl_strbufs *glsl_strbufs,
+               const char *prefix, const struct vrend_shader_io *io,
                const char *inout, int size)
 {
    const char type[4][6] = {"float", " vec2", " vec3", " vec4"};
@@ -6131,19 +6161,19 @@ emit_ios_patch(struct dump_ctx *ctx, const char *prefix, const struct vrend_shad
    if (io->layout_location > 0) {
       /* we need to define a layout here because interleaved arrays might be emited */
       if (io->swizzle_offset)
-         emit_hdrf(ctx, "layout(location = %d, component = %d)\n",
+         emit_hdrf(glsl_strbufs, "layout(location = %d, component = %d)\n",
                  io->layout_location - 1, io->swizzle_offset);
       else
-         emit_hdrf(ctx, "layout(location = %d)\n", io->layout_location - 1);
+         emit_hdrf(glsl_strbufs, "layout(location = %d)\n", io->layout_location - 1);
    }
 
    if (io->usage_mask != 0xf)
       t = type[io->num_components - 1];
 
    if (io->last == io->first)
-      emit_hdrf(ctx, "%s %s %s %s;\n", prefix, inout, t, io->glsl_name);
+      emit_hdrf(glsl_strbufs, "%s %s %s %s;\n", prefix, inout, t, io->glsl_name);
    else
-      emit_hdrf(ctx, "%s %s %s %s[%d];\n", prefix, inout, t,
+      emit_hdrf(glsl_strbufs, "%s %s %s %s[%d];\n", prefix, inout, t,
                 io->glsl_name, size);
 }
 
@@ -6153,7 +6183,8 @@ can_emit_generic_default(UNUSED const struct vrend_shader_io *io)
    return true;
 }
 
-static void emit_ios_vs(struct dump_ctx *ctx)
+static void emit_ios_vs(struct dump_ctx *ctx,
+                        struct vrend_glsl_strbufs *glsl_strbufs)
 {
    uint32_t i;
 
@@ -6161,19 +6192,19 @@ static void emit_ios_vs(struct dump_ctx *ctx)
       char postfix[32] = "";
       if (!ctx->inputs[i].glsl_predefined_no_emit) {
          if (ctx->cfg->use_explicit_locations) {
-            emit_hdrf(ctx, "layout(location=%d) ", ctx->inputs[i].first);
+            emit_hdrf(glsl_strbufs, "layout(location=%d) ", ctx->inputs[i].first);
          }
          if (ctx->inputs[i].first != ctx->inputs[i].last)
             snprintf(postfix, sizeof(postfix), "[%d]", ctx->inputs[i].last - ctx->inputs[i].first + 1);
          const char *vtype[3] = {"vec4", "ivec4", "uvec4"};
-         emit_hdrf(ctx, "in %s %s%s;\n",
+         emit_hdrf(glsl_strbufs, "in %s %s%s;\n",
                    vtype[ctx->inputs[i].type], ctx->inputs[i].glsl_name, postfix);
       }
    }
 
-   emit_ios_indirect_generics_output(ctx, "");
+   emit_ios_indirect_generics_output(ctx, glsl_strbufs, "");
 
-   emit_ios_generic_outputs(ctx, can_emit_generic_default);
+   emit_ios_generic_outputs(ctx, glsl_strbufs, can_emit_generic_default);
 
    if (ctx->key->color_two_side || ctx->force_color_two_side) {
       bool fcolor_emitted, bcolor_emitted;
@@ -6188,20 +6219,20 @@ static void emit_ios_vs(struct dump_ctx *ctx)
          bcolor_emitted = ctx->front_back_color_emitted_flags[ctx->outputs[i].sid] & BACK_COLOR_EMITTED;
 
          if (fcolor_emitted && !bcolor_emitted) {
-            emit_hdrf(ctx, "%sout vec4 ex_bc%d;\n", INTERP_PREFIX, ctx->outputs[i].sid);
+            emit_hdrf(glsl_strbufs, "%sout vec4 ex_bc%d;\n", INTERP_PREFIX, ctx->outputs[i].sid);
             ctx->front_back_color_emitted_flags[ctx->outputs[i].sid] |= BACK_COLOR_EMITTED;
          }
          if (bcolor_emitted && !fcolor_emitted) {
-            emit_hdrf(ctx, "%sout vec4 ex_c%d;\n", INTERP_PREFIX, ctx->outputs[i].sid);
+            emit_hdrf(glsl_strbufs, "%sout vec4 ex_c%d;\n", INTERP_PREFIX, ctx->outputs[i].sid);
             ctx->front_back_color_emitted_flags[ctx->outputs[i].sid] |= FRONT_COLOR_EMITTED;
          }
       }
    }
 
-   emit_winsys_correction(ctx);
+   emit_winsys_correction(glsl_strbufs);
 
    if (ctx->has_clipvertex) {
-      emit_hdrf(ctx, "%svec4 clipv_tmp;\n", ctx->has_clipvertex_so ? "out " : "");
+      emit_hdrf(glsl_strbufs, "%svec4 clipv_tmp;\n", ctx->has_clipvertex_so ? "out " : "");
    }
    if (ctx->num_clip_dist || ctx->key->clip_plane_enable) {
       bool has_prop = (ctx->num_clip_dist_prop + ctx->num_cull_dist_prop) > 0;
@@ -6219,14 +6250,14 @@ static void emit_ios_vs(struct dump_ctx *ctx)
       } else
          snprintf(clip_buf, 64, "out float gl_ClipDistance[%d];\n", num_clip_dists);
       if (ctx->key->clip_plane_enable) {
-         emit_hdr(ctx, "uniform vec4 clipp[8];\n");
+         emit_hdr(glsl_strbufs, "uniform vec4 clipp[8];\n");
       }
       if ((ctx->key->gs_present || ctx->key->tes_present) && ctx->key->next_stage_pervertex_in) {
-         emit_hdrf(ctx, "out gl_PerVertex {\n vec4 gl_Position;\n %s%s};\n", clip_buf, cull_buf);
+         emit_hdrf(glsl_strbufs, "out gl_PerVertex {\n vec4 gl_Position;\n %s%s};\n", clip_buf, cull_buf);
       } else {
-         emit_hdrf(ctx, "%s%s", clip_buf, cull_buf);
+         emit_hdrf(glsl_strbufs, "%s%s", clip_buf, cull_buf);
       }
-      emit_hdr(ctx, "vec4 clip_dist_temp[2];\n");
+      emit_hdr(glsl_strbufs, "vec4 clip_dist_temp[2];\n");
    }
 }
 
@@ -6244,7 +6275,8 @@ static const char *get_depth_layout(int depth_layout)
    return dl[depth_layout -1];
 }
 
-static void emit_ios_fs(struct dump_ctx *ctx)
+static void emit_ios_fs(struct dump_ctx *ctx,
+                        struct vrend_glsl_strbufs *glsl_strbufs)
 {
    uint32_t i;
 
@@ -6253,16 +6285,16 @@ static void emit_ios_fs(struct dump_ctx *ctx)
       char comma = (upper_left && ctx->fs_pixel_center) ? ',' : ' ';
 
       if (!ctx->cfg->use_gles)
-         emit_hdrf(ctx, "layout(%s%c%s) in vec4 gl_FragCoord;\n",
+         emit_hdrf(glsl_strbufs, "layout(%s%c%s) in vec4 gl_FragCoord;\n",
                    upper_left ? "origin_upper_left" : "",
                    comma,
                    ctx->fs_pixel_center ? "pixel_center_integer" : "");
    }
    if (ctx->early_depth_stencil) {
-      emit_hdr(ctx, "layout(early_fragment_tests) in;\n");
+      emit_hdr(glsl_strbufs, "layout(early_fragment_tests) in;\n");
    }
 
-   emit_ios_indirect_generics_input(ctx, "");
+   emit_ios_indirect_generics_input(ctx, glsl_strbufs, "");
 
    for (i = 0; i < ctx->num_inputs; i++) {
       if (!ctx->inputs[i].glsl_predefined_no_emit) {
@@ -6281,31 +6313,31 @@ static void emit_ios_fs(struct dump_ctx *ctx)
 
          char prefixes[64];
          snprintf(prefixes, sizeof(prefixes), "%s %s", prefix, auxprefix);
-         emit_ios_generic(ctx, io_in, prefixes, &ctx->inputs[i], "in", "");
+         emit_ios_generic(ctx, glsl_strbufs, io_in, prefixes, &ctx->inputs[i], "in", "");
       }
 
       if (ctx->cfg->use_gles && !ctx->winsys_adjust_y_emitted &&
           (ctx->key->coord_replace & (1 << ctx->inputs[i].sid))) {
          ctx->winsys_adjust_y_emitted = true;
-         emit_hdr(ctx, "uniform float winsys_adjust_y;\n");
+         emit_hdr(glsl_strbufs, "uniform float winsys_adjust_y;\n");
       }
    }
 
    if (vrend_shader_needs_alpha_func(ctx->key)) {
-      emit_hdr(ctx, "uniform float alpha_ref_val;\n");
+      emit_hdr(glsl_strbufs, "uniform float alpha_ref_val;\n");
    }
 
    if (ctx->key->color_two_side) {
       if (ctx->color_in_mask & 1)
-         emit_hdr(ctx, "vec4 realcolor0;\n");
+         emit_hdr(glsl_strbufs, "vec4 realcolor0;\n");
       if (ctx->color_in_mask & 2)
-         emit_hdr(ctx, "vec4 realcolor1;\n");
+         emit_hdr(glsl_strbufs, "vec4 realcolor1;\n");
    }
 
    unsigned choices = ctx->fs_blend_equation_advanced;
    while (choices) {
       enum gl_advanced_blend_mode choice = (enum gl_advanced_blend_mode)u_bit_scan(&choices);
-      emit_hdrf(ctx, "layout(blend_support_%s) out;\n", blend_to_name(choice));
+      emit_hdrf(glsl_strbufs, "layout(blend_support_%s) out;\n", blend_to_name(choice));
    }
 
    if (ctx->write_all_cbufs) {
@@ -6318,16 +6350,16 @@ static void emit_ios_fs(struct dump_ctx *ctx)
       for (i = 0; i < (uint32_t)ctx->cfg->max_draw_buffers; i++) {
          if (ctx->cfg->use_gles) {
             if (ctx->key->fs_logicop_enabled)
-               emit_hdrf(ctx, "%s fsout_tmp_c%d;\n", type, i);
+               emit_hdrf(glsl_strbufs, "%s fsout_tmp_c%d;\n", type, i);
 
             if (logiop_require_inout(ctx->key)) {
                const char *noncoherent = ctx->key->fs_logicop_emulate_coherent ? "" : ", noncoherent";
-               emit_hdrf(ctx, "layout (location=%d%s) inout highp %s fsout_c%d;\n", i, noncoherent, type, i);
+               emit_hdrf(glsl_strbufs, "layout (location=%d%s) inout highp %s fsout_c%d;\n", i, noncoherent, type, i);
             } else
-               emit_hdrf(ctx, "layout (location=%d) out %s fsout_c%d;\n", i,
+               emit_hdrf(glsl_strbufs, "layout (location=%d) out %s fsout_c%d;\n", i,
 			 type, i);
          } else
-            emit_hdrf(ctx, "out %s fsout_c%d;\n", type, i);
+            emit_hdrf(glsl_strbufs, "out %s fsout_c%d;\n", type, i);
       }
    } else {
       for (i = 0; i < ctx->num_outputs; i++) {
@@ -6340,11 +6372,11 @@ static void emit_ios_fs(struct dump_ctx *ctx)
                 !ctx->cfg->has_dual_src_blend)
                sprintf(prefix, "layout(location = %d)", ctx->outputs[i].sid);
 
-            emit_ios_generic(ctx, io_out, prefix, &ctx->outputs[i],
+            emit_ios_generic(ctx, glsl_strbufs, io_out, prefix, &ctx->outputs[i],
                               ctx->outputs[i].fbfetch_used ? "inout" : "out", "");
 
          } else if (ctx->outputs[i].invariant || ctx->outputs[i].precise) {
-            emit_hdrf(ctx, "%s%s;\n",
+            emit_hdrf(glsl_strbufs, "%s%s;\n",
                       ctx->outputs[i].precise ? "precise " :
                       (ctx->outputs[i].invariant ? "invariant " : ""),
                       ctx->outputs[i].glsl_name);
@@ -6355,21 +6387,21 @@ static void emit_ios_fs(struct dump_ctx *ctx)
    if (ctx->fs_depth_layout) {
       const char *depth_layout = get_depth_layout(ctx->fs_depth_layout);
       if (depth_layout)
-         emit_hdrf(ctx, "layout (%s) out float gl_FragDepth;\n", depth_layout);
+         emit_hdrf(glsl_strbufs, "layout (%s) out float gl_FragDepth;\n", depth_layout);
    }
 
    if (ctx->num_in_clip_dist) {
       if (ctx->key->prev_stage_num_clip_out) {
-         emit_hdrf(ctx, "in float gl_ClipDistance[%d];\n", ctx->key->prev_stage_num_clip_out);
+         emit_hdrf(glsl_strbufs, "in float gl_ClipDistance[%d];\n", ctx->key->prev_stage_num_clip_out);
       } else if (ctx->num_in_clip_dist > 4 && !ctx->key->prev_stage_num_cull_out) {
-         emit_hdrf(ctx, "in float gl_ClipDistance[%d];\n", ctx->num_in_clip_dist);
+         emit_hdrf(glsl_strbufs, "in float gl_ClipDistance[%d];\n", ctx->num_in_clip_dist);
       }
 
       if (ctx->key->prev_stage_num_cull_out) {
-         emit_hdrf(ctx, "in float gl_CullDistance[%d];\n", ctx->key->prev_stage_num_cull_out);
+         emit_hdrf(glsl_strbufs, "in float gl_CullDistance[%d];\n", ctx->key->prev_stage_num_cull_out);
       }
       if(ctx->fs_uses_clipdist_input)
-         emit_hdr(ctx, "vec4 clip_dist_temp[2];\n");
+         emit_hdr(glsl_strbufs, "vec4 clip_dist_temp[2];\n");
    }
 }
 
@@ -6379,7 +6411,8 @@ can_emit_generic_geom(const struct vrend_shader_io *io)
    return io->stream == 0;
 }
 
-static void emit_ios_geom(struct dump_ctx *ctx)
+static void emit_ios_geom(struct dump_ctx *ctx,
+                          struct vrend_glsl_strbufs *glsl_strbufs)
 {
    uint32_t i;
    char invocbuf[25];
@@ -6387,16 +6420,16 @@ static void emit_ios_geom(struct dump_ctx *ctx)
    if (ctx->gs_num_invocations)
       snprintf(invocbuf, 25, ", invocations = %d", ctx->gs_num_invocations);
 
-   emit_hdrf(ctx, "layout(%s%s) in;\n", prim_to_name(ctx->gs_in_prim),
+   emit_hdrf(glsl_strbufs, "layout(%s%s) in;\n", prim_to_name(ctx->gs_in_prim),
              ctx->gs_num_invocations > 1 ? invocbuf : "");
-   emit_hdrf(ctx, "layout(%s, max_vertices = %d) out;\n", prim_to_name(ctx->gs_out_prim), ctx->gs_max_out_verts);
+   emit_hdrf(glsl_strbufs, "layout(%s, max_vertices = %d) out;\n", prim_to_name(ctx->gs_out_prim), ctx->gs_max_out_verts);
 
 
    for (i = 0; i < ctx->num_inputs; i++) {
       if (!ctx->inputs[i].glsl_predefined_no_emit) {
          char postfix[64];
          snprintf(postfix, sizeof(postfix), "[%d]", gs_input_prim_to_size(ctx->gs_in_prim));
-         emit_ios_generic(ctx, io_in, "", &ctx->inputs[i], "in", postfix);
+         emit_ios_generic(ctx, glsl_strbufs, io_in, "", &ctx->inputs[i], "in", postfix);
       }
    }
 
@@ -6414,16 +6447,16 @@ static void emit_ios_geom(struct dump_ctx *ctx)
             prefix = INTERP_PREFIX;
          }
 
-         emit_hdrf(ctx, "layout (stream = %d) %s%s%sout vec4 %s;\n", ctx->outputs[i].stream, prefix,
+         emit_hdrf(glsl_strbufs, "layout (stream = %d) %s%s%sout vec4 %s;\n", ctx->outputs[i].stream, prefix,
                    ctx->outputs[i].precise ? "precise " : "",
                    ctx->outputs[i].invariant ? "invariant " : "",
                    ctx->outputs[i].glsl_name);
       }
    }
 
-   emit_ios_generic_outputs(ctx, can_emit_generic_geom);
+   emit_ios_generic_outputs(ctx, glsl_strbufs, can_emit_generic_geom);
 
-   emit_winsys_correction(ctx);
+   emit_winsys_correction(glsl_strbufs);
 
    if (ctx->num_in_clip_dist || ctx->key->clip_plane_enable) {
       int clip_dist, cull_dist;
@@ -6439,7 +6472,7 @@ static void emit_ios_geom(struct dump_ctx *ctx)
          snprintf(cull_var, 64, "float gl_CullDistance[%d];\n", cull_dist);
 
       ctx->has_pervertex = true;
-      emit_hdrf(ctx, "in gl_PerVertex {\n vec4 gl_Position; \n %s%s\n} gl_in[];\n", clip_var, cull_var);
+      emit_hdrf(glsl_strbufs, "in gl_PerVertex {\n vec4 gl_Position; \n %s%s\n} gl_in[];\n", clip_var, cull_var);
    }
    if (ctx->num_clip_dist) {
       bool has_prop = (ctx->num_clip_dist_prop + ctx->num_cull_dist_prop) > 0;
@@ -6456,44 +6489,45 @@ static void emit_ios_geom(struct dump_ctx *ctx)
             snprintf(cull_buf, 64, "out float gl_CullDistance[%d];\n", num_cull_dists);
       } else
          snprintf(clip_buf, 64, "out float gl_ClipDistance[%d];\n", num_clip_dists);
-      emit_hdrf(ctx, "%s%s\n", clip_buf, cull_buf);
-      emit_hdrf(ctx, "vec4 clip_dist_temp[2];\n");
+      emit_hdrf(glsl_strbufs, "%s%s\n", clip_buf, cull_buf);
+      emit_hdrf(glsl_strbufs, "vec4 clip_dist_temp[2];\n");
    }
 }
 
 
-static void emit_ios_tcs(struct dump_ctx *ctx)
+static void emit_ios_tcs(struct dump_ctx *ctx,
+                         struct vrend_glsl_strbufs *glsl_strbufs)
 {
    uint32_t i;
 
-   emit_ios_indirect_generics_input(ctx, "[]");
+   emit_ios_indirect_generics_input(ctx, glsl_strbufs, "[]");
 
    for (i = 0; i < ctx->num_inputs; i++) {
       if (!ctx->inputs[i].glsl_predefined_no_emit) {
          if (ctx->inputs[i].name == TGSI_SEMANTIC_PATCH)
-            emit_ios_patch(ctx, "",  &ctx->inputs[i], "in", ctx->inputs[i].last - ctx->inputs[i].first + 1);
+            emit_ios_patch(glsl_strbufs, "",  &ctx->inputs[i], "in", ctx->inputs[i].last - ctx->inputs[i].first + 1);
          else
-            emit_ios_generic(ctx, io_in, "", &ctx->inputs[i], "in", "[]");
+            emit_ios_generic(ctx, glsl_strbufs, io_in, "", &ctx->inputs[i], "in", "[]");
       }
    }
 
-   emit_hdrf(ctx, "layout(vertices = %d) out;\n", ctx->tcs_vertices_out);
+   emit_hdrf(glsl_strbufs, "layout(vertices = %d) out;\n", ctx->tcs_vertices_out);
 
-   emit_ios_indirect_generics_output(ctx, "[]");
+   emit_ios_indirect_generics_output(ctx, glsl_strbufs, "[]");
 
    if (ctx->patch_output_range.used)
-      emit_ios_patch(ctx, "patch", &ctx->patch_output_range.io, "out",
+      emit_ios_patch(glsl_strbufs, "patch", &ctx->patch_output_range.io, "out",
                      ctx->patch_output_range.io.last - ctx->patch_output_range.io.sid + 1);
 
    for (i = 0; i < ctx->num_outputs; i++) {
       if (!ctx->outputs[i].glsl_predefined_no_emit) {
          if (ctx->outputs[i].name == TGSI_SEMANTIC_PATCH) {
-            emit_ios_patch(ctx, "patch", &ctx->outputs[i], "out",
+            emit_ios_patch(glsl_strbufs, "patch", &ctx->outputs[i], "out",
                            ctx->outputs[i].last - ctx->outputs[i].first + 1);
          } else
-            emit_ios_generic(ctx, io_out, "", &ctx->outputs[i], "out", "[]");
+            emit_ios_generic(ctx, glsl_strbufs, io_out, "", &ctx->outputs[i], "out", "[]");
       } else if (ctx->outputs[i].invariant || ctx->outputs[i].precise) {
-         emit_hdrf(ctx, "%s%s;\n",
+         emit_hdrf(glsl_strbufs, "%s%s;\n",
                    ctx->outputs[i].precise ? "precise " :
                    (ctx->outputs[i].invariant ? "invariant " : ""),
                    ctx->outputs[i].glsl_name);
@@ -6513,44 +6547,45 @@ static void emit_ios_tcs(struct dump_ctx *ctx)
          snprintf(cull_var, 64, "float gl_CullDistance[%d];\n", cull_dist);
 
       ctx->has_pervertex = true;
-      emit_hdrf(ctx, "in gl_PerVertex {\n vec4 gl_Position; \n %s%s} gl_in[];\n", clip_var, cull_var);
+      emit_hdrf(glsl_strbufs, "in gl_PerVertex {\n vec4 gl_Position; \n %s%s} gl_in[];\n", clip_var, cull_var);
    }
    if (ctx->num_clip_dist && ctx->key->next_stage_pervertex_in) {
-      emit_hdrf(ctx, "out gl_PerVertex {\n vec4 gl_Position;\n float gl_ClipDistance[%d];\n} gl_out[];\n", ctx->num_clip_dist);
-      emit_hdr(ctx, "vec4 clip_dist_temp[2];\n");
+      emit_hdrf(glsl_strbufs, "out gl_PerVertex {\n vec4 gl_Position;\n float gl_ClipDistance[%d];\n} gl_out[];\n", ctx->num_clip_dist);
+      emit_hdr(glsl_strbufs, "vec4 clip_dist_temp[2];\n");
    }
 }
 
-static void emit_ios_tes(struct dump_ctx *ctx)
+static void emit_ios_tes(struct dump_ctx *ctx,
+                         struct vrend_glsl_strbufs *glsl_strbufs)
 {
    uint32_t i;
 
    if (ctx->patch_input_range.used)
-      emit_ios_patch(ctx, "patch", &ctx->patch_input_range.io, "in",
+      emit_ios_patch(glsl_strbufs, "patch", &ctx->patch_input_range.io, "in",
                      ctx->patch_input_range.io.last - ctx->patch_input_range.io.sid + 1);
 
    if (ctx->generic_input_range.used)
-      emit_ios_indirect_generics_input(ctx, "[]");
+      emit_ios_indirect_generics_input(ctx, glsl_strbufs, "[]");
 
    for (i = 0; i < ctx->num_inputs; i++) {
       if (!ctx->inputs[i].glsl_predefined_no_emit) {
          if (ctx->inputs[i].name == TGSI_SEMANTIC_PATCH)
-            emit_ios_patch(ctx, "patch", &ctx->inputs[i], "in",
+            emit_ios_patch(glsl_strbufs, "patch", &ctx->inputs[i], "in",
                            ctx->inputs[i].last - ctx->inputs[i].first + 1);
          else
-            emit_ios_generic(ctx, io_in, "", &ctx->inputs[i], "in", "[]");
+            emit_ios_generic(ctx, glsl_strbufs, io_in, "", &ctx->inputs[i], "in", "[]");
       }
    }
 
-   emit_hdrf(ctx, "layout(%s, %s, %s%s) in;\n",
+   emit_hdrf(glsl_strbufs, "layout(%s, %s, %s%s) in;\n",
              prim_to_tes_name(ctx->tes_prim_mode),
              get_spacing_string(ctx->tes_spacing),
              ctx->tes_vertex_order ? "cw" : "ccw",
              ctx->tes_point_mode ? ", point_mode" : "");
 
-   emit_ios_generic_outputs(ctx, can_emit_generic_default);
+   emit_ios_generic_outputs(ctx, glsl_strbufs, can_emit_generic_default);
 
-   emit_winsys_correction(ctx);
+   emit_winsys_correction(glsl_strbufs);
 
    if (ctx->num_in_clip_dist) {
       int clip_dist, cull_dist;
@@ -6565,58 +6600,60 @@ static void emit_ios_tes(struct dump_ctx *ctx)
          snprintf(cull_var, 64, "float gl_CullDistance[%d];\n", cull_dist);
 
       ctx->has_pervertex = true;
-      emit_hdrf(ctx, "in gl_PerVertex {\n vec4 gl_Position; \n %s%s} gl_in[];\n", clip_var, cull_var);
+      emit_hdrf(glsl_strbufs, "in gl_PerVertex {\n vec4 gl_Position; \n %s%s} gl_in[];\n", clip_var, cull_var);
    }
    if (ctx->num_clip_dist && ctx->key->next_stage_pervertex_in) {
-      emit_hdrf(ctx, "out gl_PerVertex {\n vec4 gl_Position;\n float gl_ClipDistance[%d];\n} gl_out[];\n", ctx->num_clip_dist);
-      emit_hdr(ctx, "vec4 clip_dist_temp[2];\n");
+      emit_hdrf(glsl_strbufs, "out gl_PerVertex {\n vec4 gl_Position;\n float gl_ClipDistance[%d];\n} gl_out[];\n", ctx->num_clip_dist);
+      emit_hdr(glsl_strbufs, "vec4 clip_dist_temp[2];\n");
    }
 }
 
 
-static void emit_ios_cs(struct dump_ctx *ctx)
+static void emit_ios_cs(const struct dump_ctx *ctx,
+                        struct vrend_glsl_strbufs *glsl_strbufs)
 {
-   emit_hdrf(ctx, "layout (local_size_x = %d, local_size_y = %d, local_size_z = %d) in;\n",
+   emit_hdrf(glsl_strbufs, "layout (local_size_x = %d, local_size_y = %d, local_size_z = %d) in;\n",
              ctx->local_cs_block_size[0], ctx->local_cs_block_size[1], ctx->local_cs_block_size[2]);
 
    if (ctx->req_local_mem) {
       enum vrend_type_qualifier type = ctx->integer_memory ? INT : UINT;
-      emit_hdrf(ctx, "shared %s values[%d];\n", get_string(type), ctx->req_local_mem / 4);
+      emit_hdrf(glsl_strbufs, "shared %s values[%d];\n", get_string(type), ctx->req_local_mem / 4);
    }
 }
 
-static void emit_ios(struct dump_ctx *ctx)
+static void emit_ios(struct dump_ctx *ctx,
+                     struct vrend_glsl_strbufs *glsl_strbufs)
 {
    ctx->num_interps = 0;
 
    if (ctx->so && ctx->so->num_outputs >= PIPE_MAX_SO_OUTPUTS) {
       vrend_printf( "Num outputs exceeded, max is %u\n", PIPE_MAX_SO_OUTPUTS);
-      set_hdr_error(ctx);
+      set_hdr_error(glsl_strbufs);
       return;
    }
 
    switch (ctx->prog_type) {
    case TGSI_PROCESSOR_VERTEX:
-      emit_ios_vs(ctx);
+      emit_ios_vs(ctx, glsl_strbufs);
       break;
    case TGSI_PROCESSOR_FRAGMENT:
-      emit_ios_fs(ctx);
+      emit_ios_fs(ctx, glsl_strbufs);
       break;
    case TGSI_PROCESSOR_GEOMETRY:
-      emit_ios_geom(ctx);
+      emit_ios_geom(ctx, glsl_strbufs);
       break;
    case TGSI_PROCESSOR_TESS_CTRL:
-      emit_ios_tcs(ctx);
+      emit_ios_tcs(ctx, glsl_strbufs);
       break;
    case TGSI_PROCESSOR_TESS_EVAL:
-      emit_ios_tes(ctx);
+      emit_ios_tes(ctx, glsl_strbufs);
       break;
    case TGSI_PROCESSOR_COMPUTE:
-      emit_ios_cs(ctx);
+      emit_ios_cs(ctx, glsl_strbufs);
       break;
    default:
       fprintf(stderr, "Unknown shader processor %d\n", ctx->prog_type);
-      set_hdr_error(ctx);
+      set_hdr_error(glsl_strbufs);
       return;
    }
 
@@ -6626,18 +6663,18 @@ static void emit_ios(struct dump_ctx *ctx)
          uint32_t mask = 1 << i;
          bool expecting = ctx->generic_outputs_expected_mask & mask;
          if (expecting & !(ctx->generic_outputs_emitted_mask & mask))
-            emit_hdrf(ctx, "                              out vec4 %s_g%dA0_f%s;\n",
+            emit_hdrf(glsl_strbufs, "                              out vec4 %s_g%dA0_f%s;\n",
                       get_stage_output_name_prefix(ctx->prog_type), i,
                       ctx->prog_type == TGSI_PROCESSOR_TESS_CTRL ? "[]" : "");
       }
    }
 
-   emit_ios_streamout(ctx);
-   emit_ios_common(ctx);
+   emit_ios_streamout(ctx, glsl_strbufs);
+   emit_ios_common(ctx, glsl_strbufs);
 
    if (ctx->prog_type == TGSI_PROCESSOR_FRAGMENT &&
        ctx->key->pstipple_tex == true) {
-      emit_hdr(ctx, "uniform sampler2D pstipple_sampler;\nfloat stip_temp;\n");
+      emit_hdr(glsl_strbufs, "uniform sampler2D pstipple_sampler;\nfloat stip_temp;\n");
    }
 }
 
@@ -6802,29 +6839,29 @@ static void fill_sinfo(struct dump_ctx *ctx, struct vrend_shader_info *sinfo)
    }
 }
 
-static bool allocate_strbuffers(struct dump_ctx* ctx)
+static bool allocate_strbuffers(struct vrend_glsl_strbufs* glsl_strbufs)
 {
-   if (!strbuf_alloc(&ctx->glsl_main, 4096))
+   if (!strbuf_alloc(&glsl_strbufs->glsl_main, 4096))
       return false;
 
-   if (strbuf_get_error(&ctx->glsl_main))
+   if (strbuf_get_error(&glsl_strbufs->glsl_main))
       return false;
 
-   if (!strbuf_alloc(&ctx->glsl_hdr, 1024))
+   if (!strbuf_alloc(&glsl_strbufs->glsl_hdr, 1024))
       return false;
 
-   if (!strbuf_alloc(&ctx->glsl_ver_ext, 1024))
+   if (!strbuf_alloc(&glsl_strbufs->glsl_ver_ext, 1024))
       return false;
 
    return true;
 }
 
-static void set_strbuffers(MAYBE_UNUSED const struct vrend_context *rctx, struct dump_ctx* ctx,
+static void set_strbuffers(MAYBE_UNUSED const struct vrend_context *rctx, const struct vrend_glsl_strbufs* glsl_strbufs,
                            struct vrend_strarray *shader)
 {
-   strarray_addstrbuf(shader, &ctx->glsl_ver_ext);
-   strarray_addstrbuf(shader, &ctx->glsl_hdr);
-   strarray_addstrbuf(shader, &ctx->glsl_main);
+   strarray_addstrbuf(shader, &glsl_strbufs->glsl_ver_ext);
+   strarray_addstrbuf(shader, &glsl_strbufs->glsl_hdr);
+   strarray_addstrbuf(shader, &glsl_strbufs->glsl_main);
    VREND_DEBUG(dbg_shader_glsl, rctx, "GLSL:");
    VREND_DEBUG_EXT(dbg_shader_glsl, rctx, strarray_dump(shader));
    VREND_DEBUG(dbg_shader_glsl, rctx, "\n");
@@ -6905,7 +6942,7 @@ bool vrend_convert_shader(const struct vrend_context *rctx,
    if (ctx.info.indirect_files & (1 << TGSI_FILE_SAMPLER))
       ctx.shader_req_bits |= SHADER_REQ_GPU_SHADER5;
 
-   if (!allocate_strbuffers(&ctx))
+   if (!allocate_strbuffers(&ctx.glsl_strbufs))
       goto fail;
 
    bret = tgsi_iterate_shader(tokens, &ctx.iter);
@@ -6915,10 +6952,10 @@ bool vrend_convert_shader(const struct vrend_context *rctx,
    for (size_t i = 0; i < ARRAY_SIZE(ctx.src_bufs); ++i)
       strbuf_free(ctx.src_bufs + i);
 
-   emit_header(&ctx);
-   emit_ios(&ctx);
+   emit_header(&ctx, &ctx.glsl_strbufs);
+   emit_ios(&ctx, &ctx.glsl_strbufs);
 
-   if (strbuf_get_error(&ctx.glsl_hdr))
+   if (strbuf_get_error(&ctx.glsl_strbufs.glsl_hdr))
       goto fail;
 
    bret = fill_interpolants(&ctx, sinfo);
@@ -6928,7 +6965,7 @@ bool vrend_convert_shader(const struct vrend_context *rctx,
    free(ctx.temp_ranges);
 
    fill_sinfo(&ctx, sinfo);
-   set_strbuffers(rctx, &ctx, shader);
+   set_strbuffers(rctx, &ctx.glsl_strbufs, shader);
 
    if (ctx.prog_type == TGSI_PROCESSOR_GEOMETRY) {
        vrend_patch_vertex_shader_interpolants(rctx,
@@ -6957,9 +6994,9 @@ bool vrend_convert_shader(const struct vrend_context *rctx,
 
    return true;
  fail:
-   strbuf_free(&ctx.glsl_main);
-   strbuf_free(&ctx.glsl_hdr);
-   strbuf_free(&ctx.glsl_ver_ext);
+   strbuf_free(&ctx.glsl_strbufs.glsl_main);
+   strbuf_free(&ctx.glsl_strbufs.glsl_hdr);
+   strbuf_free(&ctx.glsl_strbufs.glsl_ver_ext);
    free(ctx.so_names);
    free(ctx.temp_ranges);
    return false;
@@ -7212,7 +7249,7 @@ bool vrend_shader_create_passthrough_tcs(const struct vrend_context *rctx,
    ctx.ssbo_atomic_array_base = 0xffffffff;
    ctx.has_sample_input = false;
 
-   if (!allocate_strbuffers(&ctx))
+   if (!allocate_strbuffers(&ctx.glsl_strbufs))
       goto fail;
 
    tgsi_iterate_shader(vs_tokens, &ctx.iter);
@@ -7224,10 +7261,10 @@ bool vrend_shader_create_passthrough_tcs(const struct vrend_context *rctx,
 
    handle_io_arrays(&ctx);
 
-   emit_header(&ctx);
-   emit_ios(&ctx);
+   emit_header(&ctx, &ctx.glsl_strbufs);
+   emit_ios(&ctx, &ctx.glsl_strbufs);
 
-   emit_buf(&ctx, "void main() {\n");
+   emit_buf(&ctx.glsl_strbufs, "void main() {\n");
 
    for (unsigned int i = 0; i < ctx.num_inputs; ++i) {
       const char *out_prefix = "";
@@ -7243,13 +7280,13 @@ bool vrend_shader_create_passthrough_tcs(const struct vrend_context *rctx,
       }
 
       if (ctx.inputs[i].first == ctx.inputs[i].last) {
-         emit_buff(&ctx, "%s%s%s = %s%s%s;\n",
+         emit_buff(&ctx.glsl_strbufs, "%s%s%s = %s%s%s;\n",
                    out_prefix, ctx.outputs[i].glsl_name, postfix,
                    in_prefix, ctx.inputs[i].glsl_name, postfix);
       } else {
          unsigned size = ctx.inputs[i].last == ctx.inputs[i].first + 1;
          for (unsigned int k = 0; k < size; ++k) {
-            emit_buff(&ctx, "%s%s%s[%d] = %s%s%s[%d];\n",
+            emit_buff(&ctx.glsl_strbufs, "%s%s%s[%d] = %s%s%s[%d];\n",
                       out_prefix, ctx.outputs[i].glsl_name, postfix, k,
                       in_prefix, ctx.inputs[i].glsl_name, postfix, k);
          }
@@ -7257,20 +7294,20 @@ bool vrend_shader_create_passthrough_tcs(const struct vrend_context *rctx,
    }
 
    for (int i = 0; i < 4; ++i)
-      emit_buff(&ctx, "gl_TessLevelOuter[%d] = %f;\n", i, tess_factors[i]);
+      emit_buff(&ctx.glsl_strbufs, "gl_TessLevelOuter[%d] = %f;\n", i, tess_factors[i]);
 
    for (int i = 0; i < 2; ++i)
-      emit_buff(&ctx, "gl_TessLevelInner[%d] = %f;\n", i, tess_factors[i + 4]);
+      emit_buff(&ctx.glsl_strbufs, "gl_TessLevelInner[%d] = %f;\n", i, tess_factors[i + 4]);
 
-   emit_buf(&ctx, "}\n");
+   emit_buf(&ctx.glsl_strbufs, "}\n");
 
    fill_sinfo(&ctx, sinfo);
-   set_strbuffers(rctx, &ctx, shader);
+   set_strbuffers(rctx, &ctx.glsl_strbufs, shader);
    return true;
 fail:
-   strbuf_free(&ctx.glsl_main);
-   strbuf_free(&ctx.glsl_hdr);
-   strbuf_free(&ctx.glsl_ver_ext);
+   strbuf_free(&ctx.glsl_strbufs.glsl_main);
+   strbuf_free(&ctx.glsl_strbufs.glsl_hdr);
+   strbuf_free(&ctx.glsl_strbufs.glsl_ver_ext);
    free(ctx.so_names);
    free(ctx.temp_ranges);
    return false;
