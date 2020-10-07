@@ -895,7 +895,7 @@ static int lookup_image_array(const struct dump_ctx *ctx, int index)
 
 static boolean
 iter_inputs(struct tgsi_iterate_context *iter,
-            struct tgsi_full_declaration *decl )
+            struct tgsi_full_declaration *decl)
 {
    struct dump_ctx *ctx = (struct dump_ctx *)iter;
    switch (decl->Declaration.File) {
@@ -932,7 +932,8 @@ static bool logiop_require_inout(const struct vrend_shader_key *key)
 
 static enum vec_type get_type(uint32_t signed_int_mask,
                               uint32_t unsigned_int_mask,
-                              int bit) {
+                              int bit)
+{
    if (signed_int_mask & (1 << bit))
       return VEC_INT;
    else if (unsigned_int_mask & (1 << bit))
@@ -943,7 +944,7 @@ static enum vec_type get_type(uint32_t signed_int_mask,
 
 static boolean
 iter_declaration(struct tgsi_iterate_context *iter,
-                 struct tgsi_full_declaration *decl )
+                 struct tgsi_full_declaration *decl)
 {
    struct dump_ctx *ctx = (struct dump_ctx *)iter;
    int i;
@@ -1708,9 +1709,8 @@ iter_property(struct tgsi_iterate_context *iter,
 }
 
 static boolean
-iter_immediate(
-   struct tgsi_iterate_context *iter,
-   struct tgsi_full_immediate *imm )
+iter_immediate(struct tgsi_iterate_context *iter,
+               struct tgsi_full_immediate *imm)
 {
    struct dump_ctx *ctx = (struct dump_ctx *) iter;
    int i;
@@ -2204,8 +2204,8 @@ static void handle_fragment_proc_exit(const struct dump_ctx *ctx,
 }
 
 static void set_texture_reqs(struct dump_ctx *ctx,
-			     struct tgsi_full_instruction *inst,
-			     uint32_t sreg_index)
+                             struct tgsi_full_instruction *inst,
+                             uint32_t sreg_index)
 {
    if (sreg_index >= ARRAY_SIZE(ctx->samplers)) {
       vrend_printf( "Sampler view exceeded, max is %lu\n", ARRAY_SIZE(ctx->samplers));
@@ -5314,7 +5314,8 @@ iter_instruction(struct tgsi_iterate_context *iter,
             return false;
          srcs[1] = ctx->src_bufs[1].buf;
       }
-      translate_store(ctx, &ctx->glsl_strbufs, ctx->ssbo_memory_qualifier, inst, &sinfo, srcs, dsts[0]);
+      translate_store(ctx, &ctx->glsl_strbufs, ctx->ssbo_memory_qualifier,
+                      inst, &sinfo, srcs, dsts[0]);
       break;
    case TGSI_OPCODE_LOAD:
       if (ctx->cfg->use_gles) {
