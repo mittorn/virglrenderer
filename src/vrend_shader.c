@@ -684,19 +684,19 @@ static void emit_ver_extf(struct vrend_glsl_strbufs *glsl_strbufs, const char *f
    va_end(va);
 }
 
-static bool allocate_temp_range(struct dump_ctx *ctx, int first, int last,
+static bool allocate_temp_range(struct vrend_temp_range **temp_ranges, uint32_t *num_temp_ranges, int first, int last,
                                 int array_id)
 {
-   int idx = ctx->num_temp_ranges;
+   int idx = *num_temp_ranges;
 
-   ctx->temp_ranges = realloc(ctx->temp_ranges, sizeof(struct vrend_temp_range) * (idx + 1));
-   if (!ctx->temp_ranges)
+   *temp_ranges = realloc(*temp_ranges, sizeof(struct vrend_temp_range) * (idx + 1));
+   if (!*temp_ranges)
       return false;
 
-   ctx->temp_ranges[idx].first = first;
-   ctx->temp_ranges[idx].last = last;
-   ctx->temp_ranges[idx].array_id = array_id;
-   ctx->num_temp_ranges++;
+   (*temp_ranges)[idx].first = first;
+   (*temp_ranges)[idx].last = last;
+   (*temp_ranges)[idx].array_id = array_id;
+   (*num_temp_ranges)++;
    return true;
 }
 
@@ -1470,7 +1470,7 @@ iter_declaration(struct tgsi_iterate_context *iter,
       }
       break;
    case TGSI_FILE_TEMPORARY:
-      if (!allocate_temp_range(ctx, decl->Range.First, decl->Range.Last,
+      if (!allocate_temp_range(&ctx->temp_ranges, &ctx->num_temp_ranges, decl->Range.First, decl->Range.Last,
                                decl->Array.ArrayID))
          return false;
       break;
