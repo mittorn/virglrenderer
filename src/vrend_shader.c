@@ -700,7 +700,7 @@ static bool allocate_temp_range(struct vrend_temp_range **temp_ranges, uint32_t 
    return true;
 }
 
-static struct vrend_temp_range *find_temp_range(struct dump_ctx *ctx, int index)
+static struct vrend_temp_range *find_temp_range(const struct dump_ctx *ctx, int index)
 {
    uint32_t i;
    for (i = 0; i < ctx->num_temp_ranges; i++) {
@@ -747,8 +747,9 @@ static uint32_t samplertype_to_req_bits(int sampler_type)
    }
 }
 
+// TODO Consider exposing non-const ctx-> members as args to make *ctx const
 static bool add_images(struct dump_ctx *ctx, int first, int last,
-                       struct tgsi_declaration_image *img_decl)
+                       const struct tgsi_declaration_image *img_decl)
 {
    int i;
 
@@ -808,6 +809,7 @@ static bool add_images(struct dump_ctx *ctx, int first, int last,
    return true;
 }
 
+// TODO Consider exposing non-const ctx-> members as args to make *ctx const
 static bool add_sampler_array(struct dump_ctx *ctx, int first, int last)
 {
    int idx = ctx->num_sampler_arrays;
@@ -821,7 +823,7 @@ static bool add_sampler_array(struct dump_ctx *ctx, int first, int last)
    return true;
 }
 
-static int lookup_sampler_array(struct dump_ctx *ctx, int index)
+static int lookup_sampler_array(const struct dump_ctx *ctx, int index)
 {
    uint32_t i;
    for (i = 0; i < ctx->num_sampler_arrays; i++) {
@@ -847,6 +849,7 @@ int vrend_shader_lookup_sampler_array(const struct vrend_shader_info *sinfo, int
    return -1;
 }
 
+// TODO Consider exposing non-const ctx-> members as args to make *ctx const
 static bool add_samplers(struct dump_ctx *ctx, int first, int last, int sview_type, enum tgsi_return_type sview_rtype)
 {
    if (sview_rtype == TGSI_RETURN_TYPE_SINT ||
@@ -1834,6 +1837,7 @@ static void emit_prescale(struct vrend_glsl_strbufs *glsl_strbufs)
    emit_buf(glsl_strbufs, "gl_Position.y = gl_Position.y * winsys_adjust_y;\n");
 }
 
+// TODO Consider exposing non-const ctx-> members as args to make *ctx const
 static void prepare_so_movs(struct dump_ctx *ctx)
 {
    uint32_t i;
@@ -2203,8 +2207,9 @@ static void handle_fragment_proc_exit(const struct dump_ctx *ctx,
 
 }
 
+// TODO Consider exposing non-const ctx-> members as args to make *ctx const
 static void set_texture_reqs(struct dump_ctx *ctx,
-                             struct tgsi_full_instruction *inst,
+                             const struct tgsi_full_instruction *inst,
                              uint32_t sreg_index)
 {
    if (sreg_index >= ARRAY_SIZE(ctx->samplers)) {
@@ -2222,9 +2227,10 @@ static void set_texture_reqs(struct dump_ctx *ctx,
          ctx->glsl_ver_required = require_glsl_ver(ctx, 140);
 }
 
+// TODO Consider exposing non-const ctx-> members as args to make *ctx const
 /* size queries are pretty much separate */
 static void emit_txq(struct dump_ctx *ctx,
-                     struct tgsi_full_instruction *inst,
+                     const struct tgsi_full_instruction *inst,
                      uint32_t sreg_index,
                      const char *srcs[4],
                      const char *dst,
@@ -2318,9 +2324,10 @@ static void emit_txq(struct dump_ctx *ctx,
    }
 }
 
+// TODO Consider exposing non-const ctx-> members as args to make *ctx const
 /* sample queries are pretty much separate */
 static void emit_txqs(struct dump_ctx *ctx,
-                      struct tgsi_full_instruction *inst,
+                      const struct tgsi_full_instruction *inst,
                       uint32_t sreg_index,
                       const char *srcs[4],
                       const char *dst)
@@ -2341,7 +2348,7 @@ static void emit_txqs(struct dump_ctx *ctx,
             get_string(dtypeprefix), srcs[sampler_index]);
 }
 
-static const char *get_tex_inst_ext(struct tgsi_full_instruction *inst)
+static const char *get_tex_inst_ext(const struct tgsi_full_instruction *inst)
 {
    switch (inst->Instruction.Opcode) {
    case TGSI_OPCODE_LODQ:
@@ -2381,12 +2388,12 @@ static const char *get_tex_inst_ext(struct tgsi_full_instruction *inst)
    }
 }
 
-static bool fill_offset_buffer(struct dump_ctx *ctx,
-                               struct tgsi_full_instruction *inst,
+static bool fill_offset_buffer(const struct dump_ctx *ctx,
+                               const struct tgsi_full_instruction *inst,
                                char *offbuf)
 {
    if (inst->TexOffsets[0].File == TGSI_FILE_IMMEDIATE) {
-      struct immed *imd = &ctx->imm[inst->TexOffsets[0].Index];
+      const struct immed *imd = &ctx->imm[inst->TexOffsets[0].Index];
       switch (inst->Texture.Texture) {
       case TGSI_TEXTURE_1D:
       case TGSI_TEXTURE_1D_ARRAY:
@@ -2495,10 +2502,11 @@ static bool fill_offset_buffer(struct dump_ctx *ctx,
    return true;
 }
 
+// TODO Consider exposing non-const ctx-> members as args to make *ctx const
 static void translate_tex(struct dump_ctx *ctx,
-                          struct tgsi_full_instruction *inst,
-                          struct source_info *sinfo,
-                          struct dest_info *dinfo,
+                          const struct tgsi_full_instruction *inst,
+                          const struct source_info *sinfo,
+                          const struct dest_info *dinfo,
                           const char *srcs[4],
                           const char *dst,
                           const char *writemask)
@@ -2870,7 +2878,7 @@ static void translate_tex(struct dump_ctx *ctx,
 }
 
 static void
-create_swizzled_clipdist(struct dump_ctx *ctx,
+create_swizzled_clipdist(const struct dump_ctx *ctx,
                          struct vrend_strbuf *result,
                          const struct tgsi_full_src_register *src,
                          int input_idx,
@@ -2929,7 +2937,7 @@ create_swizzled_clipdist(struct dump_ctx *ctx,
 }
 
 static
-void load_clipdist_fs(struct dump_ctx *ctx,
+void load_clipdist_fs(const struct dump_ctx *ctx,
                       struct vrend_strbuf *result,
                       const struct tgsi_full_src_register *src,
                       int input_idx,
@@ -2999,7 +3007,7 @@ static bool is_integer_memory(const struct dump_ctx *ctx, enum tgsi_file_type fi
 
 static void set_memory_qualifier(uint8_t ssbo_memory_qualifier[],
                                  uint32_t ssbo_used_mask,
-                                 struct tgsi_full_instruction *inst,
+                                 const struct tgsi_full_instruction *inst,
                                  uint32_t reg_index, bool indirect)
 {
    if (inst->Memory.Qualifier == TGSI_MEMORY_COHERENT) {
@@ -3027,7 +3035,7 @@ static void
 translate_store(const struct dump_ctx *ctx,
                 struct vrend_glsl_strbufs *glsl_strbufs,
                 uint8_t ssbo_memory_qualifier[],
-                struct tgsi_full_instruction *inst,
+                const struct tgsi_full_instruction *inst,
                 struct source_info *sinfo,
                 const char *srcs[4],
                 const char *dst)
@@ -3128,11 +3136,11 @@ static void emit_load_mem(struct vrend_glsl_strbufs *glsl_strbufs, const char *d
 
 
 static void
-translate_load(struct dump_ctx *ctx,
+translate_load(const struct dump_ctx *ctx,
                struct vrend_glsl_strbufs *glsl_strbufs,
                uint8_t ssbo_memory_qualifier[],
                struct vrend_shader_image images[],
-               struct tgsi_full_instruction *inst,
+               const struct tgsi_full_instruction *inst,
                struct source_info *sinfo,
                struct dest_info *dinfo,
                const char *srcs[4],
@@ -3291,8 +3299,9 @@ static const char *get_atomic_opname(int tgsi_opcode, bool *is_cas)
    return opname;
 }
 
+// TODO Consider exposing non-const ctx-> members as args to make *ctx const
 static void
-translate_resq(struct dump_ctx *ctx, struct tgsi_full_instruction *inst,
+translate_resq(struct dump_ctx *ctx, const struct tgsi_full_instruction *inst,
                const char *srcs[4], const char *dst, const char *writemask)
 {
    const struct tgsi_full_src_register *src = &inst->Src[0];
@@ -3320,9 +3329,10 @@ translate_resq(struct dump_ctx *ctx, struct tgsi_full_instruction *inst,
    }
 }
 
+// TODO Consider exposing non-const ctx-> members as args to make *ctx const
 static void
 translate_atomic(struct dump_ctx *ctx,
-                 struct tgsi_full_instruction *inst,
+                 const struct tgsi_full_instruction *inst,
                  struct source_info *sinfo,
                  const char *srcs[4],
                  char *dst)
@@ -3460,7 +3470,7 @@ static const char *reswizzle_dest(const struct vrend_shader_io *io, const struct
    return writemask;
 }
 
-static void get_destination_info_generic(struct dump_ctx *ctx,
+static void get_destination_info_generic(const struct dump_ctx *ctx,
                                          const struct tgsi_full_dst_register *dst_reg,
                                          const struct vrend_shader_io *io,
                                          const char *writemask, char dsts[255])
@@ -3496,6 +3506,7 @@ static void get_destination_info_generic(struct dump_ctx *ctx,
    }
 }
 
+// TODO Consider exposing non-const ctx-> members as args to make *ctx const
 static bool
 get_destination_info(struct dump_ctx *ctx,
                      const struct tgsi_full_instruction *inst,
@@ -3752,7 +3763,7 @@ static const char *shift_swizzles(const struct vrend_shader_io *io, const struct
    return swizzle;
 }
 
-static void get_source_info_generic(struct dump_ctx *ctx,
+static void get_source_info_generic(const struct dump_ctx *ctx,
                                     enum io_type iot,
                                     enum vrend_type_qualifier srcstypeprefix,
                                     const char *prefix,
@@ -3843,6 +3854,7 @@ static void get_source_info_patch(enum vrend_type_qualifier srcstypeprefix,
 }
 
 
+// TODO Consider exposing non-const ctx-> members as args to make *ctx const
 static bool
 get_source_info(struct dump_ctx *ctx,
                 const struct tgsi_full_instruction *inst,
@@ -4722,6 +4734,7 @@ void renumber_io_arrays(unsigned nio, struct vrend_shader_io *io)
    }
 }
 
+// TODO Consider exposing non-const ctx-> members as args to make *ctx const
 static void handle_io_arrays(struct dump_ctx *ctx)
 {
    bool require_enhanced_layouts = false;
@@ -5818,7 +5831,7 @@ static void emit_image_decl(const struct dump_ctx *ctx,
                access, volatile_str, precision, ptc, stc, sname, i);
 }
 
-static int emit_ios_common(struct dump_ctx *ctx,
+static int emit_ios_common(const struct dump_ctx *ctx,
                            struct vrend_glsl_strbufs *glsl_strbufs,
                            uint32_t *shadow_samp_mask)
 {
@@ -6668,7 +6681,7 @@ static void emit_ios_cs(const struct dump_ctx *ctx,
    }
 }
 
-static int emit_ios(struct dump_ctx *ctx,
+static int emit_ios(const struct dump_ctx *ctx,
                     struct vrend_glsl_strbufs *glsl_strbufs,
                     struct vrend_generic_ios *generic_ios,
                     uint8_t front_back_color_emitted_flags[],
@@ -6735,7 +6748,7 @@ static int emit_ios(struct dump_ctx *ctx,
    return glsl_ver_required;
 }
 
-static boolean fill_fragment_interpolants(struct dump_ctx *ctx, struct vrend_shader_info *sinfo)
+static boolean fill_fragment_interpolants(const struct dump_ctx *ctx, struct vrend_shader_info *sinfo)
 {
    uint32_t i, index = 0;
 
@@ -6760,7 +6773,7 @@ static boolean fill_fragment_interpolants(struct dump_ctx *ctx, struct vrend_sha
    return true;
 }
 
-static boolean fill_interpolants(struct dump_ctx *ctx, struct vrend_shader_info *sinfo)
+static boolean fill_interpolants(const struct dump_ctx *ctx, struct vrend_shader_info *sinfo)
 {
    boolean ret;
 
@@ -6816,7 +6829,7 @@ static boolean analyze_instruction(struct tgsi_iterate_context *iter,
    return true;
 }
 
-static void fill_sinfo(struct dump_ctx *ctx, struct vrend_shader_info *sinfo)
+static void fill_sinfo(const struct dump_ctx *ctx, struct vrend_shader_info *sinfo)
 {
    sinfo->num_ucp = ctx->key->clip_plane_enable ? 8 : 0;
    sinfo->has_pervertex_in = ctx->has_pervertex;
