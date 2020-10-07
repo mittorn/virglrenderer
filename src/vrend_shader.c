@@ -3131,6 +3131,7 @@ static void
 translate_load(struct dump_ctx *ctx,
                struct vrend_glsl_strbufs *glsl_strbufs,
                uint8_t ssbo_memory_qualifier[],
+               struct vrend_shader_image images[],
                struct tgsi_full_instruction *inst,
                struct source_info *sinfo,
                struct dest_info *dinfo,
@@ -3172,7 +3173,7 @@ translate_load(struct dump_ctx *ctx,
           (ctx->images[sinfo->sreg_index].decl.Format != PIPE_FORMAT_R32_FLOAT) &&
           (ctx->images[sinfo->sreg_index].decl.Format != PIPE_FORMAT_R32_SINT) &&
           (ctx->images[sinfo->sreg_index].decl.Format != PIPE_FORMAT_R32_UINT))
-         ctx->images[sinfo->sreg_index].decl.Writable = 0;
+         images[sinfo->sreg_index].decl.Writable = 0;
 
       if (!ctx->cfg->use_gles || !inst->Src[0].Register.Indirect) {
          emit_buff(glsl_strbufs, "%s = %s(imageLoad(%s, %s(%s(%s))%s)%s);\n",
@@ -5321,7 +5322,8 @@ iter_instruction(struct tgsi_iterate_context *iter,
             return false;
          srcs[1] = ctx->src_bufs[1].buf;
       }
-      translate_load(ctx, &ctx->glsl_strbufs, ctx->ssbo_memory_qualifier, inst, &sinfo, &dinfo, srcs, dsts[0], writemask);
+      translate_load(ctx, &ctx->glsl_strbufs, ctx->ssbo_memory_qualifier, ctx->images,
+                     inst, &sinfo, &dinfo, srcs, dsts[0], writemask);
       break;
    case TGSI_OPCODE_ATOMUADD:
    case TGSI_OPCODE_ATOMXCHG:
