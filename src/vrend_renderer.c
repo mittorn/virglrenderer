@@ -9035,7 +9035,6 @@ void vrend_renderer_check_fences(void)
 {
    struct vrend_fence *fence, *stor;
    uint32_t latest_id = 0;
-   GLenum glret;
 
    if (vrend_state.sync_thread) {
       flush_eventfd(vrend_state.eventfd);
