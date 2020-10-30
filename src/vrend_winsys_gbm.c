@@ -75,6 +75,13 @@ static const struct planar_layout packed_4bpp_layout = {
     .bytes_per_pixel = { 4 }
 };
 
+static const struct planar_layout packed_8bpp_layout = {
+    .num_planes = 1,
+    .horizontal_subsampling = { 1 },
+    .vertical_subsampling = { 1 },
+    .bytes_per_pixel = { 8 }
+};
+
 static const struct planar_layout biplanar_yuv_420_layout = {
     .num_planes = 2,
     .horizontal_subsampling = { 1, 2 },
@@ -93,6 +100,7 @@ static const struct format_conversion conversions[] = {
     { GBM_FORMAT_RGB565, VIRGL_FORMAT_B5G6R5_UNORM },
     { GBM_FORMAT_ARGB8888, VIRGL_FORMAT_B8G8R8A8_UNORM },
     { GBM_FORMAT_XRGB8888, VIRGL_FORMAT_B8G8R8X8_UNORM },
+    { GBM_FORMAT_ABGR16161616F, VIRGL_FORMAT_R16G16B16A16_FLOAT },
     { GBM_FORMAT_NV12, VIRGL_FORMAT_NV12 },
     { GBM_FORMAT_ABGR8888, VIRGL_FORMAT_R8G8B8A8_UNORM},
     { GBM_FORMAT_XBGR8888, VIRGL_FORMAT_R8G8B8X8_UNORM},
@@ -178,6 +186,8 @@ static const struct planar_layout *layout_from_format(uint32_t format)
    case GBM_FORMAT_ABGR8888:
    case GBM_FORMAT_XBGR8888:
       return &packed_4bpp_layout;
+   case GBM_FORMAT_ABGR16161616F:
+      return &packed_8bpp_layout;
    default:
       return NULL;
    }
