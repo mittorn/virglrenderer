@@ -278,9 +278,7 @@ void vtest_cleanup_renderer(void)
       struct vtest_context *ctx, *tmp;
 
       LIST_FOR_EACH_ENTRY_SAFE(ctx, tmp, &renderer.active_contexts, head) {
-         virgl_renderer_context_destroy(ctx->ctx_id);
-         util_hash_table_clear(ctx->resource_table);
-         vtest_free_context(ctx, true);
+         vtest_destroy_context(ctx);
       }
       LIST_FOR_EACH_ENTRY_SAFE(ctx, tmp, &renderer.free_contexts, head) {
          vtest_free_context(ctx, true);
