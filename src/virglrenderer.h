@@ -298,7 +298,7 @@ VIRGL_EXPORT int
 virgl_renderer_resource_export_blob(uint32_t res_id, uint32_t *fd_type, int *fd);
 
 VIRGL_EXPORT int
-virgl_renderer_export_fence(uint32_t client_fence_id, uint32_t *fd);
+virgl_renderer_export_fence(uint32_t client_fence_id, int *fd);
 
 #endif /* VIRGL_RENDERER_UNSTABLE_APIS */
 
