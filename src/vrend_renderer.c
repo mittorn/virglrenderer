@@ -10148,7 +10148,7 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
       caps->v2.capability_bits_v2 |= VIRGL_CAP_V2_BLEND_EQUATION;
 }
 
-void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
+void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
                               union virgl_caps *caps)
 {
    int gl_ver, gles_ver;
@@ -10160,10 +10160,14 @@ void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
 
    switch (set) {
    case VIRGL_RENDERER_CAPSET_VIRGL:
+      if (version > VREND_CAPSET_VIRGL_MAX_VERSION)
+         return;
       memset(caps, 0, sizeof(struct virgl_caps_v1));
       caps->max_version = VREND_CAPSET_VIRGL_MAX_VERSION;
       break;
    case VIRGL_RENDERER_CAPSET_VIRGL2:
+      if (version > VREND_CAPSET_VIRGL2_MAX_VERSION)
+         return;
       memset(caps, 0, sizeof(*caps));
       caps->max_version = VREND_CAPSET_VIRGL2_MAX_VERSION;
       fill_capset2 = true;
