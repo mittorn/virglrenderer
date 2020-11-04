@@ -10145,18 +10145,18 @@ void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
    if (!caps)
       return;
 
-   if (set > 2) {
-      caps->max_version = 0;
-      return;
-   }
-
-   if (set == 1) {
+   switch (set) {
+   case VIRGL_RENDERER_CAPSET_VIRGL:
       memset(caps, 0, sizeof(struct virgl_caps_v1));
       caps->max_version = 1;
-   } else if (set == 2) {
+      break;
+   case VIRGL_RENDERER_CAPSET_VIRGL2:
       memset(caps, 0, sizeof(*caps));
       caps->max_version = 2;
       fill_capset2 = true;
+      break;
+   default:
+      return;
    }
 
    /* We don't want to deal with stale error states that the caller might not
