@@ -58,6 +58,19 @@
 
 #include "tgsi/tgsi_text.h"
 
+/*
+ * VIRGL_RENDERER_CAPSET_VIRGL has version 0 and 1, but they are both
+ * virgl_caps_v1 and are exactly the same.
+ *
+ * VIRGL_RENDERER_CAPSET_VIRGL2 has version 0, 1, and 2, but they are
+ * all virgl_caps_v2 and are exactly the same.
+ *
+ * Since virgl_caps_v2 is growable and no backward-incompatible change is
+ * expected, we don't bump up these versions anymore.
+ */
+#define VREND_CAPSET_VIRGL_MAX_VERSION 1
+#define VREND_CAPSET_VIRGL2_MAX_VERSION 2
+
 static const uint32_t fake_occlusion_query_samples_passed_default = 1024;
 
 const struct vrend_if_cbs *vrend_clicbs;
@@ -10148,11 +10161,11 @@ void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
    switch (set) {
    case VIRGL_RENDERER_CAPSET_VIRGL:
       memset(caps, 0, sizeof(struct virgl_caps_v1));
-      caps->max_version = 1;
+      caps->max_version = VREND_CAPSET_VIRGL_MAX_VERSION;
       break;
    case VIRGL_RENDERER_CAPSET_VIRGL2:
       memset(caps, 0, sizeof(*caps));
-      caps->max_version = 2;
+      caps->max_version = VREND_CAPSET_VIRGL2_MAX_VERSION;
       fill_capset2 = true;
       break;
    default:
@@ -10356,12 +10369,11 @@ void vrend_renderer_get_cap_set(uint32_t cap_set, uint32_t *max_ver,
 {
    switch (cap_set) {
    case VIRGL_RENDERER_CAPSET_VIRGL:
-      *max_ver = 1;
+      *max_ver = VREND_CAPSET_VIRGL_MAX_VERSION;
       *max_size = sizeof(struct virgl_caps_v1);
       break;
    case VIRGL_RENDERER_CAPSET_VIRGL2:
-      /* we should never need to increase this - it should be possible to just grow virgl_caps */
-      *max_ver = 2;
+      *max_ver = VREND_CAPSET_VIRGL2_MAX_VERSION;
       *max_size = sizeof(struct virgl_caps_v2);
       break;
    default:
