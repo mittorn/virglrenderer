@@ -31,6 +31,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <unistd.h>
+
 #include "pipe/p_state.h"
 #include "util/u_format.h"
 #include "util/u_math.h"
@@ -99,11 +100,13 @@ static int virgl_renderer_resource_create_internal(struct virgl_renderer_resourc
 int virgl_renderer_resource_create(struct virgl_renderer_resource_create_args *args,
                                    struct iovec *iov, uint32_t num_iovs)
 {
+   TRACE_FUNC();
    return virgl_renderer_resource_create_internal(args, iov, num_iovs, NULL);
 }
 
 int virgl_renderer_resource_import_eglimage(struct virgl_renderer_resource_create_args *args, void *image)
 {
+   TRACE_FUNC();
    return virgl_renderer_resource_create_internal(args, NULL, 0, image);
 }
 
@@ -165,6 +168,8 @@ int virgl_renderer_context_create(uint32_t handle, uint32_t nlen, const char *na
    struct virgl_context *ctx;
    int ret;
 
+   TRACE_FUNC();
+
    /* user context id must be greater than 0 */
    if (handle == 0)
       return EINVAL;
@@ -187,6 +192,7 @@ int virgl_renderer_context_create(uint32_t handle, uint32_t nlen, const char *na
 
 void virgl_renderer_context_destroy(uint32_t handle)
 {
+   TRACE_FUNC();
    virgl_context_remove(handle);
 }
 
@@ -194,6 +200,7 @@ int virgl_renderer_submit_cmd(void *buffer,
                               int ctx_id,
                               int ndw)
 {
+   TRACE_FUNC();
    struct virgl_context *ctx = virgl_context_lookup(ctx_id);
    if (!ctx)
       return EINVAL;
@@ -210,6 +217,8 @@ int virgl_renderer_transfer_write_iov(uint32_t handle,
                                       struct iovec *iovec,
                                       unsigned int iovec_cnt)
 {
+   TRACE_FUNC();
+
    struct virgl_resource *res = virgl_resource_lookup(handle);
    struct vrend_transfer_info transfer_info;
 
@@ -248,6 +257,7 @@ int virgl_renderer_transfer_read_iov(uint32_t handle, uint32_t ctx_id,
                                      uint64_t offset, struct iovec *iovec,
                                      int iovec_cnt)
 {
+   TRACE_FUNC();
    struct virgl_resource *res = virgl_resource_lookup(handle);
    struct vrend_transfer_info transfer_info;
 
@@ -282,6 +292,7 @@ int virgl_renderer_transfer_read_iov(uint32_t handle, uint32_t ctx_id,
 int virgl_renderer_resource_attach_iov(int res_handle, struct iovec *iov,
                                        int num_iovs)
 {
+   TRACE_FUNC();
    struct virgl_resource *res = virgl_resource_lookup(res_handle);
    if (!res)
       return EINVAL;
@@ -291,6 +302,7 @@ int virgl_renderer_resource_attach_iov(int res_handle, struct iovec *iov,
 
 void virgl_renderer_resource_detach_iov(int res_handle, struct iovec **iov_p, int *num_iovs_p)
 {
+   TRACE_FUNC();
    struct virgl_resource *res = virgl_resource_lookup(res_handle);
    if (!res)
       return;
@@ -305,16 +317,19 @@ void virgl_renderer_resource_detach_iov(int res_handle, struct iovec **iov_p, in
 
 int virgl_renderer_create_fence(int client_fence_id, uint32_t ctx_id)
 {
+   TRACE_FUNC();
    return vrend_renderer_create_fence(client_fence_id, ctx_id);
 }
 
 void virgl_renderer_force_ctx_0(void)
 {
+   TRACE_FUNC();
    vrend_renderer_force_ctx_0();
 }
 
 void virgl_renderer_ctx_attach_resource(int ctx_id, int res_handle)
 {
+   TRACE_FUNC();
    struct virgl_context *ctx = virgl_context_lookup(ctx_id);
    struct virgl_resource *res = virgl_resource_lookup(res_handle);
    if (!ctx || !res)
@@ -324,6 +339,7 @@ void virgl_renderer_ctx_attach_resource(int ctx_id, int res_handle)
 
 void virgl_renderer_ctx_detach_resource(int ctx_id, int res_handle)
 {
+   TRACE_FUNC();
    struct virgl_context *ctx = virgl_context_lookup(ctx_id);
    struct virgl_resource *res = virgl_resource_lookup(res_handle);
    if (!ctx || !res)
@@ -334,6 +350,7 @@ void virgl_renderer_ctx_detach_resource(int ctx_id, int res_handle)
 int virgl_renderer_resource_get_info(int res_handle,
                                      struct virgl_renderer_resource_info *info)
 {
+   TRACE_FUNC();
    struct virgl_resource *res = virgl_resource_lookup(res_handle);
 
    if (!res || !res->pipe_resource)
@@ -357,6 +374,7 @@ int virgl_renderer_resource_get_info(int res_handle,
 void virgl_renderer_get_cap_set(uint32_t cap_set, uint32_t *max_ver,
                                 uint32_t *max_size)
 {
+   TRACE_FUNC();
    switch (cap_set) {
    case VIRGL_RENDERER_CAPSET_VIRGL:
    case VIRGL_RENDERER_CAPSET_VIRGL2:
@@ -372,6 +390,7 @@ void virgl_renderer_get_cap_set(uint32_t cap_set, uint32_t *max_ver,
 void virgl_renderer_get_rect(int resource_id, struct iovec *iov, unsigned int num_iovs,
                              uint32_t offset, int x, int y, int width, int height)
 {
+   TRACE_FUNC();
    struct virgl_resource *res = virgl_resource_lookup(resource_id);
    if (!res || !res->pipe_resource)
       return;
@@ -439,12 +458,14 @@ void *virgl_renderer_get_cursor_data(uint32_t resource_id, uint32_t *width, uint
 
 void virgl_renderer_poll(void)
 {
+   TRACE_FUNC();
    if (state.vrend_initialized)
       vrend_renderer_check_fences();
 }
 
 void virgl_renderer_cleanup(UNUSED void *cookie)
 {
+   TRACE_FUNC();
    if (state.vrend_initialized)
       vrend_renderer_prepare_reset();
 
@@ -465,6 +486,9 @@ void virgl_renderer_cleanup(UNUSED void *cookie)
 
 int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks *cbs)
 {
+   TRACE_INIT();
+   TRACE_FUNC();
+
    int ret;
 
    /* VIRGL_RENDERER_THREAD_SYNC is a hint and can be silently ignored */
@@ -543,6 +567,7 @@ fail:
 
 int virgl_renderer_get_fd_for_texture(uint32_t tex_id, int *fd)
 {
+   TRACE_FUNC();
    if (state.winsys_initialized)
       return vrend_winsys_get_fd_for_texture(tex_id, fd);
    return -1;
@@ -550,6 +575,7 @@ int virgl_renderer_get_fd_for_texture(uint32_t tex_id, int *fd)
 
 int virgl_renderer_get_fd_for_texture2(uint32_t tex_id, int *fd, int *stride, int *offset)
 {
+   TRACE_FUNC();
    if (state.winsys_initialized)
       return vrend_winsys_get_fd_for_texture2(tex_id, fd, stride, offset);
    return -1;
@@ -557,6 +583,7 @@ int virgl_renderer_get_fd_for_texture2(uint32_t tex_id, int *fd, int *stride, in
 
 void virgl_renderer_reset(void)
 {
+   TRACE_FUNC();
    if (state.vrend_initialized)
       vrend_renderer_prepare_reset();
 
@@ -572,6 +599,7 @@ void virgl_renderer_reset(void)
 
 int virgl_renderer_get_poll_fd(void)
 {
+   TRACE_FUNC();
    if (state.vrend_initialized)
       return vrend_renderer_get_poll_fd();
 
@@ -622,6 +650,7 @@ static int virgl_renderer_supported_structures(void *execute_args, uint32_t exec
 
 int virgl_renderer_execute(void *execute_args, uint32_t execute_size)
 {
+   TRACE_FUNC();
    struct virgl_renderer_hdr *hdr = execute_args;
    if (hdr->stype_version != 0)
       return -EINVAL;
@@ -638,6 +667,7 @@ int virgl_renderer_execute(void *execute_args, uint32_t execute_size)
 
 int virgl_renderer_resource_create_blob(const struct virgl_renderer_resource_create_blob_args *args)
 {
+   TRACE_FUNC();
    struct virgl_context *ctx;
    struct virgl_context_blob blob;
    bool has_host_storage;
@@ -719,6 +749,7 @@ int virgl_renderer_resource_create_blob(const struct virgl_renderer_resource_cre
 
 int virgl_renderer_resource_map(uint32_t res_handle, void **map, uint64_t *out_size)
 {
+   TRACE_FUNC();
    struct virgl_resource *res = virgl_resource_lookup(res_handle);
    if (!res || !res->pipe_resource)
       return -EINVAL;
@@ -728,6 +759,7 @@ int virgl_renderer_resource_map(uint32_t res_handle, void **map, uint64_t *out_s
 
 int virgl_renderer_resource_unmap(uint32_t res_handle)
 {
+   TRACE_FUNC();
    struct virgl_resource *res = virgl_resource_lookup(res_handle);
    if (!res || !res->pipe_resource)
       return -EINVAL;
@@ -737,6 +769,7 @@ int virgl_renderer_resource_unmap(uint32_t res_handle)
 
 int virgl_renderer_resource_get_map_info(uint32_t res_handle, uint32_t *map_info)
 {
+   TRACE_FUNC();
    struct virgl_resource *res = virgl_resource_lookup(res_handle);
    if (!res || !res->pipe_resource)
       return -EINVAL;
@@ -768,5 +801,6 @@ virgl_renderer_resource_export_blob(uint32_t res_id, uint32_t *fd_type, int *fd)
 int
 virgl_renderer_export_fence(uint32_t client_fence_id, int *fd)
 {
+   TRACE_FUNC();
    return vrend_renderer_export_fence(client_fence_id, fd);
 }

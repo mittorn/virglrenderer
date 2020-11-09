@@ -82,6 +82,20 @@ m_dep = cc.find_library('m')
 conf_data = configuration_data()
 conf_data.set('VERSION', '0.8.1')
 
+with_tracing = get_option('tracing')
+
+if with_tracing != 'none'
+  if not cc.compiles('void f(void* v){}; int main () { void *dummy __attribute__((cleanup (f))) = 0;}')
+     error('Tracing requires compiler support for __attribute__((cleanup))')
+endif
+
+endif
+
+if with_tracing == 'perfetto'
+   vperfetto_min_dep = dependency('vperfetto_min')
+   conf_data.set('ENABLE_TRACING', 'TRACE_WITH_PERFETTO')
+endif
+
 if cc.has_header('sys/uio.h')
    conf_data.set('HAVE_SYS_UIO_H', 1)
 endif
@@ -199,6 +213,7 @@ lines += 'minigbm_alloc: ' + (with_minigbm_allocation ? 'yes' : 'no' )
 lines += ''
 lines += 'tests:     ' + (with_tests ? 'yes' : 'no' )
 lines += 'fuzzer:    ' + (with_fuzzer ? 'yes' : 'no' )
+lines += 'tracing:   ' + with_tracing
 
 indent = '   '
 summary = indent + ('\n' + indent).join(lines)

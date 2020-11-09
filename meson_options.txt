@@ -58,3 +58,11 @@ option(
   value : 'false',
   description : 'enable running unit tests with valgrind'
 )
+
+option(
+  'tracing',
+  type : 'combo',
+  value : 'none',
+  choices : [ 'perfetto', 'none' ],
+  description : 'enable emitting traces for Perfetto'
+)

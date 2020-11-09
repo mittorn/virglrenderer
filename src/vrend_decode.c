@@ -26,6 +26,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <epoxy/gl.h>
+#include <fcntl.h>
 
 #include "util/u_memory.h"
 #include "pipe/p_defines.h"
@@ -38,6 +39,7 @@
 #include "tgsi/tgsi_text.h"
 #include "vrend_debug.h"
 #include "vrend_tweaks.h"
+#include "virgl_util.h"
 
 /* decode side */
 #define DECODE_MAX_TOKENS 8000
@@ -764,6 +766,8 @@ static int vrend_decode_create_object(struct vrend_decode_ctx *ctx, int length)
    VREND_DEBUG(dbg_object, ctx->grctx,"  CREATE %-18s handle:0x%x len:%d\n",
                vrend_get_object_type_name(obj_type), handle, length);
 
+   TRACE_SCOPE("CREATE %-18s", vrend_get_object_type_name(obj_type));
+
    switch (obj_type){
    case VIRGL_OBJECT_BLEND:
       ret = vrend_decode_create_blend(ctx, handle, length);
@@ -1466,6 +1470,7 @@ struct virgl_context *vrend_renderer_context_create(uint32_t handle,
 
 static void vrend_decode_ctx_destroy(struct virgl_context *ctx)
 {
+   TRACE_FUNC();
    struct vrend_decode_ctx *dctx = (struct vrend_decode_ctx *)ctx;
 
    vrend_destroy_context(dctx->grctx);
@@ -1475,8 +1480,8 @@ static void vrend_decode_ctx_destroy(struct virgl_context *ctx)
 static void vrend_decode_ctx_attach_resource(struct virgl_context *ctx,
                                              struct virgl_resource *res)
 {
+   TRACE_FUNC();
    struct vrend_decode_ctx *dctx = (struct vrend_decode_ctx *)ctx;
-
    /* in the future, we should import to create the pipe resource */
    if (!res->pipe_resource)
       return;
@@ -1488,6 +1493,7 @@ static void vrend_decode_ctx_attach_resource(struct virgl_context *ctx,
 static void vrend_decode_ctx_detach_resource(struct virgl_context *ctx,
                                              struct virgl_resource *res)
 {
+   TRACE_FUNC();
    struct vrend_decode_ctx *dctx = (struct vrend_decode_ctx *)ctx;
    vrend_renderer_detach_res_ctx(dctx->grctx, res->res_id);
 }
@@ -1497,6 +1503,7 @@ static int vrend_decode_ctx_transfer_3d(struct virgl_context *ctx,
                                         const struct vrend_transfer_info *info,
                                         int transfer_mode)
 {
+   TRACE_FUNC();
    struct vrend_decode_ctx *dctx = (struct vrend_decode_ctx *)ctx;
    return vrend_renderer_transfer_iov(dctx->grctx, res->res_id, info,
                                       transfer_mode);
@@ -1507,6 +1514,7 @@ static int vrend_decode_ctx_get_blob(struct virgl_context *ctx,
                                      UNUSED uint32_t blob_flags,
                                      struct virgl_context_blob *blob)
 {
+   TRACE_FUNC();
    struct vrend_decode_ctx *dctx = (struct vrend_decode_ctx *)ctx;
 
    blob->type = VIRGL_RESOURCE_FD_INVALID;
@@ -1520,6 +1528,7 @@ static int vrend_decode_ctx_submit_cmd(struct virgl_context *ctx,
                                        const void *buffer,
                                        size_t size)
 {
+   TRACE_FUNC();
    struct vrend_decode_ctx *gdctx = (struct vrend_decode_ctx *)ctx;
    bool bret;
    int ret;
@@ -1545,6 +1554,8 @@ static int vrend_decode_ctx_submit_cmd(struct virgl_context *ctx,
 
       VREND_DEBUG(dbg_cmd, gdctx->grctx,"%-4d %-20s len:%d\n",
                   gdctx->ds->buf_offset, vrend_get_comand_name(header & 0xff), len);
+
+      TRACE_SCOPE("%s", vrend_get_comand_name(header & 0xff));
 
       switch (header & 0xff) {
       case VIRGL_CCMD_CREATE_OBJECT:

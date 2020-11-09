@@ -36,6 +36,17 @@
 
 #include "util/u_pointer.h"
 
+#include <stdarg.h>
+#include <stdio.h>
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
+#if ENABLE_TRACING == TRACE_WITH_PERFETTO
+#include <vperfetto-min.h>
+#endif
+
 unsigned hash_func_u32(void *key)
 {
    intptr_t ip = pointer_to_intptr(key);
@@ -98,3 +109,33 @@ void flush_eventfd(int fd)
        len = read(fd, &value, sizeof(value));
     } while ((len == -1 && errno == EINTR) || len == sizeof(value));
 }
+
+#if ENABLE_TRACING == TRACE_WITH_PERFETTO
+void trace_init(void)
+{
+   struct vperfetto_min_config config = {
+      .init_flags = VPERFETTO_INIT_FLAG_USE_SYSTEM_BACKEND,
+            .filename = NULL,
+            .shmem_size_hint_kb = 32 * 1024,
+   };
+
+   vperfetto_min_startTracing(&config);
+}
+
+char *trace_begin(const char* format, ...)
+{
+   char buffer[1024];
+   va_list args;
+   va_start (args, format);
+   vsnprintf (buffer, sizeof(buffer), format, args);
+   va_end (args);
+   vperfetto_min_beginTrackEvent_VMM(buffer);
+   return (void *)1;
+}
+
+void trace_end(char **dummy)
+{
+   (void)dummy;
+   vperfetto_min_endTrackEvent_VMM();
+}
+#endif

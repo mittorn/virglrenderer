@@ -79,8 +79,12 @@ virgl_depends = [
    epoxy_dep,
    libdrm_dep,
    thread_dep,
-   m_dep
+   m_dep,
 ]
+
+if with_tracing == 'perfetto'
+   virgl_depends += [vperfetto_min_dep]
+endif
 
 virgl_sources += vrend_sources
 

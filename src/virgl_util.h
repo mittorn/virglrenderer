@@ -28,6 +28,13 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
+#define TRACE_WITH_PERFETTO 1
+
+
 #define BIT(n)                   (UINT32_C(1) << (n))
 
 static inline bool has_bit(uint32_t mask, uint32_t bit)
@@ -53,5 +60,25 @@ bool has_eventfd(void);
 int create_eventfd(unsigned int initval);
 int write_eventfd(int fd, uint64_t val);
 void flush_eventfd(int fd);
+
+#ifdef ENABLE_TRACING
+void trace_init(void);
+char *trace_begin(const char* format, ...);
+void trace_end(char **dummy);
+
+#define TRACE_INIT() trace_init()
+#define TRACE_FUNC() \
+   char *trace_dummy __attribute__((cleanup (trace_end), unused)) = \
+   trace_begin("%s", __func__)
+
+#define TRACE_SCOPE(FORMAT, ...) \
+   char *trace_dummy __attribute__((cleanup (trace_end), unused)) = \
+   trace_begin(FORMAT, __VA_ARGS__)
+
+#else
+#define TRACE_INIT()
+#define TRACE_FUNC()
+#define TRACE_SCOPE(FORMAT, ...)
+#endif
 
 #endif /* VIRGL_UTIL_H */
