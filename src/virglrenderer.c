@@ -165,23 +165,45 @@ void virgl_renderer_fill_caps(uint32_t set, uint32_t version,
    }
 }
 
-int virgl_renderer_context_create(uint32_t handle, uint32_t nlen, const char *name)
+int virgl_renderer_context_create_with_flags(uint32_t ctx_id,
+                                             uint32_t ctx_flags,
+                                             uint32_t nlen,
+                                             const char *name)
 {
+   const enum virgl_renderer_capset capset_id =
+      ctx_flags & VIRGL_RENDERER_CONTEXT_FLAG_CAPSET_ID_MASK;
    struct virgl_context *ctx;
    int ret;
 
    TRACE_FUNC();
 
    /* user context id must be greater than 0 */
-   if (handle == 0)
+   if (ctx_id == 0)
       return EINVAL;
 
-   if (virgl_context_lookup(handle))
-      return 0;
+   /* unsupported flags */
+   if (ctx_flags & ~VIRGL_RENDERER_CONTEXT_FLAG_CAPSET_ID_MASK)
+      return EINVAL;
 
-   ctx = vrend_renderer_context_create(handle, nlen, name);
+   ctx = virgl_context_lookup(ctx_id);
+   if (ctx) {
+      return ctx->capset_id == capset_id ? 0 : EINVAL;
+   }
+
+   switch (capset_id) {
+   case VIRGL_RENDERER_CAPSET_VIRGL:
+   case VIRGL_RENDERER_CAPSET_VIRGL2:
+      ctx = vrend_renderer_context_create(ctx_id, nlen, name);
+      break;
+   default:
+      return EINVAL;
+      break;
+   }
    if (!ctx)
       return ENOMEM;
+
+   ctx->ctx_id = ctx_id;
+   ctx->capset_id = capset_id;
 
    ret = virgl_context_add(ctx);
    if (ret) {
@@ -190,6 +212,14 @@ int virgl_renderer_context_create(uint32_t handle, uint32_t nlen, const char *na
    }
 
    return 0;
+}
+
+int virgl_renderer_context_create(uint32_t handle, uint32_t nlen, const char *name)
+{
+   return virgl_renderer_context_create_with_flags(handle,
+                                                   VIRGL_RENDERER_CAPSET_VIRGL2,
+                                                   nlen,
+                                                   name);
 }
 
 void virgl_renderer_context_destroy(uint32_t handle)

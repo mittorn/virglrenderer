@@ -29,6 +29,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "virglrenderer_hw.h"
 #include "virgl_resource.h"
 
 struct vrend_transfer_info;
@@ -53,6 +54,8 @@ struct virgl_context_blob {
  */
 struct virgl_context {
    uint32_t ctx_id;
+
+   enum virgl_renderer_capset capset_id;
 
    void (*destroy)(struct virgl_context *ctx);
 

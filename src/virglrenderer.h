@@ -256,6 +256,13 @@ VIRGL_EXPORT int virgl_renderer_execute(void *execute_args, uint32_t execute_siz
  */
 #ifdef VIRGL_RENDERER_UNSTABLE_APIS
 
+#define VIRGL_RENDERER_CONTEXT_FLAG_CAPSET_ID_MASK 0xff
+
+VIRGL_EXPORT int virgl_renderer_context_create_with_flags(uint32_t ctx_id,
+                                                          uint32_t ctx_flags,
+                                                          uint32_t nlen,
+                                                          const char *name);
+
 #define VIRGL_RENDERER_BLOB_MEM_GUEST             0x0001
 #define VIRGL_RENDERER_BLOB_MEM_HOST3D            0x0002
 #define VIRGL_RENDERER_BLOB_MEM_HOST3D_GUEST      0x0003
