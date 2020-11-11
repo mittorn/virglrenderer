@@ -59,6 +59,11 @@ make check clang-fuzzer:
     TEST_SUITE: '--make-check-clang-fuzzer'
   extends: .make_check_base
 
+make check trace-stderr:
+  variables:
+    TEST_SUITE: '--make-check-trace-stderr'
+  extends: .make_check_base
+
 .tests:
   stage: test
   extends: .tests_base

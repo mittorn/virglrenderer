@@ -10,6 +10,11 @@ run_setup()
       use_clang_fuzzer=1
    fi
 
+   if [ "x$2" = "xtrace_stderr" ]; then
+      use_trace_stderr=1
+   fi
+
+
    # Let .gitlab-ci or local ci runner set
    # desired thread count
    NUM_THREADS=${NUM_THREADS:-$(expr $(expr $(nproc) / 8) + 1)}
@@ -56,7 +61,11 @@ run_setup()
       export FUZZER=-Dfuzzer=true
    fi
 
-   meson build/ -Dprefix=/usr/local -Ddebug=true -Dtests=true --fatal-meson-warnings $FUZZER
+   if [ "x$use_trace_stderr" = "x1" ]; then
+       export TRACING=-Dtracing=stderr
+   fi
+
+   meson build/ -Dprefix=/usr/local -Ddebug=true -Dtests=true --fatal-meson-warnings $FUZZER $TRACING
    ninja -C build -j$NUM_THREADS install
 }
 
@@ -81,6 +90,20 @@ run_make_check_clang_fuzzer()
       VRENDTEST_USE_EGL_SURFACELESS=1 ninja -j$NUM_THREADS test
       RET=$?
       cp ./meson-logs/testlog.txt ../results/make_check_clang_fuzzer/
+      popd
+      return $RET
+   )
+}
+
+run_make_check_trace_stderr()
+{
+   run_setup meson trace_stderr
+   (
+      mkdir -p ./results/make_check_trace_stderr
+      pushd ./build
+      VRENDTEST_USE_EGL_SURFACELESS=1 ninja -j$NUM_THREADS test
+      RET=$?
+      cp ./meson-logs/testlog.txt ../results/make_check_trace_stderr/
       popd
       return $RET
    )
@@ -167,6 +190,10 @@ parse_input()
 
          --make-check-clang-fuzzer)
          run_make_check_clang_fuzzer
+         ;;
+
+         --make-check-trace-stderr)
+         run_make_check_trace_stderr
          ;;
 
          --deqp-gl-gl-tests)
