@@ -96,6 +96,10 @@ if with_tracing == 'perfetto'
    conf_data.set('ENABLE_TRACING', 'TRACE_WITH_PERFETTO')
 endif
 
+if with_tracing == 'stderr'
+   conf_data.set('ENABLE_TRACING', 'TRACE_WITH_STDERR')
+endif
+
 if cc.has_header('sys/uio.h')
    conf_data.set('HAVE_SYS_UIO_H', 1)
 endif

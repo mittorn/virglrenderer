@@ -63,6 +63,6 @@ option(
   'tracing',
   type : 'combo',
   value : 'none',
-  choices : [ 'perfetto', 'none' ],
-  description : 'enable emitting traces for Perfetto'
+  choices : [ 'perfetto', 'stderr', 'none' ],
+  description : 'enable emitting traces using the selected backend'
 )

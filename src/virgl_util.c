@@ -47,6 +47,10 @@
 #include <vperfetto-min.h>
 #endif
 
+#if ENABLE_TRACING == TRACE_WITH_STDERR
+#include <stdio.h>
+#endif
+
 unsigned hash_func_u32(void *key)
 {
    intptr_t ip = pointer_to_intptr(key);
@@ -137,5 +141,42 @@ void trace_end(char **dummy)
 {
    (void)dummy;
    vperfetto_min_endTrackEvent_VMM();
+}
+#endif
+
+#if ENABLE_TRACING == TRACE_WITH_STDERR
+static int nesting_depth = 0;
+void trace_init(void)
+{
+}
+
+char *trace_begin(const char* format, ...)
+{
+   for (int i = 0; i < nesting_depth; ++i)
+      fprintf(stderr, "  ");
+
+   fprintf(stderr, "ENTER:");
+   char *buffer;
+   va_list args;
+   va_start (args, format);
+   int size = vasprintf(&buffer, format, args);
+
+   if (size < 0)
+      buffer=strdup("error");
+
+   va_end (args);
+   fprintf(stderr, "%s\n", buffer);
+   nesting_depth++;
+
+   return buffer;
+}
+
+void trace_end(char **func_name)
+{
+   --nesting_depth;
+   for (int i = 0; i < nesting_depth; ++i)
+      fprintf(stderr, "  ");
+   fprintf(stderr, "LEAVE %s\n", *func_name);
+   free(*func_name);
 }
 #endif
