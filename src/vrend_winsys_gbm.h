@@ -35,6 +35,11 @@
 #define VIRGL_GBM_MAX_PLANES 4
 #endif
 
+/* GBM_FORMAT_ABGR16161616F was added since mesa 20.0 */
+#ifndef GBM_FORMAT_ABGR16161616F
+#define GBM_FORMAT_ABGR16161616F __gbm_fourcc_code('A', 'B', '4', 'H') /* [63:0] A:B:G:R 16:16:16:16 little endian */
+#endif
+
 /*
  * If fd >= 0, virglrenderer owns the fd since it was opened via a rendernode
  * query. If fd < 0, the gbm device was opened with the fd provided by the
