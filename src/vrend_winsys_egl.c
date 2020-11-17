@@ -238,7 +238,7 @@ struct virgl_egl *virgl_egl_init(struct virgl_gbm *gbm, bool surfaceless, bool g
    eglMakeCurrent(egl->egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE,
                   egl->egl_ctx);
 
-   if (virgl_egl_supports_fences(egl)) {
+   if (gles && virgl_egl_supports_fences(egl)) {
       egl->signaled_fence = eglCreateSyncKHR(egl->egl_display,
                                              EGL_SYNC_NATIVE_FENCE_ANDROID, NULL);
       if (!egl->signaled_fence) {

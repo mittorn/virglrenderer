@@ -6068,7 +6068,8 @@ int vrend_renderer_init(const struct vrend_if_cbs *cbs, uint32_t flags)
       vrend_state.use_external_blob = true;
 
 #ifdef HAVE_EPOXY_EGL_H
-   vrend_state.use_egl_fence = virgl_egl_supports_fences(egl);
+   if (vrend_state.use_gles)
+      vrend_state.use_egl_fence = virgl_egl_supports_fences(egl);
 #endif
 
    return 0;
