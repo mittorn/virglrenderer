@@ -13,7 +13,7 @@ export CC="gcc-8"
 export CXX="g++-8"
 export CFLAGS="-g3"
 export CXXFLAGS="-g3"
-export GIT_DATE="`date +%Y-%m-%d -d \"15 months ago\"`"
+export GIT_DATE="2020-11-11"
 export MESA_DEBUG=1
 
 echo 'path-exclude=/usr/share/doc/*' > /etc/dpkg/dpkg.cfg.d/99-exclude-cruft
@@ -42,6 +42,7 @@ apt-get -y install --no-install-recommends \
       golang-go \
       kbd \
       libcurl4-openssl-dev \
+      libepoxy-dev \
       libgbm-dev \
       libnss-systemd \
       libpng-dev \
@@ -114,7 +115,7 @@ popd
 # error: RPC failed; curl 56 GnuTLS recv error (-54): Error in the pull function.
 git config --global http.postBuffer 1048576000
 
-export KNOWN_GOOD_CTS=${KNOWN_GOOD_CTS:-6c709dc9a99b70572aceb0f7698ab044383ff948}
+export KNOWN_GOOD_CTS=${KNOWN_GOOD_CTS:-524e5bcfba33d1b8dede4b4ec1ec33d24ccf8d2c}
 mkdir /VK-GL-CTS
 pushd /VK-GL-CTS
 git clone --shallow-since="$GIT_DATE" https://github.com/KhronosGroup/VK-GL-CTS.git . && \
@@ -129,7 +130,7 @@ git clone --shallow-since="$GIT_DATE" https://github.com/KhronosGroup/VK-GL-CTS.
     find . -name lib\*.a | xargs rm -rf
 popd
 
-export KNOWN_GOOD_PIGLIT=${KNOWN_GOOD_PIGLIT:-645e15dc84fb48c1f270e322af61d7c716f1c45c}
+export KNOWN_GOOD_PIGLIT=${KNOWN_GOOD_PIGLIT:-08a92f4094c927276a20f608d7b3c5de2a72e9e7}
 mkdir /piglit
 pushd /piglit
 git clone --shallow-since="$GIT_DATE" https://gitlab.freedesktop.org/mesa/piglit.git . && \
@@ -142,20 +143,7 @@ git clone --shallow-since="$GIT_DATE" https://gitlab.freedesktop.org/mesa/piglit
     rm -rf /piglit
 popd
 
-export KNOWN_GOOD_EPOXY=${KNOWN_GOOD_EPOXY:-5d818164dd2ab87b0054641f1446bc552a602320}
-mkdir /epoxy
-pushd /epoxy
-git clone --shallow-since="$GIT_DATE" https://github.com/anholt/libepoxy.git . && \
-    git checkout ${KNOWN_GOOD_EPOXY} && \
-    git log --oneline -n 1 && \
-    mkdir -p build && \
-    meson build/ && \
-    meson configure build/ -Dprefix=/usr/local -Dlibdir=lib && \
-    ninja -C build/ install >/dev/null && \
-    rm -rf /epoxy
-popd
-
-export KNOWN_GOOD_DRM=libdrm-2.4.100
+export KNOWN_GOOD_DRM=libdrm-2.4.103
 mkdir /drm
 pushd /drm
 git clone --shallow-since="$GIT_DATE" https://gitlab.freedesktop.org/mesa/drm.git . && \
@@ -168,7 +156,7 @@ git clone --shallow-since="$GIT_DATE" https://gitlab.freedesktop.org/mesa/drm.gi
     rm -rf /drm
 popd
 
-export KNOWN_GOOD_MESA=${KNOWN_GOOD_MESA:-e924181ea89e5e261f8aa24564c32ed22941e752}
+export KNOWN_GOOD_MESA=${KNOWN_GOOD_MESA:-1c17223c02b68679d67a4e4a6be8b9b7a80fa2e9}
 echo $KNOWN_GOOD_MESA
 export MESA_REPO=https://gitlab.freedesktop.org/mesa/mesa.git
 echo $MESA_REPO
