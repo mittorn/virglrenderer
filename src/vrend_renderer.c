@@ -4307,7 +4307,7 @@ static void vrend_draw_bind_objects(struct vrend_context *ctx, bool new_program)
    }
 
    if (vrend_state.use_core_profile && ctx->sub->prog->fs_alpha_ref_val_loc != -1) {
-      glUniform1i(ctx->sub->prog->fs_alpha_ref_val_loc, ctx->sub->dsa_state.alpha.ref_value);
+      glUniform1f(ctx->sub->prog->fs_alpha_ref_val_loc, ctx->sub->dsa_state.alpha.ref_value);
    }
 }
 
