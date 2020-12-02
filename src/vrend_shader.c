@@ -7026,8 +7026,8 @@ bool vrend_convert_shader(const struct vrend_context *rctx,
    ctx.glsl_ver_required = emit_ios(&ctx, &ctx.glsl_strbufs, &ctx.generic_ios,
                                     ctx.front_back_color_emitted_flags,
                                     &ctx.num_interps, &ctx.has_pervertex,
-                                    &ctx.winsys_adjust_y_emitted,
                                     &ctx.force_color_two_side,
+                                    &ctx.winsys_adjust_y_emitted,
                                     &ctx.shadow_samp_mask);
 
    if (strbuf_get_error(&ctx.glsl_strbufs.glsl_hdr))
@@ -7340,8 +7340,8 @@ bool vrend_shader_create_passthrough_tcs(const struct vrend_context *rctx,
    ctx.glsl_ver_required = emit_ios(&ctx, &ctx.glsl_strbufs, &ctx.generic_ios,
                                     ctx.front_back_color_emitted_flags,
                                     &ctx.num_interps, &ctx.has_pervertex,
-                                    &ctx.winsys_adjust_y_emitted,
                                     &ctx.force_color_two_side,
+                                    &ctx.winsys_adjust_y_emitted,
                                     &ctx.shadow_samp_mask);
 
    emit_buf(&ctx.glsl_strbufs, "void main() {\n");
