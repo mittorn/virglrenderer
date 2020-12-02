@@ -40,6 +40,22 @@
 #define GBM_FORMAT_ABGR16161616F __gbm_fourcc_code('A', 'B', '4', 'H') /* [63:0] A:B:G:R 16:16:16:16 little endian */
 #endif
 
+#ifndef MINIGBM
+
+#define GBM_BO_USE_TEXTURING (1 << 5),
+#define GBM_BO_USE_CAMERA_WRITE (1 << 6)
+#define GBM_BO_USE_CAMERA_READ (1 << 7)
+#define GBM_BO_USE_PROTECTED (1 << 8)
+#define GBM_BO_USE_SW_READ_OFTEN (1 << 9)
+#define GBM_BO_USE_SW_READ_RARELY (1 << 10)
+#define GBM_BO_USE_SW_WRITE_OFTEN (1 << 11)
+#define GBM_BO_USE_SW_WRITE_RARELY (1 << 12)
+#define GBM_BO_USE_HW_VIDEO_DECODER (1 << 13)
+#define GBM_BO_USE_HW_VIDEO_ENCODER (1 << 14)
+#define GBM_TEST_ALLOC (1 << 15)
+
+#endif
+
 /*
  * If fd >= 0, virglrenderer owns the fd since it was opened via a rendernode
  * query. If fd < 0, the gbm device was opened with the fd provided by the
