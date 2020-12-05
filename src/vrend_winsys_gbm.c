@@ -336,6 +336,12 @@ int virgl_gbm_transfer(struct gbm_bo *bo, uint32_t direction, const struct iovec
    host_map_stride0 = 0;
    uint32_t map_flags = (direction == VIRGL_TRANSFER_TO_HOST) ? GBM_BO_TRANSFER_WRITE :
                                                                 GBM_BO_TRANSFER_READ;
+   /* XXX remove this and map just the region when single plane and GBM honors the region */
+   if (direction == VIRGL_TRANSFER_TO_HOST &&
+       !(info->box->x == 0 && info->box->y == 0 &&
+         info->box->width == width && info->box->height == height))
+      map_flags |= GBM_BO_TRANSFER_READ;
+
    void *addr = gbm_bo_map(bo, 0, 0, width, height, map_flags, &host_map_stride0, &map_data);
    if (!addr)
       return -1;
