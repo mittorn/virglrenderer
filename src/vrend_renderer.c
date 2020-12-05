@@ -8029,18 +8029,18 @@ int vrend_renderer_copy_transfer3d(struct vrend_context *ctx,
       bool use_gbm = true;
 
       /* The guest uses copy transfers against busy resources to avoid
-       * waiting.  The host driver is usually smart enough to avoid blocking
-       * by putting the data in a staging buffer and doing a pipelined copy.
-       *
-       * However, we cannot do that with GBM.  Use GBM only when we have to
-       * (until vrend_renderer_transfer_write_iov swizzles).
+       * waiting.  The host GL driver is usually smart enough to avoid
+       * blocking by putting the data in a staging buffer and doing a
+       * pipelined copy.  But when there is a GBM bo, we can only do that when
+       * VREND_STORAGE_GL_IMMUTABLE is set because it implies that the
+       * internal format is known and is known to be compatible with the
+       * subsequence glTexSubImage2D.  Otherwise, we glFinish and use GBM.
        */
       if (info->synchronized) {
-         if (tex_conv_table[dst_res->base.format].internalformat == 0 ||
-             tex_conv_table[dst_res->base.format].flags & VIRGL_TEXTURE_NEED_SWIZZLE)
-            glFinish();
-         else
+         if (has_bit(dst_res->storage_bits, VREND_STORAGE_GL_IMMUTABLE))
             use_gbm = false;
+         else
+            glFinish();
       }
 
       if (use_gbm) {
