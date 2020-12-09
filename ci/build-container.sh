@@ -13,7 +13,7 @@ export CC="gcc-8"
 export CXX="g++-8"
 export CFLAGS="-g3"
 export CXXFLAGS="-g3"
-export GIT_DATE="2020-11-11"
+export GIT_DATE="2020-02-02"
 export MESA_DEBUG=1
 
 echo 'path-exclude=/usr/share/doc/*' > /etc/dpkg/dpkg.cfg.d/99-exclude-cruft
@@ -42,7 +42,6 @@ apt-get -y install --no-install-recommends \
       golang-go \
       kbd \
       libcurl4-openssl-dev \
-      libepoxy-dev \
       libgbm-dev \
       libnss-systemd \
       libpng-dev \
@@ -81,13 +80,26 @@ apt-get -y install --no-install-recommends \
       xvfb \
       zlib1g-dev
 apt-get -y build-dep --no-install-recommends \
-      libepoxy-dev \
       libdrm \
       mesa \
       piglit \
       virglrenderer
-apt-get -y remove valgrind
+apt-get -y remove valgrind libepoxy0
 rm -rf /var/lib/apt/lists/*
+
+export KNOWN_GOOD_EPOXY=${KNOWN_GOOD_EPOXY:-1.5.4}
+mkdir /epoxy
+pushd /epoxy
+git clone --shallow-since="$GIT_DATE" https://github.com/anholt/libepoxy.git . && \
+    git fetch --tags && 
+    git checkout ${KNOWN_GOOD_EPOXY} && \
+    git log --oneline -n 1 && \
+    mkdir -p build && \
+    meson build/ && \
+    meson configure build/ -Dprefix=/usr/local -Dlibdir=lib && \
+    ninja -C build/ install >/dev/null && \
+    rm -rf /epoxy
+popd
 
 export BATTERY_VERSION=0.1.23
 mkdir /battery
