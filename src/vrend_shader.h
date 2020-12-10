@@ -118,6 +118,7 @@ struct vrend_shader_info {
 };
 
 struct vrend_shader_key {
+   bool fs_prim_is_points;
    uint32_t coord_replace;
    bool invert_fs_origin;
    bool pstipple_tex;

@@ -653,6 +653,8 @@ struct vrend_sub_context {
    struct vrend_context_tweaks tweaks;
    uint8_t swizzle_output_rgb_to_bgr;
    int fake_occlusion_query_samples_passed_multiplier;
+
+   int prim_mode;
 };
 
 struct vrend_context {
@@ -3194,7 +3196,6 @@ static inline void vrend_fill_shader_key(struct vrend_context *ctx,
    }
 
    key->invert_fs_origin = !ctx->sub->inverted_fbo_content;
-   key->coord_replace = ctx->sub->rs_state.point_quad_rasterization ? ctx->sub->rs_state.sprite_coord_enable : 0;
 
    if (type == PIPE_SHADER_FRAGMENT)
       key->fs_swizzle_output_rgb_to_bgr = ctx->sub->swizzle_output_rgb_to_bgr;
@@ -3254,6 +3255,25 @@ static inline void vrend_fill_shader_key(struct vrend_context *ctx,
              ctx->sub->shaders[prev_type]->sinfo.generic_outputs_layout,
              64 * sizeof (struct vrend_layout_info));
       key->force_invariant_inputs = ctx->sub->shaders[prev_type]->sinfo.invariant_outputs;
+   }
+
+   // Only use coord_replace if frag shader receives GL_POINTS
+   if (type == PIPE_SHADER_FRAGMENT) {
+      int fs_prim_mode = ctx->sub->prim_mode; // inherit draw-call's mode
+      switch (prev_type) {
+         case PIPE_SHADER_TESS_EVAL:
+            if (ctx->sub->shaders[PIPE_SHADER_TESS_EVAL]->sinfo.tes_point_mode)
+               fs_prim_mode = PIPE_PRIM_POINTS;
+            break;
+         case PIPE_SHADER_GEOMETRY:
+            fs_prim_mode = ctx->sub->shaders[PIPE_SHADER_GEOMETRY]->sinfo.gs_out_prim;
+            break;
+      }
+      key->fs_prim_is_points = (fs_prim_mode == PIPE_PRIM_POINTS);
+      key->coord_replace = ctx->sub->rs_state.point_quad_rasterization
+         && key->fs_prim_is_points
+         ? ctx->sub->rs_state.sprite_coord_enable
+         : 0x0;
    }
 
    int next_type = -1;
@@ -4401,6 +4421,16 @@ int vrend_draw_vbo(struct vrend_context *ctx,
 
    if (ctx->sub->blend_state_dirty)
       vrend_patch_blend_state(ctx);
+
+   // enable primitive-mode-dependent shader variants
+   if (ctx->sub->prim_mode != (int)info->mode) {
+      // Only refresh shader program when switching in/out of GL_POINTS primitive mode
+      if (ctx->sub->prim_mode == PIPE_PRIM_POINTS
+          || (int)info->mode == PIPE_PRIM_POINTS)
+         ctx->sub->shader_dirty = true;
+
+      ctx->sub->prim_mode = (int)info->mode;
+   }
 
    if (ctx->sub->shader_dirty || ctx->sub->swizzle_output_rgb_to_bgr) {
       struct vrend_linked_shader_program *prog;
