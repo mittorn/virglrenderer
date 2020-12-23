@@ -65,7 +65,7 @@ static int virgl_renderer_resource_create_internal(struct virgl_renderer_resourc
                                                    UNUSED struct iovec *iov, UNUSED uint32_t num_iovs,
                                                    void *image)
 {
-   int ret;
+   struct virgl_resource *res;
    struct pipe_resource *pipe_res;
    struct vrend_renderer_resource_create_args vrend_args =  { 0 };
 
@@ -88,10 +88,10 @@ static int virgl_renderer_resource_create_internal(struct virgl_renderer_resourc
    if (!pipe_res)
       return EINVAL;
 
-   ret = virgl_resource_create_from_pipe(args->handle, pipe_res, iov, num_iovs);
-   if (ret) {
+   res = virgl_resource_create_from_pipe(args->handle, pipe_res, iov, num_iovs);
+   if (!res) {
       vrend_renderer_resource_destroy((struct vrend_resource *)pipe_res);
-      return ret;
+      return -ENOMEM;
    }
 
    return 0;
@@ -668,6 +668,7 @@ int virgl_renderer_execute(void *execute_args, uint32_t execute_size)
 int virgl_renderer_resource_create_blob(const struct virgl_renderer_resource_create_blob_args *args)
 {
    TRACE_FUNC();
+   struct virgl_resource *res;
    struct virgl_context *ctx;
    struct virgl_context_blob blob;
    bool has_host_storage;
@@ -707,9 +708,10 @@ int virgl_renderer_resource_create_blob(const struct virgl_renderer_resource_cre
    }
 
    if (!has_host_storage) {
-      return virgl_resource_create_from_iov(args->res_handle,
-                                            args->iovecs,
-                                            args->num_iovs);
+      res = virgl_resource_create_from_iov(args->res_handle,
+                                           args->iovecs,
+                                           args->num_iovs);
+      return res ? 0 : -ENOMEM;
    }
 
    ctx = virgl_context_lookup(args->ctx_id);
@@ -721,23 +723,23 @@ int virgl_renderer_resource_create_blob(const struct virgl_renderer_resource_cre
       return ret;
 
    if (blob.type != VIRGL_RESOURCE_FD_INVALID) {
-      ret = virgl_resource_create_from_fd(args->res_handle,
+      res = virgl_resource_create_from_fd(args->res_handle,
                                           blob.type,
                                           blob.u.fd,
                                           args->iovecs,
                                           args->num_iovs);
-      if (ret) {
+      if (!res) {
          close(blob.u.fd);
-         return ret;
+         return -ENOMEM;
       }
    } else {
-      ret = virgl_resource_create_from_pipe(args->res_handle,
+      res = virgl_resource_create_from_pipe(args->res_handle,
                                             blob.u.pipe_resource,
                                             args->iovecs,
                                             args->num_iovs);
-      if (ret) {
+      if (!res) {
          vrend_renderer_resource_destroy((struct vrend_resource *)blob.u.pipe_resource);
-         return ret;
+         return -ENOMEM;
       }
    }
 

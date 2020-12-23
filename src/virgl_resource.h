@@ -94,20 +94,20 @@ virgl_resource_table_cleanup(void);
 void
 virgl_resource_table_reset(void);
 
-int
+struct virgl_resource *
 virgl_resource_create_from_pipe(uint32_t res_id,
                                 struct pipe_resource *pres,
                                 const struct iovec *iov,
                                 int iov_count);
 
-int
+struct virgl_resource *
 virgl_resource_create_from_fd(uint32_t res_id,
                               enum virgl_resource_fd_type fd_type,
                               int fd,
                               const struct iovec *iov,
                               int iov_count);
 
-int
+struct virgl_resource *
 virgl_resource_create_from_iov(uint32_t res_id,
                                const struct iovec *iov,
                                int iov_count);
