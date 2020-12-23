@@ -66,6 +66,8 @@ struct virgl_resource {
    const struct iovec *iov;
    int iov_count;
 
+   uint32_t map_info;
+
    void *private_data;
 };
 

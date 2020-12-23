@@ -42,6 +42,8 @@ struct virgl_context_blob {
       struct pipe_resource *pipe_resource;
    } u;
 
+   uint32_t map_info;
+
    void *renderer_data;
 };
 

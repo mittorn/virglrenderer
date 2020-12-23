@@ -1508,8 +1508,11 @@ static int vrend_decode_ctx_get_blob(struct virgl_context *ctx,
    blob->type = VIRGL_RESOURCE_FD_INVALID;
    /* this transfers ownership and blob_id is no longer valid */
    blob->u.pipe_resource = vrend_get_blob_pipe(dctx->grctx, blob_id);
+   if (!blob->u.pipe_resource)
+      return -EINVAL;
 
-   return blob->u.pipe_resource ? 0 : EINVAL;
+   blob->map_info = vrend_renderer_resource_get_map_info(blob->u.pipe_resource);
+   return 0;
 }
 
 typedef int (*vrend_decode_callback)(struct vrend_context *ctx, const uint32_t *buf, uint32_t length);

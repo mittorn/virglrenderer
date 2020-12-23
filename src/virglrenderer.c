@@ -94,6 +94,8 @@ static int virgl_renderer_resource_create_internal(struct virgl_renderer_resourc
       return -ENOMEM;
    }
 
+   res->map_info = vrend_renderer_resource_get_map_info(pipe_res);
+
    return 0;
 }
 
@@ -711,7 +713,11 @@ int virgl_renderer_resource_create_blob(const struct virgl_renderer_resource_cre
       res = virgl_resource_create_from_iov(args->res_handle,
                                            args->iovecs,
                                            args->num_iovs);
-      return res ? 0 : -ENOMEM;
+      if (!res)
+         return -ENOMEM;
+
+      res->map_info = VIRGL_RENDERER_MAP_CACHE_CACHED;
+      return 0;
    }
 
    ctx = virgl_context_lookup(args->ctx_id);
@@ -743,6 +749,8 @@ int virgl_renderer_resource_create_blob(const struct virgl_renderer_resource_cre
       }
    }
 
+   res->map_info = blob.map_info;
+
    if (ctx->get_blob_done)
       ctx->get_blob_done(ctx, args->res_handle, &blob);
 
@@ -773,15 +781,14 @@ int virgl_renderer_resource_get_map_info(uint32_t res_handle, uint32_t *map_info
 {
    TRACE_FUNC();
    struct virgl_resource *res = virgl_resource_lookup(res_handle);
-   if (!res || !res->pipe_resource)
+   if (!res)
       return -EINVAL;
 
-   uint32_t info = vrend_renderer_resource_get_map_info(res->pipe_resource);
-   if ((info & VIRGL_RENDERER_MAP_CACHE_MASK) ==
+   if ((res->map_info & VIRGL_RENDERER_MAP_CACHE_MASK) ==
        VIRGL_RENDERER_MAP_CACHE_NONE)
       return -EINVAL;
 
-   *map_info = info;
+   *map_info = res->map_info;
    return 0;
 }
 
