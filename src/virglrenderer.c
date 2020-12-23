@@ -624,10 +624,28 @@ static int virgl_renderer_export_query(void *execute_args, uint32_t execute_size
       return -EINVAL;
 
    res = virgl_resource_lookup(export_query->in_resource_id);
-   if (!res || !res->pipe_resource)
+   if (!res)
       return -EINVAL;
 
-   return vrend_renderer_export_query(res->pipe_resource, export_query);
+
+   if (res->pipe_resource) {
+      return vrend_renderer_export_query(res->pipe_resource, export_query);
+   } else if (!export_query->in_export_fds) {
+      /* Untyped resources are expected to be exported with
+       * virgl_renderer_resource_export_blob instead and have no type
+       * information.  But when this is called to query (in_export_fds is
+       * false) an untyped resource, we should return sane values.
+       */
+      export_query->out_num_fds = 1;
+      export_query->out_fourcc = 0;
+      export_query->out_fds[0] = -1;
+      export_query->out_strides[0] = 0;
+      export_query->out_offsets[0] = 0;
+      export_query->out_modifier = DRM_FORMAT_MOD_INVALID;
+      return 0;
+   } else {
+      return -EINVAL;
+   }
 }
 
 static int virgl_renderer_supported_structures(void *execute_args, uint32_t execute_size)
