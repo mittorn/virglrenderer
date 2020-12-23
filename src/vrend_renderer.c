@@ -10638,14 +10638,10 @@ struct pipe_resource *vrend_get_blob_pipe(struct vrend_context *ctx, uint64_t bl
    return NULL;
 }
 
-int vrend_renderer_resource_get_map_info(struct pipe_resource *pres, uint32_t *map_info)
+uint32_t vrend_renderer_resource_get_map_info(struct pipe_resource *pres)
 {
    struct vrend_resource *res = (struct vrend_resource *)pres;
-   if (!res->map_info)
-      return -EINVAL;
-
-   *map_info = res->map_info;
-   return 0;
+   return res->map_info;
 }
 
 int vrend_renderer_resource_map(struct pipe_resource *pres, void **map, uint64_t *out_size)

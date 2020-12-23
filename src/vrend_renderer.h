@@ -492,7 +492,7 @@ vrend_renderer_pipe_resource_create(struct vrend_context *ctx, uint32_t blob_id,
 
 struct pipe_resource *vrend_get_blob_pipe(struct vrend_context *ctx, uint64_t blob_id);
 
-int vrend_renderer_resource_get_map_info(struct pipe_resource *pres, uint32_t *map_info);
+uint32_t vrend_renderer_resource_get_map_info(struct pipe_resource *pres);
 
 int vrend_renderer_resource_map(struct pipe_resource *pres, void **map, uint64_t *out_size);
 

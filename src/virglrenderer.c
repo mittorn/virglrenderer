@@ -774,7 +774,13 @@ int virgl_renderer_resource_get_map_info(uint32_t res_handle, uint32_t *map_info
    if (!res || !res->pipe_resource)
       return -EINVAL;
 
-   return vrend_renderer_resource_get_map_info(res->pipe_resource, map_info);
+   uint32_t info = vrend_renderer_resource_get_map_info(res->pipe_resource);
+   if ((info & VIRGL_RENDERER_MAP_CACHE_MASK) ==
+       VIRGL_RENDERER_MAP_CACHE_NONE)
+      return -EINVAL;
+
+   *map_info = info;
+   return 0;
 }
 
 int
