@@ -665,6 +665,11 @@ struct vrend_sub_context {
    bool drawing;
 };
 
+struct vrend_untyped_resource {
+   struct virgl_resource *resource;
+   struct list_head head;
+};
+
 struct vrend_context {
    char debug_name[64];
 
@@ -686,6 +691,26 @@ struct vrend_context {
 
    /* resource bounds to this context */
    struct util_hash_table *res_hash;
+
+   /*
+    * vrend_context only works with typed virgl_resources.  More specifically,
+    * it works with vrend_resources that are inherited from pipe_resources
+    * wrapped in virgl_resources.
+    *
+    * Normally, a vrend_resource is created first by
+    * vrend_renderer_resource_create.  It is then wrapped in a virgl_resource
+    * by virgl_resource_create_from_pipe.  Depending on whether it is a blob
+    * resource or not, the two functions can be called from different paths.
+    * But we always get both a virgl_resource and a vrend_resource as a
+    * result.
+    *
+    * It is however possible that we encounter untyped virgl_resources that
+    * have no pipe_resources.  To work with untyped virgl_resources, we park
+    * them in untyped_resources first when they are attached.  TODO: create
+    * vrend_resources after we get the type information.
+    */
+   struct list_head untyped_resources;
+   struct virgl_resource *untyped_resource_cache;
 
    struct list_head active_nontimer_query_list;
 
@@ -6237,6 +6262,7 @@ void vrend_destroy_context(struct vrend_context *ctx)
    bool switch_0 = (ctx == vrend_state.current_ctx);
    struct vrend_context *cur = vrend_state.current_ctx;
    struct vrend_sub_context *sub, *tmp;
+   struct vrend_untyped_resource *untyped_res, *untyped_res_tmp;
    if (switch_0) {
       vrend_state.current_ctx = NULL;
       vrend_state.current_hw_ctx = NULL;
@@ -6268,6 +6294,8 @@ void vrend_destroy_context(struct vrend_context *ctx)
    if(ctx->ctx_id)
       vrend_renderer_force_ctx_0();
 
+   LIST_FOR_EACH_ENTRY_SAFE(untyped_res, untyped_res_tmp, &ctx->untyped_resources, head)
+      free(untyped_res);
    vrend_ctx_resource_fini_table(ctx->res_hash);
 
    FREE(ctx);
@@ -6299,6 +6327,7 @@ struct vrend_context *vrend_create_context(int id, uint32_t nlen, const char *de
    list_inithead(&grctx->active_nontimer_query_list);
 
    grctx->res_hash = vrend_ctx_resource_init_table();
+   list_inithead(&grctx->untyped_resources);
 
    grctx->shader_cfg.use_gles = vrend_state.use_gles;
    grctx->shader_cfg.use_core_profile = vrend_state.use_core_profile;
@@ -10423,9 +10452,22 @@ void vrend_renderer_get_rect(struct pipe_resource *pres,
 void vrend_renderer_attach_res_ctx(struct vrend_context *ctx,
                                    struct virgl_resource *res)
 {
-   /* in the future, we should import to create the pipe resource */
-   if (!res->pipe_resource)
+   if (!res->pipe_resource) {
+      /* move the last untyped resource from cache to list */
+      if (unlikely(ctx->untyped_resource_cache)) {
+         struct virgl_resource *last = ctx->untyped_resource_cache;
+         struct vrend_untyped_resource *wrapper = malloc(sizeof(*wrapper));
+         if (wrapper) {
+            wrapper->resource = last;
+            list_add(&wrapper->head, &ctx->untyped_resources);
+         } else {
+            vrend_printf("dropping attached resource %d due to OOM\n", last->res_id);
+         }
+      }
+
+      ctx->untyped_resource_cache = res;
       return;
+   }
 
    vrend_ctx_resource_insert(ctx->res_hash,
                              res->res_id,
@@ -10435,6 +10477,23 @@ void vrend_renderer_attach_res_ctx(struct vrend_context *ctx,
 void vrend_renderer_detach_res_ctx(struct vrend_context *ctx,
                                    struct virgl_resource *res)
 {
+   if (!res->pipe_resource) {
+      if (ctx->untyped_resource_cache == res) {
+         ctx->untyped_resource_cache = NULL;
+      } else {
+         struct vrend_untyped_resource *iter;
+         LIST_FOR_EACH_ENTRY(iter, &ctx->untyped_resources, head) {
+            if (iter->resource == res) {
+               list_del(&iter->head);
+               free(iter);
+               break;
+            }
+         }
+      }
+
+      return;
+   }
+
    vrend_ctx_resource_remove(ctx->res_hash, res->res_id);
 }
 
