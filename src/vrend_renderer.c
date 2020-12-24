@@ -6285,7 +6285,7 @@ struct vrend_context *vrend_create_context(int id, uint32_t nlen, const char *de
    return grctx;
 }
 
-static int check_resource_valid(struct vrend_renderer_resource_create_args *args,
+static int check_resource_valid(const struct vrend_renderer_resource_create_args *args,
                                 char errmsg[256])
 {
    /* limit the target */
@@ -6590,7 +6590,7 @@ static void vrend_create_buffer(struct vrend_resource *gr, uint32_t width, uint3
 }
 
 static inline void
-vrend_renderer_resource_copy_args(struct vrend_renderer_resource_create_args *args,
+vrend_renderer_resource_copy_args(const struct vrend_renderer_resource_create_args *args,
                                   struct vrend_resource *gr)
 {
    assert(gr);
@@ -6869,7 +6869,8 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
 }
 
 struct pipe_resource *
-vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *args, void *image_oes)
+vrend_renderer_resource_create(const struct vrend_renderer_resource_create_args *args,
+                               void *image_oes)
 {
    struct vrend_resource *gr;
    int ret;
@@ -10578,7 +10579,7 @@ int vrend_renderer_export_query(struct pipe_resource *pres,
 }
 
 int vrend_renderer_pipe_resource_create(struct vrend_context *ctx, uint32_t blob_id,
-                                        struct vrend_renderer_resource_create_args *args)
+                                        const struct vrend_renderer_resource_create_args *args)
 {
    struct vrend_resource *res;
    res = (struct vrend_resource *)vrend_renderer_resource_create(args, NULL);

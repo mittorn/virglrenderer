@@ -186,7 +186,8 @@ struct vrend_renderer_resource_create_args {
 };
 
 struct pipe_resource *
-vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *args, void *image_eos);
+vrend_renderer_resource_create(const struct vrend_renderer_resource_create_args *args,
+                               void *image_eos);
 
 int vrend_create_surface(struct vrend_context *ctx,
                          uint32_t handle,
@@ -487,7 +488,7 @@ void vrend_sync_make_current(virgl_gl_context);
 
 int
 vrend_renderer_pipe_resource_create(struct vrend_context *ctx, uint32_t blob_id,
-                                    struct vrend_renderer_resource_create_args *args);
+                                    const struct vrend_renderer_resource_create_args *args);
 
 struct pipe_resource *vrend_get_blob_pipe(struct vrend_context *ctx, uint64_t blob_id);
 
