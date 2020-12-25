@@ -44,6 +44,16 @@ enum virgl_resource_fd_type {
  * and imported into a vrend_decode_ctx to create a vrend_resource.
  *
  * It is also possible to create a virgl_resource from a context object.
+ *
+ * The underlying storage of a virgl_resource is provided by a pipe_resource
+ * and/or a fd.  When it is provided by a pipe_resource, the virgl_resource is
+ * said to be typed because pipe_resource also provides the type information.
+ *
+ * Conventional resources are always typed.  Blob resources by definition do
+ * not have nor need type information, but those created from vrend_decode_ctx
+ * objects are typed.  That should be considered a convenience rather than
+ * something to be relied upon.  Contexts must not assume that every resource is
+ * typed when interop is expected.
  */
 struct virgl_resource {
    uint32_t res_id;
