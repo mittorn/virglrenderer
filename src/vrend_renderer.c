@@ -6386,8 +6386,8 @@ static int check_resource_valid(const struct vrend_renderer_resource_create_args
       }
    }
 
-   if (format_can_texture_storage && !args->width) {
-      snprintf(errmsg, 256, "Texture storage texture width must be >0");
+   if (args->target != PIPE_BUFFER && !args->width) {
+      snprintf(errmsg, 256, "Texture width must be >0");
       return -1;
    }
 
@@ -6728,9 +6728,6 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
    enum virgl_formats format = gr->base.format;
    struct vrend_texture *gt = (struct vrend_texture *)gr;
    struct pipe_resource *pr = &gr->base;
-
-   if (pr->width0 == 0)
-      return EINVAL;
 
    bool format_can_texture_storage = has_feature(feat_texture_storage) &&
          (tex_conv_table[format].flags & VIRGL_TEXTURE_CAN_TEXTURE_STORAGE);
