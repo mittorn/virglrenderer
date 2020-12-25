@@ -7039,7 +7039,7 @@ void vrend_renderer_resource_destroy(struct vrend_resource *res)
       glDeleteMemoryObjectsEXT(1, &res->memobj);
    }
 
-#ifdef ENABLE_MINIGBM_ALLOCATION
+#if HAVE_EPOXY_EGL_H
    if (res->egl_image) {
       virgl_egl_image_destroy(egl, res->egl_image);
       for (unsigned i = 0; i < ARRAY_SIZE(res->aux_plane_egl_image); i++) {
@@ -7048,6 +7048,8 @@ void vrend_renderer_resource_destroy(struct vrend_resource *res)
          }
       }
    }
+#endif
+#ifdef ENABLE_MINIGBM_ALLOCATION
    if (res->gbm_bo)
       gbm_bo_destroy(res->gbm_bo);
 #endif
