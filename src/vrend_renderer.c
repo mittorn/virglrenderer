@@ -6868,9 +6868,8 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
    return 0;
 }
 
-struct pipe_resource *
-vrend_renderer_resource_create(const struct vrend_renderer_resource_create_args *args,
-                               void *image_oes)
+static struct vrend_resource *
+vrend_resource_create(const struct vrend_renderer_resource_create_args *args)
 {
    struct vrend_resource *gr;
    int ret;
@@ -6893,6 +6892,19 @@ vrend_renderer_resource_create(const struct vrend_renderer_resource_create_args 
       gr->y_0_top = true;
 
    pipe_reference_init(&gr->base.reference, 1);
+
+   return gr;
+}
+
+struct pipe_resource *
+vrend_renderer_resource_create(const struct vrend_renderer_resource_create_args *args,
+                               void *image_oes)
+{
+   struct vrend_resource *gr;
+
+   gr = vrend_resource_create(args);
+   if (!gr)
+      return NULL;
 
    if (args->target == PIPE_BUFFER) {
       if (args->bind == VIRGL_BIND_CUSTOM) {
