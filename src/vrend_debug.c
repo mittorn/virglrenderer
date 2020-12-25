@@ -78,6 +78,7 @@ static const char *command_names[VIRGL_MAX_COMMANDS] = {
    "TWEAK",
    "CLEAR_TEXTURE"
    "PIPE_RESOURCE_CREATE",
+   "PIPE_RESOURCE_SET_TYPE",
 };
 
 static const char *object_type_names[VIRGL_MAX_OBJECTS] = {

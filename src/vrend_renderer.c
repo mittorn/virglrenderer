@@ -706,8 +706,9 @@ struct vrend_context {
     *
     * It is however possible that we encounter untyped virgl_resources that
     * have no pipe_resources.  To work with untyped virgl_resources, we park
-    * them in untyped_resources first when they are attached.  TODO: create
-    * vrend_resources after we get the type information.
+    * them in untyped_resources first when they are attached.  We move them
+    * into res_hash only after we get the type information and create the
+    * vrend_resources in vrend_decode_pipe_resource_set_type.
     */
    struct list_head untyped_resources;
    struct virgl_resource *untyped_resource_cache;
@@ -10272,6 +10273,11 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
 
    if (has_feature(feat_blend_equation_advanced))
       caps->v2.capability_bits_v2 |= VIRGL_CAP_V2_BLEND_EQUATION;
+
+#ifdef HAVE_EPOXY_EGL_H
+   if (egl)
+      caps->v2.capability_bits_v2 |= VIRGL_CAP_V2_UNTYPED_RESOURCE;
+#endif
 }
 
 void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
@@ -10466,6 +10472,7 @@ void vrend_renderer_attach_res_ctx(struct vrend_context *ctx,
       }
 
       ctx->untyped_resource_cache = res;
+      /* defer to vrend_renderer_pipe_resource_set_type */
       return;
    }
 
@@ -10738,6 +10745,122 @@ struct pipe_resource *vrend_get_blob_pipe(struct vrend_context *ctx, uint64_t bl
    }
 
    return NULL;
+}
+
+int
+vrend_renderer_pipe_resource_set_type(struct vrend_context *ctx,
+                                      uint32_t res_id,
+                                      const struct vrend_renderer_resource_set_type_args *args)
+{
+   struct virgl_resource *res = NULL;
+
+   /* look up the untyped resource */
+   if (ctx->untyped_resource_cache &&
+       ctx->untyped_resource_cache->res_id == res_id) {
+      res = ctx->untyped_resource_cache;
+      ctx->untyped_resource_cache = NULL;
+   } else {
+      /* cache miss */
+      struct vrend_untyped_resource *iter;
+      LIST_FOR_EACH_ENTRY(iter, &ctx->untyped_resources, head) {
+         if (iter->resource->res_id == res_id) {
+            res = iter->resource;
+            list_del(&iter->head);
+            free(iter);
+            break;
+         }
+      }
+   }
+
+   /* either a bad res_id or the resource is already typed */
+   if (!res) {
+      if (vrend_renderer_ctx_res_lookup(ctx, res_id))
+         return 0;
+
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, res_id);
+      return EINVAL;
+   }
+
+   /* resource is still untyped */
+   if (!res->pipe_resource) {
+#ifdef HAVE_EPOXY_EGL_H
+      const struct vrend_renderer_resource_create_args create_args = {
+         .target = PIPE_TEXTURE_2D,
+         .format = args->format,
+         .bind = args->bind,
+         .width = args->width,
+         .height = args->height,
+         .depth = 1,
+         .array_size = 1,
+         .last_level = 0,
+         .nr_samples = 0,
+         .flags = 0,
+      };
+      int plane_fds[VIRGL_GBM_MAX_PLANES];
+      struct vrend_resource *gr;
+      uint32_t virgl_format;
+      uint32_t drm_format;
+      int ret;
+
+      if (res->fd_type != VIRGL_RESOURCE_FD_DMABUF)
+         return EINVAL;
+
+      for (uint32_t i = 0; i < args->plane_count; i++)
+         plane_fds[i] = res->fd;
+
+      gr = vrend_resource_create(&create_args);
+      if (!gr)
+         return ENOMEM;
+
+      virgl_format = vrend_resource_fixup_emulated_bgra(gr, true);
+      drm_format = 0;
+      if (virgl_gbm_convert_format(&virgl_format, &drm_format)) {
+         vrend_printf("%s: unsupported format %d\n", __func__, virgl_format);
+         FREE(gr);
+         return EINVAL;
+      }
+
+      gr->egl_image = virgl_egl_image_from_dmabuf(egl,
+                                                  args->width,
+                                                  args->height,
+                                                  drm_format,
+                                                  args->modifier,
+                                                  args->plane_count,
+                                                  plane_fds,
+                                                  args->plane_strides,
+                                                  args->plane_offsets);
+      if (!gr->egl_image) {
+         vrend_printf("%s: failed to create egl image\n", __func__);
+         FREE(gr);
+         return EINVAL;
+      }
+
+      gr->storage_bits |= VREND_STORAGE_EGL_IMAGE;
+
+      ret = vrend_resource_alloc_texture(gr, virgl_format, gr->egl_image);
+      if (ret) {
+         virgl_egl_image_destroy(egl, gr->egl_image);
+         FREE(gr);
+         return ret;
+      }
+
+      /* "promote" the fd to pipe_resource */
+      close(res->fd);
+      res->fd = -1;
+      res->fd_type = VIRGL_RESOURCE_FD_INVALID;
+      res->pipe_resource = &gr->base;
+#else /* HAVE_EPOXY_EGL_H */
+      (void)args;
+      vrend_printf("%s: no EGL support \n", __func__);
+      return EINVAL;
+#endif /* HAVE_EPOXY_EGL_H */
+   }
+
+   vrend_ctx_resource_insert(ctx->res_hash,
+                             res->res_id,
+                             (struct vrend_resource *)res->pipe_resource);
+
+   return 0;
 }
 
 uint32_t vrend_renderer_resource_get_map_info(struct pipe_resource *pres)

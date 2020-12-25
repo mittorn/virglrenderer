@@ -186,6 +186,19 @@ struct vrend_renderer_resource_create_args {
    uint32_t flags;
 };
 
+/* set the type info of an untyped blob resource */
+struct vrend_renderer_resource_set_type_args {
+   uint32_t format;
+   uint32_t bind;
+   uint32_t width;
+   uint32_t height;
+   uint32_t usage;
+   uint64_t modifier;
+   uint32_t plane_count;
+   uint32_t plane_strides[VIRGL_GBM_MAX_PLANES];
+   uint32_t plane_offsets[VIRGL_GBM_MAX_PLANES];
+};
+
 struct pipe_resource *
 vrend_renderer_resource_create(const struct vrend_renderer_resource_create_args *args,
                                void *image_eos);
@@ -490,6 +503,11 @@ vrend_renderer_pipe_resource_create(struct vrend_context *ctx, uint32_t blob_id,
                                     const struct vrend_renderer_resource_create_args *args);
 
 struct pipe_resource *vrend_get_blob_pipe(struct vrend_context *ctx, uint64_t blob_id);
+
+int
+vrend_renderer_pipe_resource_set_type(struct vrend_context *ctx,
+                                      uint32_t res_id,
+                                      const struct vrend_renderer_resource_set_type_args *args);
 
 uint32_t vrend_renderer_resource_get_map_info(struct pipe_resource *pres);
 

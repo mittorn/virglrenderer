@@ -1431,6 +1431,34 @@ static int vrend_decode_pipe_resource_create(struct vrend_context *ctx, const ui
    return vrend_renderer_pipe_resource_create(ctx, blob_id, &args);
 }
 
+static int vrend_decode_pipe_resource_set_type(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
+{
+   struct vrend_renderer_resource_set_type_args args = { 0 };
+   uint32_t res_id;
+
+   if (length >= VIRGL_PIPE_RES_SET_TYPE_SIZE(0))
+      args.plane_count = (length - VIRGL_PIPE_RES_SET_TYPE_SIZE(0)) / 2;
+
+   if (length != VIRGL_PIPE_RES_SET_TYPE_SIZE(args.plane_count) ||
+       !args.plane_count || args.plane_count > VIRGL_GBM_MAX_PLANES)
+      return EINVAL;
+
+   res_id = get_buf_entry(buf, VIRGL_PIPE_RES_SET_TYPE_RES_HANDLE);
+   args.format = get_buf_entry(buf, VIRGL_PIPE_RES_SET_TYPE_FORMAT);
+   args.bind = get_buf_entry(buf, VIRGL_PIPE_RES_SET_TYPE_BIND);
+   args.width = get_buf_entry(buf, VIRGL_PIPE_RES_SET_TYPE_WIDTH);
+   args.height = get_buf_entry(buf, VIRGL_PIPE_RES_SET_TYPE_HEIGHT);
+   args.usage = get_buf_entry(buf, VIRGL_PIPE_RES_SET_TYPE_USAGE);
+   args.modifier = get_buf_entry(buf, VIRGL_PIPE_RES_SET_TYPE_MODIFIER_LO);
+   args.modifier |= (uint64_t)get_buf_entry(buf, VIRGL_PIPE_RES_SET_TYPE_MODIFIER_HI) << 32;
+   for (uint32_t i = 0; i < args.plane_count; i++) {
+      args.plane_strides[i] = get_buf_entry(buf, VIRGL_PIPE_RES_SET_TYPE_PLANE_STRIDE(i));
+      args.plane_offsets[i] = get_buf_entry(buf, VIRGL_PIPE_RES_SET_TYPE_PLANE_OFFSET(i));
+   }
+
+   return vrend_renderer_pipe_resource_set_type(ctx, res_id, &args);
+}
+
 static void vrend_decode_ctx_init_base(struct vrend_decode_ctx *dctx,
                                        uint32_t ctx_id);
 
@@ -1568,7 +1596,8 @@ static const vrend_decode_callback decode_table[VIRGL_MAX_COMMANDS] = {
    [VIRGL_CCMD_COPY_TRANSFER3D] = vrend_decode_copy_transfer3d,
    [VIRGL_CCMD_END_TRANSFERS] = vrend_decode_dummy,
    [VIRGL_CCMD_SET_TWEAKS] = vrend_decode_set_tweaks,
-   [VIRGL_CCMD_PIPE_RESOURCE_CREATE] = vrend_decode_pipe_resource_create
+   [VIRGL_CCMD_PIPE_RESOURCE_CREATE] = vrend_decode_pipe_resource_create,
+   [VIRGL_CCMD_PIPE_RESOURCE_SET_TYPE] = vrend_decode_pipe_resource_set_type,
 };
 
 static int vrend_decode_ctx_submit_cmd(struct virgl_context *ctx,
