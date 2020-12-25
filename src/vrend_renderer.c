@@ -6720,16 +6720,12 @@ static void vrend_resource_gbm_init(struct vrend_resource *gr, uint32_t format)
 #endif
 }
 
-static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
-                                                    void *image_oes)
+static enum virgl_formats vrend_resource_fixup_emulated_bgra(struct vrend_resource *gr,
+                                                             bool imported)
 {
-   uint level;
-   GLenum internalformat, glformat, gltype;
-   enum virgl_formats format = gr->base.format;
-   struct vrend_texture *gt = (struct vrend_texture *)gr;
-   struct pipe_resource *pr = &gr->base;
-
-   bool format_can_texture_storage = has_feature(feat_texture_storage) &&
+   const struct pipe_resource *pr = &gr->base;
+   const enum virgl_formats format = pr->format;
+   const bool format_can_texture_storage = has_feature(feat_texture_storage) &&
          (tex_conv_table[format].flags & VIRGL_TEXTURE_CAN_TEXTURE_STORAGE);
 
    /* On GLES there is no support for glTexImage*DMultisample and
@@ -6741,7 +6737,7 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
       gr->base.bind |= VIRGL_BIND_PREFER_EMULATED_BGRA;
    }
 
-   if (image_oes && !has_feature(feat_egl_image_storage))
+   if (imported && !has_feature(feat_egl_image_storage))
       gr->base.bind &= ~VIRGL_BIND_PREFER_EMULATED_BGRA;
 
 #ifdef ENABLE_MINIGBM_ALLOCATION
@@ -6750,8 +6746,19 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
       gr->base.bind &= ~VIRGL_BIND_PREFER_EMULATED_BGRA;
 #endif
 
-   format = vrend_format_replace_emulated(gr->base.bind, gr->base.format);
-   format_can_texture_storage = has_feature(feat_texture_storage) &&
+   return vrend_format_replace_emulated(gr->base.bind, format);
+}
+
+static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
+                                                    enum virgl_formats format,
+                                                    void *image_oes)
+{
+   uint level;
+   GLenum internalformat, glformat, gltype;
+   struct vrend_texture *gt = (struct vrend_texture *)gr;
+   struct pipe_resource *pr = &gr->base;
+
+   const bool format_can_texture_storage = has_feature(feat_texture_storage) &&
         (tex_conv_table[format].flags & VIRGL_TEXTURE_CAN_TEXTURE_STORAGE);
 
    if (format_can_texture_storage)
@@ -6966,7 +6973,9 @@ vrend_renderer_resource_create(const struct vrend_renderer_resource_create_args 
    if (args->target == PIPE_BUFFER) {
       ret = vrend_resource_alloc_buffer(gr, args->flags);
    } else {
-      ret = vrend_renderer_resource_allocate_texture(gr, image_oes);
+      const enum virgl_formats format =
+         vrend_resource_fixup_emulated_bgra(gr, image_oes);
+      ret = vrend_renderer_resource_allocate_texture(gr, format, image_oes);
    }
 
    if (ret) {
@@ -8832,7 +8841,8 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
       args.array_size = src_res->base.array_size;
       intermediate_copy = (struct vrend_resource *)CALLOC_STRUCT(vrend_texture);
       vrend_renderer_resource_copy_args(&args, intermediate_copy);
-      MAYBE_UNUSED int r = vrend_renderer_resource_allocate_texture(intermediate_copy, NULL);
+      /* this is PIPE_MASK_ZS and bgra fixup is not needed */
+      MAYBE_UNUSED int r = vrend_renderer_resource_allocate_texture(intermediate_copy, args.format, NULL);
       assert(!r);
 
       glGenFramebuffers(1, &intermediate_fbo);
