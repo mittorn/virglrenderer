@@ -6749,9 +6749,9 @@ static enum virgl_formats vrend_resource_fixup_emulated_bgra(struct vrend_resour
    return vrend_format_replace_emulated(gr->base.bind, format);
 }
 
-static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
-                                                    enum virgl_formats format,
-                                                    void *image_oes)
+static int vrend_resource_alloc_texture(struct vrend_resource *gr,
+                                        enum virgl_formats format,
+                                        void *image_oes)
 {
    uint level;
    GLenum internalformat, glformat, gltype;
@@ -6975,7 +6975,7 @@ vrend_renderer_resource_create(const struct vrend_renderer_resource_create_args 
    } else {
       const enum virgl_formats format =
          vrend_resource_fixup_emulated_bgra(gr, image_oes);
-      ret = vrend_renderer_resource_allocate_texture(gr, format, image_oes);
+      ret = vrend_resource_alloc_texture(gr, format, image_oes);
    }
 
    if (ret) {
@@ -8842,7 +8842,7 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
       intermediate_copy = (struct vrend_resource *)CALLOC_STRUCT(vrend_texture);
       vrend_renderer_resource_copy_args(&args, intermediate_copy);
       /* this is PIPE_MASK_ZS and bgra fixup is not needed */
-      MAYBE_UNUSED int r = vrend_renderer_resource_allocate_texture(intermediate_copy, args.format, NULL);
+      MAYBE_UNUSED int r = vrend_resource_alloc_texture(intermediate_copy, args.format, NULL);
       assert(!r);
 
       glGenFramebuffers(1, &intermediate_fbo);
