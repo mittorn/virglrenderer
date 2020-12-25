@@ -56,9 +56,19 @@ int virgl_egl_get_fd_for_texture(struct virgl_egl *egl, uint32_t tex_id, int *fd
 int virgl_egl_get_fd_for_texture2(struct virgl_egl *egl, uint32_t tex_id, int *fd, int *stride,
                                   int *offset);
 
-void *virgl_egl_image_from_dmabuf(struct virgl_egl *egl, struct gbm_bo *bo);
-void *virgl_egl_aux_plane_image_from_dmabuf(struct virgl_egl *egl, struct gbm_bo *bo, int plane);
+void *virgl_egl_image_from_dmabuf(struct virgl_egl *egl,
+                                  uint32_t width,
+                                  uint32_t height,
+                                  uint32_t drm_format,
+                                  uint64_t drm_modifier,
+                                  uint32_t plane_count,
+                                  const int *plane_fds,
+                                  const uint32_t *plane_strides,
+                                  const uint32_t *plane_offsets);
 void virgl_egl_image_destroy(struct virgl_egl *egl, void *image);
+
+void *virgl_egl_image_from_gbm_bo(struct virgl_egl *egl, struct gbm_bo *bo);
+void *virgl_egl_aux_plane_image_from_gbm_bo(struct virgl_egl *egl, struct gbm_bo *bo, int plane);
 
 bool virgl_egl_supports_fences(struct virgl_egl *egl);
 EGLSyncKHR virgl_egl_fence_create(struct virgl_egl *egl);

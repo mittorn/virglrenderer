@@ -6740,7 +6740,7 @@ static void vrend_resource_gbm_init(struct vrend_resource *gr, uint32_t format)
    if (!virgl_gbm_gpu_import_required(gr->base.bind))
       return;
 
-   gr->egl_image = virgl_egl_image_from_dmabuf(egl, bo);
+   gr->egl_image = virgl_egl_image_from_gbm_bo(egl, bo);
    if (!gr->egl_image) {
       gr->gbm_bo = NULL;
       gbm_bo_destroy(bo);
@@ -6952,7 +6952,7 @@ static int vrend_resource_alloc_texture(struct vrend_resource *gr,
             !vrend_format_can_texture_view(gr->base.format)) {
          for (int i = 0; i < gbm_bo_get_plane_count(gr->gbm_bo); i++) {
             gr->aux_plane_egl_image[i] =
-                  virgl_egl_aux_plane_image_from_dmabuf(egl, gr->gbm_bo, i);
+                  virgl_egl_aux_plane_image_from_gbm_bo(egl, gr->gbm_bo, i);
          }
       }
 #endif
