@@ -1524,6 +1524,67 @@ static int vrend_decode_ctx_get_blob(struct virgl_context *ctx,
    return blob->u.pipe_resource ? 0 : EINVAL;
 }
 
+typedef int (*vrend_decode_callback)(struct vrend_decode_ctx *ctx, uint32_t length);
+
+static int vrend_decode_dummy(struct vrend_decode_ctx *ctx, uint32_t length)
+{
+   (void)ctx;
+   (void)length;
+   return 0;
+}
+
+vrend_decode_callback decode_table[VIRGL_MAX_COMMANDS] = {
+   [VIRGL_CCMD_NOP] = vrend_decode_dummy,
+   [VIRGL_CCMD_CREATE_OBJECT] = vrend_decode_create_object,
+   [VIRGL_CCMD_BIND_OBJECT] = vrend_decode_bind_object,
+   [VIRGL_CCMD_DESTROY_OBJECT] = vrend_decode_destroy_object,
+   [VIRGL_CCMD_CLEAR] = vrend_decode_clear,
+   [VIRGL_CCMD_CLEAR_TEXTURE] = vrend_decode_clear_texture,
+   [VIRGL_CCMD_DRAW_VBO] = vrend_decode_draw_vbo,
+   [VIRGL_CCMD_SET_FRAMEBUFFER_STATE] = vrend_decode_set_framebuffer_state,
+   [VIRGL_CCMD_SET_VERTEX_BUFFERS] = vrend_decode_set_vertex_buffers,
+   [VIRGL_CCMD_RESOURCE_INLINE_WRITE] = vrend_decode_resource_inline_write,
+   [VIRGL_CCMD_SET_VIEWPORT_STATE] = vrend_decode_set_viewport_state,
+   [VIRGL_CCMD_SET_SAMPLER_VIEWS] = vrend_decode_set_sampler_views,
+   [VIRGL_CCMD_SET_INDEX_BUFFER] = vrend_decode_set_index_buffer,
+   [VIRGL_CCMD_SET_CONSTANT_BUFFER] = vrend_decode_set_constant_buffer,
+   [VIRGL_CCMD_SET_STENCIL_REF] = vrend_decode_set_stencil_ref,
+   [VIRGL_CCMD_SET_BLEND_COLOR] = vrend_decode_set_blend_color,
+   [VIRGL_CCMD_SET_SCISSOR_STATE] = vrend_decode_set_scissor_state,
+   [VIRGL_CCMD_BLIT] = vrend_decode_blit,
+   [VIRGL_CCMD_RESOURCE_COPY_REGION] = vrend_decode_resource_copy_region,
+   [VIRGL_CCMD_BIND_SAMPLER_STATES] = vrend_decode_bind_sampler_states,
+   [VIRGL_CCMD_BEGIN_QUERY] = vrend_decode_begin_query,
+   [VIRGL_CCMD_END_QUERY] = vrend_decode_end_query,
+   [VIRGL_CCMD_GET_QUERY_RESULT] = vrend_decode_get_query_result,
+   [VIRGL_CCMD_SET_POLYGON_STIPPLE] = vrend_decode_set_polygon_stipple,
+   [VIRGL_CCMD_SET_CLIP_STATE] = vrend_decode_set_clip_state,
+   [VIRGL_CCMD_SET_SAMPLE_MASK] = vrend_decode_set_sample_mask,
+   [VIRGL_CCMD_SET_MIN_SAMPLES] = vrend_decode_set_min_samples,
+   [VIRGL_CCMD_SET_STREAMOUT_TARGETS] = vrend_decode_set_streamout_targets,
+   [VIRGL_CCMD_SET_RENDER_CONDITION] = vrend_decode_set_render_condition,
+   [VIRGL_CCMD_SET_UNIFORM_BUFFER] = vrend_decode_set_uniform_buffer,
+   [VIRGL_CCMD_SET_SUB_CTX] = vrend_decode_set_sub_ctx,
+   [VIRGL_CCMD_CREATE_SUB_CTX] = vrend_decode_create_sub_ctx,
+   [VIRGL_CCMD_DESTROY_SUB_CTX] = vrend_decode_destroy_sub_ctx,
+   [VIRGL_CCMD_BIND_SHADER] = vrend_decode_bind_shader,
+   [VIRGL_CCMD_SET_TESS_STATE] = vrend_decode_set_tess_state,
+   [VIRGL_CCMD_SET_SHADER_BUFFERS] = vrend_decode_set_shader_buffers,
+   [VIRGL_CCMD_SET_SHADER_IMAGES] = vrend_decode_set_shader_images,
+   [VIRGL_CCMD_SET_ATOMIC_BUFFERS] = vrend_decode_set_atomic_buffers,
+   [VIRGL_CCMD_MEMORY_BARRIER] = vrend_decode_memory_barrier,
+   [VIRGL_CCMD_LAUNCH_GRID] = vrend_decode_launch_grid,
+   [VIRGL_CCMD_SET_FRAMEBUFFER_STATE_NO_ATTACH] = vrend_decode_set_framebuffer_state_no_attach,
+   [VIRGL_CCMD_TEXTURE_BARRIER] = vrend_decode_texture_barrier,
+   [VIRGL_CCMD_SET_DEBUG_FLAGS] = vrend_decode_set_debug_mask,
+   [VIRGL_CCMD_GET_QUERY_RESULT_QBO] = vrend_decode_get_query_result_qbo,
+   [VIRGL_CCMD_TRANSFER3D] = vrend_decode_transfer3d,
+   [VIRGL_CCMD_COPY_TRANSFER3D] = vrend_decode_copy_transfer3d,
+   [VIRGL_CCMD_END_TRANSFERS] = vrend_decode_dummy,
+   [VIRGL_CCMD_SET_TWEAKS] = vrend_decode_set_tweaks,
+   [VIRGL_CCMD_PIPE_RESOURCE_CREATE] = vrend_decode_pipe_resource_create
+};
+
 static int vrend_decode_ctx_submit_cmd(struct virgl_context *ctx,
                                        const void *buffer,
                                        size_t size)
@@ -1544,6 +1605,10 @@ static int vrend_decode_ctx_submit_cmd(struct virgl_context *ctx,
    while (gdctx->ds->buf_offset < gdctx->ds->buf_total) {
       uint32_t header = gdctx->ds->buf[gdctx->ds->buf_offset];
       uint32_t len = header >> 16;
+      uint32_t cmd = header & 0xff;
+
+      if (cmd >= VIRGL_MAX_COMMANDS)
+         return EINVAL;
 
       ret = 0;
       /* check if the guest is doing something bad */
@@ -1557,155 +1622,7 @@ static int vrend_decode_ctx_submit_cmd(struct virgl_context *ctx,
 
       TRACE_SCOPE("%s", vrend_get_comand_name(header & 0xff));
 
-      switch (header & 0xff) {
-      case VIRGL_CCMD_CREATE_OBJECT:
-         ret = vrend_decode_create_object(gdctx, len);
-         break;
-      case VIRGL_CCMD_BIND_OBJECT:
-         ret = vrend_decode_bind_object(gdctx, len);
-         break;
-      case VIRGL_CCMD_DESTROY_OBJECT:
-         ret = vrend_decode_destroy_object(gdctx, len);
-         break;
-      case VIRGL_CCMD_CLEAR:
-         ret = vrend_decode_clear(gdctx, len);
-         break;
-      case VIRGL_CCMD_CLEAR_TEXTURE:
-         ret = vrend_decode_clear_texture(gdctx, len);
-         break;
-      case VIRGL_CCMD_DRAW_VBO:
-         ret = vrend_decode_draw_vbo(gdctx, len);
-         break;
-      case VIRGL_CCMD_SET_FRAMEBUFFER_STATE:
-         ret = vrend_decode_set_framebuffer_state(gdctx, len);
-         break;
-      case VIRGL_CCMD_SET_VERTEX_BUFFERS:
-         ret = vrend_decode_set_vertex_buffers(gdctx, len);
-         break;
-      case VIRGL_CCMD_RESOURCE_INLINE_WRITE:
-         ret = vrend_decode_resource_inline_write(gdctx, len);
-         break;
-      case VIRGL_CCMD_SET_VIEWPORT_STATE:
-         ret = vrend_decode_set_viewport_state(gdctx, len);
-         break;
-      case VIRGL_CCMD_SET_SAMPLER_VIEWS:
-         ret = vrend_decode_set_sampler_views(gdctx, len);
-         break;
-      case VIRGL_CCMD_SET_INDEX_BUFFER:
-         ret = vrend_decode_set_index_buffer(gdctx, len);
-         break;
-      case VIRGL_CCMD_SET_CONSTANT_BUFFER:
-         ret = vrend_decode_set_constant_buffer(gdctx, len);
-         break;
-      case VIRGL_CCMD_SET_STENCIL_REF:
-         ret = vrend_decode_set_stencil_ref(gdctx, len);
-         break;
-      case VIRGL_CCMD_SET_BLEND_COLOR:
-         ret = vrend_decode_set_blend_color(gdctx, len);
-         break;
-      case VIRGL_CCMD_SET_SCISSOR_STATE:
-         ret = vrend_decode_set_scissor_state(gdctx, len);
-         break;
-      case VIRGL_CCMD_BLIT:
-         ret = vrend_decode_blit(gdctx, len);
-         break;
-      case VIRGL_CCMD_RESOURCE_COPY_REGION:
-         ret = vrend_decode_resource_copy_region(gdctx, len);
-         break;
-      case VIRGL_CCMD_BIND_SAMPLER_STATES:
-         ret = vrend_decode_bind_sampler_states(gdctx, len);
-         break;
-      case VIRGL_CCMD_BEGIN_QUERY:
-         ret = vrend_decode_begin_query(gdctx, len);
-         break;
-      case VIRGL_CCMD_END_QUERY:
-         ret = vrend_decode_end_query(gdctx, len);
-         break;
-      case VIRGL_CCMD_GET_QUERY_RESULT:
-         ret = vrend_decode_get_query_result(gdctx, len);
-         break;
-      case VIRGL_CCMD_SET_POLYGON_STIPPLE:
-         ret = vrend_decode_set_polygon_stipple(gdctx, len);
-         break;
-      case VIRGL_CCMD_SET_CLIP_STATE:
-         ret = vrend_decode_set_clip_state(gdctx, len);
-         break;
-      case VIRGL_CCMD_SET_SAMPLE_MASK:
-         ret = vrend_decode_set_sample_mask(gdctx, len);
-         break;
-      case VIRGL_CCMD_SET_MIN_SAMPLES:
-         ret = vrend_decode_set_min_samples(gdctx, len);
-         break;
-      case VIRGL_CCMD_SET_STREAMOUT_TARGETS:
-         ret = vrend_decode_set_streamout_targets(gdctx, len);
-         break;
-      case VIRGL_CCMD_SET_RENDER_CONDITION:
-         ret = vrend_decode_set_render_condition(gdctx, len);
-         break;
-      case VIRGL_CCMD_SET_UNIFORM_BUFFER:
-         ret = vrend_decode_set_uniform_buffer(gdctx, len);
-         break;
-      case VIRGL_CCMD_SET_SUB_CTX:
-         ret = vrend_decode_set_sub_ctx(gdctx, len);
-         break;
-      case VIRGL_CCMD_CREATE_SUB_CTX:
-         ret = vrend_decode_create_sub_ctx(gdctx, len);
-         break;
-      case VIRGL_CCMD_DESTROY_SUB_CTX:
-         ret = vrend_decode_destroy_sub_ctx(gdctx, len);
-         break;
-      case VIRGL_CCMD_BIND_SHADER:
-         ret = vrend_decode_bind_shader(gdctx, len);
-         break;
-      case VIRGL_CCMD_SET_TESS_STATE:
-         ret = vrend_decode_set_tess_state(gdctx, len);
-         break;
-      case VIRGL_CCMD_SET_SHADER_BUFFERS:
-         ret = vrend_decode_set_shader_buffers(gdctx, len);
-         break;
-      case VIRGL_CCMD_SET_SHADER_IMAGES:
-         ret = vrend_decode_set_shader_images(gdctx, len);
-         break;
-      case VIRGL_CCMD_SET_ATOMIC_BUFFERS:
-         ret = vrend_decode_set_atomic_buffers(gdctx, len);
-         break;
-      case VIRGL_CCMD_MEMORY_BARRIER:
-         ret = vrend_decode_memory_barrier(gdctx, len);
-         break;
-      case VIRGL_CCMD_LAUNCH_GRID:
-         ret = vrend_decode_launch_grid(gdctx, len);
-         break;
-      case VIRGL_CCMD_SET_FRAMEBUFFER_STATE_NO_ATTACH:
-         ret = vrend_decode_set_framebuffer_state_no_attach(gdctx, len);
-         break;
-      case VIRGL_CCMD_TEXTURE_BARRIER:
-         ret = vrend_decode_texture_barrier(gdctx, len);
-         break;
-      case VIRGL_CCMD_SET_DEBUG_FLAGS:
-         ret = vrend_decode_set_debug_mask(gdctx, len);
-         break;
-      case VIRGL_CCMD_GET_QUERY_RESULT_QBO:
-         ret = vrend_decode_get_query_result_qbo(gdctx, len);
-         break;
-      case VIRGL_CCMD_TRANSFER3D:
-         ret = vrend_decode_transfer3d(gdctx, len);
-         break;
-      case VIRGL_CCMD_COPY_TRANSFER3D:
-         ret = vrend_decode_copy_transfer3d(gdctx, len);
-         break;
-      case VIRGL_CCMD_END_TRANSFERS:
-         ret = 0;
-         break;
-      case VIRGL_CCMD_SET_TWEAKS:
-         ret = vrend_decode_set_tweaks(gdctx, len);
-         break;
-      case VIRGL_CCMD_PIPE_RESOURCE_CREATE:
-         ret = vrend_decode_pipe_resource_create(gdctx, len);
-	 break;
-      default:
-         ret = EINVAL;
-      }
-
+      ret = decode_table[cmd](gdctx, len);
       if (ret == EINVAL) {
          vrend_report_buffer_error(gdctx->grctx, header);
          goto out;
@@ -1722,7 +1639,10 @@ static int vrend_decode_ctx_submit_cmd(struct virgl_context *ctx,
 static void vrend_decode_ctx_init_base(struct vrend_decode_ctx *dctx,
                                        uint32_t ctx_id)
 {
-   struct virgl_context *ctx = &dctx->base;
+   struct virgl_context *ctx = &dctx->base ;
+
+   for (unsigned i = 0; i < VIRGL_MAX_COMMANDS; ++i)
+      assert(decode_table[i]);
 
    ctx->ctx_id = ctx_id;
    ctx->destroy = vrend_decode_ctx_destroy;
