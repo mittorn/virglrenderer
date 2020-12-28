@@ -44,16 +44,8 @@
 /* decode side */
 #define DECODE_MAX_TOKENS 8000
 
-struct vrend_decoder_state {
-   const uint32_t *buf;
-   uint32_t buf_total;
-   uint32_t buf_offset;
-};
-
 struct vrend_decode_ctx {
    struct virgl_context base;
-
-   struct vrend_decoder_state ids, *ds;
    struct vrend_context *grctx;
 };
 
@@ -1467,8 +1459,6 @@ struct virgl_context *vrend_renderer_context_create(uint32_t handle,
       return NULL;
    }
 
-   dctx->ds = &dctx->ids;
-
    return &dctx->base;
 }
 
@@ -1603,42 +1593,45 @@ static int vrend_decode_ctx_submit_cmd(struct virgl_context *ctx,
    if (bret == false)
       return EINVAL;
 
-   gdctx->ds->buf = buffer;
-   gdctx->ds->buf_total = size / sizeof(uint32_t);
-   gdctx->ds->buf_offset = 0;
+   const uint32_t *typed_buf = (const uint32_t *)buffer;
+   const uint32_t buf_total = size / sizeof(uint32_t);
+   uint32_t buf_offset = 0;
 
-   while (gdctx->ds->buf_offset < gdctx->ds->buf_total) {
-      uint32_t header = gdctx->ds->buf[gdctx->ds->buf_offset];
-      uint32_t len = header >> 16;
-      uint32_t cmd = header & 0xff;
+   while (buf_offset < buf_total) {
+#ifndef NDEBUG
+      const uint32_t cur_offset = buf_offset;
+#endif
+
+      const uint32_t *buf = &typed_buf[buf_offset];
+      uint32_t len = *buf >> 16;
+      uint32_t cmd = *buf & 0xff;
 
       if (cmd >= VIRGL_MAX_COMMANDS)
          return EINVAL;
 
+      buf_offset += len + 1;
+
       ret = 0;
       /* check if the guest is doing something bad */
-      if (gdctx->ds->buf_offset + len + 1 > gdctx->ds->buf_total) {
+      if (buf_offset > buf_total) {
          vrend_report_buffer_error(gdctx->grctx, 0);
          break;
       }
 
       VREND_DEBUG(dbg_cmd, gdctx->grctx,"%-4d %-20s len:%d\n",
-                  gdctx->ds->buf_offset, vrend_get_comand_name(header & 0xff), len);
+                  cur_offset, vrend_get_comand_name(cmd), len);
 
-      TRACE_SCOPE("%s", vrend_get_comand_name(header & 0xff));
+      TRACE_SCOPE("%s", vrend_get_comand_name(cmd));
 
-      ret = decode_table[cmd](gdctx, &gdctx->ds->buf[gdctx->ds->buf_offset], len);
-      if (ret == EINVAL) {
-         vrend_report_buffer_error(gdctx->grctx, header);
-         goto out;
+      ret = decode_table[cmd](gdctx, buf, len);
+      if (ret) {
+         if (ret == EINVAL) {
+            vrend_report_buffer_error(gdctx->grctx, *buf);
+            return ret;
+         }
       }
-      if (ret == ENOMEM)
-         goto out;
-      gdctx->ds->buf_offset += (len) + 1;
    }
    return 0;
- out:
-   return ret;
 }
 
 static void vrend_decode_ctx_init_base(struct vrend_decode_ctx *dctx,
