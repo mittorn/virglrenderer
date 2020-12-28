@@ -59,7 +59,7 @@ static inline const void *get_buf_ptr(const uint32_t *buf, uint32_t offset)
    return &buf[offset];
 }
 
-static int vrend_decode_create_shader(struct vrend_decode_ctx *ctx,
+static int vrend_decode_create_shader(struct vrend_context *ctx,
                                       const uint32_t *buf,
                                       uint32_t handle,
                                       uint16_t length)
@@ -122,12 +122,12 @@ static int vrend_decode_create_shader(struct vrend_decode_ctx *ctx,
      memset(&so_info, 0, sizeof(so_info));
 
    shd_text = get_buf_ptr(buf, shader_offset);
-   ret = vrend_create_shader(ctx->grctx, handle, &so_info, req_local_mem, (const char *)shd_text, offlen, num_tokens, type, length - shader_offset + 1);
+   ret = vrend_create_shader(ctx, handle, &so_info, req_local_mem, (const char *)shd_text, offlen, num_tokens, type, length - shader_offset + 1);
 
    return ret;
 }
 
-static int vrend_decode_create_stream_output_target(struct vrend_decode_ctx *ctx, const uint32_t *buf,
+static int vrend_decode_create_stream_output_target(struct vrend_context *ctx, const uint32_t *buf,
                                                     uint32_t handle, uint16_t length)
 {
    uint32_t res_handle, buffer_size, buffer_offset;
@@ -139,11 +139,11 @@ static int vrend_decode_create_stream_output_target(struct vrend_decode_ctx *ctx
    buffer_offset = get_buf_entry(buf, VIRGL_OBJ_STREAMOUT_BUFFER_OFFSET);
    buffer_size = get_buf_entry(buf, VIRGL_OBJ_STREAMOUT_BUFFER_SIZE);
 
-   return vrend_create_so_target(ctx->grctx, handle, res_handle, buffer_offset,
+   return vrend_create_so_target(ctx, handle, res_handle, buffer_offset,
                                  buffer_size);
 }
 
-static int vrend_decode_set_framebuffer_state(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t length)
+static int vrend_decode_set_framebuffer_state(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
 {
    if (length < 2)
       return EINVAL;
@@ -161,11 +161,11 @@ static int vrend_decode_set_framebuffer_state(struct vrend_decode_ctx *ctx, cons
 
    for (i = 0; i < nr_cbufs; i++)
       surf_handle[i] = get_buf_entry(buf, VIRGL_SET_FRAMEBUFFER_STATE_CBUF_HANDLE(i));
-   vrend_set_framebuffer_state(ctx->grctx, nr_cbufs, surf_handle, zsurf_handle);
+   vrend_set_framebuffer_state(ctx, nr_cbufs, surf_handle, zsurf_handle);
    return 0;
 }
 
-static int vrend_decode_set_framebuffer_state_no_attach(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t length)
+static int vrend_decode_set_framebuffer_state_no_attach(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
 {
    uint32_t width, height;
    uint32_t layers, samples;
@@ -182,11 +182,11 @@ static int vrend_decode_set_framebuffer_state_no_attach(struct vrend_decode_ctx 
    layers = VIRGL_SET_FRAMEBUFFER_STATE_NO_ATTACH_LAYERS(tmp);
    samples = VIRGL_SET_FRAMEBUFFER_STATE_NO_ATTACH_SAMPLES(tmp);
 
-   vrend_set_framebuffer_state_no_attach(ctx->grctx, width, height, layers, samples);
+   vrend_set_framebuffer_state_no_attach(ctx, width, height, layers, samples);
    return 0;
 }
 
-static int vrend_decode_clear(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t length)
+static int vrend_decode_clear(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
 {
    union pipe_color_union color;
    double depth;
@@ -202,11 +202,11 @@ static int vrend_decode_clear(struct vrend_decode_ctx *ctx, const uint32_t *buf,
    memcpy(&depth, depth_ptr, sizeof(double));
    stencil = get_buf_entry(buf, VIRGL_OBJ_CLEAR_STENCIL);
 
-   vrend_clear(ctx->grctx, buffers, &color, depth, stencil);
+   vrend_clear(ctx, buffers, &color, depth, stencil);
    return 0;
 }
 
-static int vrend_decode_clear_texture(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t length)
+static int vrend_decode_clear_texture(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
 {
    struct pipe_box box;
    uint32_t handle;
@@ -229,7 +229,7 @@ static int vrend_decode_clear_texture(struct vrend_decode_ctx *ctx, const uint32
    arr[2] = get_buf_entry(buf, VIRGL_TEXTURE_ARRAY_C);
    arr[3] = get_buf_entry(buf, VIRGL_TEXTURE_ARRAY_D);
 
-   vrend_clear_texture(ctx->grctx, handle, level, &box, (void *) &arr);
+   vrend_clear_texture(ctx, handle, level, &box, (void *) &arr);
    return 0;
 }
 
@@ -240,7 +240,7 @@ static float uif(unsigned int ui)
    return myuif.f;
 }
 
-static int vrend_decode_set_viewport_state(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t length)
+static int vrend_decode_set_viewport_state(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
 {
    struct pipe_viewport_state vps[PIPE_MAX_VIEWPORTS];
    uint i, v;
@@ -265,22 +265,22 @@ static int vrend_decode_set_viewport_state(struct vrend_decode_ctx *ctx, const u
          vps[v].translate[i] = uif(get_buf_entry(buf, VIRGL_SET_VIEWPORT_STATE_TRANSLATE_0(v) + i));
    }
 
-   vrend_set_viewport_states(ctx->grctx, start_slot, num_viewports, vps);
+   vrend_set_viewport_states(ctx, start_slot, num_viewports, vps);
    return 0;
 }
 
-static int vrend_decode_set_index_buffer(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t length)
+static int vrend_decode_set_index_buffer(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
 {
    if (length != 1 && length != 3)
       return EINVAL;
-   vrend_set_index_buffer(ctx->grctx,
+   vrend_set_index_buffer(ctx,
                           get_buf_entry(buf, VIRGL_SET_INDEX_BUFFER_HANDLE),
                           (length == 3) ? get_buf_entry(buf, VIRGL_SET_INDEX_BUFFER_INDEX_SIZE) : 0,
                           (length == 3) ? get_buf_entry(buf, VIRGL_SET_INDEX_BUFFER_OFFSET) : 0);
    return 0;
 }
 
-static int vrend_decode_set_constant_buffer(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t length)
+static int vrend_decode_set_constant_buffer(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
 {
    uint32_t shader;
    uint32_t index;
@@ -295,11 +295,11 @@ static int vrend_decode_set_constant_buffer(struct vrend_decode_ctx *ctx, const 
    if (shader >= PIPE_SHADER_TYPES)
       return EINVAL;
 
-   vrend_set_constants(ctx->grctx, shader, index, nc, get_buf_ptr(buf, VIRGL_SET_CONSTANT_BUFFER_DATA_START));
+   vrend_set_constants(ctx, shader, index, nc, get_buf_ptr(buf, VIRGL_SET_CONSTANT_BUFFER_DATA_START));
    return 0;
 }
 
-static int vrend_decode_set_uniform_buffer(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t length)
+static int vrend_decode_set_uniform_buffer(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
 {
    if (length != VIRGL_SET_UNIFORM_BUFFER_SIZE)
       return EINVAL;
@@ -316,11 +316,11 @@ static int vrend_decode_set_uniform_buffer(struct vrend_decode_ctx *ctx, const u
    if (index >= PIPE_MAX_CONSTANT_BUFFERS)
       return EINVAL;
 
-   vrend_set_uniform_buffer(ctx->grctx, shader, index, offset, blength, handle);
+   vrend_set_uniform_buffer(ctx, shader, index, offset, blength, handle);
    return 0;
 }
 
-static int vrend_decode_set_vertex_buffers(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t length)
+static int vrend_decode_set_vertex_buffers(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
 {
    int num_vbo;
    int i;
@@ -334,16 +334,16 @@ static int vrend_decode_set_vertex_buffers(struct vrend_decode_ctx *ctx, const u
       return EINVAL;
 
    for (i = 0; i < num_vbo; i++) {
-      vrend_set_single_vbo(ctx->grctx, i,
+      vrend_set_single_vbo(ctx, i,
                            get_buf_entry(buf, VIRGL_SET_VERTEX_BUFFER_STRIDE(i)),
                            get_buf_entry(buf, VIRGL_SET_VERTEX_BUFFER_OFFSET(i)),
                            get_buf_entry(buf, VIRGL_SET_VERTEX_BUFFER_HANDLE(i)));
    }
-   vrend_set_num_vbo(ctx->grctx, num_vbo);
+   vrend_set_num_vbo(ctx, num_vbo);
    return 0;
 }
 
-static int vrend_decode_set_sampler_views(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t length)
+static int vrend_decode_set_sampler_views(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
 {
    uint32_t num_samps;
    uint32_t i;
@@ -365,19 +365,16 @@ static int vrend_decode_set_sampler_views(struct vrend_decode_ctx *ctx, const ui
 
    for (i = 0; i < num_samps; i++) {
       uint32_t handle = get_buf_entry(buf, VIRGL_SET_SAMPLER_VIEWS_V0_HANDLE + i);
-      vrend_set_single_sampler_view(ctx->grctx, shader_type, i + start_slot, handle);
+      vrend_set_single_sampler_view(ctx, shader_type, i + start_slot, handle);
    }
-   vrend_set_num_sampler_views(ctx->grctx, shader_type, start_slot, num_samps);
+   vrend_set_num_sampler_views(ctx, shader_type, start_slot, num_samps);
    return 0;
 }
 
-static void vrend_decode_transfer_common(struct vrend_decode_ctx *ctx,
-                                         const uint32_t *buf,
+static void vrend_decode_transfer_common(const uint32_t *buf,
                                          uint32_t *dst_handle,
                                          struct vrend_transfer_info *info)
 {
-   (void)ctx;
-
    *dst_handle = get_buf_entry(buf, VIRGL_RESOURCE_IW_RES_HANDLE);
 
    info->level = get_buf_entry(buf, VIRGL_RESOURCE_IW_LEVEL);
@@ -391,7 +388,7 @@ static void vrend_decode_transfer_common(struct vrend_decode_ctx *ctx,
    info->box->depth = get_buf_entry(buf, VIRGL_RESOURCE_IW_D);
 }
 
-static int vrend_decode_resource_inline_write(struct vrend_decode_ctx *ctx, const uint32_t *buf,
+static int vrend_decode_resource_inline_write(struct vrend_context *ctx, const uint32_t *buf,
                                               uint32_t length)
 {
    struct pipe_box box;
@@ -406,7 +403,7 @@ static int vrend_decode_resource_inline_write(struct vrend_decode_ctx *ctx, cons
 
    memset(&info, 0, sizeof(info));
    info.box = &box;
-   vrend_decode_transfer_common(ctx, buf, &dst_handle, &info);
+   vrend_decode_transfer_common(buf, &dst_handle, &info);
    data_len = (length - 11) * 4;
    data = get_buf_ptr(buf, VIRGL_RESOURCE_IW_DATA_START);
 
@@ -417,10 +414,10 @@ static int vrend_decode_resource_inline_write(struct vrend_decode_ctx *ctx, cons
 
    info.iovec = &dataiovec;
    info.iovec_cnt = 1;
-   return vrend_transfer_inline_write(ctx->grctx, dst_handle, &info);
+   return vrend_transfer_inline_write(ctx, dst_handle, &info);
 }
 
-static int vrend_decode_draw_vbo(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t length)
+static int vrend_decode_draw_vbo(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
 {
    struct pipe_draw_info info;
    uint32_t cso;
@@ -458,10 +455,10 @@ static int vrend_decode_draw_vbo(struct vrend_decode_ctx *ctx, const uint32_t *b
 
    cso = get_buf_entry(buf, VIRGL_DRAW_VBO_COUNT_FROM_SO);
 
-   return vrend_draw_vbo(ctx->grctx, &info, cso, handle, indirect_draw_count_handle);
+   return vrend_draw_vbo(ctx, &info, cso, handle, indirect_draw_count_handle);
 }
 
-static int vrend_decode_create_blend(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t handle, uint16_t length)
+static int vrend_decode_create_blend(struct vrend_context *ctx, const uint32_t *buf, uint32_t handle, uint16_t length)
 {
    struct pipe_blend_state *blend_state;
    uint32_t tmp;
@@ -497,7 +494,7 @@ static int vrend_decode_create_blend(struct vrend_decode_ctx *ctx, const uint32_
       blend_state->rt[i].colormask = (tmp >> 27) & 0xf;
    }
 
-   tmp = vrend_renderer_object_insert(ctx->grctx, blend_state, handle,
+   tmp = vrend_renderer_object_insert(ctx, blend_state, handle,
                                       VIRGL_OBJECT_BLEND);
    if (tmp == 0) {
       FREE(blend_state);
@@ -506,7 +503,7 @@ static int vrend_decode_create_blend(struct vrend_decode_ctx *ctx, const uint32_
    return 0;
 }
 
-static int vrend_decode_create_dsa(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t handle, uint16_t length)
+static int vrend_decode_create_dsa(struct vrend_context *ctx, const uint32_t *buf, uint32_t handle, uint16_t length)
 {
    int i;
    struct pipe_depth_stencil_alpha_state *dsa_state;
@@ -541,7 +538,7 @@ static int vrend_decode_create_dsa(struct vrend_decode_ctx *ctx, const uint32_t 
    tmp = get_buf_entry(buf, VIRGL_OBJ_DSA_ALPHA_REF);
    dsa_state->alpha.ref_value = uif(tmp);
 
-   tmp = vrend_renderer_object_insert(ctx->grctx, dsa_state, handle,
+   tmp = vrend_renderer_object_insert(ctx, dsa_state, handle,
                                       VIRGL_OBJECT_DSA);
    if (tmp == 0) {
       FREE(dsa_state);
@@ -550,7 +547,7 @@ static int vrend_decode_create_dsa(struct vrend_decode_ctx *ctx, const uint32_t 
    return 0;
 }
 
-static int vrend_decode_create_rasterizer(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t handle, uint16_t length)
+static int vrend_decode_create_rasterizer(struct vrend_context *ctx, const uint32_t *buf, uint32_t handle, uint16_t length)
 {
    struct pipe_rasterizer_state *rs_state;
    uint32_t tmp;
@@ -607,7 +604,7 @@ static int vrend_decode_create_rasterizer(struct vrend_decode_ctx *ctx, const ui
    rs_state->offset_scale = uif(get_buf_entry(buf, VIRGL_OBJ_RS_OFFSET_SCALE));
    rs_state->offset_clamp = uif(get_buf_entry(buf, VIRGL_OBJ_RS_OFFSET_CLAMP));
 
-   tmp = vrend_renderer_object_insert(ctx->grctx, rs_state, handle,
+   tmp = vrend_renderer_object_insert(ctx, rs_state, handle,
                                       VIRGL_OBJECT_RASTERIZER);
    if (tmp == 0) {
       FREE(rs_state);
@@ -616,7 +613,7 @@ static int vrend_decode_create_rasterizer(struct vrend_decode_ctx *ctx, const ui
    return 0;
 }
 
-static int vrend_decode_create_surface(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t handle, uint16_t length)
+static int vrend_decode_create_surface(struct vrend_context *ctx, const uint32_t *buf, uint32_t handle, uint16_t length)
 {
    uint32_t res_handle, format, val0, val1;
    int ret;
@@ -629,11 +626,11 @@ static int vrend_decode_create_surface(struct vrend_decode_ctx *ctx, const uint3
    /* decide later if these are texture or buffer */
    val0 = get_buf_entry(buf, VIRGL_OBJ_SURFACE_BUFFER_FIRST_ELEMENT);
    val1 = get_buf_entry(buf, VIRGL_OBJ_SURFACE_BUFFER_LAST_ELEMENT);
-   ret = vrend_create_surface(ctx->grctx, handle, res_handle, format, val0, val1);
+   ret = vrend_create_surface(ctx, handle, res_handle, format, val0, val1);
    return ret;
 }
 
-static int vrend_decode_create_sampler_view(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t handle, uint16_t length)
+static int vrend_decode_create_sampler_view(struct vrend_context *ctx, const uint32_t *buf, uint32_t handle, uint16_t length)
 {
    uint32_t res_handle, format, val0, val1, swizzle_packed;
 
@@ -645,10 +642,10 @@ static int vrend_decode_create_sampler_view(struct vrend_decode_ctx *ctx, const 
    val0 = get_buf_entry(buf, VIRGL_OBJ_SAMPLER_VIEW_BUFFER_FIRST_ELEMENT);
    val1 = get_buf_entry(buf, VIRGL_OBJ_SAMPLER_VIEW_BUFFER_LAST_ELEMENT);
    swizzle_packed = get_buf_entry(buf, VIRGL_OBJ_SAMPLER_VIEW_SWIZZLE);
-   return vrend_create_sampler_view(ctx->grctx, handle, res_handle, format, val0, val1,swizzle_packed);
+   return vrend_create_sampler_view(ctx, handle, res_handle, format, val0, val1,swizzle_packed);
 }
 
-static int vrend_decode_create_sampler_state(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t handle, uint16_t length)
+static int vrend_decode_create_sampler_state(struct vrend_context *ctx, const uint32_t *buf, uint32_t handle, uint16_t length)
 {
    struct pipe_sampler_state state;
    int i;
@@ -679,10 +676,10 @@ static int vrend_decode_create_sampler_state(struct vrend_decode_ctx *ctx, const
        state.min_mip_filter != PIPE_TEX_MIPFILTER_NEAREST)
      return EINVAL;
 
-   return vrend_create_sampler_state(ctx->grctx, handle, &state);
+   return vrend_create_sampler_state(ctx, handle, &state);
 }
 
-static int vrend_decode_create_ve(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t handle, uint16_t length)
+static int vrend_decode_create_ve(struct vrend_context *ctx, const uint32_t *buf, uint32_t handle, uint16_t length)
 {
    struct pipe_vertex_element *ve = NULL;
    int num_elements;
@@ -717,13 +714,13 @@ static int vrend_decode_create_ve(struct vrend_decode_ctx *ctx, const uint32_t *
       }
    }
 
-   ret = vrend_create_vertex_elements_state(ctx->grctx, handle, num_elements, ve);
+   ret = vrend_create_vertex_elements_state(ctx, handle, num_elements, ve);
 
    FREE(ve);
    return ret;
 }
 
-static int vrend_decode_create_query(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t handle, uint16_t length)
+static int vrend_decode_create_query(struct vrend_context *ctx, const uint32_t *buf, uint32_t handle, uint16_t length)
 {
    uint32_t query_type;
    uint32_t query_index;
@@ -741,10 +738,10 @@ static int vrend_decode_create_query(struct vrend_decode_ctx *ctx, const uint32_
    offset = get_buf_entry(buf, VIRGL_OBJ_QUERY_OFFSET);
    res_handle = get_buf_entry(buf, VIRGL_OBJ_QUERY_RES_HANDLE);
 
-   return vrend_create_query(ctx->grctx, handle, query_type, query_index, res_handle, offset);
+   return vrend_create_query(ctx, handle, query_type, query_index, res_handle, offset);
 }
 
-static int vrend_decode_create_object(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t length)
+static int vrend_decode_create_object(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
 {
    if (length < 1)
       return EINVAL;
@@ -757,7 +754,7 @@ static int vrend_decode_create_object(struct vrend_decode_ctx *ctx, const uint32
    if (handle == 0)
       return EINVAL;
 
-   VREND_DEBUG(dbg_object, ctx->grctx,"  CREATE %-18s handle:0x%x len:%d\n",
+   VREND_DEBUG(dbg_object, ctx,"  CREATE %-18s handle:0x%x len:%d\n",
                vrend_get_object_type_name(obj_type), handle, length);
 
    TRACE_SCOPE("CREATE %-18s", vrend_get_object_type_name(obj_type));
@@ -800,7 +797,7 @@ static int vrend_decode_create_object(struct vrend_decode_ctx *ctx, const uint32
    return ret;
 }
 
-static int vrend_decode_bind_object(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t length)
+static int vrend_decode_bind_object(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
 {
    if (length != 1)
       return EINVAL;
@@ -809,22 +806,22 @@ static int vrend_decode_bind_object(struct vrend_decode_ctx *ctx, const uint32_t
    uint32_t handle = get_buf_entry(buf, VIRGL_OBJ_BIND_HANDLE);
    uint8_t obj_type = (header >> 8) & 0xff;
 
-   VREND_DEBUG(dbg_object, ctx->grctx,
+   VREND_DEBUG(dbg_object, ctx,
                "  BIND %-20s handle:0x%x len:%d\n",
                vrend_get_object_type_name(obj_type), handle, length);
 
    switch (obj_type) {
    case VIRGL_OBJECT_BLEND:
-      vrend_object_bind_blend(ctx->grctx, handle);
+      vrend_object_bind_blend(ctx, handle);
       break;
    case VIRGL_OBJECT_DSA:
-      vrend_object_bind_dsa(ctx->grctx, handle);
+      vrend_object_bind_dsa(ctx, handle);
       break;
    case VIRGL_OBJECT_RASTERIZER:
-      vrend_object_bind_rasterizer(ctx->grctx, handle);
+      vrend_object_bind_rasterizer(ctx, handle);
       break;
    case VIRGL_OBJECT_VERTEX_ELEMENTS:
-      vrend_bind_vertex_elements_state(ctx->grctx, handle);
+      vrend_bind_vertex_elements_state(ctx, handle);
       break;
    default:
       return EINVAL;
@@ -833,23 +830,23 @@ static int vrend_decode_bind_object(struct vrend_decode_ctx *ctx, const uint32_t
    return 0;
 }
 
-static int vrend_decode_destroy_object(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t length)
+static int vrend_decode_destroy_object(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
 {
    if (length != 1)
       return EINVAL;
 
    uint32_t handle = get_buf_entry(buf, VIRGL_OBJ_DESTROY_HANDLE);
 
-   VREND_DEBUG_EXT(dbg_object, ctx->grctx,
+   VREND_DEBUG_EXT(dbg_object, ctx,
                uint32_t obj = (get_buf_entry(buf, 0) >> 8) & 0xFF;
                vrend_printf("  DESTROY %-17s handle:0x%x\n",
                        vrend_get_object_type_name(obj), handle));
 
-   vrend_renderer_object_destroy(ctx->grctx, handle);
+   vrend_renderer_object_destroy(ctx, handle);
    return 0;
 }
 
-static int vrend_decode_set_stencil_ref(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t length)
+static int vrend_decode_set_stencil_ref(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
 {
    if (length != VIRGL_SET_STENCIL_REF_SIZE)
       return EINVAL;
@@ -859,11 +856,11 @@ static int vrend_decode_set_stencil_ref(struct vrend_decode_ctx *ctx, const uint
 
    ref.ref_value[0] = val & 0xff;
    ref.ref_value[1] = (val >> 8) & 0xff;
-   vrend_set_stencil_ref(ctx->grctx, &ref);
+   vrend_set_stencil_ref(ctx, &ref);
    return 0;
 }
 
-static int vrend_decode_set_blend_color(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t length)
+static int vrend_decode_set_blend_color(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
 {
    struct pipe_blend_color color;
    int i;
@@ -874,11 +871,11 @@ static int vrend_decode_set_blend_color(struct vrend_decode_ctx *ctx, const uint
    for (i = 0; i < 4; i++)
       color.color[i] = uif(get_buf_entry(buf, VIRGL_SET_BLEND_COLOR(i)));
 
-   vrend_set_blend_color(ctx->grctx, &color);
+   vrend_set_blend_color(ctx, &color);
    return 0;
 }
 
-static int vrend_decode_set_scissor_state(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t length)
+static int vrend_decode_set_scissor_state(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
 {
    struct pipe_scissor_state ss[PIPE_MAX_VIEWPORTS];
    uint32_t temp;
@@ -907,11 +904,11 @@ static int vrend_decode_set_scissor_state(struct vrend_decode_ctx *ctx, const ui
       ss[s].maxy = (temp >> 16) & 0xffff;
    }
 
-   vrend_set_scissor_state(ctx->grctx, start_slot, num_scissor, ss);
+   vrend_set_scissor_state(ctx, start_slot, num_scissor, ss);
    return 0;
 }
 
-static int vrend_decode_set_polygon_stipple(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t length)
+static int vrend_decode_set_polygon_stipple(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
 {
    struct pipe_poly_stipple ps;
    int i;
@@ -922,11 +919,11 @@ static int vrend_decode_set_polygon_stipple(struct vrend_decode_ctx *ctx, const 
    for (i = 0; i < 32; i++)
       ps.stipple[i] = get_buf_entry(buf, VIRGL_POLYGON_STIPPLE_P0 + i);
 
-   vrend_set_polygon_stipple(ctx->grctx, &ps);
+   vrend_set_polygon_stipple(ctx, &ps);
    return 0;
 }
 
-static int vrend_decode_set_clip_state(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t length)
+static int vrend_decode_set_clip_state(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
 {
    struct pipe_clip_state clip;
    int i, j;
@@ -937,33 +934,33 @@ static int vrend_decode_set_clip_state(struct vrend_decode_ctx *ctx, const uint3
    for (i = 0; i < 8; i++)
       for (j = 0; j < 4; j++)
          clip.ucp[i][j] = uif(get_buf_entry(buf, VIRGL_SET_CLIP_STATE_C0 + (i * 4) + j));
-   vrend_set_clip_state(ctx->grctx, &clip);
+   vrend_set_clip_state(ctx, &clip);
    return 0;
 }
 
-static int vrend_decode_set_sample_mask(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t length)
+static int vrend_decode_set_sample_mask(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
 {
    unsigned mask;
 
    if (length != VIRGL_SET_SAMPLE_MASK_SIZE)
       return EINVAL;
    mask = get_buf_entry(buf, VIRGL_SET_SAMPLE_MASK_MASK);
-   vrend_set_sample_mask(ctx->grctx, mask);
+   vrend_set_sample_mask(ctx, mask);
    return 0;
 }
 
-static int vrend_decode_set_min_samples(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t length)
+static int vrend_decode_set_min_samples(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
 {
    unsigned min_samples;
 
    if (length != VIRGL_SET_MIN_SAMPLES_SIZE)
       return EINVAL;
    min_samples = get_buf_entry(buf, VIRGL_SET_MIN_SAMPLES_MASK);
-   vrend_set_min_samples(ctx->grctx, min_samples);
+   vrend_set_min_samples(ctx, min_samples);
    return 0;
 }
 
-static int vrend_decode_resource_copy_region(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t length)
+static int vrend_decode_resource_copy_region(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
 {
    struct pipe_box box;
    uint32_t dst_handle, src_handle;
@@ -987,7 +984,7 @@ static int vrend_decode_resource_copy_region(struct vrend_decode_ctx *ctx, const
    box.height = get_buf_entry(buf, VIRGL_CMD_RCR_SRC_H);
    box.depth = get_buf_entry(buf, VIRGL_CMD_RCR_SRC_D);
 
-   vrend_renderer_resource_copy_region(ctx->grctx, dst_handle,
+   vrend_renderer_resource_copy_region(ctx, dst_handle,
                                        dst_level, dstx, dsty, dstz,
                                        src_handle, src_level,
                                        &box);
@@ -995,7 +992,7 @@ static int vrend_decode_resource_copy_region(struct vrend_decode_ctx *ctx, const
 }
 
 
-static int vrend_decode_blit(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t length)
+static int vrend_decode_blit(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
 {
    struct pipe_blit_info info;
    uint32_t dst_handle, src_handle, temp;
@@ -1034,11 +1031,11 @@ static int vrend_decode_blit(struct vrend_decode_ctx *ctx, const uint32_t *buf, 
    info.src.box.height = get_buf_entry(buf, VIRGL_CMD_BLIT_SRC_H);
    info.src.box.depth = get_buf_entry(buf, VIRGL_CMD_BLIT_SRC_D);
 
-   vrend_renderer_blit(ctx->grctx, dst_handle, src_handle, &info);
+   vrend_renderer_blit(ctx, dst_handle, src_handle, &info);
    return 0;
 }
 
-static int vrend_decode_bind_sampler_states(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t length)
+static int vrend_decode_bind_sampler_states(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
 {
    if (length < 2)
       return EINVAL;
@@ -1050,32 +1047,32 @@ static int vrend_decode_bind_sampler_states(struct vrend_decode_ctx *ctx, const 
    if (shader_type >= PIPE_SHADER_TYPES)
       return EINVAL;
 
-   vrend_bind_sampler_states(ctx->grctx, shader_type, start_slot, num_states,
+   vrend_bind_sampler_states(ctx, shader_type, start_slot, num_states,
                              get_buf_ptr(buf, VIRGL_BIND_SAMPLER_STATES_S0_HANDLE));
    return 0;
 }
 
-static int vrend_decode_begin_query(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t length)
+static int vrend_decode_begin_query(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
 {
    if (length != 1)
       return EINVAL;
 
    uint32_t handle = get_buf_entry(buf, VIRGL_QUERY_BEGIN_HANDLE);
 
-   return vrend_begin_query(ctx->grctx, handle);
+   return vrend_begin_query(ctx, handle);
 }
 
-static int vrend_decode_end_query(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t length)
+static int vrend_decode_end_query(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
 {
    if (length != 1)
       return EINVAL;
 
    uint32_t handle = get_buf_entry(buf, VIRGL_QUERY_END_HANDLE);
 
-   return vrend_end_query(ctx->grctx, handle);
+   return vrend_end_query(ctx, handle);
 }
 
-static int vrend_decode_get_query_result(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t length)
+static int vrend_decode_get_query_result(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
 {
    if (length != 2)
       return EINVAL;
@@ -1083,11 +1080,11 @@ static int vrend_decode_get_query_result(struct vrend_decode_ctx *ctx, const uin
    uint32_t handle = get_buf_entry(buf, VIRGL_QUERY_RESULT_HANDLE);
    uint32_t wait = get_buf_entry(buf, VIRGL_QUERY_RESULT_WAIT);
 
-   vrend_get_query_result(ctx->grctx, handle, wait);
+   vrend_get_query_result(ctx, handle, wait);
    return 0;
 }
 
-static int vrend_decode_get_query_result_qbo(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t length)
+static int vrend_decode_get_query_result_qbo(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
 {
    if (length != VIRGL_QUERY_RESULT_QBO_SIZE)
       return EINVAL;
@@ -1099,11 +1096,11 @@ static int vrend_decode_get_query_result_qbo(struct vrend_decode_ctx *ctx, const
    uint32_t offset = get_buf_entry(buf, VIRGL_QUERY_RESULT_QBO_OFFSET);
    int32_t index = get_buf_entry(buf, VIRGL_QUERY_RESULT_QBO_INDEX);
 
-   vrend_get_query_result_qbo(ctx->grctx, handle, qbo_handle, wait, result_type, offset, index);
+   vrend_get_query_result_qbo(ctx, handle, qbo_handle, wait, result_type, offset, index);
    return 0;
 }
 
-static int vrend_decode_set_render_condition(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t length)
+static int vrend_decode_set_render_condition(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
 {
    if (length != VIRGL_RENDER_CONDITION_SIZE)
       return EINVAL;
@@ -1112,44 +1109,44 @@ static int vrend_decode_set_render_condition(struct vrend_decode_ctx *ctx, const
    bool condition = get_buf_entry(buf, VIRGL_RENDER_CONDITION_CONDITION) & 1;
    uint mode = get_buf_entry(buf, VIRGL_RENDER_CONDITION_MODE);
 
-   vrend_render_condition(ctx->grctx, handle, condition, mode);
+   vrend_render_condition(ctx, handle, condition, mode);
    return 0;
 }
 
-static int vrend_decode_set_sub_ctx(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t length)
+static int vrend_decode_set_sub_ctx(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
 {
    if (length != 1)
       return EINVAL;
 
    uint32_t ctx_sub_id = get_buf_entry(buf, 1);
 
-   vrend_renderer_set_sub_ctx(ctx->grctx, ctx_sub_id);
+   vrend_renderer_set_sub_ctx(ctx, ctx_sub_id);
    return 0;
 }
 
-static int vrend_decode_create_sub_ctx(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t length)
+static int vrend_decode_create_sub_ctx(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
 {
    if (length != 1)
       return EINVAL;
 
    uint32_t ctx_sub_id = get_buf_entry(buf, 1);
 
-   vrend_renderer_create_sub_ctx(ctx->grctx, ctx_sub_id);
+   vrend_renderer_create_sub_ctx(ctx, ctx_sub_id);
    return 0;
 }
 
-static int vrend_decode_destroy_sub_ctx(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t length)
+static int vrend_decode_destroy_sub_ctx(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
 {
    if (length != 1)
       return EINVAL;
 
    uint32_t ctx_sub_id = get_buf_entry(buf, 1);
 
-   vrend_renderer_destroy_sub_ctx(ctx->grctx, ctx_sub_id);
+   vrend_renderer_destroy_sub_ctx(ctx, ctx_sub_id);
    return 0;
 }
 
-static int vrend_decode_bind_shader(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t length)
+static int vrend_decode_bind_shader(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
 {
    uint32_t handle, type;
    if (length != VIRGL_BIND_SHADER_SIZE)
@@ -1158,11 +1155,11 @@ static int vrend_decode_bind_shader(struct vrend_decode_ctx *ctx, const uint32_t
    handle = get_buf_entry(buf, VIRGL_BIND_SHADER_HANDLE);
    type = get_buf_entry(buf, VIRGL_BIND_SHADER_TYPE);
 
-   vrend_bind_shader(ctx->grctx, handle, type);
+   vrend_bind_shader(ctx, handle, type);
    return 0;
 }
 
-static int vrend_decode_set_tess_state(struct vrend_decode_ctx *ctx,
+static int vrend_decode_set_tess_state(struct vrend_context *ctx,
 				       const uint32_t *buf, uint32_t length)
 {
    float tess_factors[6];
@@ -1174,11 +1171,11 @@ static int vrend_decode_set_tess_state(struct vrend_decode_ctx *ctx,
    for (i = 0; i < 6; i++) {
       tess_factors[i] = uif(get_buf_entry(buf, i + 1));
    }
-   vrend_set_tess_state(ctx->grctx, tess_factors);
+   vrend_set_tess_state(ctx, tess_factors);
    return 0;
 }
 
-static int vrend_decode_set_shader_buffers(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t length)
+static int vrend_decode_set_shader_buffers(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
 {
    uint32_t num_ssbo;
    uint32_t shader_type, start_slot;
@@ -1203,13 +1200,13 @@ static int vrend_decode_set_shader_buffers(struct vrend_decode_ctx *ctx, const u
       uint32_t offset = get_buf_entry(buf, VIRGL_SET_SHADER_BUFFER_OFFSET(i));
       uint32_t buf_len = get_buf_entry(buf, VIRGL_SET_SHADER_BUFFER_LENGTH(i));
       uint32_t handle = get_buf_entry(buf, VIRGL_SET_SHADER_BUFFER_RES_HANDLE(i));
-      vrend_set_single_ssbo(ctx->grctx, shader_type, start_slot + i, offset, buf_len,
+      vrend_set_single_ssbo(ctx, shader_type, start_slot + i, offset, buf_len,
                             handle);
    }
    return 0;
 }
 
-static int vrend_decode_set_atomic_buffers(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t length)
+static int vrend_decode_set_atomic_buffers(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
 {
    uint32_t num_abo;
    uint32_t start_slot;
@@ -1231,13 +1228,13 @@ static int vrend_decode_set_atomic_buffers(struct vrend_decode_ctx *ctx, const u
       uint32_t offset = get_buf_entry(buf, i * VIRGL_SET_ATOMIC_BUFFER_ELEMENT_SIZE + 2);
       uint32_t buf_len = get_buf_entry(buf, i * VIRGL_SET_ATOMIC_BUFFER_ELEMENT_SIZE + 3);
       uint32_t handle = get_buf_entry(buf, i * VIRGL_SET_ATOMIC_BUFFER_ELEMENT_SIZE + 4);
-      vrend_set_single_abo(ctx->grctx, start_slot + i, offset, buf_len, handle);
+      vrend_set_single_abo(ctx, start_slot + i, offset, buf_len, handle);
    }
 
    return 0;
 }
 
-static int vrend_decode_set_shader_images(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t length)
+static int vrend_decode_set_shader_images(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
 {
    uint32_t num_images;
    uint32_t shader_type, start_slot;
@@ -1263,23 +1260,23 @@ static int vrend_decode_set_shader_images(struct vrend_decode_ctx *ctx, const ui
       uint32_t layer_offset = get_buf_entry(buf, VIRGL_SET_SHADER_IMAGE_LAYER_OFFSET(i));
       uint32_t level_size = get_buf_entry(buf, VIRGL_SET_SHADER_IMAGE_LEVEL_SIZE(i));
       uint32_t handle = get_buf_entry(buf, VIRGL_SET_SHADER_IMAGE_RES_HANDLE(i));
-      vrend_set_single_image_view(ctx->grctx, shader_type, start_slot + i, format, access,
+      vrend_set_single_image_view(ctx, shader_type, start_slot + i, format, access,
                                   layer_offset, level_size, handle);
    }
    return 0;
 }
 
-static int vrend_decode_memory_barrier(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t length)
+static int vrend_decode_memory_barrier(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
 {
    if (length != VIRGL_MEMORY_BARRIER_SIZE)
       return EINVAL;
 
    unsigned flags = get_buf_entry(buf, VIRGL_MEMORY_BARRIER_FLAGS);
-   vrend_memory_barrier(ctx->grctx, flags);
+   vrend_memory_barrier(ctx, flags);
    return 0;
 }
 
-static int vrend_decode_launch_grid(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t length)
+static int vrend_decode_launch_grid(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
 {
    uint32_t block[3], grid[3];
    uint32_t indirect_handle, indirect_offset;
@@ -1294,11 +1291,11 @@ static int vrend_decode_launch_grid(struct vrend_decode_ctx *ctx, const uint32_t
    grid[2] = get_buf_entry(buf, VIRGL_LAUNCH_GRID_Z);
    indirect_handle = get_buf_entry(buf, VIRGL_LAUNCH_INDIRECT_HANDLE);
    indirect_offset = get_buf_entry(buf, VIRGL_LAUNCH_INDIRECT_OFFSET);
-   vrend_launch_grid(ctx->grctx, block, grid, indirect_handle, indirect_offset);
+   vrend_launch_grid(ctx, block, grid, indirect_handle, indirect_offset);
    return 0;
 }
 
-static int vrend_decode_set_streamout_targets(struct vrend_decode_ctx *ctx,
+static int vrend_decode_set_streamout_targets(struct vrend_context *ctx,
                                               const uint32_t *buf, uint32_t length)
 {
    uint32_t handles[16];
@@ -1314,21 +1311,21 @@ static int vrend_decode_set_streamout_targets(struct vrend_decode_ctx *ctx,
    append_bitmask = get_buf_entry(buf, VIRGL_SET_STREAMOUT_TARGETS_APPEND_BITMASK);
    for (i = 0; i < num_handles; i++)
       handles[i] = get_buf_entry(buf, VIRGL_SET_STREAMOUT_TARGETS_H0 + i);
-   vrend_set_streamout_targets(ctx->grctx, append_bitmask, num_handles, handles);
+   vrend_set_streamout_targets(ctx, append_bitmask, num_handles, handles);
    return 0;
 }
 
-static int vrend_decode_texture_barrier(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t length)
+static int vrend_decode_texture_barrier(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
 {
    if (length != VIRGL_TEXTURE_BARRIER_SIZE)
       return EINVAL;
 
    unsigned flags = get_buf_entry(buf, VIRGL_TEXTURE_BARRIER_FLAGS);
-   vrend_texture_barrier(ctx->grctx, flags);
+   vrend_texture_barrier(ctx, flags);
    return 0;
 }
 
-static int vrend_decode_set_debug_mask(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t length)
+static int vrend_decode_set_debug_mask(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
 {
    char *flagstring;
    int slen = sizeof(uint32_t) * length;
@@ -1345,14 +1342,14 @@ static int vrend_decode_set_debug_mask(struct vrend_decode_ctx *ctx, const uint3
 
    memcpy(flagstring, flag_buf, slen);
    flagstring[slen] = 0;
-   vrend_context_set_debug_flags(ctx->grctx, flagstring);
+   vrend_context_set_debug_flags(ctx, flagstring);
 
    free(flagstring);
 
    return 0;
 }
 
-static int vrend_decode_set_tweaks(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t length)
+static int vrend_decode_set_tweaks(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
 {
    VREND_DEBUG(dbg_tweak, NULL, "Received TWEAK set command\n");
 
@@ -1362,12 +1359,12 @@ static int vrend_decode_set_tweaks(struct vrend_decode_ctx *ctx, const uint32_t 
    uint32_t tweak_id = get_buf_entry(buf, VIRGL_SET_TWEAKS_ID);
    uint32_t tweak_value = get_buf_entry(buf, VIRGL_SET_TWEAKS_VALUE);
 
-   vrend_set_active_tweaks(vrend_get_context_tweaks(ctx->grctx), tweak_id, tweak_value);
+   vrend_set_active_tweaks(vrend_get_context_tweaks(ctx), tweak_id, tweak_value);
    return 0;
 }
 
 
-static int vrend_decode_transfer3d(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t length)
+static int vrend_decode_transfer3d(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
 {
    struct pipe_box box;
    uint32_t dst_handle;
@@ -1378,7 +1375,7 @@ static int vrend_decode_transfer3d(struct vrend_decode_ctx *ctx, const uint32_t 
 
    memset(&info, 0, sizeof(info));
    info.box = &box;
-   vrend_decode_transfer_common(ctx, buf, &dst_handle, &info);
+   vrend_decode_transfer_common(buf, &dst_handle, &info);
    info.offset = get_buf_entry(buf, VIRGL_TRANSFER3D_DATA_OFFSET);
    int transfer_mode = get_buf_entry(buf, VIRGL_TRANSFER3D_DIRECTION);
 
@@ -1386,11 +1383,11 @@ static int vrend_decode_transfer3d(struct vrend_decode_ctx *ctx, const uint32_t 
        transfer_mode != VIRGL_TRANSFER_FROM_HOST)
       return EINVAL;
 
-   return vrend_renderer_transfer_iov(ctx->grctx, dst_handle, &info,
+   return vrend_renderer_transfer_iov(ctx, dst_handle, &info,
                                       transfer_mode);
 }
 
-static int vrend_decode_copy_transfer3d(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t length)
+static int vrend_decode_copy_transfer3d(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
 {
    struct pipe_box box;
    struct vrend_transfer_info info;
@@ -1402,17 +1399,17 @@ static int vrend_decode_copy_transfer3d(struct vrend_decode_ctx *ctx, const uint
 
    memset(&info, 0, sizeof(info));
    info.box = &box;
-   vrend_decode_transfer_common(ctx, buf, &dst_handle, &info);
+   vrend_decode_transfer_common(buf, &dst_handle, &info);
    info.offset = get_buf_entry(buf, VIRGL_COPY_TRANSFER3D_SRC_RES_OFFSET);
    info.synchronized = (get_buf_entry(buf, VIRGL_COPY_TRANSFER3D_SYNCHRONIZED) != 0);
 
    src_handle = get_buf_entry(buf, VIRGL_COPY_TRANSFER3D_SRC_RES_HANDLE);
 
-   return vrend_renderer_copy_transfer3d(ctx->grctx, dst_handle, src_handle,
+   return vrend_renderer_copy_transfer3d(ctx, dst_handle, src_handle,
                                          &info);
 }
 
-static int vrend_decode_pipe_resource_create(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t length)
+static int vrend_decode_pipe_resource_create(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
 {
    struct vrend_renderer_resource_create_args args = { 0 };
    uint32_t blob_id;
@@ -1432,7 +1429,7 @@ static int vrend_decode_pipe_resource_create(struct vrend_decode_ctx *ctx, const
    args.flags = get_buf_entry(buf, VIRGL_PIPE_RES_CREATE_FLAGS);
    blob_id = get_buf_entry(buf, VIRGL_PIPE_RES_CREATE_BLOB_ID);
 
-   return vrend_renderer_pipe_resource_create(ctx->grctx, blob_id, &args);
+   return vrend_renderer_pipe_resource_create(ctx, blob_id, &args);
 }
 
 static void vrend_decode_ctx_init_base(struct vrend_decode_ctx *dctx,
@@ -1515,9 +1512,9 @@ static int vrend_decode_ctx_get_blob(struct virgl_context *ctx,
    return blob->u.pipe_resource ? 0 : EINVAL;
 }
 
-typedef int (*vrend_decode_callback)(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t length);
+typedef int (*vrend_decode_callback)(struct vrend_context *ctx, const uint32_t *buf, uint32_t length);
 
-static int vrend_decode_dummy(struct vrend_decode_ctx *ctx, const uint32_t *buf, uint32_t length)
+static int vrend_decode_dummy(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
 {
    (void)ctx;
    (void)buf;
@@ -1615,12 +1612,12 @@ static int vrend_decode_ctx_submit_cmd(struct virgl_context *ctx,
          break;
       }
 
-      VREND_DEBUG(dbg_cmd, gdctx->grctx,"%-4d %-20s len:%d\n",
+      VREND_DEBUG(dbg_cmd, gdctx->grctx, "%-4d %-20s len:%d\n",
                   cur_offset, vrend_get_comand_name(cmd), len);
 
       TRACE_SCOPE("%s", vrend_get_comand_name(cmd));
 
-      ret = decode_table[cmd](gdctx, buf, len);
+      ret = decode_table[cmd](gdctx->grctx, buf, len);
       if (ret) {
          if (ret == EINVAL) {
             vrend_report_buffer_error(gdctx->grctx, *buf);
