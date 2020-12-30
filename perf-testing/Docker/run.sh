@@ -152,25 +152,23 @@ fi
 echo 0 > /sys/kernel/debug/tracing/tracing_on
 echo nop > /sys/kernel/debug/tracing/current_tracer
 
-/perfetto/out/dist/traced &
-/perfetto/out/dist/traced_probes &
-sleep 1
-/gfx-pps/build/src/gpu/producer-gpu &
-sleep 1
-/perfetto/out/dist/perfetto --txt -c /usr/local/perfetto-host.cfg -o /tmp/perfetto-host.trace --detach=mykey
-sleep 1
-
 if [  "x$perfetto_loops" != "x" ] ; then
    echo "perfetto_loops parameter not given"
 fi
 
-echo "Replaying for Perfetto:"
-LOOP=
 if [ "x$perfetto_loops" != "x0" ]; then
-    LOOP="--loop=$perfetto_loops"
+    /perfetto/out/dist/traced &
+    /perfetto/out/dist/traced_probes &
+    sleep 1
+    /gfx-pps/build/src/gpu/producer-gpu &
+    sleep 1
+    /perfetto/out/dist/perfetto --txt -c /usr/local/perfetto-host.cfg -o /tmp/perfetto-host.trace --detach=mykey
+    sleep 1
+
+    echo "Replaying for Perfetto:"
+    eglretrace --benchmark --singlethread --loop=$perfetto_loops $wait_after_frame --headless "/traces-db/${trace}"
 fi
 
-eglretrace --benchmark --singlethread $LOOP $wait_after_frame --headless "/traces-db/${trace}"
 
 iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
 echo 1 > /proc/sys/net/ipv4/ip_forward
@@ -212,16 +210,19 @@ crosvm run \
 rm -f /traces-db/current_trace
 rm -f /traces-db/command
 
-/perfetto/out/dist/perfetto --attach=mykey --stop
+if [ "x$perfetto_loops" != "x0" ]; then
+    /perfetto/out/dist/perfetto --attach=mykey --stop
 
-mv /tmp/perfetto-host.trace "$host_perf"
-chmod a+rw "$host_perf"
+    mv /tmp/perfetto-host.trace "$host_perf"
+    chmod a+rw "$host_perf"
 
-# sometimes one of these processes seems to crash or exit before, so
-# check whether it is still
-kill `pidof producer-gpu` || echo "producer-gpu was not running (anymore)"
-kill `pidof traced_probes` || echo "traced_probes was not running (anymore)"
-kill `pidof traced` || echo "traced was not running (anymore="
+    # sometimes one of these processes seems to crash or exit before, so
+    # check whether it is still
+    kill `pidof producer-gpu` || echo "producer-gpu was not running (anymore)"
+    kill `pidof traced_probes` || echo "traced_probes was not running (anymore)"
+    kill `pidof traced` || echo "traced was not running (anymore="
 
-/usr/local/merge_traces.py "$host_perf" "$guest_perf" "$summary_perf"
+    /usr/local/merge_traces.py "$host_perf" "$guest_perf" "$summary_perf"
+fi
+
 sleep 1

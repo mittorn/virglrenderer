@@ -88,26 +88,23 @@ echo nop > /sys/kernel/debug/tracing/current_tracer
 echo "Guest:"
 wflinfo --platform surfaceless_egl --api gles2 -v
 
-/perfetto/out/dist/traced &
-/perfetto/out/dist/traced_probes &
-sleep 1
-
-/perfetto/out/dist/perfetto --txt -c /usr/local/perfetto-guest.cfg -o "$guest_perf" --detach=mykey
-sleep 1
-
-# The first virtio-gpu event has to be captured in the guest, so we correlate correctly to the host event
-
-echo "Replaying for Perfetto:"
-LOOP=
 if [ "x$perfetto_loops" != "x" -a "x$perfetto_loops" != "x0" ]; then
-   LOOP="--loop=$perfetto_loops"
+    /perfetto/out/dist/traced &
+    /perfetto/out/dist/traced_probes &
+    sleep 1
+
+    /perfetto/out/dist/perfetto --txt -c /usr/local/perfetto-guest.cfg -o "$guest_perf" --detach=mykey
+    sleep 1
+
+    # The first virtio-gpu event has to be captured in the guest, so we correlate correctly to the host event
+
+    echo "Replaying for Perfetto:"
+    eglretrace --benchmark --singlethread --loop=$perfetto_loops $WAIT --headless "$trace"
+    sleep 1
+
+    /perfetto/out/dist/perfetto --attach=mykey --stop
+    chmod a+rw "$guest_perf"
 fi
-
-eglretrace --benchmark --singlethread $LOOP $WAIT --headless "$trace"
-sleep 1
-
-/perfetto/out/dist/perfetto --attach=mykey --stop
-chmod a+rw "$guest_perf"
 
 if [ "x$benchmark_loops" != "x0" ]; then
    echo "Measuring rendering times:"
