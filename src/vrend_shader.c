@@ -4893,7 +4893,7 @@ iter_instruction(struct tgsi_iterate_context *iter,
       break;
    case TGSI_OPCODE_IF:
    case TGSI_OPCODE_UIF:
-      emit_buff(&ctx->glsl_strbufs, "if (any(bvec4(%s))) {\n", srcs[0]);
+      emit_buff(&ctx->glsl_strbufs, "if (bool(%s.x)) {\n", srcs[0]);
       indent_buf(&ctx->glsl_strbufs);
       break;
    case TGSI_OPCODE_ELSE:
