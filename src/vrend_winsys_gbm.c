@@ -38,6 +38,7 @@
 #include "util/u_memory.h"
 #include "pipe/p_state.h"
 
+#include "vrend_winsys.h"
 #include "vrend_winsys_gbm.h"
 #include "virgl_hw.h"
 #include "vrend_debug.h"
@@ -461,7 +462,7 @@ int virgl_gbm_export_query(struct gbm_bo *bo, struct virgl_renderer_export_query
 
    query->out_num_fds = 0;
    query->out_fourcc = 0;
-   query->out_modifier = 0;
+   query->out_modifier = DRM_FORMAT_MOD_INVALID;
    for (int plane = 0; plane < VIRGL_GBM_MAX_PLANES; plane++) {
       query->out_fds[plane] = -1;
       query->out_strides[plane] = 0;

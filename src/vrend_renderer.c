@@ -10601,6 +10601,7 @@ int vrend_renderer_export_query(struct pipe_resource *pres,
     */
    export_query->out_num_fds = 0;
    export_query->out_fourcc = 0;
+   export_query->out_modifier = DRM_FORMAT_MOD_INVALID;
    if (export_query->in_export_fds)
       return -EINVAL;
 

@@ -34,6 +34,10 @@
 
 #include "virglrenderer.h"
 
+#ifndef DRM_FORMAT_MOD_INVALID
+#define DRM_FORMAT_MOD_INVALID 0x00ffffffffffffffULL
+#endif
+
 struct virgl_gl_ctx_param;
 
 #ifdef HAVE_EPOXY_EGL_H
