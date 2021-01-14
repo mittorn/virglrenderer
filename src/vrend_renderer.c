@@ -534,6 +534,11 @@ struct vrend_streamout_object {
 #define XFB_STATE_STARTED 2
 #define XFB_STATE_PAUSED 3
 
+struct vrend_vertex_buffer {
+   struct pipe_vertex_buffer base;
+   uint32_t res_id;
+};
+
 struct vrend_sub_context {
    struct list_head head;
 
@@ -550,8 +555,7 @@ struct vrend_sub_context {
    struct vrend_vertex_element_array *ve;
    int num_vbos;
    int old_num_vbos; /* for cleaning up */
-   struct pipe_vertex_buffer vbo[PIPE_MAX_ATTRIBS];
-   uint32_t vbo_res_ids[PIPE_MAX_ATTRIBS];
+   struct vrend_vertex_buffer vbo[PIPE_MAX_ATTRIBS];
 
    struct pipe_index_buffer ib;
    uint32_t index_buffer_res_id;
@@ -2810,27 +2814,28 @@ void vrend_set_single_vbo(struct vrend_context *ctx,
                           uint32_t res_handle)
 {
    struct vrend_resource *res;
+   struct vrend_vertex_buffer *vbo = &ctx->sub->vbo[index];
 
-   if (ctx->sub->vbo[index].stride != stride ||
-       ctx->sub->vbo[index].buffer_offset != buffer_offset ||
-       ctx->sub->vbo_res_ids[index] != res_handle)
+   if (vbo->base.stride != stride ||
+       vbo->base.buffer_offset != buffer_offset ||
+       vbo->res_id != res_handle)
       ctx->sub->vbo_dirty = true;
 
-   ctx->sub->vbo[index].stride = stride;
-   ctx->sub->vbo[index].buffer_offset = buffer_offset;
+   vbo->base.stride = stride;
+   vbo->base.buffer_offset = buffer_offset;
 
    if (res_handle == 0) {
-      vrend_resource_reference((struct vrend_resource **)&ctx->sub->vbo[index].buffer, NULL);
-      ctx->sub->vbo_res_ids[index] = 0;
-   } else if (ctx->sub->vbo_res_ids[index] != res_handle) {
+      vrend_resource_reference((struct vrend_resource **)&vbo->base.buffer, NULL);
+      vbo->res_id = 0;
+   } else if (vbo->res_id != res_handle) {
       res = vrend_renderer_ctx_res_lookup(ctx, res_handle);
       if (!res) {
          vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, res_handle);
-         ctx->sub->vbo_res_ids[index] = 0;
+         vbo->res_id = 0;
          return;
       }
-      vrend_resource_reference((struct vrend_resource **)&ctx->sub->vbo[index].buffer, res);
-      ctx->sub->vbo_res_ids[index] = res_handle;
+      vrend_resource_reference((struct vrend_resource **)&vbo->base.buffer, res);
+      vbo->res_id = res_handle;
    }
 }
 
@@ -2847,8 +2852,8 @@ void vrend_set_num_vbo(struct vrend_context *ctx,
       ctx->sub->vbo_dirty = true;
 
    for (i = num_vbo; i < old_num; i++) {
-      vrend_resource_reference((struct vrend_resource **)&ctx->sub->vbo[i].buffer, NULL);
-      ctx->sub->vbo_res_ids[i] = 0;
+      vrend_resource_reference((struct vrend_resource **)&ctx->sub->vbo[i].base.buffer, NULL);
+      ctx->sub->vbo[i].res_id = 0;
    }
 
 }
@@ -3932,7 +3937,7 @@ static void vrend_draw_bind_vertex_legacy(struct vrend_context *ctx,
          /* XYZZY: debug this? */
          break;
       }
-      res = (struct vrend_resource *)ctx->sub->vbo[vbo_index].buffer;
+      res = (struct vrend_resource *)ctx->sub->vbo[vbo_index].base.buffer;
 
       if (!res) {
          vrend_printf("cannot find vbo buf %d %d %d\n", i, va->count, ctx->sub->prog->ss[PIPE_SHADER_VERTEX]->sel->sinfo.num_inputs);
@@ -3963,10 +3968,12 @@ static void vrend_draw_bind_vertex_legacy(struct vrend_context *ctx,
 
       glBindBuffer(GL_ARRAY_BUFFER, res->id);
 
-      if (ctx->sub->vbo[vbo_index].stride == 0) {
+      struct vrend_vertex_buffer *vbo = &ctx->sub->vbo[vbo_index];
+
+      if (vbo->base.stride == 0) {
          void *data;
          /* for 0 stride we are kinda screwed */
-         data = glMapBufferRange(GL_ARRAY_BUFFER, ctx->sub->vbo[vbo_index].buffer_offset, ve->nr_chan * sizeof(GLfloat), GL_MAP_READ_BIT);
+         data = glMapBufferRange(GL_ARRAY_BUFFER, vbo->base.buffer_offset, ve->nr_chan * sizeof(GLfloat), GL_MAP_READ_BIT);
 
          switch (ve->nr_chan) {
          case 1:
@@ -3988,9 +3995,9 @@ static void vrend_draw_bind_vertex_legacy(struct vrend_context *ctx,
       } else {
          enable_bitmask |= (1 << loc);
          if (util_format_is_pure_integer(ve->base.src_format)) {
-            glVertexAttribIPointer(loc, ve->nr_chan, ve->type, ctx->sub->vbo[vbo_index].stride, (void *)(unsigned long)(ve->base.src_offset + ctx->sub->vbo[vbo_index].buffer_offset));
+            glVertexAttribIPointer(loc, ve->nr_chan, ve->type, vbo->base.stride, (void *)(unsigned long)(ve->base.src_offset + vbo->base.buffer_offset));
          } else {
-            glVertexAttribPointer(loc, ve->nr_chan, ve->type, ve->norm, ctx->sub->vbo[vbo_index].stride, (void *)(unsigned long)(ve->base.src_offset + ctx->sub->vbo[vbo_index].buffer_offset));
+            glVertexAttribPointer(loc, ve->nr_chan, ve->type, ve->norm, vbo->base.stride, (void *)(unsigned long)(ve->base.src_offset + vbo->base.buffer_offset));
          }
          glVertexAttribDivisorARB(loc, ve->base.instance_divisor);
       }
@@ -4022,34 +4029,45 @@ static void vrend_draw_bind_vertex_binding(struct vrend_context *ctx,
    glBindVertexArray(va->id);
 
    if (ctx->sub->vbo_dirty) {
-      GLsizei count = 0;
-      GLuint buffers[PIPE_MAX_ATTRIBS];
-      GLintptr offsets[PIPE_MAX_ATTRIBS];
-      GLsizei strides[PIPE_MAX_ATTRIBS];
+      struct vrend_vertex_buffer *vbo = &ctx->sub->vbo[0];
 
-      for (i = 0; i < ctx->sub->num_vbos; i++) {
-         struct vrend_resource *res = (struct vrend_resource *)ctx->sub->vbo[i].buffer;
-         if (!res) {
-            buffers[count] = 0;
-            offsets[count] = 0;
-            strides[count++] = 0;
-         } else {
-            buffers[count] = res->id;
-            offsets[count] = ctx->sub->vbo[i].buffer_offset,
-            strides[count++] = ctx->sub->vbo[i].stride;
+      if (has_feature(feat_bind_vertex_buffers)) {
+         GLsizei count = MAX2(ctx->sub->num_vbos, ctx->sub->old_num_vbos);
+
+         GLuint buffers[PIPE_MAX_ATTRIBS];
+         GLintptr offsets[PIPE_MAX_ATTRIBS];
+         GLsizei strides[PIPE_MAX_ATTRIBS];
+
+         for (i = 0; i < ctx->sub->num_vbos; i++) {
+            struct vrend_resource *res = (struct vrend_resource *)vbo[i].base.buffer;
+            if (res) {
+               buffers[i] = res->id;
+               offsets[i] = vbo[i].base.buffer_offset;
+               strides[i] = vbo[i].base.stride;
+            } else {
+               buffers[i] = 0;
+               offsets[i] = 0;
+               strides[i] = 0;
+            }
          }
-      }
-      for (i = ctx->sub->num_vbos; i < ctx->sub->old_num_vbos; i++) {
-              buffers[count] = 0;
-              offsets[count] = 0;
-              strides[count++] = 0;
-      }
 
-      if (has_feature(feat_bind_vertex_buffers))
+         for (i = ctx->sub->num_vbos; i < ctx->sub->old_num_vbos; i++) {
+            buffers[i] = 0;
+            offsets[i] = 0;
+            strides[i] = 0;
+         }
+
          glBindVertexBuffers(0, count, buffers, offsets, strides);
-      else {
-         for (i = 0; i < count; ++i)
-            glBindVertexBuffer(i, buffers[i], offsets[i], strides[i]);
+      } else {
+         for (i = 0; i < ctx->sub->num_vbos; i++) {
+            struct vrend_resource *res = (struct vrend_resource *)vbo[i].base.buffer;
+            if (res)
+               glBindVertexBuffer(i, res->id, vbo[i].base.buffer_offset, vbo[i].base.stride);
+            else
+               glBindVertexBuffer(i, 0, 0, 0);
+         }
+         for (i = ctx->sub->num_vbos; i < ctx->sub->old_num_vbos; i++)
+            glBindVertexBuffer(i, 0, 0, 0);
       }
 
       ctx->sub->vbo_dirty = false;
@@ -4554,7 +4572,7 @@ int vrend_draw_vbo(struct vrend_context *ctx,
       struct vrend_vertex_element_array *va = ctx->sub->ve;
       struct vrend_vertex_element *ve = &va->elements[i];
       int vbo_index = ve->base.vertex_buffer_index;
-      if (!ctx->sub->vbo[vbo_index].buffer) {
+      if (!ctx->sub->vbo[vbo_index].base.buffer) {
          vrend_printf( "VBO missing vertex buffer\n");
          return 0;
       }
