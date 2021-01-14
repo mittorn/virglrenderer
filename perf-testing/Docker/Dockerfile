@@ -216,7 +216,7 @@ RUN mkdir -p /platform/ \
    && cd /platform \
    && git clone --single-branch -b perfetto https://gitlab.freedesktop.org/tomeu/crosvm.git \
    && cd crosvm \
-   && cargo install --debug --features 'default-no-sandbox wl-dmabuf gpu x virtio-gpu-next' --path . --root /usr/local
+   && cargo install --locked --debug --features 'default-no-sandbox wl-dmabuf gpu x virtio-gpu-next' --path . --root /usr/local
 
 RUN export uid=$USER_ID gid=$GROUP_ID && \
     mkdir -p /home/chronos && \
