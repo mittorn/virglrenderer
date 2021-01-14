@@ -2611,41 +2611,47 @@ int vrend_create_vertex_elements_state(struct vrend_context *ctx,
       }
 
       type = GL_FALSE;
-      if (desc->channel[0].type == UTIL_FORMAT_TYPE_FLOAT) {
-         if (desc->channel[0].size == 32)
-            type = GL_FLOAT;
-         else if (desc->channel[0].size == 64)
-            type = GL_DOUBLE;
-         else if (desc->channel[0].size == 16)
-            type = GL_HALF_FLOAT;
-      } else if (desc->channel[0].type == UTIL_FORMAT_TYPE_UNSIGNED &&
-                 desc->channel[0].size == 8)
-         type = GL_UNSIGNED_BYTE;
-      else if (desc->channel[0].type == UTIL_FORMAT_TYPE_SIGNED &&
-               desc->channel[0].size == 8)
-         type = GL_BYTE;
-      else if (desc->channel[0].type == UTIL_FORMAT_TYPE_UNSIGNED &&
-               desc->channel[0].size == 16)
-         type = GL_UNSIGNED_SHORT;
-      else if (desc->channel[0].type == UTIL_FORMAT_TYPE_SIGNED &&
-               desc->channel[0].size == 16)
-         type = GL_SHORT;
-      else if (desc->channel[0].type == UTIL_FORMAT_TYPE_UNSIGNED &&
-               desc->channel[0].size == 32)
-         type = GL_UNSIGNED_INT;
-      else if (desc->channel[0].type == UTIL_FORMAT_TYPE_SIGNED &&
-               desc->channel[0].size == 32)
-         type = GL_INT;
-      else if (elements[i].src_format == PIPE_FORMAT_R10G10B10A2_SSCALED ||
-               elements[i].src_format == PIPE_FORMAT_R10G10B10A2_SNORM ||
-               elements[i].src_format == PIPE_FORMAT_B10G10R10A2_SNORM)
-         type = GL_INT_2_10_10_10_REV;
-      else if (elements[i].src_format == PIPE_FORMAT_R10G10B10A2_USCALED ||
-               elements[i].src_format == PIPE_FORMAT_R10G10B10A2_UNORM ||
-               elements[i].src_format == PIPE_FORMAT_B10G10R10A2_UNORM)
-         type = GL_UNSIGNED_INT_2_10_10_10_REV;
-      else if (elements[i].src_format == PIPE_FORMAT_R11G11B10_FLOAT)
-         type = GL_UNSIGNED_INT_10F_11F_11F_REV;
+      switch (desc->channel[0].type) {
+      case UTIL_FORMAT_TYPE_FLOAT:
+         switch (desc->channel[0].size) {
+         case 16: type = GL_HALF_FLOAT; break;
+         case 32: type = GL_FLOAT; break;
+         case 64: type = GL_DOUBLE; break;
+         }
+         break;
+      case UTIL_FORMAT_TYPE_UNSIGNED:
+         switch (desc->channel[0].size) {
+         case 8: type = GL_UNSIGNED_BYTE; break;
+         case 16: type = GL_UNSIGNED_SHORT; break;
+         case 32: type = GL_UNSIGNED_INT; break;
+         }
+         break;
+      case UTIL_FORMAT_TYPE_SIGNED:
+         switch (desc->channel[0].size) {
+         case 8: type = GL_BYTE; break;
+         case 16: type = GL_SHORT; break;
+         case 32: type = GL_INT; break;
+         }
+         break;
+      default:
+         switch (elements[i].src_format) {
+         case PIPE_FORMAT_R10G10B10A2_SSCALED:
+         case PIPE_FORMAT_R10G10B10A2_SNORM:
+         case PIPE_FORMAT_B10G10R10A2_SNORM:
+            type = GL_INT_2_10_10_10_REV;
+            break;
+         case PIPE_FORMAT_R10G10B10A2_USCALED:
+         case PIPE_FORMAT_R10G10B10A2_UNORM:
+         case PIPE_FORMAT_B10G10R10A2_UNORM:
+            type = GL_UNSIGNED_INT_2_10_10_10_REV;
+            break;
+         case PIPE_FORMAT_R11G11B10_FLOAT:
+            type = GL_UNSIGNED_INT_10F_11F_11F_REV;
+            break;
+         default:
+            ;
+         }
+      }
 
       if (type == GL_FALSE) {
          vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_VERTEX_FORMAT, elements[i].src_format);
