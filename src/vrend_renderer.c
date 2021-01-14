@@ -2747,6 +2747,9 @@ void vrend_set_uniform_buffer(struct vrend_context *ctx,
    if (!has_feature(feat_ubo))
       return;
 
+   struct pipe_constant_buffer *cbs = &ctx->sub->cbs[shader][index];
+   const uint32_t mask = 1u << index;
+
    if (res_handle) {
       res = vrend_renderer_ctx_res_lookup(ctx, res_handle);
 
@@ -2754,18 +2757,17 @@ void vrend_set_uniform_buffer(struct vrend_context *ctx,
          vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, res_handle);
          return;
       }
-      ctx->sub->cbs[shader][index].buffer = (struct pipe_resource *)res;
-      ctx->sub->cbs[shader][index].buffer_offset = offset;
-      ctx->sub->cbs[shader][index].buffer_size = length;
-
-      ctx->sub->const_bufs_used_mask[shader] |= (1u << index);
+      cbs->buffer = (struct pipe_resource *)res;
+      cbs->buffer_offset = offset;
+      cbs->buffer_size = length;
+      ctx->sub->const_bufs_used_mask[shader] |= mask;
    } else {
-      ctx->sub->cbs[shader][index].buffer = NULL;
-      ctx->sub->cbs[shader][index].buffer_offset = 0;
-      ctx->sub->cbs[shader][index].buffer_size = 0;
-      ctx->sub->const_bufs_used_mask[shader] &= ~(1u << index);
+      cbs->buffer = NULL;
+      cbs->buffer_offset = 0;
+      cbs->buffer_size = 0;
+      ctx->sub->const_bufs_used_mask[shader] &= ~mask;
    }
-   ctx->sub->const_bufs_dirty[shader] |= (1u << index);
+   ctx->sub->const_bufs_dirty[shader] |= mask;
 }
 
 void vrend_set_index_buffer(struct vrend_context *ctx,
