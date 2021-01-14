@@ -7303,8 +7303,8 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
 {
    void *data;
 
-   if (is_only_bit(res->storage_bits, VREND_STORAGE_GUEST_MEMORY) ||
-       (has_bit(res->storage_bits, VREND_STORAGE_HOST_SYSTEM_MEMORY) && res->iov)) {
+   if ((is_only_bit(res->storage_bits, VREND_STORAGE_GUEST_MEMORY) ||
+       has_bit(res->storage_bits, VREND_STORAGE_HOST_SYSTEM_MEMORY)) && res->iov) {
       return vrend_copy_iovec(iov, num_iovs, info->offset,
                               res->iov, res->num_iovs, info->box->x,
                               info->box->width, res->ptr);
