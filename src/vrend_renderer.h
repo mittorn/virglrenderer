@@ -327,7 +327,6 @@ void vrend_set_min_samples(struct vrend_context *ctx, unsigned min_samples);
 
 void vrend_set_constants(struct vrend_context *ctx,
                          uint32_t shader,
-                         uint32_t index,
                          uint32_t num_constant,
                          const float *data);
 

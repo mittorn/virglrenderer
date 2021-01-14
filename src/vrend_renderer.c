@@ -2714,7 +2714,6 @@ void vrend_bind_vertex_elements_state(struct vrend_context *ctx,
 
 void vrend_set_constants(struct vrend_context *ctx,
                          uint32_t shader,
-                         UNUSED uint32_t index,
                          uint32_t num_constant,
                          const float *data)
 {

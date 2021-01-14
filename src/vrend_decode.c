@@ -283,19 +283,18 @@ static int vrend_decode_set_index_buffer(struct vrend_context *ctx, const uint32
 static int vrend_decode_set_constant_buffer(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
 {
    uint32_t shader;
-   uint32_t index;
    int nc = (length - 2);
 
    if (length < 2)
       return EINVAL;
 
    shader = get_buf_entry(buf, VIRGL_SET_CONSTANT_BUFFER_SHADER_TYPE);
-   index = get_buf_entry(buf, VIRGL_SET_CONSTANT_BUFFER_INDEX);
+   /* VIRGL_SET_CONSTANT_BUFFER_INDEX is not used */
 
    if (shader >= PIPE_SHADER_TYPES)
       return EINVAL;
 
-   vrend_set_constants(ctx, shader, index, nc, get_buf_ptr(buf, VIRGL_SET_CONSTANT_BUFFER_DATA_START));
+   vrend_set_constants(ctx, shader, nc, get_buf_ptr(buf, VIRGL_SET_CONSTANT_BUFFER_DATA_START));
    return 0;
 }
 
