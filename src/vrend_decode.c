@@ -1522,7 +1522,7 @@ static int vrend_decode_dummy(struct vrend_context *ctx, const uint32_t *buf, ui
    return 0;
 }
 
-vrend_decode_callback decode_table[VIRGL_MAX_COMMANDS] = {
+static const vrend_decode_callback decode_table[VIRGL_MAX_COMMANDS] = {
    [VIRGL_CCMD_NOP] = vrend_decode_dummy,
    [VIRGL_CCMD_CREATE_OBJECT] = vrend_decode_create_object,
    [VIRGL_CCMD_BIND_OBJECT] = vrend_decode_bind_object,
