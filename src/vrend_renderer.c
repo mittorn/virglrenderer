@@ -355,6 +355,7 @@ struct vrend_linked_shader_program {
 
    bool dual_src_linked;
    struct vrend_shader *ss[PIPE_SHADER_TYPES];
+   uint64_t vs_fs_key;
 
    uint32_t ubo_used_mask[PIPE_SHADER_TYPES];
    uint32_t samplers_used_mask[PIPE_SHADER_TYPES];
@@ -1589,6 +1590,7 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
 
    sprog->ss[PIPE_SHADER_VERTEX] = vs;
    sprog->ss[PIPE_SHADER_FRAGMENT] = fs;
+   sprog->vs_fs_key = (uint64_t)vs->id << 32 | fs->id;
    sprog->ss[PIPE_SHADER_GEOMETRY] = gs;
    sprog->ss[PIPE_SHADER_TESS_CTRL] = tcs;
    sprog->ss[PIPE_SHADER_TESS_EVAL] = tes;
@@ -1674,16 +1676,16 @@ static struct vrend_linked_shader_program *lookup_shader_program(struct vrend_co
                                                                  GLuint tes_id,
                                                                  bool dual_src)
 {
+   uint64_t vs_fs_key = (((uint64_t)vs_id) << 32) | fs_id;
+
    struct vrend_linked_shader_program *ent;
    LIST_FOR_EACH_ENTRY(ent, &ctx->sub->programs, head) {
       if (ent->dual_src_linked != dual_src)
          continue;
       if (ent->ss[PIPE_SHADER_COMPUTE])
          continue;
-      if (ent->ss[PIPE_SHADER_VERTEX]->id != vs_id)
-        continue;
-      if (ent->ss[PIPE_SHADER_FRAGMENT]->id != fs_id)
-        continue;
+      if (unlikely(ent->vs_fs_key != vs_fs_key))
+         continue;
       if (ent->ss[PIPE_SHADER_GEOMETRY] &&
           ent->ss[PIPE_SHADER_GEOMETRY]->id != gs_id)
         continue;
