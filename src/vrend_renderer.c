@@ -1662,8 +1662,11 @@ static struct vrend_linked_shader_program *lookup_cs_shader_program(struct vrend
    LIST_FOR_EACH_ENTRY(ent, &ctx->sub->programs, head) {
       if (!ent->ss[PIPE_SHADER_COMPUTE])
          continue;
-      if (ent->ss[PIPE_SHADER_COMPUTE]->id == cs_id)
+      if (ent->ss[PIPE_SHADER_COMPUTE]->id == cs_id) {
+         list_del(&ent->head);
+         list_add(&ent->head, &ctx->sub->programs);
          return ent;
+      }
    }
    return NULL;
 }
@@ -1697,6 +1700,11 @@ static struct vrend_linked_shader_program *lookup_shader_program(struct vrend_co
          continue;
       return ent;
    }
+
+   /* put the entry in front */
+   list_del(&ent->head);
+   list_add(&ent->head, &ctx->sub->programs);
+
    return NULL;
 }
 
