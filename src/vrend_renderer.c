@@ -550,7 +550,8 @@ struct vrend_sub_context {
    GLuint vaoid;
    uint32_t enabled_attribs_bitmask;
 
-   struct list_head programs;
+   struct list_head gl_programs;
+   struct list_head cs_programs;
    struct util_hash_table *object_hash;
 
    struct vrend_vertex_element_array *ve;
@@ -1495,7 +1496,7 @@ static struct vrend_linked_shader_program *add_cs_shader_program(struct vrend_co
 
    list_add(&sprog->sl[PIPE_SHADER_COMPUTE], &cs->programs);
    sprog->id = prog_id;
-   list_addtail(&sprog->head, &ctx->sub->programs);
+   list_addtail(&sprog->head, &ctx->sub->cs_programs);
 
    vrend_use_program(ctx, prog_id);
 
@@ -1607,7 +1608,7 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
    last_shader = tes ? PIPE_SHADER_TESS_EVAL : (gs ? PIPE_SHADER_GEOMETRY : PIPE_SHADER_FRAGMENT);
    sprog->id = prog_id;
 
-   list_addtail(&sprog->head, &ctx->sub->programs);
+   list_addtail(&sprog->head, &ctx->sub->gl_programs);
 
    if (fs->key.pstipple_tex)
       sprog->fs_stipple_loc = glGetUniformLocation(prog_id, "pstipple_sampler");
@@ -1659,12 +1660,10 @@ static struct vrend_linked_shader_program *lookup_cs_shader_program(struct vrend
                                                                     GLuint cs_id)
 {
    struct vrend_linked_shader_program *ent;
-   LIST_FOR_EACH_ENTRY(ent, &ctx->sub->programs, head) {
-      if (!ent->ss[PIPE_SHADER_COMPUTE])
-         continue;
+   LIST_FOR_EACH_ENTRY(ent, &ctx->sub->cs_programs, head) {
       if (ent->ss[PIPE_SHADER_COMPUTE]->id == cs_id) {
          list_del(&ent->head);
-         list_add(&ent->head, &ctx->sub->programs);
+         list_add(&ent->head, &ctx->sub->cs_programs);
          return ent;
       }
    }
@@ -1682,12 +1681,10 @@ static struct vrend_linked_shader_program *lookup_shader_program(struct vrend_co
    uint64_t vs_fs_key = (((uint64_t)vs_id) << 32) | fs_id;
 
    struct vrend_linked_shader_program *ent;
-   LIST_FOR_EACH_ENTRY(ent, &ctx->sub->programs, head) {
+   LIST_FOR_EACH_ENTRY(ent, &ctx->sub->gl_programs, head) {
       if (ent->dual_src_linked != dual_src)
          continue;
-      if (ent->ss[PIPE_SHADER_COMPUTE])
-         continue;
-      if (unlikely(ent->vs_fs_key != vs_fs_key))
+      if (likely(ent->vs_fs_key != vs_fs_key))
          continue;
       if (ent->ss[PIPE_SHADER_GEOMETRY] &&
           ent->ss[PIPE_SHADER_GEOMETRY]->id != gs_id)
@@ -1698,12 +1695,12 @@ static struct vrend_linked_shader_program *lookup_shader_program(struct vrend_co
       if (ent->ss[PIPE_SHADER_TESS_EVAL] &&
           ent->ss[PIPE_SHADER_TESS_EVAL]->id != tes_id)
          continue;
+      /* put the entry in front */
+      list_del(&ent->head);
+      list_add(&ent->head, &ctx->sub->gl_programs);
+
       return ent;
    }
-
-   /* put the entry in front */
-   list_del(&ent->head);
-   list_add(&ent->head, &ctx->sub->programs);
 
    return NULL;
 }
@@ -1733,10 +1730,14 @@ static void vrend_free_programs(struct vrend_sub_context *sub)
 {
    struct vrend_linked_shader_program *ent, *tmp;
 
-   if (LIST_IS_EMPTY(&sub->programs))
+   if (LIST_IS_EMPTY(&sub->gl_programs) && LIST_IS_EMPTY(&sub->cs_programs))
       return;
 
-   LIST_FOR_EACH_ENTRY_SAFE(ent, tmp, &sub->programs, head) {
+   LIST_FOR_EACH_ENTRY_SAFE(ent, tmp, &sub->gl_programs, head) {
+      vrend_destroy_program(ent);
+   }
+
+   LIST_FOR_EACH_ENTRY_SAFE(ent, tmp, &sub->cs_programs, head) {
       vrend_destroy_program(ent);
    }
 }
@@ -10506,7 +10507,8 @@ void vrend_renderer_create_sub_ctx(struct vrend_context *ctx, int sub_ctx_id)
    glBindFramebuffer(GL_FRAMEBUFFER, sub->fb_id);
    glGenFramebuffers(2, sub->blit_fb_ids);
 
-   list_inithead(&sub->programs);
+   list_inithead(&sub->gl_programs);
+   list_inithead(&sub->cs_programs);
    list_inithead(&sub->streamout_list);
 
    sub->object_hash = vrend_object_init_ctx_table();
