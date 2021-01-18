@@ -291,11 +291,11 @@ RUN git clone --single-branch -b master https://gitlab.freedesktop.org/drm/igt-g
     meson build -Doverlay=disabled -Dchamelium=disabled -Dvalgrind=disabled -Dman=disabled -Ddocs=disabled -Dtests=disabled -Drunner=disabled && \
     ninja -C build install
 
-ENV GFX_PPS_VERSION="v0.2.0"
+ENV GFX_PPS_VERSION="v0.3.0"
 RUN git clone --single-branch -b master https://gitlab.freedesktop.org/Fahien/gfx-pps.git && \
     cd gfx-pps && \
     git checkout "$GFX_PPS_VERSION" && \
-    meson build -Dweston=false -Dtest=false -Dbuildtype=debugoptimized && \
+    meson build -Dtest=false -Dbuildtype=debugoptimized && \
     ninja -C build
 
 COPY perf-testing/Docker/run_traces.sh /usr/local/.
