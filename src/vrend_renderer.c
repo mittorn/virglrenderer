@@ -662,6 +662,7 @@ struct vrend_sub_context {
    int fake_occlusion_query_samples_passed_multiplier;
 
    int prim_mode;
+   bool drawing;
 };
 
 struct vrend_context {
@@ -678,7 +679,6 @@ struct vrend_context {
    bool in_error;
    bool ctx_switch_pending;
    bool pstip_inited;
-   bool drawing;
 
    GLuint pstipple_tex_id;
 
@@ -3169,7 +3169,7 @@ static inline void vrend_fill_shader_key(struct vrend_context *ctx,
       bool add_alpha_test = true;
       key->cbufs_are_a8_bitmask = 0;
       // Only use integer info when drawing to avoid stale info.
-      if (vrend_state.use_integer && ctx->drawing) {
+      if (vrend_state.use_integer && ctx->sub->drawing) {
          key->attrib_signed_int_bitmask = ctx->sub->ve->signed_int_bitmask;
          key->attrib_unsigned_int_bitmask = ctx->sub->ve->unsigned_int_bitmask;
       }
@@ -4411,9 +4411,9 @@ vrend_select_program(struct vrend_context *ctx, const struct pipe_draw_info *inf
    // buffer formats when the shader is created, we only know it here.
    // Set it to true so the underlying code knows to use the buffer formats
    // now.
-   ctx->drawing = true;
+   ctx->sub->drawing = true;
    vrend_shader_select(ctx, ctx->sub->shaders[PIPE_SHADER_VERTEX], &vs_dirty);
-   ctx->drawing = false;
+   ctx->sub->drawing = false;
 
    if (ctx->sub->shaders[PIPE_SHADER_TESS_CTRL] && ctx->sub->shaders[PIPE_SHADER_TESS_CTRL]->tokens)
       vrend_shader_select(ctx, ctx->sub->shaders[PIPE_SHADER_TESS_CTRL], &tcs_dirty);
