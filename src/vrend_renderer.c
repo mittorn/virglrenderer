@@ -3434,8 +3434,7 @@ static int vrend_shader_select(struct vrend_context *ctx,
    return 0;
 }
 
-static void *vrend_create_shader_state(UNUSED struct vrend_context *ctx,
-                                       const struct pipe_stream_output_info *so_info,
+static void *vrend_create_shader_state(const struct pipe_stream_output_info *so_info,
                                        uint32_t req_local_mem,
                                        unsigned pipe_shader_type)
 {
@@ -3511,7 +3510,7 @@ int vrend_create_shader(struct vrend_context *ctx,
    }
 
    if (new_shader) {
-      sel = vrend_create_shader_state(ctx, so_info, req_local_mem, type);
+      sel = vrend_create_shader_state(so_info, req_local_mem, type);
      if (sel == NULL)
        return ENOMEM;
 
@@ -4362,8 +4361,7 @@ void vrend_inject_tcs(struct vrend_context *ctx, int vertices_per_patch)
    struct pipe_stream_output_info so_info;
 
    memset(&so_info, 0, sizeof(so_info));
-   struct vrend_shader_selector *sel = vrend_create_shader_state(ctx,
-                                                                 &so_info,
+   struct vrend_shader_selector *sel = vrend_create_shader_state(&so_info,
                                                                  false, PIPE_SHADER_TESS_CTRL);
    struct vrend_shader *shader;
    shader = CALLOC_STRUCT(vrend_shader);
