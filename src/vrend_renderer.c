@@ -3158,7 +3158,7 @@ static inline bool can_emulate_logicop(enum pipe_logicop op)
 }
 
 
-static inline void vrend_fill_shader_key(struct vrend_context *ctx,
+static inline void vrend_fill_shader_key(struct vrend_sub_context *sub_ctx,
                                          struct vrend_shader_selector *sel,
                                          struct vrend_shader_key *key)
 {
@@ -3169,54 +3169,54 @@ static inline void vrend_fill_shader_key(struct vrend_context *ctx,
       bool add_alpha_test = true;
       key->cbufs_are_a8_bitmask = 0;
       // Only use integer info when drawing to avoid stale info.
-      if (vrend_state.use_integer && ctx->sub->drawing) {
-         key->attrib_signed_int_bitmask = ctx->sub->ve->signed_int_bitmask;
-         key->attrib_unsigned_int_bitmask = ctx->sub->ve->unsigned_int_bitmask;
+      if (vrend_state.use_integer && sub_ctx->drawing) {
+         key->attrib_signed_int_bitmask = sub_ctx->ve->signed_int_bitmask;
+         key->attrib_unsigned_int_bitmask = sub_ctx->ve->unsigned_int_bitmask;
       }
-      for (i = 0; i < ctx->sub->nr_cbufs; i++) {
-         if (!ctx->sub->surf[i])
+      for (i = 0; i < sub_ctx->nr_cbufs; i++) {
+         if (!sub_ctx->surf[i])
             continue;
-         if (vrend_format_is_emulated_alpha(ctx->sub->surf[i]->format))
+         if (vrend_format_is_emulated_alpha(sub_ctx->surf[i]->format))
             key->cbufs_are_a8_bitmask |= (1 << i);
-         if (util_format_is_pure_integer(ctx->sub->surf[i]->format)) {
+         if (util_format_is_pure_integer(sub_ctx->surf[i]->format)) {
             add_alpha_test = false;
-            update_int_sign_masks(ctx->sub->surf[i]->format, i,
+            update_int_sign_masks(sub_ctx->surf[i]->format, i,
                                   &key->cbufs_signed_int_bitmask,
                                   &key->cbufs_unsigned_int_bitmask);
          }
-         key->surface_component_bits[i] = util_format_get_component_bits(ctx->sub->surf[i]->format, UTIL_FORMAT_COLORSPACE_RGB, 0);
+         key->surface_component_bits[i] = util_format_get_component_bits(sub_ctx->surf[i]->format, UTIL_FORMAT_COLORSPACE_RGB, 0);
       }
       if (add_alpha_test) {
-         key->add_alpha_test = ctx->sub->dsa_state.alpha.enabled;
-         key->alpha_test = ctx->sub->dsa_state.alpha.func;
+         key->add_alpha_test = sub_ctx->dsa_state.alpha.enabled;
+         key->alpha_test = sub_ctx->dsa_state.alpha.func;
       }
 
-      key->pstipple_tex = ctx->sub->rs_state.poly_stipple_enable;
-      key->color_two_side = ctx->sub->rs_state.light_twoside;
+      key->pstipple_tex = sub_ctx->rs_state.poly_stipple_enable;
+      key->color_two_side = sub_ctx->rs_state.light_twoside;
 
-      key->clip_plane_enable = ctx->sub->rs_state.clip_plane_enable;
-      key->flatshade = ctx->sub->rs_state.flatshade ? true : false;
+      key->clip_plane_enable = sub_ctx->rs_state.clip_plane_enable;
+      key->flatshade = sub_ctx->rs_state.flatshade ? true : false;
    } else {
       key->add_alpha_test = 0;
       key->pstipple_tex = 0;
    }
 
-   if (type == PIPE_SHADER_FRAGMENT && vrend_state.use_gles && can_emulate_logicop(ctx->sub->blend_state.logicop_func)) {
-      key->fs_logicop_enabled = ctx->sub->blend_state.logicop_enable;
-      key->fs_logicop_func = ctx->sub->blend_state.logicop_func;
+   if (type == PIPE_SHADER_FRAGMENT && vrend_state.use_gles && can_emulate_logicop(sub_ctx->blend_state.logicop_func)) {
+      key->fs_logicop_enabled = sub_ctx->blend_state.logicop_enable;
+      key->fs_logicop_func = sub_ctx->blend_state.logicop_func;
       key->fs_logicop_emulate_coherent = !has_feature(feat_framebuffer_fetch_non_coherent);
    }
 
-   key->invert_fs_origin = !ctx->sub->inverted_fbo_content;
+   key->invert_fs_origin = !sub_ctx->inverted_fbo_content;
 
    if (type == PIPE_SHADER_FRAGMENT)
-      key->fs_swizzle_output_rgb_to_bgr = ctx->sub->swizzle_output_rgb_to_bgr;
+      key->fs_swizzle_output_rgb_to_bgr = sub_ctx->swizzle_output_rgb_to_bgr;
 
-   if (ctx->sub->shaders[PIPE_SHADER_GEOMETRY])
+   if (sub_ctx->shaders[PIPE_SHADER_GEOMETRY])
       key->gs_present = true;
-   if (ctx->sub->shaders[PIPE_SHADER_TESS_CTRL])
+   if (sub_ctx->shaders[PIPE_SHADER_TESS_CTRL])
       key->tcs_present = true;
-   if (ctx->sub->shaders[PIPE_SHADER_TESS_EVAL])
+   if (sub_ctx->shaders[PIPE_SHADER_TESS_EVAL])
       key->tes_present = true;
 
    int prev_type = -1;
@@ -3225,7 +3225,7 @@ static inline void vrend_fill_shader_key(struct vrend_context *ctx,
     * old shader is still bound we should ignore the "previous" (as in
     * execution order) shader when the key is evaluated, unless the currently
     * bound shader selector is actually refers to the current shader. */
-   if (ctx->sub->shaders[type] == sel) {
+   if (sub_ctx->shaders[type] == sel) {
       switch (type) {
       case PIPE_SHADER_GEOMETRY:
          if (key->tcs_present || key->tes_present)
@@ -3255,36 +3255,36 @@ static inline void vrend_fill_shader_key(struct vrend_context *ctx,
       }
    }
 
-   if (prev_type != -1 && ctx->sub->shaders[prev_type]) {
-      key->prev_stage_num_clip_out = ctx->sub->shaders[prev_type]->sinfo.num_clip_out;
-      key->prev_stage_num_cull_out = ctx->sub->shaders[prev_type]->sinfo.num_cull_out;
-      key->num_indirect_generic_inputs = ctx->sub->shaders[prev_type]->sinfo.num_indirect_generic_outputs;
-      key->num_indirect_patch_inputs = ctx->sub->shaders[prev_type]->sinfo.num_indirect_patch_outputs;
-      key->num_prev_generic_and_patch_outputs = ctx->sub->shaders[prev_type]->sinfo.num_generic_and_patch_outputs;
-      key->guest_sent_io_arrays = ctx->sub->shaders[prev_type]->sinfo.guest_sent_io_arrays;
+   if (prev_type != -1 && sub_ctx->shaders[prev_type]) {
+      key->prev_stage_num_clip_out = sub_ctx->shaders[prev_type]->sinfo.num_clip_out;
+      key->prev_stage_num_cull_out = sub_ctx->shaders[prev_type]->sinfo.num_cull_out;
+      key->num_indirect_generic_inputs = sub_ctx->shaders[prev_type]->sinfo.num_indirect_generic_outputs;
+      key->num_indirect_patch_inputs = sub_ctx->shaders[prev_type]->sinfo.num_indirect_patch_outputs;
+      key->num_prev_generic_and_patch_outputs = sub_ctx->shaders[prev_type]->sinfo.num_generic_and_patch_outputs;
+      key->guest_sent_io_arrays = sub_ctx->shaders[prev_type]->sinfo.guest_sent_io_arrays;
 
       memcpy(key->prev_stage_generic_and_patch_outputs_layout,
-             ctx->sub->shaders[prev_type]->sinfo.generic_outputs_layout,
+             sub_ctx->shaders[prev_type]->sinfo.generic_outputs_layout,
              64 * sizeof (struct vrend_layout_info));
-      key->force_invariant_inputs = ctx->sub->shaders[prev_type]->sinfo.invariant_outputs;
+      key->force_invariant_inputs = sub_ctx->shaders[prev_type]->sinfo.invariant_outputs;
    }
 
    // Only use coord_replace if frag shader receives GL_POINTS
    if (type == PIPE_SHADER_FRAGMENT) {
-      int fs_prim_mode = ctx->sub->prim_mode; // inherit draw-call's mode
+      int fs_prim_mode = sub_ctx->prim_mode; // inherit draw-call's mode
       switch (prev_type) {
          case PIPE_SHADER_TESS_EVAL:
-            if (ctx->sub->shaders[PIPE_SHADER_TESS_EVAL]->sinfo.tes_point_mode)
+            if (sub_ctx->shaders[PIPE_SHADER_TESS_EVAL]->sinfo.tes_point_mode)
                fs_prim_mode = PIPE_PRIM_POINTS;
             break;
          case PIPE_SHADER_GEOMETRY:
-            fs_prim_mode = ctx->sub->shaders[PIPE_SHADER_GEOMETRY]->sinfo.gs_out_prim;
+            fs_prim_mode = sub_ctx->shaders[PIPE_SHADER_GEOMETRY]->sinfo.gs_out_prim;
             break;
       }
       key->fs_prim_is_points = (fs_prim_mode == PIPE_PRIM_POINTS);
-      key->coord_replace = ctx->sub->rs_state.point_quad_rasterization
+      key->coord_replace = sub_ctx->rs_state.point_quad_rasterization
          && key->fs_prim_is_points
-         ? ctx->sub->rs_state.sprite_coord_enable
+         ? sub_ctx->rs_state.sprite_coord_enable
          : 0x0;
    }
 
@@ -3296,7 +3296,7 @@ static inline void vrend_fill_shader_key(struct vrend_context *ctx,
      else if (key->gs_present)
        next_type = PIPE_SHADER_GEOMETRY;
      else if (key->tes_present) {
-        if (!ctx->shader_cfg.use_gles)
+        if (!vrend_state.use_gles)
            next_type = PIPE_SHADER_TESS_EVAL;
         else
            next_type = PIPE_SHADER_TESS_CTRL;
@@ -3318,17 +3318,17 @@ static inline void vrend_fill_shader_key(struct vrend_context *ctx,
      break;
    }
 
-   if (next_type != -1 && ctx->sub->shaders[next_type]) {
-      key->next_stage_pervertex_in = ctx->sub->shaders[next_type]->sinfo.has_pervertex_in;
-      key->num_indirect_generic_outputs = ctx->sub->shaders[next_type]->sinfo.num_indirect_generic_inputs;
-      key->num_indirect_patch_outputs = ctx->sub->shaders[next_type]->sinfo.num_indirect_patch_inputs;
-      key->generic_outputs_expected_mask = ctx->sub->shaders[next_type]->sinfo.generic_inputs_emitted_mask;
+   if (next_type != -1 && sub_ctx->shaders[next_type]) {
+      key->next_stage_pervertex_in = sub_ctx->shaders[next_type]->sinfo.has_pervertex_in;
+      key->num_indirect_generic_outputs = sub_ctx->shaders[next_type]->sinfo.num_indirect_generic_inputs;
+      key->num_indirect_patch_outputs = sub_ctx->shaders[next_type]->sinfo.num_indirect_patch_inputs;
+      key->generic_outputs_expected_mask = sub_ctx->shaders[next_type]->sinfo.generic_inputs_emitted_mask;
    }
 
    if (type != PIPE_SHADER_FRAGMENT &&
-       ctx->sub->shaders[PIPE_SHADER_FRAGMENT]) {
+       sub_ctx->shaders[PIPE_SHADER_FRAGMENT]) {
       struct vrend_shader *fs =
-	      ctx->sub->shaders[PIPE_SHADER_FRAGMENT]->current;
+	      sub_ctx->shaders[PIPE_SHADER_FRAGMENT]->current;
       key->compiled_fs_uid = fs->uid;
       key->fs_info = &fs->sel->sinfo;
    }
@@ -3394,7 +3394,7 @@ static int vrend_shader_select(struct vrend_context *ctx,
    int r;
 
    memset(&key, 0, sizeof(key));
-   vrend_fill_shader_key(ctx, sel, &key);
+   vrend_fill_shader_key(ctx->sub, sel, &key);
 
    if (sel->current && !memcmp(&sel->current->key, &key, sizeof(key)))
       return 0;
@@ -4367,7 +4367,7 @@ void vrend_inject_tcs(struct vrend_context *ctx, int vertices_per_patch)
                                                                  false, PIPE_SHADER_TESS_CTRL);
    struct vrend_shader *shader;
    shader = CALLOC_STRUCT(vrend_shader);
-   vrend_fill_shader_key(ctx, sel, &shader->key);
+   vrend_fill_shader_key(ctx->sub, sel, &shader->key);
 
    shader->sel = sel;
    list_inithead(&shader->programs);
