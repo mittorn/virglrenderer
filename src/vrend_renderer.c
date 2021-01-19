@@ -4388,6 +4388,116 @@ void vrend_inject_tcs(struct vrend_context *ctx, int vertices_per_patch)
    vrend_compile_shader(ctx, shader);
 }
 
+
+static bool
+vrend_select_program(struct vrend_context *ctx, const struct pipe_draw_info *info)
+{
+   struct vrend_linked_shader_program *prog;
+   bool fs_dirty, vs_dirty, gs_dirty, tcs_dirty, tes_dirty;
+   bool dual_src = util_blend_state_is_dual(&ctx->sub->blend_state, 0);
+   bool same_prog;
+
+   bool new_program = false;
+
+   ctx->sub->shader_dirty = false;
+
+   if (!ctx->sub->shaders[PIPE_SHADER_VERTEX] || !ctx->sub->shaders[PIPE_SHADER_FRAGMENT]) {
+      vrend_printf("dropping rendering due to missing shaders: %s\n", ctx->debug_name);
+      return false;
+   }
+
+   // For some GPU, we'd like to use integer variable in generated GLSL if
+   // the input buffers are integer formats. But we actually don't know the
+   // buffer formats when the shader is created, we only know it here.
+   // Set it to true so the underlying code knows to use the buffer formats
+   // now.
+   ctx->drawing = true;
+   vrend_shader_select(ctx, ctx->sub->shaders[PIPE_SHADER_VERTEX], &vs_dirty);
+   ctx->drawing = false;
+
+   if (ctx->sub->shaders[PIPE_SHADER_TESS_CTRL] && ctx->sub->shaders[PIPE_SHADER_TESS_CTRL]->tokens)
+      vrend_shader_select(ctx, ctx->sub->shaders[PIPE_SHADER_TESS_CTRL], &tcs_dirty);
+   else if (vrend_state.use_gles && ctx->sub->shaders[PIPE_SHADER_TESS_EVAL]) {
+      VREND_DEBUG(dbg_shader, ctx, "Need to inject a TCS\n");
+      vrend_inject_tcs(ctx, info->vertices_per_patch);
+
+      vrend_shader_select(ctx, ctx->sub->shaders[PIPE_SHADER_VERTEX], &vs_dirty);
+   }
+
+   if (ctx->sub->shaders[PIPE_SHADER_TESS_EVAL])
+      vrend_shader_select(ctx, ctx->sub->shaders[PIPE_SHADER_TESS_EVAL], &tes_dirty);
+   if (ctx->sub->shaders[PIPE_SHADER_GEOMETRY])
+      vrend_shader_select(ctx, ctx->sub->shaders[PIPE_SHADER_GEOMETRY], &gs_dirty);
+   vrend_shader_select(ctx, ctx->sub->shaders[PIPE_SHADER_FRAGMENT], &fs_dirty);
+
+   if (!ctx->sub->shaders[PIPE_SHADER_VERTEX]->current ||
+       !ctx->sub->shaders[PIPE_SHADER_FRAGMENT]->current ||
+       (ctx->sub->shaders[PIPE_SHADER_GEOMETRY] && !ctx->sub->shaders[PIPE_SHADER_GEOMETRY]->current) ||
+       (ctx->sub->shaders[PIPE_SHADER_TESS_CTRL] && !ctx->sub->shaders[PIPE_SHADER_TESS_CTRL]->current) ||
+       (ctx->sub->shaders[PIPE_SHADER_TESS_EVAL] && !ctx->sub->shaders[PIPE_SHADER_TESS_EVAL]->current)) {
+      vrend_printf( "failure to compile shader variants: %s\n", ctx->debug_name);
+      return false;
+   }
+   same_prog = true;
+   if (ctx->sub->shaders[PIPE_SHADER_VERTEX]->current->id != (GLuint)ctx->sub->prog_ids[PIPE_SHADER_VERTEX])
+      same_prog = false;
+   if (ctx->sub->shaders[PIPE_SHADER_FRAGMENT]->current->id != (GLuint)ctx->sub->prog_ids[PIPE_SHADER_FRAGMENT])
+      same_prog = false;
+   if (ctx->sub->shaders[PIPE_SHADER_GEOMETRY] && ctx->sub->shaders[PIPE_SHADER_GEOMETRY]->current->id != (GLuint)ctx->sub->prog_ids[PIPE_SHADER_GEOMETRY])
+      same_prog = false;
+   if (ctx->sub->prog && ctx->sub->prog->dual_src_linked != dual_src)
+      same_prog = false;
+   if (ctx->sub->shaders[PIPE_SHADER_TESS_CTRL] && ctx->sub->shaders[PIPE_SHADER_TESS_CTRL]->current->id != (GLuint)ctx->sub->prog_ids[PIPE_SHADER_TESS_CTRL])
+      same_prog = false;
+   if (ctx->sub->shaders[PIPE_SHADER_TESS_EVAL] && ctx->sub->shaders[PIPE_SHADER_TESS_EVAL]->current->id != (GLuint)ctx->sub->prog_ids[PIPE_SHADER_TESS_EVAL])
+      same_prog = false;
+
+   if (!same_prog) {
+      prog = lookup_shader_program(ctx,
+                                   ctx->sub->shaders[PIPE_SHADER_VERTEX]->current->id,
+                                   ctx->sub->shaders[PIPE_SHADER_FRAGMENT]->current->id,
+                                   ctx->sub->shaders[PIPE_SHADER_GEOMETRY] ? ctx->sub->shaders[PIPE_SHADER_GEOMETRY]->current->id : 0,
+                                   ctx->sub->shaders[PIPE_SHADER_TESS_CTRL] ? ctx->sub->shaders[PIPE_SHADER_TESS_CTRL]->current->id : 0,
+                                   ctx->sub->shaders[PIPE_SHADER_TESS_EVAL] ? ctx->sub->shaders[PIPE_SHADER_TESS_EVAL]->current->id : 0,
+                                   dual_src);
+      if (!prog) {
+         prog = add_shader_program(ctx,
+                                   ctx->sub->shaders[PIPE_SHADER_VERTEX]->current,
+                                   ctx->sub->shaders[PIPE_SHADER_FRAGMENT]->current,
+                                   ctx->sub->shaders[PIPE_SHADER_GEOMETRY] ? ctx->sub->shaders[PIPE_SHADER_GEOMETRY]->current : NULL,
+                                   ctx->sub->shaders[PIPE_SHADER_TESS_CTRL] ? ctx->sub->shaders[PIPE_SHADER_TESS_CTRL]->current : NULL,
+                                   ctx->sub->shaders[PIPE_SHADER_TESS_EVAL] ? ctx->sub->shaders[PIPE_SHADER_TESS_EVAL]->current : NULL);
+         if (!prog)
+            return false;
+      }
+
+      ctx->sub->last_shader_idx = ctx->sub->shaders[PIPE_SHADER_TESS_EVAL] ? PIPE_SHADER_TESS_EVAL : (ctx->sub->shaders[PIPE_SHADER_GEOMETRY] ? PIPE_SHADER_GEOMETRY : PIPE_SHADER_FRAGMENT);
+   } else
+      prog = ctx->sub->prog;
+   if (ctx->sub->prog != prog) {
+      new_program = true;
+      ctx->sub->prog_ids[PIPE_SHADER_VERTEX] = ctx->sub->shaders[PIPE_SHADER_VERTEX]->current->id;
+      ctx->sub->prog_ids[PIPE_SHADER_FRAGMENT] = ctx->sub->shaders[PIPE_SHADER_FRAGMENT]->current->id;
+      if (ctx->sub->shaders[PIPE_SHADER_GEOMETRY])
+         ctx->sub->prog_ids[PIPE_SHADER_GEOMETRY] = ctx->sub->shaders[PIPE_SHADER_GEOMETRY]->current->id;
+      if (ctx->sub->shaders[PIPE_SHADER_TESS_CTRL])
+         ctx->sub->prog_ids[PIPE_SHADER_TESS_CTRL] = ctx->sub->shaders[PIPE_SHADER_TESS_CTRL]->current->id;
+      if (ctx->sub->shaders[PIPE_SHADER_TESS_EVAL])
+         ctx->sub->prog_ids[PIPE_SHADER_TESS_EVAL] = ctx->sub->shaders[PIPE_SHADER_TESS_EVAL]->current->id;
+      ctx->sub->prog_ids[PIPE_SHADER_COMPUTE] = -1;
+      ctx->sub->prog = prog;
+
+      /* mark all constbufs and sampler views as dirty */
+      for (int stage = PIPE_SHADER_VERTEX; stage <= PIPE_SHADER_FRAGMENT; stage++) {
+         ctx->sub->const_bufs_dirty[stage] = ~0;
+         ctx->sub->sampler_views_dirty[stage] = ~0;
+      }
+
+      prog->ref_context = ctx->sub;
+   }
+   return new_program;
+}
+
 int vrend_draw_vbo(struct vrend_context *ctx,
                    const struct pipe_draw_info *info,
                    uint32_t cso, uint32_t indirect_handle,
@@ -4457,109 +4567,9 @@ int vrend_draw_vbo(struct vrend_context *ctx,
       ctx->sub->prim_mode = (int)info->mode;
    }
 
-   if (ctx->sub->shader_dirty || ctx->sub->swizzle_output_rgb_to_bgr) {
-      struct vrend_linked_shader_program *prog;
-      bool fs_dirty, vs_dirty, gs_dirty, tcs_dirty, tes_dirty;
-      bool dual_src = util_blend_state_is_dual(&ctx->sub->blend_state, 0);
-      bool same_prog;
+   if (ctx->sub->shader_dirty || ctx->sub->swizzle_output_rgb_to_bgr)
+      new_program = vrend_select_program(ctx, info);
 
-      ctx->sub->shader_dirty = false;
-
-      if (!ctx->sub->shaders[PIPE_SHADER_VERTEX] || !ctx->sub->shaders[PIPE_SHADER_FRAGMENT]) {
-         vrend_printf("dropping rendering due to missing shaders: %s\n", ctx->debug_name);
-         return 0;
-      }
-
-      // For some GPU, we'd like to use integer variable in generated GLSL if
-      // the input buffers are integer formats. But we actually don't know the
-      // buffer formats when the shader is created, we only know it here.
-      // Set it to true so the underlying code knows to use the buffer formats
-      // now.
-      ctx->drawing = true;
-      vrend_shader_select(ctx, ctx->sub->shaders[PIPE_SHADER_VERTEX], &vs_dirty);
-      ctx->drawing = false;
-
-      if (ctx->sub->shaders[PIPE_SHADER_TESS_CTRL] && ctx->sub->shaders[PIPE_SHADER_TESS_CTRL]->tokens)
-         vrend_shader_select(ctx, ctx->sub->shaders[PIPE_SHADER_TESS_CTRL], &tcs_dirty);
-      else if (vrend_state.use_gles && ctx->sub->shaders[PIPE_SHADER_TESS_EVAL]) {
-         VREND_DEBUG(dbg_shader, ctx, "Need to inject a TCS\n");
-         vrend_inject_tcs(ctx, info->vertices_per_patch);
-
-         vrend_shader_select(ctx, ctx->sub->shaders[PIPE_SHADER_VERTEX], &vs_dirty);
-      }
-
-      if (ctx->sub->shaders[PIPE_SHADER_TESS_EVAL])
-         vrend_shader_select(ctx, ctx->sub->shaders[PIPE_SHADER_TESS_EVAL], &tes_dirty);
-      if (ctx->sub->shaders[PIPE_SHADER_GEOMETRY])
-         vrend_shader_select(ctx, ctx->sub->shaders[PIPE_SHADER_GEOMETRY], &gs_dirty);
-      vrend_shader_select(ctx, ctx->sub->shaders[PIPE_SHADER_FRAGMENT], &fs_dirty);
-
-      if (!ctx->sub->shaders[PIPE_SHADER_VERTEX]->current ||
-          !ctx->sub->shaders[PIPE_SHADER_FRAGMENT]->current ||
-          (ctx->sub->shaders[PIPE_SHADER_GEOMETRY] && !ctx->sub->shaders[PIPE_SHADER_GEOMETRY]->current) ||
-          (ctx->sub->shaders[PIPE_SHADER_TESS_CTRL] && !ctx->sub->shaders[PIPE_SHADER_TESS_CTRL]->current) ||
-          (ctx->sub->shaders[PIPE_SHADER_TESS_EVAL] && !ctx->sub->shaders[PIPE_SHADER_TESS_EVAL]->current)) {
-         vrend_printf( "failure to compile shader variants: %s\n", ctx->debug_name);
-         return 0;
-      }
-      same_prog = true;
-      if (ctx->sub->shaders[PIPE_SHADER_VERTEX]->current->id != (GLuint)ctx->sub->prog_ids[PIPE_SHADER_VERTEX])
-         same_prog = false;
-      if (ctx->sub->shaders[PIPE_SHADER_FRAGMENT]->current->id != (GLuint)ctx->sub->prog_ids[PIPE_SHADER_FRAGMENT])
-         same_prog = false;
-      if (ctx->sub->shaders[PIPE_SHADER_GEOMETRY] && ctx->sub->shaders[PIPE_SHADER_GEOMETRY]->current->id != (GLuint)ctx->sub->prog_ids[PIPE_SHADER_GEOMETRY])
-         same_prog = false;
-      if (ctx->sub->prog && ctx->sub->prog->dual_src_linked != dual_src)
-         same_prog = false;
-      if (ctx->sub->shaders[PIPE_SHADER_TESS_CTRL] && ctx->sub->shaders[PIPE_SHADER_TESS_CTRL]->current->id != (GLuint)ctx->sub->prog_ids[PIPE_SHADER_TESS_CTRL])
-         same_prog = false;
-      if (ctx->sub->shaders[PIPE_SHADER_TESS_EVAL] && ctx->sub->shaders[PIPE_SHADER_TESS_EVAL]->current->id != (GLuint)ctx->sub->prog_ids[PIPE_SHADER_TESS_EVAL])
-         same_prog = false;
-
-      if (!same_prog) {
-         prog = lookup_shader_program(ctx,
-                                      ctx->sub->shaders[PIPE_SHADER_VERTEX]->current->id,
-                                      ctx->sub->shaders[PIPE_SHADER_FRAGMENT]->current->id,
-                                      ctx->sub->shaders[PIPE_SHADER_GEOMETRY] ? ctx->sub->shaders[PIPE_SHADER_GEOMETRY]->current->id : 0,
-                                      ctx->sub->shaders[PIPE_SHADER_TESS_CTRL] ? ctx->sub->shaders[PIPE_SHADER_TESS_CTRL]->current->id : 0,
-                                      ctx->sub->shaders[PIPE_SHADER_TESS_EVAL] ? ctx->sub->shaders[PIPE_SHADER_TESS_EVAL]->current->id : 0,
-                                      dual_src);
-         if (!prog) {
-            prog = add_shader_program(ctx,
-                                      ctx->sub->shaders[PIPE_SHADER_VERTEX]->current,
-                                      ctx->sub->shaders[PIPE_SHADER_FRAGMENT]->current,
-                                      ctx->sub->shaders[PIPE_SHADER_GEOMETRY] ? ctx->sub->shaders[PIPE_SHADER_GEOMETRY]->current : NULL,
-                                      ctx->sub->shaders[PIPE_SHADER_TESS_CTRL] ? ctx->sub->shaders[PIPE_SHADER_TESS_CTRL]->current : NULL,
-                                      ctx->sub->shaders[PIPE_SHADER_TESS_EVAL] ? ctx->sub->shaders[PIPE_SHADER_TESS_EVAL]->current : NULL);
-            if (!prog)
-               return 0;
-         }
-
-         ctx->sub->last_shader_idx = ctx->sub->shaders[PIPE_SHADER_TESS_EVAL] ? PIPE_SHADER_TESS_EVAL : (ctx->sub->shaders[PIPE_SHADER_GEOMETRY] ? PIPE_SHADER_GEOMETRY : PIPE_SHADER_FRAGMENT);
-      } else
-         prog = ctx->sub->prog;
-      if (ctx->sub->prog != prog) {
-         new_program = true;
-         ctx->sub->prog_ids[PIPE_SHADER_VERTEX] = ctx->sub->shaders[PIPE_SHADER_VERTEX]->current->id;
-         ctx->sub->prog_ids[PIPE_SHADER_FRAGMENT] = ctx->sub->shaders[PIPE_SHADER_FRAGMENT]->current->id;
-         if (ctx->sub->shaders[PIPE_SHADER_GEOMETRY])
-            ctx->sub->prog_ids[PIPE_SHADER_GEOMETRY] = ctx->sub->shaders[PIPE_SHADER_GEOMETRY]->current->id;
-         if (ctx->sub->shaders[PIPE_SHADER_TESS_CTRL])
-            ctx->sub->prog_ids[PIPE_SHADER_TESS_CTRL] = ctx->sub->shaders[PIPE_SHADER_TESS_CTRL]->current->id;
-         if (ctx->sub->shaders[PIPE_SHADER_TESS_EVAL])
-            ctx->sub->prog_ids[PIPE_SHADER_TESS_EVAL] = ctx->sub->shaders[PIPE_SHADER_TESS_EVAL]->current->id;
-         ctx->sub->prog_ids[PIPE_SHADER_COMPUTE] = -1;
-         ctx->sub->prog = prog;
-
-         /* mark all constbufs and sampler views as dirty */
-         for (int stage = PIPE_SHADER_VERTEX; stage <= PIPE_SHADER_FRAGMENT; stage++) {
-            ctx->sub->const_bufs_dirty[stage] = ~0;
-            ctx->sub->sampler_views_dirty[stage] = ~0;
-         }
-
-         prog->ref_context = ctx->sub;
-      }
-   }
    if (!ctx->sub->prog) {
       vrend_printf("dropping rendering due to missing shaders: %s\n", ctx->debug_name);
       return 0;
