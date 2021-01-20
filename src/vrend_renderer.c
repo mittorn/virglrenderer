@@ -723,7 +723,7 @@ struct vrend_context {
 
 static struct vrend_resource *vrend_renderer_ctx_res_lookup(struct vrend_context *ctx, int res_handle);
 static void vrend_pause_render_condition(struct vrend_context *ctx, bool pause);
-static void vrend_update_viewport_state(struct vrend_context *ctx);
+static void vrend_update_viewport_state(struct vrend_sub_context *sub_ctx);
 static void vrend_update_scissor_state(struct vrend_sub_context *sub_ctx);
 static void vrend_destroy_query_object(void *obj_ptr);
 static void vrend_finish_context_switch(struct vrend_context *ctx);
@@ -3703,7 +3703,7 @@ void vrend_clear(struct vrend_context *ctx,
    if (ctx->sub->scissor_state_dirty)
       vrend_update_scissor_state(sub_ctx);
    if (ctx->sub->viewport_state_dirty)
-      vrend_update_viewport_state(ctx);
+      vrend_update_viewport_state(sub_ctx);
 
    vrend_use_program(ctx, 0);
 
@@ -3882,36 +3882,36 @@ static void vrend_update_scissor_state(struct vrend_sub_context *sub_ctx)
    sub_ctx->scissor_state_dirty = 0;
 }
 
-static void vrend_update_viewport_state(struct vrend_context *ctx)
+static void vrend_update_viewport_state(struct vrend_sub_context *sub_ctx)
 {
    GLint cy;
-   unsigned mask = ctx->sub->viewport_state_dirty;
+   unsigned mask = sub_ctx->viewport_state_dirty;
    int idx;
    while (mask) {
       idx = u_bit_scan(&mask);
 
-      if (ctx->sub->viewport_is_negative)
-         cy = ctx->sub->vps[idx].cur_y - ctx->sub->vps[idx].height;
+      if (sub_ctx->viewport_is_negative)
+         cy = sub_ctx->vps[idx].cur_y - sub_ctx->vps[idx].height;
       else
-         cy = ctx->sub->vps[idx].cur_y;
+         cy = sub_ctx->vps[idx].cur_y;
       if (idx > 0 && has_feature(feat_viewport_array))
-         glViewportIndexedf(idx, ctx->sub->vps[idx].cur_x, cy, ctx->sub->vps[idx].width, ctx->sub->vps[idx].height);
+         glViewportIndexedf(idx, sub_ctx->vps[idx].cur_x, cy, sub_ctx->vps[idx].width, sub_ctx->vps[idx].height);
       else
-         glViewport(ctx->sub->vps[idx].cur_x, cy, ctx->sub->vps[idx].width, ctx->sub->vps[idx].height);
+         glViewport(sub_ctx->vps[idx].cur_x, cy, sub_ctx->vps[idx].width, sub_ctx->vps[idx].height);
 
       if (idx && has_feature(feat_viewport_array))
          if (vrend_state.use_gles) {
-            glDepthRangeIndexedfOES(idx, ctx->sub->vps[idx].near_val, ctx->sub->vps[idx].far_val);
+            glDepthRangeIndexedfOES(idx, sub_ctx->vps[idx].near_val, sub_ctx->vps[idx].far_val);
          } else
-            glDepthRangeIndexed(idx, ctx->sub->vps[idx].near_val, ctx->sub->vps[idx].far_val);
+            glDepthRangeIndexed(idx, sub_ctx->vps[idx].near_val, sub_ctx->vps[idx].far_val);
       else
          if (vrend_state.use_gles)
-            glDepthRangefOES(ctx->sub->vps[idx].near_val, ctx->sub->vps[idx].far_val);
+            glDepthRangefOES(sub_ctx->vps[idx].near_val, sub_ctx->vps[idx].far_val);
          else
-            glDepthRange(ctx->sub->vps[idx].near_val, ctx->sub->vps[idx].far_val);
+            glDepthRange(sub_ctx->vps[idx].near_val, sub_ctx->vps[idx].far_val);
    }
 
-   ctx->sub->viewport_state_dirty = 0;
+   sub_ctx->viewport_state_dirty = 0;
 }
 
 static GLenum get_gs_xfb_mode(GLenum mode)
@@ -4580,7 +4580,7 @@ int vrend_draw_vbo(struct vrend_context *ctx,
       vrend_update_scissor_state(sub_ctx);
 
    if (ctx->sub->viewport_state_dirty)
-      vrend_update_viewport_state(ctx);
+      vrend_update_viewport_state(sub_ctx);
 
    if (ctx->sub->blend_state_dirty)
       vrend_patch_blend_state(ctx);
