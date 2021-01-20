@@ -2372,9 +2372,9 @@ static void vrend_hw_set_zsurf_texture(struct vrend_context *ctx)
    }
 }
 
-static void vrend_hw_set_color_surface(struct vrend_context *ctx, int index)
+static void vrend_hw_set_color_surface(struct vrend_sub_context *sub_ctx, int index)
 {
-   struct vrend_surface *surf = ctx->sub->surf[index];
+   struct vrend_surface *surf = sub_ctx->surf[index];
 
    if (!surf) {
       GLenum attachment = GL_COLOR_ATTACHMENT0 + index;
@@ -2382,15 +2382,15 @@ static void vrend_hw_set_color_surface(struct vrend_context *ctx, int index)
       glFramebufferTexture2D(GL_FRAMEBUFFER, attachment,
                              GL_TEXTURE_2D, 0, 0);
    } else {
-      uint32_t first_layer = ctx->sub->surf[index]->val1 & 0xffff;
-      uint32_t last_layer = (ctx->sub->surf[index]->val1 >> 16) & 0xffff;
+      uint32_t first_layer = sub_ctx->surf[index]->val1 & 0xffff;
+      uint32_t last_layer = (sub_ctx->surf[index]->val1 >> 16) & 0xffff;
 
       vrend_fb_bind_texture_id(surf->texture, surf->id, index, surf->val0,
                                first_layer != last_layer ? 0xffffffff : first_layer);
    }
 }
 
-static void vrend_hw_emit_framebuffer_state(struct vrend_context *ctx)
+static void vrend_hw_emit_framebuffer_state(struct vrend_sub_context *sub_ctx)
 {
    static const GLenum buffers[8] = {
       GL_COLOR_ATTACHMENT0,
@@ -2403,19 +2403,19 @@ static void vrend_hw_emit_framebuffer_state(struct vrend_context *ctx)
       GL_COLOR_ATTACHMENT7,
    };
 
-   if (ctx->sub->nr_cbufs == 0) {
+   if (sub_ctx->nr_cbufs == 0) {
       glReadBuffer(GL_NONE);
       if (has_feature(feat_srgb_write_control)) {
          glDisable(GL_FRAMEBUFFER_SRGB_EXT);
-         ctx->sub->framebuffer_srgb_enabled = false;
+         sub_ctx->framebuffer_srgb_enabled = false;
       }
    } else if (has_feature(feat_srgb_write_control)) {
       struct vrend_surface *surf = NULL;
       bool use_srgb = false;
       int i;
-      for (i = 0; i < ctx->sub->nr_cbufs; i++) {
-         if (ctx->sub->surf[i]) {
-            surf = ctx->sub->surf[i];
+      for (i = 0; i < sub_ctx->nr_cbufs; i++) {
+         if (sub_ctx->surf[i]) {
+            surf = sub_ctx->surf[i];
             if (util_format_is_srgb(surf->format)) {
                use_srgb = true;
             }
@@ -2426,25 +2426,25 @@ static void vrend_hw_emit_framebuffer_state(struct vrend_context *ctx)
       } else {
          glDisable(GL_FRAMEBUFFER_SRGB_EXT);
       }
-      ctx->sub->framebuffer_srgb_enabled = use_srgb;
+      sub_ctx->framebuffer_srgb_enabled = use_srgb;
    }
 
    if (vrend_state.use_gles &&
-       vrend_get_tweak_is_active(&ctx->sub->tweaks, virgl_tweak_gles_brga_apply_dest_swizzle)) {
-      ctx->sub->swizzle_output_rgb_to_bgr = 0;
-      for (int i = 0; i < ctx->sub->nr_cbufs; i++) {
-         if (ctx->sub->surf[i]) {
-            struct vrend_surface *surf = ctx->sub->surf[i];
+       vrend_get_tweak_is_active(&sub_ctx->tweaks, virgl_tweak_gles_brga_apply_dest_swizzle)) {
+      sub_ctx->swizzle_output_rgb_to_bgr = 0;
+      for (int i = 0; i < sub_ctx->nr_cbufs; i++) {
+         if (sub_ctx->surf[i]) {
+            struct vrend_surface *surf = sub_ctx->surf[i];
             if (surf->texture->base.bind & VIRGL_BIND_PREFER_EMULATED_BGRA) {
-               VREND_DEBUG(dbg_tweak, ctx, "Swizzled BGRA output for 0x%x (%s)\n", i, util_format_name(surf->format));
-               ctx->sub->swizzle_output_rgb_to_bgr |= 1 << i;
+               VREND_DEBUG(dbg_tweak, sub_ctx->parent, "Swizzled BGRA output for 0x%x (%s)\n", i, util_format_name(surf->format));
+               sub_ctx->swizzle_output_rgb_to_bgr |= 1 << i;
             }
          }
       }
 
    }
 
-   glDrawBuffers(ctx->sub->nr_cbufs, buffers);
+   glDrawBuffers(sub_ctx->nr_cbufs, buffers);
 }
 
 void vrend_set_framebuffer_state(struct vrend_context *ctx,
@@ -2458,10 +2458,12 @@ void vrend_set_framebuffer_state(struct vrend_context *ctx,
    GLint new_height = -1;
    bool new_ibf = false;
 
-   glBindFramebuffer(GL_FRAMEBUFFER, ctx->sub->fb_id);
+   struct vrend_sub_context *sub_ctx = ctx->sub;
+
+   glBindFramebuffer(GL_FRAMEBUFFER, sub_ctx->fb_id);
 
    if (zsurf_handle) {
-      zsurf = vrend_object_lookup(ctx->sub->object_hash, zsurf_handle, VIRGL_OBJECT_SURFACE);
+      zsurf = vrend_object_lookup(sub_ctx->object_hash, zsurf_handle, VIRGL_OBJECT_SURFACE);
       if (!zsurf) {
          vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SURFACE, zsurf_handle);
          return;
@@ -2469,18 +2471,18 @@ void vrend_set_framebuffer_state(struct vrend_context *ctx,
    } else
       zsurf = NULL;
 
-   if (ctx->sub->zsurf != zsurf) {
-      vrend_surface_reference(&ctx->sub->zsurf, zsurf);
+   if (sub_ctx->zsurf != zsurf) {
+      vrend_surface_reference(&sub_ctx->zsurf, zsurf);
       vrend_hw_set_zsurf_texture(ctx);
    }
 
-   old_num = ctx->sub->nr_cbufs;
-   ctx->sub->nr_cbufs = nr_cbufs;
-   ctx->sub->old_nr_cbufs = old_num;
+   old_num = sub_ctx->nr_cbufs;
+   sub_ctx->nr_cbufs = nr_cbufs;
+   sub_ctx->old_nr_cbufs = old_num;
 
    for (i = 0; i < (int)nr_cbufs; i++) {
       if (surf_handle[i] != 0) {
-         surf = vrend_object_lookup(ctx->sub->object_hash, surf_handle[i], VIRGL_OBJECT_SURFACE);
+         surf = vrend_object_lookup(sub_ctx->object_hash, surf_handle[i], VIRGL_OBJECT_SURFACE);
          if (!surf) {
             vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SURFACE, surf_handle[i]);
             return;
@@ -2488,32 +2490,32 @@ void vrend_set_framebuffer_state(struct vrend_context *ctx,
       } else
          surf = NULL;
 
-      if (ctx->sub->surf[i] != surf) {
-         vrend_surface_reference(&ctx->sub->surf[i], surf);
-         vrend_hw_set_color_surface(ctx, i);
+      if (sub_ctx->surf[i] != surf) {
+         vrend_surface_reference(&sub_ctx->surf[i], surf);
+         vrend_hw_set_color_surface(sub_ctx, i);
       }
    }
 
-   if (old_num > ctx->sub->nr_cbufs) {
-      for (i = ctx->sub->nr_cbufs; i < old_num; i++) {
-         vrend_surface_reference(&ctx->sub->surf[i], NULL);
-         vrend_hw_set_color_surface(ctx, i);
+   if (old_num > sub_ctx->nr_cbufs) {
+      for (i = sub_ctx->nr_cbufs; i < old_num; i++) {
+         vrend_surface_reference(&sub_ctx->surf[i], NULL);
+         vrend_hw_set_color_surface(sub_ctx, i);
       }
    }
 
    /* find a buffer to set fb_height from */
-   if (ctx->sub->nr_cbufs == 0 && !ctx->sub->zsurf) {
+   if (sub_ctx->nr_cbufs == 0 && !sub_ctx->zsurf) {
       new_height = 0;
       new_ibf = false;
-   } else if (ctx->sub->nr_cbufs == 0) {
-      new_height = u_minify(ctx->sub->zsurf->texture->base.height0, ctx->sub->zsurf->val0);
-      new_ibf = ctx->sub->zsurf->texture->y_0_top ? true : false;
+   } else if (sub_ctx->nr_cbufs == 0) {
+      new_height = u_minify(sub_ctx->zsurf->texture->base.height0, sub_ctx->zsurf->val0);
+      new_ibf = sub_ctx->zsurf->texture->y_0_top ? true : false;
    }
    else {
       surf = NULL;
-      for (i = 0; i < ctx->sub->nr_cbufs; i++) {
-         if (ctx->sub->surf[i]) {
-            surf = ctx->sub->surf[i];
+      for (i = 0; i < sub_ctx->nr_cbufs; i++) {
+         if (sub_ctx->surf[i]) {
+            surf = sub_ctx->surf[i];
             break;
          }
       }
@@ -2526,23 +2528,23 @@ void vrend_set_framebuffer_state(struct vrend_context *ctx,
    }
 
    if (new_height != -1) {
-      if (ctx->sub->fb_height != (uint32_t)new_height || ctx->sub->inverted_fbo_content != new_ibf) {
-         ctx->sub->fb_height = new_height;
-         ctx->sub->inverted_fbo_content = new_ibf;
-         ctx->sub->viewport_state_dirty = (1 << 0);
+      if (sub_ctx->fb_height != (uint32_t)new_height || sub_ctx->inverted_fbo_content != new_ibf) {
+         sub_ctx->fb_height = new_height;
+         sub_ctx->inverted_fbo_content = new_ibf;
+         sub_ctx->viewport_state_dirty = (1 << 0);
       }
    }
 
-   vrend_hw_emit_framebuffer_state(ctx);
+   vrend_hw_emit_framebuffer_state(sub_ctx);
 
-   if (ctx->sub->nr_cbufs > 0 || ctx->sub->zsurf) {
+   if (sub_ctx->nr_cbufs > 0 || sub_ctx->zsurf) {
       status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
       if (status != GL_FRAMEBUFFER_COMPLETE)
          vrend_printf("failed to complete framebuffer 0x%x %s\n", status, ctx->debug_name);
    }
 
-   ctx->sub->shader_dirty = true;
-   ctx->sub->blend_state_dirty = true;
+   sub_ctx->shader_dirty = true;
+   sub_ctx->blend_state_dirty = true;
 }
 
 void vrend_set_framebuffer_state_no_attach(UNUSED struct vrend_context *ctx,
