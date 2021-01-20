@@ -1185,11 +1185,11 @@ static bool vrend_is_timer_query(GLenum gltype)
       gltype == GL_TIME_ELAPSED;
 }
 
-static void vrend_use_program(struct vrend_context *ctx, GLuint program_id)
+static void vrend_use_program(struct vrend_sub_context *sub_ctx, GLuint program_id)
 {
-   if (ctx->sub->program_id != program_id) {
+   if (sub_ctx->program_id != program_id) {
       glUseProgram(program_id);
-      ctx->sub->program_id = program_id;
+      sub_ctx->program_id = program_id;
    }
 }
 
@@ -1291,7 +1291,7 @@ static char *get_skip_str(int *skip_val)
    return start_skip;
 }
 
-static void set_stream_out_varyings(MAYBE_UNUSED struct vrend_context *ctx,
+static void set_stream_out_varyings(MAYBE_UNUSED struct vrend_sub_context *sub_ctx,
                                     int prog_id,
                                     struct vrend_shader_info *sinfo)
 {
@@ -1306,7 +1306,7 @@ static void set_stream_out_varyings(MAYBE_UNUSED struct vrend_context *ctx,
    if (!so->num_outputs)
       return;
 
-   VREND_DEBUG_EXT(dbg_shader_streamout, ctx, dump_stream_out(so));
+   VREND_DEBUG_EXT(dbg_shader_streamout, sub_ctx->parent, dump_stream_out(so));
 
    for (i = 0; i < so->num_outputs; i++) {
       if (last_buffer != so->output[i].output_buffer) {
@@ -1532,7 +1532,7 @@ static struct vrend_linked_shader_program *add_cs_shader_program(struct vrend_co
    sprog->id = prog_id;
    list_addtail(&sprog->head, &ctx->sub->cs_programs);
 
-   vrend_use_program(ctx, prog_id);
+   vrend_use_program(ctx->sub, prog_id);
 
    bind_sampler_locs(sprog, PIPE_SHADER_COMPUTE, 0);
    bind_ubo_locs(sprog, PIPE_SHADER_COMPUTE, 0);
@@ -1542,7 +1542,7 @@ static struct vrend_linked_shader_program *add_cs_shader_program(struct vrend_co
    return sprog;
 }
 
-static struct vrend_linked_shader_program *add_shader_program(struct vrend_context *ctx,
+static struct vrend_linked_shader_program *add_shader_program(struct vrend_sub_context *sub_ctx,
                                                               struct vrend_shader *vs,
                                                               struct vrend_shader *fs,
                                                               struct vrend_shader *gs,
@@ -1569,20 +1569,20 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
    if (gs) {
       if (gs->id > 0)
          glAttachShader(prog_id, gs->id);
-      set_stream_out_varyings(ctx, prog_id, &gs->sel->sinfo);
+      set_stream_out_varyings(sub_ctx, prog_id, &gs->sel->sinfo);
    } else if (tes)
-      set_stream_out_varyings(ctx, prog_id, &tes->sel->sinfo);
+      set_stream_out_varyings(sub_ctx, prog_id, &tes->sel->sinfo);
    else
-      set_stream_out_varyings(ctx, prog_id, &vs->sel->sinfo);
+      set_stream_out_varyings(sub_ctx, prog_id, &vs->sel->sinfo);
    glAttachShader(prog_id, fs->id);
 
    if (fs->sel->sinfo.num_outputs > 1) {
-      if (util_blend_state_is_dual(&ctx->sub->blend_state, 0)) {
+      if (util_blend_state_is_dual(&sub_ctx->blend_state, 0)) {
          if (has_feature(feat_dual_src_blend)) {
             glBindFragDataLocationIndexed(prog_id, 0, 0, "fsout_c0");
             glBindFragDataLocationIndexed(prog_id, 0, 1, "fsout_c1");
          } else {
-            vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_DUAL_SRC_BLEND, 0);
+            vrend_report_context_error(sub_ctx->parent, VIRGL_ERROR_CTX_ILLEGAL_DUAL_SRC_BLEND, 0);
          }
          sprog->dual_src_linked = true;
       } else {
@@ -1613,7 +1613,7 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
       glGetProgramInfoLog(prog_id, 65536, &len, infolog);
       vrend_printf("got error linking\n%s\n", infolog);
       /* dump shaders */
-      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SHADER, 0);
+      vrend_report_context_error(sub_ctx->parent, VIRGL_ERROR_CTX_ILLEGAL_SHADER, 0);
       vrend_shader_dump(vs);
       if (gs)
          vrend_shader_dump(gs);
@@ -1644,7 +1644,7 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
    last_shader = tes ? PIPE_SHADER_TESS_EVAL : (gs ? PIPE_SHADER_GEOMETRY : PIPE_SHADER_FRAGMENT);
    sprog->id = prog_id;
 
-   list_addtail(&sprog->head, &ctx->sub->gl_programs[vs->id & VREND_PROGRAM_NQUEUE_MASK]);
+   list_addtail(&sprog->head, &sub_ctx->gl_programs[vs->id & VREND_PROGRAM_NQUEUE_MASK]);
 
    if (fs->key.pstipple_tex)
       sprog->fs_stipple_loc = glGetUniformLocation(prog_id, "pstipple_sampler");
@@ -1656,7 +1656,7 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
       sprog->fs_alpha_ref_val_loc = -1;
    sprog->vs_ws_adjust_loc = glGetUniformLocation(prog_id, "winsys_adjust_y");
 
-   vrend_use_program(ctx, prog_id);
+   vrend_use_program(sub_ctx, prog_id);
 
    int next_ubo_id = 0, next_sampler_id = 0;
    for (id = PIPE_SHADER_VERTEX; id <= last_shader; id++) {
@@ -3705,7 +3705,7 @@ void vrend_clear(struct vrend_context *ctx,
    if (ctx->sub->viewport_state_dirty)
       vrend_update_viewport_state(sub_ctx);
 
-   vrend_use_program(ctx, 0);
+   vrend_use_program(sub_ctx, 0);
 
    glDisable(GL_SCISSOR_TEST);
 
@@ -4603,7 +4603,7 @@ int vrend_draw_vbo(struct vrend_context *ctx,
       return 0;
    }
 
-   vrend_use_program(ctx, sub_ctx->prog->id);
+   vrend_use_program(sub_ctx, sub_ctx->prog->id);
 
    vrend_draw_bind_objects(ctx, new_program);
 
@@ -4846,7 +4846,7 @@ void vrend_launch_grid(struct vrend_context *ctx,
       return;
    }
 
-   vrend_use_program(ctx, ctx->sub->prog->id);
+   vrend_use_program(ctx->sub, ctx->sub->prog->id);
 
    vrend_draw_bind_ubo_shader(ctx, PIPE_SHADER_COMPUTE, 0);
    vrend_draw_bind_const_shader(ctx, PIPE_SHADER_COMPUTE, new_program);
@@ -7419,7 +7419,7 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
       uint32_t layer_stride = info->layer_stride;
 
       if (ctx)
-         vrend_use_program(ctx, 0);
+         vrend_use_program(ctx->sub, 0);
       else
          glUseProgram(0);
 
@@ -7755,7 +7755,7 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
    GLint old_fbo;
 
    if (ctx)
-      vrend_use_program(ctx, 0);
+      vrend_use_program(ctx->sub, 0);
    else
       glUseProgram(0);
 
