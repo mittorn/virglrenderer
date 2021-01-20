@@ -4362,28 +4362,28 @@ static void vrend_draw_bind_images_shader(struct vrend_sub_context *sub_ctx, int
    }
 }
 
-static void vrend_draw_bind_objects(struct vrend_context *ctx, bool new_program)
+static void vrend_draw_bind_objects(struct vrend_sub_context *sub_ctx, bool new_program)
 {
    int next_ubo_id = 0, next_sampler_id = 0;
-   for (int shader_type = PIPE_SHADER_VERTEX; shader_type <= ctx->sub->last_shader_idx; shader_type++) {
-      next_ubo_id = vrend_draw_bind_ubo_shader(ctx->sub, shader_type, next_ubo_id);
-      vrend_draw_bind_const_shader(ctx->sub, shader_type, new_program);
-      next_sampler_id = vrend_draw_bind_samplers_shader(ctx->sub, shader_type,
+   for (int shader_type = PIPE_SHADER_VERTEX; shader_type <= sub_ctx->last_shader_idx; shader_type++) {
+      next_ubo_id = vrend_draw_bind_ubo_shader(sub_ctx, shader_type, next_ubo_id);
+      vrend_draw_bind_const_shader(sub_ctx, shader_type, new_program);
+      next_sampler_id = vrend_draw_bind_samplers_shader(sub_ctx, shader_type,
                                                         next_sampler_id);
-      vrend_draw_bind_images_shader(ctx->sub, shader_type);
-      vrend_draw_bind_ssbo_shader(ctx->sub, shader_type);
+      vrend_draw_bind_images_shader(sub_ctx, shader_type);
+      vrend_draw_bind_ssbo_shader(sub_ctx, shader_type);
    }
 
-   vrend_draw_bind_abo_shader(ctx->sub);
+   vrend_draw_bind_abo_shader(sub_ctx);
 
-   if (vrend_state.use_core_profile && ctx->sub->prog->fs_stipple_loc != -1) {
+   if (vrend_state.use_core_profile && sub_ctx->prog->fs_stipple_loc != -1) {
       glActiveTexture(GL_TEXTURE0 + next_sampler_id);
-      glBindTexture(GL_TEXTURE_2D, ctx->pstipple_tex_id);
-      glUniform1i(ctx->sub->prog->fs_stipple_loc, next_sampler_id);
+      glBindTexture(GL_TEXTURE_2D, sub_ctx->parent->pstipple_tex_id);
+      glUniform1i(sub_ctx->prog->fs_stipple_loc, next_sampler_id);
    }
 
-   if (vrend_state.use_core_profile && ctx->sub->prog->fs_alpha_ref_val_loc != -1) {
-      glUniform1f(ctx->sub->prog->fs_alpha_ref_val_loc, ctx->sub->dsa_state.alpha.ref_value);
+   if (vrend_state.use_core_profile && sub_ctx->prog->fs_alpha_ref_val_loc != -1) {
+      glUniform1f(sub_ctx->prog->fs_alpha_ref_val_loc, sub_ctx->dsa_state.alpha.ref_value);
    }
 }
 
@@ -4600,7 +4600,7 @@ int vrend_draw_vbo(struct vrend_context *ctx,
 
    vrend_use_program(sub_ctx, sub_ctx->prog->id);
 
-   vrend_draw_bind_objects(ctx, new_program);
+   vrend_draw_bind_objects(sub_ctx, new_program);
 
    if (!sub_ctx->ve) {
       vrend_printf("illegal VE setup - skipping renderering\n");
