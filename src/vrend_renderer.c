@@ -731,7 +731,7 @@ static void vrend_patch_blend_state(struct vrend_sub_context *sub_ctx);
 static void vrend_update_frontface_state(struct vrend_sub_context *ctx);
 static void vrender_get_glsl_version(int *glsl_version);
 static void vrend_destroy_program(struct vrend_linked_shader_program *ent);
-static void vrend_apply_sampler_state(struct vrend_context *ctx,
+static void vrend_apply_sampler_state(struct vrend_sub_context *sub_ctx,
                                       struct vrend_resource *res,
                                       uint32_t shader_type,
                                       int id, int sampler_id,
@@ -4123,27 +4123,27 @@ static void vrend_draw_bind_vertex_binding(struct vrend_context *ctx,
    }
 }
 
-static int vrend_draw_bind_samplers_shader(struct vrend_context *ctx,
+static int vrend_draw_bind_samplers_shader(struct vrend_sub_context *sub_ctx,
                                            int shader_type,
                                            int next_sampler_id)
 {
    int index = 0;
 
-   uint32_t dirty = ctx->sub->sampler_views_dirty[shader_type];
+   uint32_t dirty = sub_ctx->sampler_views_dirty[shader_type];
 
-   uint32_t mask = ctx->sub->prog->samplers_used_mask[shader_type];
+   uint32_t mask = sub_ctx->prog->samplers_used_mask[shader_type];
    while (mask) {
       int i = u_bit_scan(&mask);
 
-      struct vrend_sampler_view *tview = ctx->sub->views[shader_type].views[i];
+      struct vrend_sampler_view *tview = sub_ctx->views[shader_type].views[i];
       if (dirty & (1 << i) && tview) {
-         if (ctx->sub->prog->shadow_samp_mask[shader_type] & (1 << i)) {
-            glUniform4f(ctx->sub->prog->shadow_samp_mask_locs[shader_type][index],
+         if (sub_ctx->prog->shadow_samp_mask[shader_type] & (1 << i)) {
+            glUniform4f(sub_ctx->prog->shadow_samp_mask_locs[shader_type][index],
                         (tview->gl_swizzle[0] == GL_ZERO || tview->gl_swizzle[0] == GL_ONE) ? 0.0 : 1.0,
                         (tview->gl_swizzle[1] == GL_ZERO || tview->gl_swizzle[1] == GL_ONE) ? 0.0 : 1.0,
                         (tview->gl_swizzle[2] == GL_ZERO || tview->gl_swizzle[2] == GL_ONE) ? 0.0 : 1.0,
                         (tview->gl_swizzle[3] == GL_ZERO || tview->gl_swizzle[3] == GL_ONE) ? 0.0 : 1.0);
-            glUniform4f(ctx->sub->prog->shadow_samp_add_locs[shader_type][index],
+            glUniform4f(sub_ctx->prog->shadow_samp_add_locs[shader_type][index],
                         tview->gl_swizzle[0] == GL_ONE ? 1.0 : 0.0,
                         tview->gl_swizzle[1] == GL_ONE ? 1.0 : 0.0,
                         tview->gl_swizzle[2] == GL_ONE ? 1.0 : 0.0,
@@ -4166,11 +4166,11 @@ static int vrend_draw_bind_samplers_shader(struct vrend_context *ctx,
             glActiveTexture(GL_TEXTURE0 + next_sampler_id);
             glBindTexture(target, id);
 
-            if (ctx->sub->views[shader_type].old_ids[i] != id ||
-                ctx->sub->sampler_views_dirty[shader_type] & (1 << i)) {
-               vrend_apply_sampler_state(ctx, texture, shader_type, i,
+            if (sub_ctx->views[shader_type].old_ids[i] != id ||
+                sub_ctx->sampler_views_dirty[shader_type] & (1 << i)) {
+               vrend_apply_sampler_state(sub_ctx, texture, shader_type, i,
                                          next_sampler_id, tview);
-               ctx->sub->views[shader_type].old_ids[i] = id;
+               sub_ctx->views[shader_type].old_ids[i] = id;
             }
             dirty &= ~(1 << i);
          }
@@ -4178,7 +4178,7 @@ static int vrend_draw_bind_samplers_shader(struct vrend_context *ctx,
       next_sampler_id++;
       index++;
    }
-   ctx->sub->sampler_views_dirty[shader_type] = dirty;
+   sub_ctx->sampler_views_dirty[shader_type] = dirty;
 
    return next_sampler_id;
 }
@@ -4364,7 +4364,7 @@ static void vrend_draw_bind_objects(struct vrend_context *ctx, bool new_program)
    for (int shader_type = PIPE_SHADER_VERTEX; shader_type <= ctx->sub->last_shader_idx; shader_type++) {
       next_ubo_id = vrend_draw_bind_ubo_shader(ctx->sub, shader_type, next_ubo_id);
       vrend_draw_bind_const_shader(ctx->sub, shader_type, new_program);
-      next_sampler_id = vrend_draw_bind_samplers_shader(ctx, shader_type,
+      next_sampler_id = vrend_draw_bind_samplers_shader(ctx->sub, shader_type,
                                                         next_sampler_id);
       vrend_draw_bind_images_shader(ctx, shader_type);
       vrend_draw_bind_ssbo_shader(ctx, shader_type);
@@ -4850,7 +4850,7 @@ void vrend_launch_grid(struct vrend_context *ctx,
 
    vrend_draw_bind_ubo_shader(ctx->sub, PIPE_SHADER_COMPUTE, 0);
    vrend_draw_bind_const_shader(ctx->sub, PIPE_SHADER_COMPUTE, new_program);
-   vrend_draw_bind_samplers_shader(ctx, PIPE_SHADER_COMPUTE, 0);
+   vrend_draw_bind_samplers_shader(ctx->sub, PIPE_SHADER_COMPUTE, 0);
    vrend_draw_bind_images_shader(ctx, PIPE_SHADER_COMPUTE);
    vrend_draw_bind_ssbo_shader(ctx, PIPE_SHADER_COMPUTE);
    vrend_draw_bind_abo_shader(ctx);
@@ -5658,7 +5658,7 @@ static bool get_swizzled_border_color(enum virgl_formats fmt,
    return false;
 }
 
-static void vrend_apply_sampler_state(struct vrend_context *ctx,
+static void vrend_apply_sampler_state(struct vrend_sub_context *sub_ctx,
                                       struct vrend_resource *res,
                                       uint32_t shader_type,
                                       int id,
@@ -5666,7 +5666,7 @@ static void vrend_apply_sampler_state(struct vrend_context *ctx,
                                       struct vrend_sampler_view *tview)
 {
    struct vrend_texture *tex = (struct vrend_texture *)res;
-   struct vrend_sampler_state *vstate = ctx->sub->sampler_state[shader_type][id];
+   struct vrend_sampler_state *vstate = sub_ctx->sampler_state[shader_type][id];
    struct pipe_sampler_state *state = &vstate->base;
    bool set_all = false;
    GLenum target = tex->base.target;
@@ -5731,7 +5731,7 @@ static void vrend_apply_sampler_state(struct vrend_context *ctx,
       if (tex->state.lod_bias != state->lod_bias || set_all) {
          if (vrend_state.use_gles) {
             if (state->lod_bias)
-               report_gles_warn(ctx, GLES_WARN_LOD_BIAS);
+               report_gles_warn(sub_ctx->parent, GLES_WARN_LOD_BIAS);
          } else {
             glTexParameterf(target, GL_TEXTURE_LOD_BIAS, state->lod_bias);
          }
