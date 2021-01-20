@@ -724,7 +724,7 @@ struct vrend_context {
 static struct vrend_resource *vrend_renderer_ctx_res_lookup(struct vrend_context *ctx, int res_handle);
 static void vrend_pause_render_condition(struct vrend_context *ctx, bool pause);
 static void vrend_update_viewport_state(struct vrend_context *ctx);
-static void vrend_update_scissor_state(struct vrend_context *ctx);
+static void vrend_update_scissor_state(struct vrend_sub_context *sub_ctx);
 static void vrend_destroy_query_object(void *obj_ptr);
 static void vrend_finish_context_switch(struct vrend_context *ctx);
 static void vrend_patch_blend_state(struct vrend_context *ctx);
@@ -3701,7 +3701,7 @@ void vrend_clear(struct vrend_context *ctx,
    if (ctx->sub->stencil_state_dirty)
       vrend_update_stencil_state(sub_ctx);
    if (ctx->sub->scissor_state_dirty)
-      vrend_update_scissor_state(ctx);
+      vrend_update_scissor_state(sub_ctx);
    if (ctx->sub->viewport_state_dirty)
       vrend_update_viewport_state(ctx);
 
@@ -3858,20 +3858,20 @@ void vrend_clear_texture(struct vrend_context* ctx,
    }
 }
 
-static void vrend_update_scissor_state(struct vrend_context *ctx)
+static void vrend_update_scissor_state(struct vrend_sub_context *sub_ctx)
 {
    struct pipe_scissor_state *ss;
    GLint y;
    GLuint idx;
-   unsigned mask = ctx->sub->scissor_state_dirty;
+   unsigned mask = sub_ctx->scissor_state_dirty;
 
    while (mask) {
       idx = u_bit_scan(&mask);
       if (idx >= PIPE_MAX_VIEWPORTS) {
-         vrend_report_buffer_error(ctx, 0);
+         vrend_report_buffer_error(sub_ctx->parent, 0);
          break;
       }
-      ss = &ctx->sub->ss[idx];
+      ss = &sub_ctx->ss[idx];
       y = ss->miny;
 
       if (idx > 0 && has_feature(feat_viewport_array))
@@ -3879,7 +3879,7 @@ static void vrend_update_scissor_state(struct vrend_context *ctx)
       else
          glScissor(ss->minx, y, ss->maxx - ss->minx, ss->maxy - ss->miny);
    }
-   ctx->sub->scissor_state_dirty = 0;
+   sub_ctx->scissor_state_dirty = 0;
 }
 
 static void vrend_update_viewport_state(struct vrend_context *ctx)
@@ -4577,7 +4577,7 @@ int vrend_draw_vbo(struct vrend_context *ctx,
    if (ctx->sub->stencil_state_dirty)
       vrend_update_stencil_state(sub_ctx);
    if (ctx->sub->scissor_state_dirty)
-      vrend_update_scissor_state(ctx);
+      vrend_update_scissor_state(sub_ctx);
 
    if (ctx->sub->viewport_state_dirty)
       vrend_update_viewport_state(ctx);
