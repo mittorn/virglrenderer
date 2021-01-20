@@ -663,6 +663,7 @@ struct vrend_sub_context {
 
    int prim_mode;
    bool drawing;
+   struct vrend_context *parent;
 };
 
 struct vrend_untyped_resource {
@@ -10574,6 +10575,7 @@ void vrend_renderer_create_sub_ctx(struct vrend_context *ctx, int sub_ctx_id)
    ctx_params.major_ver = vrend_state.gl_major_ver;
    ctx_params.minor_ver = vrend_state.gl_minor_ver;
    sub->gl_context = vrend_clicbs->create_gl_context(0, &ctx_params);
+   sub->parent = ctx;
    vrend_clicbs->make_current(sub->gl_context);
 
    /* enable if vrend_renderer_init function has done it as well */
