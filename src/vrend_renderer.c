@@ -3704,11 +3704,11 @@ void vrend_clear(struct vrend_context *ctx,
       vrend_finish_context_switch(ctx);
 
    vrend_update_frontface_state(sub_ctx);
-   if (ctx->sub->stencil_state_dirty)
+   if (sub_ctx->stencil_state_dirty)
       vrend_update_stencil_state(sub_ctx);
-   if (ctx->sub->scissor_state_dirty)
+   if (sub_ctx->scissor_state_dirty)
       vrend_update_scissor_state(sub_ctx);
-   if (ctx->sub->viewport_state_dirty)
+   if (sub_ctx->viewport_state_dirty)
       vrend_update_viewport_state(sub_ctx);
 
    vrend_use_program(sub_ctx, 0);
@@ -3716,7 +3716,7 @@ void vrend_clear(struct vrend_context *ctx,
    glDisable(GL_SCISSOR_TEST);
 
    if (buffers & PIPE_CLEAR_COLOR) {
-      if (ctx->sub->nr_cbufs && ctx->sub->surf[0] && vrend_format_is_emulated_alpha(ctx->sub->surf[0]->format)) {
+      if (sub_ctx->nr_cbufs && sub_ctx->surf[0] && vrend_format_is_emulated_alpha(sub_ctx->surf[0]->format)) {
          glClearColor(color->f[3], 0.0, 0.0, 0.0);
       } else {
          glClearColor(color->f[0], color->f[1], color->f[2], color->f[3]);
@@ -3725,7 +3725,7 @@ void vrend_clear(struct vrend_context *ctx,
       /* This function implements Gallium's full clear callback (st->pipe->clear) on the host. This
          callback requires no color component be masked. We must unmask all components before
          calling glClear* and restore the previous colormask afterwards, as Gallium expects. */
-      if (ctx->sub->hw_blend_state.independent_blend_enable &&
+      if (sub_ctx->hw_blend_state.independent_blend_enable &&
           has_feature(feat_indep_blend)) {
          int i;
          for (i = 0; i < PIPE_MAX_COLOR_BUFS; i++)
@@ -3753,24 +3753,24 @@ void vrend_clear(struct vrend_context *ctx,
       glClearStencil(stencil);
    }
 
-   if (ctx->sub->hw_rs_state.rasterizer_discard)
+   if (sub_ctx->hw_rs_state.rasterizer_discard)
        glDisable(GL_RASTERIZER_DISCARD);
 
    if (buffers & PIPE_CLEAR_COLOR) {
       uint32_t mask = 0;
       int i;
-      for (i = 0; i < ctx->sub->nr_cbufs; i++) {
-         if (ctx->sub->surf[i])
+      for (i = 0; i < sub_ctx->nr_cbufs; i++) {
+         if (sub_ctx->surf[i])
             mask |= (1 << i);
       }
       if (mask != (buffers >> 2)) {
          mask = buffers >> 2;
          while (mask) {
             i = u_bit_scan(&mask);
-            if (i < PIPE_MAX_COLOR_BUFS && ctx->sub->surf[i] && util_format_is_pure_uint(ctx->sub->surf[i] && ctx->sub->surf[i]->format))
+            if (i < PIPE_MAX_COLOR_BUFS && sub_ctx->surf[i] && util_format_is_pure_uint(sub_ctx->surf[i] && sub_ctx->surf[i]->format))
                glClearBufferuiv(GL_COLOR,
                                 i, (GLuint *)color);
-            else if (i < PIPE_MAX_COLOR_BUFS && ctx->sub->surf[i] && util_format_is_pure_sint(ctx->sub->surf[i] && ctx->sub->surf[i]->format))
+            else if (i < PIPE_MAX_COLOR_BUFS && sub_ctx->surf[i] && util_format_is_pure_sint(sub_ctx->surf[i] && sub_ctx->surf[i]->format))
                glClearBufferiv(GL_COLOR,
                                 i, (GLint *)color);
             else
@@ -3793,40 +3793,40 @@ void vrend_clear(struct vrend_context *ctx,
     * get here is because the guest cleared all those states but gallium
     * didn't forward them before calling the clear command
     */
-   if (ctx->sub->hw_rs_state.rasterizer_discard)
+   if (sub_ctx->hw_rs_state.rasterizer_discard)
        glEnable(GL_RASTERIZER_DISCARD);
 
    if (buffers & PIPE_CLEAR_DEPTH) {
-      if (!ctx->sub->dsa_state.depth.writemask)
+      if (!sub_ctx->dsa_state.depth.writemask)
          glDepthMask(GL_FALSE);
    }
 
    /* Restore previous stencil buffer write masks for both front and back faces */
    if (buffers & PIPE_CLEAR_STENCIL) {
-      glStencilMaskSeparate(GL_FRONT, ctx->sub->dsa_state.stencil[0].writemask);
-      glStencilMaskSeparate(GL_BACK, ctx->sub->dsa_state.stencil[1].writemask);
+      glStencilMaskSeparate(GL_FRONT, sub_ctx->dsa_state.stencil[0].writemask);
+      glStencilMaskSeparate(GL_BACK, sub_ctx->dsa_state.stencil[1].writemask);
    }
 
    /* Restore previous colormask */
    if (buffers & PIPE_CLEAR_COLOR) {
-      if (ctx->sub->hw_blend_state.independent_blend_enable &&
+      if (sub_ctx->hw_blend_state.independent_blend_enable &&
           has_feature(feat_indep_blend)) {
          int i;
          for (i = 0; i < PIPE_MAX_COLOR_BUFS; i++) {
-            struct pipe_blend_state *blend = &ctx->sub->hw_blend_state;
+            struct pipe_blend_state *blend = &sub_ctx->hw_blend_state;
             glColorMaskIndexedEXT(i, blend->rt[i].colormask & PIPE_MASK_R ? GL_TRUE : GL_FALSE,
                                   blend->rt[i].colormask & PIPE_MASK_G ? GL_TRUE : GL_FALSE,
                                   blend->rt[i].colormask & PIPE_MASK_B ? GL_TRUE : GL_FALSE,
                                   blend->rt[i].colormask & PIPE_MASK_A ? GL_TRUE : GL_FALSE);
          }
       } else {
-         glColorMask(ctx->sub->hw_blend_state.rt[0].colormask & PIPE_MASK_R ? GL_TRUE : GL_FALSE,
-                     ctx->sub->hw_blend_state.rt[0].colormask & PIPE_MASK_G ? GL_TRUE : GL_FALSE,
-                     ctx->sub->hw_blend_state.rt[0].colormask & PIPE_MASK_B ? GL_TRUE : GL_FALSE,
-                     ctx->sub->hw_blend_state.rt[0].colormask & PIPE_MASK_A ? GL_TRUE : GL_FALSE);
+         glColorMask(sub_ctx->hw_blend_state.rt[0].colormask & PIPE_MASK_R ? GL_TRUE : GL_FALSE,
+                     sub_ctx->hw_blend_state.rt[0].colormask & PIPE_MASK_G ? GL_TRUE : GL_FALSE,
+                     sub_ctx->hw_blend_state.rt[0].colormask & PIPE_MASK_B ? GL_TRUE : GL_FALSE,
+                     sub_ctx->hw_blend_state.rt[0].colormask & PIPE_MASK_A ? GL_TRUE : GL_FALSE);
       }
    }
-   if (ctx->sub->hw_rs_state.scissor)
+   if (sub_ctx->hw_rs_state.scissor)
       glEnable(GL_SCISSOR_TEST);
    else
       glDisable(GL_SCISSOR_TEST);
