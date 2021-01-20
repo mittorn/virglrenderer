@@ -4288,7 +4288,7 @@ static void vrend_draw_bind_abo_shader(struct vrend_context *ctx)
    }
 }
 
-static void vrend_draw_bind_images_shader(struct vrend_context *ctx, int shader_type)
+static void vrend_draw_bind_images_shader(struct vrend_sub_context *sub_ctx, int shader_type)
 {
    GLenum access;
    GLboolean layered;
@@ -4296,22 +4296,22 @@ static void vrend_draw_bind_images_shader(struct vrend_context *ctx, int shader_
    uint32_t mask, tex_id, level, first_layer;
 
 
-   if (!ctx->sub->images_used_mask[shader_type])
+   if (!sub_ctx->images_used_mask[shader_type])
       return;
 
-   if (!ctx->sub->prog->img_locs[shader_type])
+   if (!sub_ctx->prog->img_locs[shader_type])
       return;
 
    if (!has_feature(feat_images))
       return;
 
-   mask = ctx->sub->images_used_mask[shader_type];
+   mask = sub_ctx->images_used_mask[shader_type];
    while (mask) {
       unsigned i = u_bit_scan(&mask);
 
-      if (!(ctx->sub->prog->images_used_mask[shader_type] & (1 << i)))
+      if (!(sub_ctx->prog->images_used_mask[shader_type] & (1 << i)))
           continue;
-      iview = &ctx->sub->image_views[shader_type][i];
+      iview = &sub_ctx->image_views[shader_type][i];
       tex_id = iview->texture->id;
       if (has_bit(iview->texture->storage_bits, VREND_STORAGE_GL_BUFFER)) {
          if (!iview->texture->tbo_tex_id)
@@ -4337,7 +4337,7 @@ static void vrend_draw_bind_images_shader(struct vrend_context *ctx, int shader_
       }
 
       if (!vrend_state.use_gles)
-         glUniform1i(ctx->sub->prog->img_locs[shader_type][i], i);
+         glUniform1i(sub_ctx->prog->img_locs[shader_type][i], i);
 
       switch (iview->access) {
       case PIPE_IMAGE_ACCESS_READ:
@@ -4366,7 +4366,7 @@ static void vrend_draw_bind_objects(struct vrend_context *ctx, bool new_program)
       vrend_draw_bind_const_shader(ctx->sub, shader_type, new_program);
       next_sampler_id = vrend_draw_bind_samplers_shader(ctx->sub, shader_type,
                                                         next_sampler_id);
-      vrend_draw_bind_images_shader(ctx, shader_type);
+      vrend_draw_bind_images_shader(ctx->sub, shader_type);
       vrend_draw_bind_ssbo_shader(ctx, shader_type);
    }
 
@@ -4842,7 +4842,7 @@ void vrend_launch_grid(struct vrend_context *ctx,
    vrend_draw_bind_ubo_shader(ctx->sub, PIPE_SHADER_COMPUTE, 0);
    vrend_draw_bind_const_shader(ctx->sub, PIPE_SHADER_COMPUTE, new_program);
    vrend_draw_bind_samplers_shader(ctx->sub, PIPE_SHADER_COMPUTE, 0);
-   vrend_draw_bind_images_shader(ctx, PIPE_SHADER_COMPUTE);
+   vrend_draw_bind_images_shader(ctx->sub, PIPE_SHADER_COMPUTE);
    vrend_draw_bind_ssbo_shader(ctx, PIPE_SHADER_COMPUTE);
    vrend_draw_bind_abo_shader(ctx);
 
