@@ -4421,8 +4421,6 @@ vrend_select_program(struct vrend_sub_context *sub_ctx, const struct pipe_draw_i
    struct vrend_linked_shader_program *prog;
    bool fs_dirty, vs_dirty, gs_dirty, tcs_dirty, tes_dirty;
    bool dual_src = util_blend_state_is_dual(&sub_ctx->blend_state, 0);
-   bool same_prog;
-
    bool new_program = false;
 
    struct vrend_shader_selector **shaders = sub_ctx->shaders;
@@ -4473,19 +4471,13 @@ vrend_select_program(struct vrend_sub_context *sub_ctx, const struct pipe_draw_i
    GLuint tcs_id = shaders[PIPE_SHADER_TESS_CTRL] ? shaders[PIPE_SHADER_TESS_CTRL]->current->id : 0;
    GLuint tes_id = shaders[PIPE_SHADER_TESS_EVAL] ? shaders[PIPE_SHADER_TESS_EVAL]->current->id : 0;
 
-   same_prog = true;
-   if (vs_id != sub_ctx->prog_ids[PIPE_SHADER_VERTEX])
-      same_prog = false;
-   if (fs_id != sub_ctx->prog_ids[PIPE_SHADER_FRAGMENT])
-      same_prog = false;
-   if (gs_id != sub_ctx->prog_ids[PIPE_SHADER_GEOMETRY])
-      same_prog = false;
-   if (sub_ctx->prog && sub_ctx->prog->dual_src_linked != dual_src)
-      same_prog = false;
-   if (tcs_id  != sub_ctx->prog_ids[PIPE_SHADER_TESS_CTRL])
-      same_prog = false;
-   if (tes_id != sub_ctx->prog_ids[PIPE_SHADER_TESS_EVAL])
-      same_prog = false;
+   bool same_prog = sub_ctx->prog &&
+                    vs_id == sub_ctx->prog_ids[PIPE_SHADER_VERTEX] &&
+                    fs_id == sub_ctx->prog_ids[PIPE_SHADER_FRAGMENT] &&
+                    gs_id == sub_ctx->prog_ids[PIPE_SHADER_GEOMETRY] &&
+                    tcs_id == sub_ctx->prog_ids[PIPE_SHADER_TESS_CTRL] &&
+                    tes_id == sub_ctx->prog_ids[PIPE_SHADER_TESS_EVAL] &&
+                    sub_ctx->prog->dual_src_linked == dual_src;
 
    if (!same_prog) {
       prog = lookup_shader_program(sub_ctx, vs_id, fs_id, gs_id, tcs_id, tes_id, dual_src);
