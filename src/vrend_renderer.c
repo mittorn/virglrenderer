@@ -4183,7 +4183,7 @@ static int vrend_draw_bind_samplers_shader(struct vrend_context *ctx,
    return next_sampler_id;
 }
 
-static int vrend_draw_bind_ubo_shader(struct vrend_context *ctx,
+static int vrend_draw_bind_ubo_shader(struct vrend_sub_context *sub_ctx,
                                       int shader_type, int next_ubo_id)
 {
    uint32_t mask, dirty, update;
@@ -4193,9 +4193,9 @@ static int vrend_draw_bind_ubo_shader(struct vrend_context *ctx,
    if (!has_feature(feat_ubo))
       return next_ubo_id;
 
-   mask = ctx->sub->prog->ubo_used_mask[shader_type];
-   dirty = ctx->sub->const_bufs_dirty[shader_type];
-   update = dirty & ctx->sub->const_bufs_used_mask[shader_type];
+   mask = sub_ctx->prog->ubo_used_mask[shader_type];
+   dirty = sub_ctx->const_bufs_dirty[shader_type];
+   update = dirty & sub_ctx->const_bufs_used_mask[shader_type];
 
    if (!update)
       return next_ubo_id + util_bitcount(mask);
@@ -4206,7 +4206,7 @@ static int vrend_draw_bind_ubo_shader(struct vrend_context *ctx,
 
       if (update & (1 << i)) {
          /* The cbs array is indexed using the gallium uniform buffer index */
-         cb = &ctx->sub->cbs[shader_type][i];
+         cb = &sub_ctx->cbs[shader_type][i];
          res = (struct vrend_resource *)cb->buffer;
 
          glBindBufferRange(GL_UNIFORM_BUFFER, next_ubo_id, res->id,
@@ -4215,7 +4215,7 @@ static int vrend_draw_bind_ubo_shader(struct vrend_context *ctx,
       }
       next_ubo_id++;
    }
-   ctx->sub->const_bufs_dirty[shader_type] = dirty;
+   sub_ctx->const_bufs_dirty[shader_type] = dirty;
 
    return next_ubo_id;
 }
@@ -4362,7 +4362,7 @@ static void vrend_draw_bind_objects(struct vrend_context *ctx, bool new_program)
 {
    int next_ubo_id = 0, next_sampler_id = 0;
    for (int shader_type = PIPE_SHADER_VERTEX; shader_type <= ctx->sub->last_shader_idx; shader_type++) {
-      next_ubo_id = vrend_draw_bind_ubo_shader(ctx, shader_type, next_ubo_id);
+      next_ubo_id = vrend_draw_bind_ubo_shader(ctx->sub, shader_type, next_ubo_id);
       vrend_draw_bind_const_shader(ctx, shader_type, new_program);
       next_sampler_id = vrend_draw_bind_samplers_shader(ctx, shader_type,
                                                         next_sampler_id);
@@ -4848,7 +4848,7 @@ void vrend_launch_grid(struct vrend_context *ctx,
 
    vrend_use_program(ctx->sub, ctx->sub->prog->id);
 
-   vrend_draw_bind_ubo_shader(ctx, PIPE_SHADER_COMPUTE, 0);
+   vrend_draw_bind_ubo_shader(ctx->sub, PIPE_SHADER_COMPUTE, 0);
    vrend_draw_bind_const_shader(ctx, PIPE_SHADER_COMPUTE, new_program);
    vrend_draw_bind_samplers_shader(ctx, PIPE_SHADER_COMPUTE, 0);
    vrend_draw_bind_images_shader(ctx, PIPE_SHADER_COMPUTE);
