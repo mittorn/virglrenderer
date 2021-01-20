@@ -4267,7 +4267,7 @@ static void vrend_draw_bind_ssbo_shader(struct vrend_sub_context *sub_ctx, int s
    }
 }
 
-static void vrend_draw_bind_abo_shader(struct vrend_context *ctx)
+static void vrend_draw_bind_abo_shader(struct vrend_sub_context *sub_ctx)
 {
    uint32_t mask;
    struct vrend_abo *abo;
@@ -4277,11 +4277,11 @@ static void vrend_draw_bind_abo_shader(struct vrend_context *ctx)
    if (!has_feature(feat_atomic_counters))
       return;
 
-   mask = ctx->sub->abo_used_mask;
+   mask = sub_ctx->abo_used_mask;
    while (mask) {
       i = u_bit_scan(&mask);
 
-      abo = &ctx->sub->abo[i];
+      abo = &sub_ctx->abo[i];
       res = (struct vrend_resource *)abo->res;
       glBindBufferRange(GL_ATOMIC_COUNTER_BUFFER, i, res->id,
                         abo->buffer_offset, abo->buffer_size);
@@ -4370,7 +4370,7 @@ static void vrend_draw_bind_objects(struct vrend_context *ctx, bool new_program)
       vrend_draw_bind_ssbo_shader(ctx->sub, shader_type);
    }
 
-   vrend_draw_bind_abo_shader(ctx);
+   vrend_draw_bind_abo_shader(ctx->sub);
 
    if (vrend_state.use_core_profile && ctx->sub->prog->fs_stipple_loc != -1) {
       glActiveTexture(GL_TEXTURE0 + next_sampler_id);
@@ -4844,7 +4844,7 @@ void vrend_launch_grid(struct vrend_context *ctx,
    vrend_draw_bind_samplers_shader(ctx->sub, PIPE_SHADER_COMPUTE, 0);
    vrend_draw_bind_images_shader(ctx->sub, PIPE_SHADER_COMPUTE);
    vrend_draw_bind_ssbo_shader(ctx->sub, PIPE_SHADER_COMPUTE);
-   vrend_draw_bind_abo_shader(ctx);
+   vrend_draw_bind_abo_shader(ctx->sub);
 
    if (indirect_handle) {
       indirect_res = vrend_renderer_ctx_res_lookup(ctx, indirect_handle);
