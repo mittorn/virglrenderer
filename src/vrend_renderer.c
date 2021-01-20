@@ -727,7 +727,7 @@ static void vrend_update_viewport_state(struct vrend_sub_context *sub_ctx);
 static void vrend_update_scissor_state(struct vrend_sub_context *sub_ctx);
 static void vrend_destroy_query_object(void *obj_ptr);
 static void vrend_finish_context_switch(struct vrend_context *ctx);
-static void vrend_patch_blend_state(struct vrend_context *ctx);
+static void vrend_patch_blend_state(struct vrend_sub_context *sub_ctx);
 static void vrend_update_frontface_state(struct vrend_sub_context *ctx);
 static void vrender_get_glsl_version(int *glsl_version);
 static void vrend_destroy_program(struct vrend_linked_shader_program *ent);
@@ -4583,7 +4583,7 @@ int vrend_draw_vbo(struct vrend_context *ctx,
       vrend_update_viewport_state(sub_ctx);
 
    if (ctx->sub->blend_state_dirty)
-      vrend_patch_blend_state(ctx);
+      vrend_patch_blend_state(sub_ctx);
 
    // enable primitive-mode-dependent shader variants
    if (sub_ctx->prim_mode != (int)info->mode) {
@@ -5006,15 +5006,15 @@ static inline bool is_const_blend(int blend_factor)
            blend_factor == PIPE_BLENDFACTOR_INV_CONST_ALPHA);
 }
 
-static void vrend_hw_emit_blend(struct vrend_context *ctx, struct pipe_blend_state *state)
+static void vrend_hw_emit_blend(struct vrend_sub_context *sub_ctx, struct pipe_blend_state *state)
 {
-   if (state->logicop_enable != ctx->sub->hw_blend_state.logicop_enable) {
-      ctx->sub->hw_blend_state.logicop_enable = state->logicop_enable;
+   if (state->logicop_enable != sub_ctx->hw_blend_state.logicop_enable) {
+      sub_ctx->hw_blend_state.logicop_enable = state->logicop_enable;
       if (vrend_state.use_gles) {
          if (can_emulate_logicop(state->logicop_func))
-            ctx->sub->shader_dirty = true;
+            sub_ctx->shader_dirty = true;
          else
-            report_gles_warn(ctx, GLES_WARN_LOGIC_OP);
+            report_gles_warn(sub_ctx->parent, GLES_WARN_LOGIC_OP);
       } else if (state->logicop_enable) {
          glEnable(GL_COLOR_LOGIC_OP);
          glLogicOp(translate_logicop(state->logicop_func));
@@ -5032,7 +5032,7 @@ static void vrend_hw_emit_blend(struct vrend_context *ctx, struct pipe_blend_sta
       for (i = 0; i < PIPE_MAX_COLOR_BUFS; i++) {
 
          if (state->rt[i].blend_enable) {
-            bool dual_src = util_blend_state_is_dual(&ctx->sub->blend_state, i);
+            bool dual_src = util_blend_state_is_dual(&sub_ctx->blend_state, i);
             if (dual_src && !has_feature(feat_dual_src_blend)) {
                vrend_printf( "dual src blend requested but not supported for rt %d\n", i);
                continue;
@@ -5048,8 +5048,8 @@ static void vrend_hw_emit_blend(struct vrend_context *ctx, struct pipe_blend_sta
          } else
             glDisableIndexedEXT(GL_BLEND, i);
 
-         if (state->rt[i].colormask != ctx->sub->hw_blend_state.rt[i].colormask) {
-            ctx->sub->hw_blend_state.rt[i].colormask = state->rt[i].colormask;
+         if (state->rt[i].colormask != sub_ctx->hw_blend_state.rt[i].colormask) {
+            sub_ctx->hw_blend_state.rt[i].colormask = state->rt[i].colormask;
             glColorMaskIndexedEXT(i, state->rt[i].colormask & PIPE_MASK_R ? GL_TRUE : GL_FALSE,
                                   state->rt[i].colormask & PIPE_MASK_G ? GL_TRUE : GL_FALSE,
                                   state->rt[i].colormask & PIPE_MASK_B ? GL_TRUE : GL_FALSE,
@@ -5058,7 +5058,7 @@ static void vrend_hw_emit_blend(struct vrend_context *ctx, struct pipe_blend_sta
       }
    } else {
       if (state->rt[0].blend_enable) {
-         bool dual_src = util_blend_state_is_dual(&ctx->sub->blend_state, 0);
+         bool dual_src = util_blend_state_is_dual(&sub_ctx->blend_state, 0);
          if (dual_src && !has_feature(feat_dual_src_blend)) {
             vrend_printf( "dual src blend requested but not supported for rt 0\n");
          }
@@ -5073,19 +5073,19 @@ static void vrend_hw_emit_blend(struct vrend_context *ctx, struct pipe_blend_sta
       else
          glDisable(GL_BLEND);
 
-      if (state->rt[0].colormask != ctx->sub->hw_blend_state.rt[0].colormask ||
-          (ctx->sub->hw_blend_state.independent_blend_enable &&
+      if (state->rt[0].colormask != sub_ctx->hw_blend_state.rt[0].colormask ||
+          (sub_ctx->hw_blend_state.independent_blend_enable &&
            !state->independent_blend_enable)) {
          int i;
          for (i = 0; i < PIPE_MAX_COLOR_BUFS; i++)
-            ctx->sub->hw_blend_state.rt[i].colormask = state->rt[i].colormask;
+            sub_ctx->hw_blend_state.rt[i].colormask = state->rt[i].colormask;
          glColorMask(state->rt[0].colormask & PIPE_MASK_R ? GL_TRUE : GL_FALSE,
                      state->rt[0].colormask & PIPE_MASK_G ? GL_TRUE : GL_FALSE,
                      state->rt[0].colormask & PIPE_MASK_B ? GL_TRUE : GL_FALSE,
                      state->rt[0].colormask & PIPE_MASK_A ? GL_TRUE : GL_FALSE);
       }
    }
-   ctx->sub->hw_blend_state.independent_blend_enable = state->independent_blend_enable;
+   sub_ctx->hw_blend_state.independent_blend_enable = state->independent_blend_enable;
 
    if (has_feature(feat_multisample)) {
       if (state->alpha_to_coverage)
@@ -5112,22 +5112,22 @@ static void vrend_hw_emit_blend(struct vrend_context *ctx, struct pipe_blend_sta
    b) patching colormask/blendcolor/blendfactors for A8/A16 format
    emulation using GL_R8/GL_R16.
 */
-static void vrend_patch_blend_state(struct vrend_context *ctx)
+static void vrend_patch_blend_state(struct vrend_sub_context *sub_ctx)
 {
-   struct pipe_blend_state new_state = ctx->sub->blend_state;
-   struct pipe_blend_state *state = &ctx->sub->blend_state;
+   struct pipe_blend_state new_state = sub_ctx->blend_state;
+   struct pipe_blend_state *state = &sub_ctx->blend_state;
    bool swizzle_blend_color = false;
-   struct pipe_blend_color blend_color = ctx->sub->blend_color;
+   struct pipe_blend_color blend_color = sub_ctx->blend_color;
    int i;
 
-   if (ctx->sub->nr_cbufs == 0) {
-      ctx->sub->blend_state_dirty = false;
+   if (sub_ctx->nr_cbufs == 0) {
+      sub_ctx->blend_state_dirty = false;
       return;
    }
 
    for (i = 0; i < (state->independent_blend_enable ? PIPE_MAX_COLOR_BUFS : 1); i++) {
-      if (i < ctx->sub->nr_cbufs && ctx->sub->surf[i]) {
-         if (vrend_format_is_emulated_alpha(ctx->sub->surf[i]->format)) {
+      if (i < sub_ctx->nr_cbufs && sub_ctx->surf[i]) {
+         if (vrend_format_is_emulated_alpha(sub_ctx->surf[i]->format)) {
             if (state->rt[i].blend_enable) {
                new_state.rt[i].rgb_src_factor = conv_a8_blend(state->rt[i].alpha_src_factor);
                new_state.rt[i].rgb_dst_factor = conv_a8_blend(state->rt[i].alpha_dst_factor);
@@ -5141,7 +5141,7 @@ static void vrend_patch_blend_state(struct vrend_context *ctx)
                 is_const_blend(new_state.rt[i].rgb_dst_factor)) {
                swizzle_blend_color = true;
             }
-         } else if (!util_format_has_alpha(ctx->sub->surf[i]->format)) {
+         } else if (!util_format_has_alpha(sub_ctx->surf[i]->format)) {
             if (!(is_dst_blend(state->rt[i].rgb_src_factor) ||
                   is_dst_blend(state->rt[i].rgb_dst_factor) ||
                   is_dst_blend(state->rt[i].alpha_src_factor) ||
@@ -5155,7 +5155,7 @@ static void vrend_patch_blend_state(struct vrend_context *ctx)
       }
    }
 
-   vrend_hw_emit_blend(ctx, &new_state);
+   vrend_hw_emit_blend(sub_ctx, &new_state);
 
    if (swizzle_blend_color) {
       blend_color.color[0] = blend_color.color[3];
@@ -5169,7 +5169,7 @@ static void vrend_patch_blend_state(struct vrend_context *ctx)
                 blend_color.color[2],
                 blend_color.color[3]);
 
-   ctx->sub->blend_state_dirty = false;
+   sub_ctx->blend_state_dirty = false;
 }
 
 void vrend_object_bind_blend(struct vrend_context *ctx,
