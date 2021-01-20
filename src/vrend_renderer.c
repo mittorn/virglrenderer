@@ -4234,7 +4234,7 @@ static void vrend_draw_bind_const_shader(struct vrend_sub_context *sub_ctx,
    }
 }
 
-static void vrend_draw_bind_ssbo_shader(struct vrend_context *ctx, int shader_type)
+static void vrend_draw_bind_ssbo_shader(struct vrend_sub_context *sub_ctx, int shader_type)
 {
    uint32_t mask;
    struct vrend_ssbo *ssbo;
@@ -4244,23 +4244,23 @@ static void vrend_draw_bind_ssbo_shader(struct vrend_context *ctx, int shader_ty
    if (!has_feature(feat_ssbo))
       return;
 
-   if (!ctx->sub->prog->ssbo_locs[shader_type])
+   if (!sub_ctx->prog->ssbo_locs[shader_type])
       return;
 
-   if (!ctx->sub->ssbo_used_mask[shader_type])
+   if (!sub_ctx->ssbo_used_mask[shader_type])
       return;
 
-   mask = ctx->sub->ssbo_used_mask[shader_type];
+   mask = sub_ctx->ssbo_used_mask[shader_type];
    while (mask) {
       i = u_bit_scan(&mask);
 
-      ssbo = &ctx->sub->ssbo[shader_type][i];
+      ssbo = &sub_ctx->ssbo[shader_type][i];
       res = (struct vrend_resource *)ssbo->res;
       glBindBufferRange(GL_SHADER_STORAGE_BUFFER, i, res->id,
                         ssbo->buffer_offset, ssbo->buffer_size);
-      if (ctx->sub->prog->ssbo_locs[shader_type][i] != GL_INVALID_INDEX) {
+      if (sub_ctx->prog->ssbo_locs[shader_type][i] != GL_INVALID_INDEX) {
          if (!vrend_state.use_gles)
-            glShaderStorageBlockBinding(ctx->sub->prog->id, ctx->sub->prog->ssbo_locs[shader_type][i], i);
+            glShaderStorageBlockBinding(sub_ctx->prog->id, sub_ctx->prog->ssbo_locs[shader_type][i], i);
          else
             debug_printf("glShaderStorageBlockBinding not supported on gles \n");
       }
@@ -4367,7 +4367,7 @@ static void vrend_draw_bind_objects(struct vrend_context *ctx, bool new_program)
       next_sampler_id = vrend_draw_bind_samplers_shader(ctx->sub, shader_type,
                                                         next_sampler_id);
       vrend_draw_bind_images_shader(ctx->sub, shader_type);
-      vrend_draw_bind_ssbo_shader(ctx, shader_type);
+      vrend_draw_bind_ssbo_shader(ctx->sub, shader_type);
    }
 
    vrend_draw_bind_abo_shader(ctx);
@@ -4843,7 +4843,7 @@ void vrend_launch_grid(struct vrend_context *ctx,
    vrend_draw_bind_const_shader(ctx->sub, PIPE_SHADER_COMPUTE, new_program);
    vrend_draw_bind_samplers_shader(ctx->sub, PIPE_SHADER_COMPUTE, 0);
    vrend_draw_bind_images_shader(ctx->sub, PIPE_SHADER_COMPUTE);
-   vrend_draw_bind_ssbo_shader(ctx, PIPE_SHADER_COMPUTE);
+   vrend_draw_bind_ssbo_shader(ctx->sub, PIPE_SHADER_COMPUTE);
    vrend_draw_bind_abo_shader(ctx);
 
    if (indirect_handle) {
