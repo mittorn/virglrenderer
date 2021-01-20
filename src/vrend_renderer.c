@@ -3658,31 +3658,33 @@ void vrend_bind_shader(struct vrend_context *ctx,
    if (type > PIPE_SHADER_COMPUTE)
       return;
 
+   struct vrend_sub_context *sub_ctx = ctx->sub;
+
    if (handle == 0) {
       if (type == PIPE_SHADER_COMPUTE)
-         ctx->sub->cs_shader_dirty = true;
+         sub_ctx->cs_shader_dirty = true;
       else
-         ctx->sub->shader_dirty = true;
-      vrend_shader_state_reference(&ctx->sub->shaders[type], NULL);
+         sub_ctx->shader_dirty = true;
+      vrend_shader_state_reference(&sub_ctx->shaders[type], NULL);
       return;
    }
 
-   sel = vrend_object_lookup(ctx->sub->object_hash, handle, VIRGL_OBJECT_SHADER);
+   sel = vrend_object_lookup(sub_ctx->object_hash, handle, VIRGL_OBJECT_SHADER);
    if (!sel)
       return;
 
    if (sel->type != type)
       return;
 
-   if (ctx->sub->shaders[sel->type] != sel) {
+   if (sub_ctx->shaders[sel->type] != sel) {
       if (type == PIPE_SHADER_COMPUTE)
-         ctx->sub->cs_shader_dirty = true;
+         sub_ctx->cs_shader_dirty = true;
       else
-         ctx->sub->shader_dirty = true;
-      ctx->sub->prog_ids[sel->type] = 0;
+         sub_ctx->shader_dirty = true;
+      sub_ctx->prog_ids[sel->type] = 0;
    }
 
-   vrend_shader_state_reference(&ctx->sub->shaders[sel->type], sel);
+   vrend_shader_state_reference(&sub_ctx->shaders[sel->type], sel);
 }
 
 void vrend_clear(struct vrend_context *ctx,
