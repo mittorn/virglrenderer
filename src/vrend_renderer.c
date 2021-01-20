@@ -738,7 +738,7 @@ static void vrend_apply_sampler_state(struct vrend_context *ctx,
                                       struct vrend_sampler_view *tview);
 static GLenum tgsitargettogltarget(const enum pipe_texture_target target, int nr_samples);
 
-void vrend_update_stencil_state(struct vrend_context *ctx);
+void vrend_update_stencil_state(struct vrend_sub_context *sub_ctx);
 
 static struct vrend_format_table tex_conv_table[VIRGL_FORMAT_MAX_EXTENDED];
 
@@ -1232,10 +1232,10 @@ static void vrend_alpha_test_enable(struct vrend_context *ctx, bool alpha_test_e
    }
 }
 
-static void vrend_stencil_test_enable(struct vrend_context *ctx, bool stencil_test_enable)
+static void vrend_stencil_test_enable(struct vrend_sub_context *sub_ctx, bool stencil_test_enable)
 {
-   if (ctx->sub->stencil_test_enabled != stencil_test_enable) {
-      ctx->sub->stencil_test_enabled = stencil_test_enable;
+   if (sub_ctx->stencil_test_enabled != stencil_test_enable) {
+      sub_ctx->stencil_test_enabled = stencil_test_enable;
       if (stencil_test_enable)
          glEnable(GL_STENCIL_TEST);
       else
@@ -3699,7 +3699,7 @@ void vrend_clear(struct vrend_context *ctx,
 
    vrend_update_frontface_state(sub_ctx);
    if (ctx->sub->stencil_state_dirty)
-      vrend_update_stencil_state(ctx);
+      vrend_update_stencil_state(sub_ctx);
    if (ctx->sub->scissor_state_dirty)
       vrend_update_scissor_state(ctx);
    if (ctx->sub->viewport_state_dirty)
@@ -4575,7 +4575,7 @@ int vrend_draw_vbo(struct vrend_context *ctx,
 
    vrend_update_frontface_state(sub_ctx);
    if (ctx->sub->stencil_state_dirty)
-      vrend_update_stencil_state(ctx);
+      vrend_update_stencil_state(sub_ctx);
    if (ctx->sub->scissor_state_dirty)
       vrend_update_scissor_state(ctx);
 
@@ -5259,29 +5259,29 @@ static void vrend_update_frontface_state(struct vrend_sub_context *sub_ctx)
       glFrontFace(GL_CW);
 }
 
-void vrend_update_stencil_state(struct vrend_context *ctx)
+void vrend_update_stencil_state(struct vrend_sub_context *sub_ctx)
 {
-   struct pipe_depth_stencil_alpha_state *state = ctx->sub->dsa;
+   struct pipe_depth_stencil_alpha_state *state = sub_ctx->dsa;
    int i;
    if (!state)
       return;
 
    if (!state->stencil[1].enabled) {
       if (state->stencil[0].enabled) {
-         vrend_stencil_test_enable(ctx, true);
+         vrend_stencil_test_enable(sub_ctx, true);
 
          glStencilOp(translate_stencil_op(state->stencil[0].fail_op),
                      translate_stencil_op(state->stencil[0].zfail_op),
                      translate_stencil_op(state->stencil[0].zpass_op));
 
          glStencilFunc(GL_NEVER + state->stencil[0].func,
-                       ctx->sub->stencil_refs[0],
+                       sub_ctx->stencil_refs[0],
                        state->stencil[0].valuemask);
          glStencilMask(state->stencil[0].writemask);
       } else
-         vrend_stencil_test_enable(ctx, false);
+         vrend_stencil_test_enable(sub_ctx, false);
    } else {
-      vrend_stencil_test_enable(ctx, true);
+      vrend_stencil_test_enable(sub_ctx, true);
 
       for (i = 0; i < 2; i++) {
          GLenum face = (i == 1) ? GL_BACK : GL_FRONT;
@@ -5291,12 +5291,12 @@ void vrend_update_stencil_state(struct vrend_context *ctx)
                              translate_stencil_op(state->stencil[i].zpass_op));
 
          glStencilFuncSeparate(face, GL_NEVER + state->stencil[i].func,
-                               ctx->sub->stencil_refs[i],
+                               sub_ctx->stencil_refs[i],
                                state->stencil[i].valuemask);
          glStencilMaskSeparate(face, state->stencil[i].writemask);
       }
    }
-   ctx->sub->stencil_state_dirty = false;
+   sub_ctx->stencil_state_dirty = false;
 }
 
 static inline GLenum translate_fill(uint32_t mode)
@@ -7513,7 +7513,7 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
          if (ctx) {
             vrend_depth_test_enable(ctx, false);
             vrend_alpha_test_enable(ctx, false);
-            vrend_stencil_test_enable(ctx, false);
+            vrend_stencil_test_enable(ctx->sub, false);
          } else {
             glDisable(GL_DEPTH_TEST);
             glDisable(GL_ALPHA_TEST);
