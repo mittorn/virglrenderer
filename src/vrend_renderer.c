@@ -4795,56 +4795,58 @@ void vrend_launch_grid(struct vrend_context *ctx,
    if (!has_feature(feat_compute_shader))
       return;
 
-   if (ctx->sub->cs_shader_dirty) {
+    struct vrend_sub_context *sub_ctx = ctx->sub;
+
+   if (sub_ctx->cs_shader_dirty) {
       struct vrend_linked_shader_program *prog;
       bool cs_dirty;
 
-      ctx->sub->cs_shader_dirty = false;
+      sub_ctx->cs_shader_dirty = false;
 
-      if (!ctx->sub->shaders[PIPE_SHADER_COMPUTE]) {
+      if (!sub_ctx->shaders[PIPE_SHADER_COMPUTE]) {
          vrend_printf("dropping rendering due to missing shaders: %s\n", ctx->debug_name);
          return;
       }
 
-      vrend_shader_select(ctx->sub, ctx->sub->shaders[PIPE_SHADER_COMPUTE], &cs_dirty);
-      if (!ctx->sub->shaders[PIPE_SHADER_COMPUTE]->current) {
+      vrend_shader_select(sub_ctx, sub_ctx->shaders[PIPE_SHADER_COMPUTE], &cs_dirty);
+      if (!sub_ctx->shaders[PIPE_SHADER_COMPUTE]->current) {
          vrend_printf( "failure to compile shader variants: %s\n", ctx->debug_name);
          return;
       }
-      if (ctx->sub->shaders[PIPE_SHADER_COMPUTE]->current->id != (GLuint)ctx->sub->prog_ids[PIPE_SHADER_COMPUTE]) {
-         prog = lookup_cs_shader_program(ctx, ctx->sub->shaders[PIPE_SHADER_COMPUTE]->current->id);
+      if (sub_ctx->shaders[PIPE_SHADER_COMPUTE]->current->id != (GLuint)sub_ctx->prog_ids[PIPE_SHADER_COMPUTE]) {
+         prog = lookup_cs_shader_program(ctx, sub_ctx->shaders[PIPE_SHADER_COMPUTE]->current->id);
          if (!prog) {
-            prog = add_cs_shader_program(ctx, ctx->sub->shaders[PIPE_SHADER_COMPUTE]->current);
+            prog = add_cs_shader_program(ctx, sub_ctx->shaders[PIPE_SHADER_COMPUTE]->current);
             if (!prog)
                return;
          }
       } else
-         prog = ctx->sub->prog;
+         prog = sub_ctx->prog;
 
-      if (ctx->sub->prog != prog) {
+      if (sub_ctx->prog != prog) {
          new_program = true;
-         ctx->sub->prog_ids[PIPE_SHADER_VERTEX] = 0;
-         ctx->sub->prog_ids[PIPE_SHADER_COMPUTE] = ctx->sub->shaders[PIPE_SHADER_COMPUTE]->current->id;
-         ctx->sub->prog = prog;
-         prog->ref_context = ctx->sub;
+         sub_ctx->prog_ids[PIPE_SHADER_VERTEX] = 0;
+         sub_ctx->prog_ids[PIPE_SHADER_COMPUTE] = sub_ctx->shaders[PIPE_SHADER_COMPUTE]->current->id;
+         sub_ctx->prog = prog;
+         prog->ref_context = sub_ctx;
       }
-      ctx->sub->shader_dirty = true;
+      sub_ctx->shader_dirty = true;
    }
 
-   if (!ctx->sub->prog) {
+   if (!sub_ctx->prog) {
       vrend_printf("%s: Skipping compute shader execution due to missing shaders: %s\n",
                    __func__, ctx->debug_name);
       return;
    }
 
-   vrend_use_program(ctx->sub, ctx->sub->prog->id);
+   vrend_use_program(sub_ctx, sub_ctx->prog->id);
 
-   vrend_draw_bind_ubo_shader(ctx->sub, PIPE_SHADER_COMPUTE, 0);
-   vrend_draw_bind_const_shader(ctx->sub, PIPE_SHADER_COMPUTE, new_program);
-   vrend_draw_bind_samplers_shader(ctx->sub, PIPE_SHADER_COMPUTE, 0);
-   vrend_draw_bind_images_shader(ctx->sub, PIPE_SHADER_COMPUTE);
-   vrend_draw_bind_ssbo_shader(ctx->sub, PIPE_SHADER_COMPUTE);
-   vrend_draw_bind_abo_shader(ctx->sub);
+   vrend_draw_bind_ubo_shader(sub_ctx, PIPE_SHADER_COMPUTE, 0);
+   vrend_draw_bind_const_shader(sub_ctx, PIPE_SHADER_COMPUTE, new_program);
+   vrend_draw_bind_samplers_shader(sub_ctx, PIPE_SHADER_COMPUTE, 0);
+   vrend_draw_bind_images_shader(sub_ctx, PIPE_SHADER_COMPUTE);
+   vrend_draw_bind_ssbo_shader(sub_ctx, PIPE_SHADER_COMPUTE);
+   vrend_draw_bind_abo_shader(sub_ctx);
 
    if (indirect_handle) {
       indirect_res = vrend_renderer_ctx_res_lookup(ctx, indirect_handle);
