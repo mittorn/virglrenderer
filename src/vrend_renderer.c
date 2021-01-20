@@ -728,7 +728,7 @@ static void vrend_update_scissor_state(struct vrend_context *ctx);
 static void vrend_destroy_query_object(void *obj_ptr);
 static void vrend_finish_context_switch(struct vrend_context *ctx);
 static void vrend_patch_blend_state(struct vrend_context *ctx);
-static void vrend_update_frontface_state(struct vrend_context *ctx);
+static void vrend_update_frontface_state(struct vrend_sub_context *ctx);
 static void vrender_get_glsl_version(int *glsl_version);
 static void vrend_destroy_program(struct vrend_linked_shader_program *ent);
 static void vrend_apply_sampler_state(struct vrend_context *ctx,
@@ -3689,6 +3689,7 @@ void vrend_clear(struct vrend_context *ctx,
                  double depth, unsigned stencil)
 {
    GLbitfield bits = 0;
+   struct vrend_sub_context *sub_ctx = ctx->sub;
 
    if (ctx->in_error)
       return;
@@ -3696,7 +3697,7 @@ void vrend_clear(struct vrend_context *ctx,
    if (ctx->ctx_switch_pending)
       vrend_finish_context_switch(ctx);
 
-   vrend_update_frontface_state(ctx);
+   vrend_update_frontface_state(sub_ctx);
    if (ctx->sub->stencil_state_dirty)
       vrend_update_stencil_state(ctx);
    if (ctx->sub->scissor_state_dirty)
@@ -4535,7 +4536,6 @@ int vrend_draw_vbo(struct vrend_context *ctx,
    struct vrend_resource *indirect_params_res = NULL;
    struct vrend_sub_context *sub_ctx = ctx->sub;
 
-
    if (ctx->in_error)
       return 0;
 
@@ -4573,7 +4573,7 @@ int vrend_draw_vbo(struct vrend_context *ctx,
    if (ctx->ctx_switch_pending)
       vrend_finish_context_switch(ctx);
 
-   vrend_update_frontface_state(ctx);
+   vrend_update_frontface_state(sub_ctx);
    if (ctx->sub->stencil_state_dirty)
       vrend_update_stencil_state(ctx);
    if (ctx->sub->scissor_state_dirty)
@@ -5247,12 +5247,12 @@ void vrend_object_bind_dsa(struct vrend_context *ctx,
    vrend_hw_emit_dsa(ctx);
 }
 
-static void vrend_update_frontface_state(struct vrend_context *ctx)
+static void vrend_update_frontface_state(struct vrend_sub_context *sub_ctx)
 {
-   struct pipe_rasterizer_state *state = &ctx->sub->rs_state;
+   struct pipe_rasterizer_state *state = &sub_ctx->rs_state;
    int front_ccw = state->front_ccw;
 
-   front_ccw ^= (ctx->sub->inverted_fbo_content ? 0 : 1);
+   front_ccw ^= (sub_ctx->inverted_fbo_content ? 0 : 1);
    if (front_ccw)
       glFrontFace(GL_CCW);
    else
