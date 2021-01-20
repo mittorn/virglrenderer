@@ -4533,6 +4533,8 @@ int vrend_draw_vbo(struct vrend_context *ctx,
    bool new_program = false;
    struct vrend_resource *indirect_res = NULL;
    struct vrend_resource *indirect_params_res = NULL;
+   struct vrend_sub_context *sub_ctx = ctx->sub;
+
 
    if (ctx->in_error)
       return 0;
@@ -4584,60 +4586,60 @@ int vrend_draw_vbo(struct vrend_context *ctx,
       vrend_patch_blend_state(ctx);
 
    // enable primitive-mode-dependent shader variants
-   if (ctx->sub->prim_mode != (int)info->mode) {
+   if (sub_ctx->prim_mode != (int)info->mode) {
       // Only refresh shader program when switching in/out of GL_POINTS primitive mode
-      if (ctx->sub->prim_mode == PIPE_PRIM_POINTS
+      if (sub_ctx->prim_mode == PIPE_PRIM_POINTS
           || (int)info->mode == PIPE_PRIM_POINTS)
-         ctx->sub->shader_dirty = true;
+         sub_ctx->shader_dirty = true;
 
-      ctx->sub->prim_mode = (int)info->mode;
+      sub_ctx->prim_mode = (int)info->mode;
    }
 
-   if (ctx->sub->shader_dirty || ctx->sub->swizzle_output_rgb_to_bgr)
+   if (sub_ctx->shader_dirty || sub_ctx->swizzle_output_rgb_to_bgr)
       new_program = vrend_select_program(ctx, info);
 
-   if (!ctx->sub->prog) {
+   if (!sub_ctx->prog) {
       vrend_printf("dropping rendering due to missing shaders: %s\n", ctx->debug_name);
       return 0;
    }
 
-   vrend_use_program(ctx, ctx->sub->prog->id);
+   vrend_use_program(ctx, sub_ctx->prog->id);
 
    vrend_draw_bind_objects(ctx, new_program);
 
-   if (!ctx->sub->ve) {
+   if (!sub_ctx->ve) {
       vrend_printf("illegal VE setup - skipping renderering\n");
       return 0;
    }
-   float viewport_neg_val = ctx->sub->viewport_is_negative ? -1.0 : 1.0;
-   if (ctx->sub->prog->viewport_neg_val != viewport_neg_val) {
-      glUniform1f(ctx->sub->prog->vs_ws_adjust_loc, viewport_neg_val);
-      ctx->sub->prog->viewport_neg_val = viewport_neg_val;
+   float viewport_neg_val = sub_ctx->viewport_is_negative ? -1.0 : 1.0;
+   if (sub_ctx->prog->viewport_neg_val != viewport_neg_val) {
+      glUniform1f(sub_ctx->prog->vs_ws_adjust_loc, viewport_neg_val);
+      sub_ctx->prog->viewport_neg_val = viewport_neg_val;
    }
 
-   if (ctx->sub->rs_state.clip_plane_enable) {
+   if (sub_ctx->rs_state.clip_plane_enable) {
       for (i = 0 ; i < 8; i++) {
-         glUniform4fv(ctx->sub->prog->clip_locs[i], 1, (const GLfloat *)&ctx->sub->ucp_state.ucp[i]);
+         glUniform4fv(sub_ctx->prog->clip_locs[i], 1, (const GLfloat *)&sub_ctx->ucp_state.ucp[i]);
       }
    }
 
    if (has_feature(feat_gles31_vertex_attrib_binding))
-      vrend_draw_bind_vertex_binding(ctx, ctx->sub->ve);
+      vrend_draw_bind_vertex_binding(ctx, sub_ctx->ve);
    else
-      vrend_draw_bind_vertex_legacy(ctx, ctx->sub->ve);
+      vrend_draw_bind_vertex_legacy(ctx, sub_ctx->ve);
 
-   for (i = 0 ; i < ctx->sub->prog->ss[PIPE_SHADER_VERTEX]->sel->sinfo.num_inputs; i++) {
-      struct vrend_vertex_element_array *va = ctx->sub->ve;
+   for (i = 0 ; i < sub_ctx->prog->ss[PIPE_SHADER_VERTEX]->sel->sinfo.num_inputs; i++) {
+      struct vrend_vertex_element_array *va = sub_ctx->ve;
       struct vrend_vertex_element *ve = &va->elements[i];
       int vbo_index = ve->base.vertex_buffer_index;
-      if (!ctx->sub->vbo[vbo_index].base.buffer) {
+      if (!sub_ctx->vbo[vbo_index].base.buffer) {
          vrend_printf( "VBO missing vertex buffer\n");
          return 0;
       }
    }
 
    if (info->indexed) {
-      struct vrend_resource *res = (struct vrend_resource *)ctx->sub->ib.buffer;
+      struct vrend_resource *res = (struct vrend_resource *)sub_ctx->ib.buffer;
       if (!res) {
          vrend_printf( "VBO missing indexed array buffer\n");
          return 0;
@@ -4646,19 +4648,19 @@ int vrend_draw_vbo(struct vrend_context *ctx,
    } else
       glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-   if (ctx->sub->current_so) {
-      if (ctx->sub->current_so->xfb_state == XFB_STATE_STARTED_NEED_BEGIN) {
-         if (ctx->sub->shaders[PIPE_SHADER_GEOMETRY])
-            glBeginTransformFeedback(get_gs_xfb_mode(ctx->sub->shaders[PIPE_SHADER_GEOMETRY]->sinfo.gs_out_prim));
-	 else if (ctx->sub->shaders[PIPE_SHADER_TESS_EVAL])
-            glBeginTransformFeedback(get_tess_xfb_mode(ctx->sub->shaders[PIPE_SHADER_TESS_EVAL]->sinfo.tes_prim,
-						       ctx->sub->shaders[PIPE_SHADER_TESS_EVAL]->sinfo.tes_point_mode));
+   if (sub_ctx->current_so) {
+      if (sub_ctx->current_so->xfb_state == XFB_STATE_STARTED_NEED_BEGIN) {
+         if (sub_ctx->shaders[PIPE_SHADER_GEOMETRY])
+            glBeginTransformFeedback(get_gs_xfb_mode(sub_ctx->shaders[PIPE_SHADER_GEOMETRY]->sinfo.gs_out_prim));
+     else if (sub_ctx->shaders[PIPE_SHADER_TESS_EVAL])
+            glBeginTransformFeedback(get_tess_xfb_mode(sub_ctx->shaders[PIPE_SHADER_TESS_EVAL]->sinfo.tes_prim,
+                               sub_ctx->shaders[PIPE_SHADER_TESS_EVAL]->sinfo.tes_point_mode));
          else
             glBeginTransformFeedback(get_xfb_mode(info->mode));
-         ctx->sub->current_so->xfb_state = XFB_STATE_STARTED;
-      } else if (ctx->sub->current_so->xfb_state == XFB_STATE_PAUSED) {
+         sub_ctx->current_so->xfb_state = XFB_STATE_STARTED;
+      } else if (sub_ctx->current_so->xfb_state == XFB_STATE_PAUSED) {
          glResumeTransformFeedback();
-         ctx->sub->current_so->xfb_state = XFB_STATE_STARTED;
+         sub_ctx->current_so->xfb_state = XFB_STATE_STARTED;
       }
    }
 
@@ -4676,16 +4678,16 @@ int vrend_draw_vbo(struct vrend_context *ctx,
 
    if (has_feature(feat_indirect_draw)) {
       GLint buf = indirect_res ? indirect_res->id : 0;
-      if (ctx->sub->draw_indirect_buffer != buf) {
+      if (sub_ctx->draw_indirect_buffer != buf) {
          glBindBuffer(GL_DRAW_INDIRECT_BUFFER, buf);
-         ctx->sub->draw_indirect_buffer = buf;
+         sub_ctx->draw_indirect_buffer = buf;
       }
 
       if (has_feature(feat_indirect_params)) {
          GLint buf = indirect_params_res ? indirect_params_res->id : 0;
-         if (ctx->sub->draw_indirect_params_buffer != buf) {
+         if (sub_ctx->draw_indirect_params_buffer != buf) {
             glBindBuffer(GL_PARAMETER_BUFFER_ARB, buf);
-            ctx->sub->draw_indirect_params_buffer = buf;
+            sub_ctx->draw_indirect_params_buffer = buf;
          }
       }
    }
@@ -4698,9 +4700,9 @@ int vrend_draw_vbo(struct vrend_context *ctx,
     * accept those blend equations.
     * When we transmit the blend mode through alpha_src_factor, alpha_dst_factor is always 0.
     */
-   uint32_t blend_mask_shader = ctx->sub->shaders[PIPE_SHADER_FRAGMENT]->sinfo.fs_blend_equation_advanced;
-   uint32_t blend_mode = ctx->sub->blend_state.rt[0].alpha_src_factor;
-   uint32_t alpha_dst_factor = ctx->sub->blend_state.rt[0].alpha_dst_factor;
+   uint32_t blend_mask_shader = sub_ctx->shaders[PIPE_SHADER_FRAGMENT]->sinfo.fs_blend_equation_advanced;
+   uint32_t blend_mode = sub_ctx->blend_state.rt[0].alpha_src_factor;
+   uint32_t alpha_dst_factor = sub_ctx->blend_state.rt[0].alpha_dst_factor;
    bool use_advanced_blending = !has_feature(feat_framebuffer_fetch) &&
                                  has_feature(feat_blend_equation_advanced) &&
                                  blend_mask_shader != 0 &&
@@ -4735,7 +4737,7 @@ int vrend_draw_vbo(struct vrend_context *ctx,
    } else {
       GLenum elsz;
       GLenum mode = info->mode;
-      switch (ctx->sub->ib.index_size) {
+      switch (sub_ctx->ib.index_size) {
       case 1:
          elsz = GL_UNSIGNED_BYTE;
          break;
@@ -4758,17 +4760,17 @@ int vrend_draw_vbo(struct vrend_context *ctx,
             glDrawElementsIndirect(mode, elsz, (GLvoid const *)(unsigned long)info->indirect.offset);
       } else if (info->index_bias) {
          if (info->instance_count > 1)
-            glDrawElementsInstancedBaseVertex(mode, info->count, elsz, (void *)(unsigned long)ctx->sub->ib.offset, info->instance_count, info->index_bias);
+            glDrawElementsInstancedBaseVertex(mode, info->count, elsz, (void *)(unsigned long)sub_ctx->ib.offset, info->instance_count, info->index_bias);
          else if (info->min_index != 0 || info->max_index != (unsigned)-1)
-            glDrawRangeElementsBaseVertex(mode, info->min_index, info->max_index, info->count, elsz, (void *)(unsigned long)ctx->sub->ib.offset, info->index_bias);
+            glDrawRangeElementsBaseVertex(mode, info->min_index, info->max_index, info->count, elsz, (void *)(unsigned long)sub_ctx->ib.offset, info->index_bias);
          else
-            glDrawElementsBaseVertex(mode, info->count, elsz, (void *)(unsigned long)ctx->sub->ib.offset, info->index_bias);
+            glDrawElementsBaseVertex(mode, info->count, elsz, (void *)(unsigned long)sub_ctx->ib.offset, info->index_bias);
       } else if (info->instance_count > 1) {
-         glDrawElementsInstancedARB(mode, info->count, elsz, (void *)(unsigned long)ctx->sub->ib.offset, info->instance_count);
+         glDrawElementsInstancedARB(mode, info->count, elsz, (void *)(unsigned long)sub_ctx->ib.offset, info->instance_count);
       } else if (info->min_index != 0 || info->max_index != (unsigned)-1)
-         glDrawRangeElements(mode, info->min_index, info->max_index, info->count, elsz, (void *)(unsigned long)ctx->sub->ib.offset);
+         glDrawRangeElements(mode, info->min_index, info->max_index, info->count, elsz, (void *)(unsigned long)sub_ctx->ib.offset);
       else
-         glDrawElements(mode, info->count, elsz, (void *)(unsigned long)ctx->sub->ib.offset);
+         glDrawElements(mode, info->count, elsz, (void *)(unsigned long)sub_ctx->ib.offset);
    }
 
    if (info->primitive_restart) {
@@ -4781,10 +4783,10 @@ int vrend_draw_vbo(struct vrend_context *ctx,
       }
    }
 
-   if (ctx->sub->current_so && has_feature(feat_transform_feedback2)) {
-      if (ctx->sub->current_so->xfb_state == XFB_STATE_STARTED) {
+   if (sub_ctx->current_so && has_feature(feat_transform_feedback2)) {
+      if (sub_ctx->current_so->xfb_state == XFB_STATE_STARTED) {
          glPauseTransformFeedback();
-         ctx->sub->current_so->xfb_state = XFB_STATE_PAUSED;
+         sub_ctx->current_so->xfb_state = XFB_STATE_PAUSED;
       }
    }
    return 0;
