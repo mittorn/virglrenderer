@@ -3527,12 +3527,14 @@ int vrend_create_shader(struct vrend_context *ctx,
    else if (((offlen + 3) / 4) > pkt_length)
       long_shader = true;
 
+   struct vrend_sub_context *sub_ctx = ctx->sub;
+
    /* if we have an in progress one - don't allow a new shader
       of that type or a different handle. */
-   if (ctx->sub->long_shader_in_progress_handle[type]) {
+   if (sub_ctx->long_shader_in_progress_handle[type]) {
       if (new_shader == true)
          return EINVAL;
-      if (handle != ctx->sub->long_shader_in_progress_handle[type])
+      if (handle != sub_ctx->long_shader_in_progress_handle[type])
          return EINVAL;
    }
 
@@ -3550,11 +3552,11 @@ int vrend_create_shader(struct vrend_context *ctx,
         }
         memcpy(sel->tmp_buf, shd_text, pkt_length * 4);
         sel->buf_offset = pkt_length * 4;
-        ctx->sub->long_shader_in_progress_handle[type] = handle;
+        sub_ctx->long_shader_in_progress_handle[type] = handle;
      } else
         finished = true;
    } else {
-      sel = vrend_object_lookup(ctx->sub->object_hash, handle, VIRGL_OBJECT_SHADER);
+      sel = vrend_object_lookup(sub_ctx->object_hash, handle, VIRGL_OBJECT_SHADER);
       if (!sel) {
          vrend_printf( "got continuation without original shader %d\n", handle);
          ret = EINVAL;
@@ -3626,7 +3628,7 @@ int vrend_create_shader(struct vrend_context *ctx,
          sel->tmp_buf = NULL;
       }
       free(tokens);
-      ctx->sub->long_shader_in_progress_handle[type] = 0;
+      sub_ctx->long_shader_in_progress_handle[type] = 0;
    }
 
    if (new_shader) {
