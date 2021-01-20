@@ -4220,17 +4220,17 @@ static int vrend_draw_bind_ubo_shader(struct vrend_sub_context *sub_ctx,
    return next_ubo_id;
 }
 
-static void vrend_draw_bind_const_shader(struct vrend_context *ctx,
+static void vrend_draw_bind_const_shader(struct vrend_sub_context *sub_ctx,
                                          int shader_type, bool new_program)
 {
-   if (ctx->sub->consts[shader_type].consts &&
-       ctx->sub->shaders[shader_type] &&
-       (ctx->sub->prog->const_location[shader_type] != -1) &&
-       (ctx->sub->const_dirty[shader_type] || new_program)) {
-      glUniform4uiv(ctx->sub->prog->const_location[shader_type],
-            ctx->sub->shaders[shader_type]->sinfo.num_consts,
-            ctx->sub->consts[shader_type].consts);
-      ctx->sub->const_dirty[shader_type] = false;
+   if (sub_ctx->consts[shader_type].consts &&
+       sub_ctx->shaders[shader_type] &&
+       (sub_ctx->prog->const_location[shader_type] != -1) &&
+       (sub_ctx->const_dirty[shader_type] || new_program)) {
+      glUniform4uiv(sub_ctx->prog->const_location[shader_type],
+            sub_ctx->shaders[shader_type]->sinfo.num_consts,
+            sub_ctx->consts[shader_type].consts);
+      sub_ctx->const_dirty[shader_type] = false;
    }
 }
 
@@ -4363,7 +4363,7 @@ static void vrend_draw_bind_objects(struct vrend_context *ctx, bool new_program)
    int next_ubo_id = 0, next_sampler_id = 0;
    for (int shader_type = PIPE_SHADER_VERTEX; shader_type <= ctx->sub->last_shader_idx; shader_type++) {
       next_ubo_id = vrend_draw_bind_ubo_shader(ctx->sub, shader_type, next_ubo_id);
-      vrend_draw_bind_const_shader(ctx, shader_type, new_program);
+      vrend_draw_bind_const_shader(ctx->sub, shader_type, new_program);
       next_sampler_id = vrend_draw_bind_samplers_shader(ctx, shader_type,
                                                         next_sampler_id);
       vrend_draw_bind_images_shader(ctx, shader_type);
@@ -4849,7 +4849,7 @@ void vrend_launch_grid(struct vrend_context *ctx,
    vrend_use_program(ctx->sub, ctx->sub->prog->id);
 
    vrend_draw_bind_ubo_shader(ctx->sub, PIPE_SHADER_COMPUTE, 0);
-   vrend_draw_bind_const_shader(ctx, PIPE_SHADER_COMPUTE, new_program);
+   vrend_draw_bind_const_shader(ctx->sub, PIPE_SHADER_COMPUTE, new_program);
    vrend_draw_bind_samplers_shader(ctx, PIPE_SHADER_COMPUTE, 0);
    vrend_draw_bind_images_shader(ctx, PIPE_SHADER_COMPUTE);
    vrend_draw_bind_ssbo_shader(ctx, PIPE_SHADER_COMPUTE);
