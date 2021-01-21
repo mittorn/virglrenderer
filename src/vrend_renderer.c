@@ -4630,16 +4630,6 @@ int vrend_draw_vbo(struct vrend_context *ctx,
    else
       vrend_draw_bind_vertex_legacy(ctx, sub_ctx->ve);
 
-   for (i = 0 ; i < sub_ctx->prog->ss[PIPE_SHADER_VERTEX]->sel->sinfo.num_inputs; i++) {
-      struct vrend_vertex_element_array *va = sub_ctx->ve;
-      struct vrend_vertex_element *ve = &va->elements[i];
-      int vbo_index = ve->base.vertex_buffer_index;
-      if (!sub_ctx->vbo[vbo_index].base.buffer) {
-         vrend_printf( "VBO missing vertex buffer\n");
-         return 0;
-      }
-   }
-
    if (info->indexed) {
       struct vrend_resource *res = (struct vrend_resource *)sub_ctx->ib.buffer;
       if (!res) {
