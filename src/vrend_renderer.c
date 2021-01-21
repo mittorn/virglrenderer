@@ -4138,11 +4138,17 @@ static int vrend_draw_bind_samplers_shader(struct vrend_sub_context *sub_ctx,
    uint32_t dirty = sub_ctx->sampler_views_dirty[shader_type];
 
    uint32_t mask = sub_ctx->prog->samplers_used_mask[shader_type];
+
+   struct vrend_shader_view *sviews = &sub_ctx->views[shader_type];
+
    while (mask) {
       int i = u_bit_scan(&mask);
 
-      struct vrend_sampler_view *tview = sub_ctx->views[shader_type].views[i];
-      if (dirty & (1 << i) && tview) {
+      if (!(dirty & (1 << i)))
+          continue;
+
+      struct vrend_sampler_view *tview = sviews->views[i];
+      if (tview) {
          if (sub_ctx->prog->shadow_samp_mask[shader_type] & (1 << i)) {
             glUniform4f(sub_ctx->prog->shadow_samp_mask_locs[shader_type][index],
                         (tview->gl_swizzle[0] == GL_ZERO || tview->gl_swizzle[0] == GL_ONE) ? 0.0 : 1.0,
@@ -4157,7 +4163,7 @@ static int vrend_draw_bind_samplers_shader(struct vrend_sub_context *sub_ctx,
          }
 
          if (tview->texture) {
-            GLuint id;
+            GLuint id = tview->id;
             struct vrend_resource *texture = tview->texture;
             GLenum target = tview->target;
 
@@ -4166,17 +4172,16 @@ static int vrend_draw_bind_samplers_shader(struct vrend_sub_context *sub_ctx,
             if (has_bit(tview->texture->storage_bits, VREND_STORAGE_GL_BUFFER)) {
                id = texture->tbo_tex_id;
                target = GL_TEXTURE_BUFFER;
-            } else
-               id = tview->id;
+            }
 
             glActiveTexture(GL_TEXTURE0 + next_sampler_id);
             glBindTexture(target, id);
 
-            if (sub_ctx->views[shader_type].old_ids[i] != id ||
+            if (sviews->old_ids[i] != id ||
                 sub_ctx->sampler_views_dirty[shader_type] & (1 << i)) {
                vrend_apply_sampler_state(sub_ctx, texture, shader_type, i,
                                          next_sampler_id, tview);
-               sub_ctx->views[shader_type].old_ids[i] = id;
+               sviews->old_ids[i] = id;
             }
             dirty &= ~(1 << i);
          }
