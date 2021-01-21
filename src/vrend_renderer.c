@@ -10421,17 +10421,21 @@ void vrend_renderer_get_rect(struct pipe_resource *pres,
 }
 
 void vrend_renderer_attach_res_ctx(struct vrend_context *ctx,
-                                   uint32_t res_id,
-                                   struct pipe_resource *pres)
+                                   struct virgl_resource *res)
 {
-   struct vrend_resource *res = (struct vrend_resource *)pres;
-   vrend_ctx_resource_insert(ctx->res_hash, res_id, res);
+   /* in the future, we should import to create the pipe resource */
+   if (!res->pipe_resource)
+      return;
+
+   vrend_ctx_resource_insert(ctx->res_hash,
+                             res->res_id,
+                             (struct vrend_resource *)res->pipe_resource);
 }
 
 void vrend_renderer_detach_res_ctx(struct vrend_context *ctx,
-                                   uint32_t res_id)
+                                   struct virgl_resource *res)
 {
-   vrend_ctx_resource_remove(ctx->res_hash, res_id);
+   vrend_ctx_resource_remove(ctx->res_hash, res->res_id);
 }
 
 static struct vrend_resource *vrend_renderer_ctx_res_lookup(struct vrend_context *ctx, int res_handle)

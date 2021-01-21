@@ -46,6 +46,7 @@ struct virgl_gl_ctx_param {
 };
 
 struct virgl_context;
+struct virgl_resource;
 struct vrend_context;
 
 /* Number of mipmap levels for which to keep the backing iov offsets.
@@ -405,10 +406,9 @@ void vrend_renderer_get_rect(struct pipe_resource *pres,
                              int x, int y, int width, int height);
 
 void vrend_renderer_attach_res_ctx(struct vrend_context *ctx,
-                                   uint32_t res_id,
-                                   struct pipe_resource *pres);
+                                   struct virgl_resource *res);
 void vrend_renderer_detach_res_ctx(struct vrend_context *ctx,
-                                   uint32_t res_id);
+                                   struct virgl_resource *res);
 
 struct vrend_context_tweaks *vrend_get_context_tweaks(struct vrend_context *ctx);
 

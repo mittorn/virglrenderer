@@ -1469,12 +1469,7 @@ static void vrend_decode_ctx_attach_resource(struct virgl_context *ctx,
 {
    TRACE_FUNC();
    struct vrend_decode_ctx *dctx = (struct vrend_decode_ctx *)ctx;
-   /* in the future, we should import to create the pipe resource */
-   if (!res->pipe_resource)
-      return;
-
-   vrend_renderer_attach_res_ctx(dctx->grctx, res->res_id,
-                                 res->pipe_resource);
+   vrend_renderer_attach_res_ctx(dctx->grctx, res);
 }
 
 static void vrend_decode_ctx_detach_resource(struct virgl_context *ctx,
@@ -1482,7 +1477,7 @@ static void vrend_decode_ctx_detach_resource(struct virgl_context *ctx,
 {
    TRACE_FUNC();
    struct vrend_decode_ctx *dctx = (struct vrend_decode_ctx *)ctx;
-   vrend_renderer_detach_res_ctx(dctx->grctx, res->res_id);
+   vrend_renderer_detach_res_ctx(dctx->grctx, res);
 }
 
 static int vrend_decode_ctx_transfer_3d(struct virgl_context *ctx,
