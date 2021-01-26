@@ -132,9 +132,8 @@ export LD_LIBRARY_PATH="/waffle/build/lib:$LD_LIBRARY_PATH"
 export LD_LIBRARY_PATH="/usr/local/lib:$LD_LIBRARY_PATH"
 export LD_LIBRARY_PATH="/usr/local/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH"
 
-trace_name=$(basename $trace)
-trace_base=${trace_name%.*}
-datadir="/traces-db/${trace_base}-out"
+trace_no_ext=${trace%.*}
+datadir="/traces-db/${trace_no_ext}-out"
 
 echo "Host:"
 wflinfo --platform surfaceless_egl --api gles2
@@ -175,10 +174,10 @@ echo 1 > /proc/sys/net/ipv4/ip_forward
 
 
 # store name of trace to be replayed so the guest can obtain the name 
-echo $trace_base > /traces-db/current_trace
+echo $trace_no_ext > /traces-db/current_trace
 echo $command > /traces-db/command
 
-
+trace_base=$(basename $trace_no_ext)
 guest_perf="$datadir/${trace_base}-guest.perfetto"
 host_perf="$datadir/${trace_base}-host.perfetto"
 summary_perf="$datadir/${trace_base}-summary.perfetto"

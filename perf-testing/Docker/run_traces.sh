@@ -34,8 +34,8 @@ time chronyd -q   # Initial synchronization, will take some time
 chronyd      # Keep clocks in sync
 
 # Get trace cached
-trace_base=$(cat /traces-db/current_trace)
-if [ "x$trace_base" = "x" ]; then
+trace_no_ext=$(cat /traces-db/current_trace)
+if [ "x$trace_no_ext" = "x" ]; then
     echo "No trace given, bailing out"
     exit 1 
 fi
@@ -75,8 +75,9 @@ if [ -e /traces-db/wait_after_frame ]; then
    WAIT=-wait-after-frame
 fi
 
-trace="/traces-db/${trace_base}.trace"
-datadir="/traces-db/${trace_base}-out"
+trace="/traces-db/${trace_no_ext}.trace"
+datadir="/traces-db/${trace_no_ext}-out"
+trace_base=$(basename ${trace_no_ext})
 guest_perf="$datadir/${trace_base}-guest.perfetto"
 
 cat "$trace" > /dev/null
