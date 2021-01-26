@@ -1733,9 +1733,10 @@ static struct vrend_linked_shader_program *lookup_shader_program(struct vrend_su
           ent->ss[PIPE_SHADER_TESS_EVAL]->id != tes_id)
          continue;
       /* put the entry in front */
-      list_del(&ent->head);
-      list_add(&ent->head, programs);
-
+      if (programs->next != &ent->head) {
+         list_del(&ent->head);
+         list_add(&ent->head, programs);
+      }
       return ent;
    }
 
