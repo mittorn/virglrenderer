@@ -85,7 +85,7 @@ conf_data.set('VERSION', '0.8.1')
 with_tracing = get_option('tracing')
 
 if with_tracing != 'none'
-  if not cc.compiles('void f(void* v){}; int main () { void *dummy __attribute__((cleanup (f))) = 0;}')
+  if not cc.compiles('void f(void* v){} int main () { void *dummy __attribute__((cleanup (f))) = 0;}')
      error('Tracing requires compiler support for __attribute__((cleanup))')
 endif
 
