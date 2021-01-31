@@ -2689,7 +2689,8 @@ int vrend_create_vertex_elements_state(struct vrend_context *ctx,
          case 32: type = GL_INT; break;
          }
          break;
-      default:
+      }
+      if (type == GL_FALSE) {
          switch (elements[i].src_format) {
          case PIPE_FORMAT_R10G10B10A2_SSCALED:
          case PIPE_FORMAT_R10G10B10A2_SNORM:
