@@ -111,6 +111,7 @@ run_make_check_trace_stderr()
 
 run_deqp()
 {
+   local retval=0
    run_setup meson
    OGL_BACKEND="$1"
    SUITE="$2"
@@ -148,13 +149,15 @@ run_deqp()
    ./run_test_suite.sh --deqp ${TEST_SUITE} \
       --host-${OGL_BACKEND} \
       ${BACKENDS}
+   retval=$?
    popd
 
-   return $?
+   return $retval
 }
 
 run_piglit()
 {
+   local retval=0
    run_setup meson
 
    OGL_BACKEND="$1"
@@ -172,9 +175,10 @@ run_piglit()
    ./run_test_suite.sh --piglit --gles2 --gles3 \
       --host-${OGL_BACKEND} \
       ${BACKENDS}
+   retval=$?
    popd
 
-   return $?
+   return $retval
 }
 
 parse_input()
