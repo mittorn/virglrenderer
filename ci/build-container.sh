@@ -100,6 +100,7 @@ git clone --shallow-since="$GIT_DATE" https://gitlab.freedesktop.org/mesa/drm.gi
     meson configure build/ -Dprefix=/usr/local -Dlibdir=lib && \
     ninja -C build/ install >/dev/null && \
     rm -rf /drm
+    [ "$?" = "0" ] || exit 1
 popd
 
 export KNOWN_GOOD_MESA=${KNOWN_GOOD_MESA:-30a393f4581079ced1ac05d6b74c7408fbe26f83}
@@ -116,6 +117,7 @@ git clone --shallow-since="$GIT_DATE" ${MESA_REPO} . && \
     meson configure build/ -Dprefix=/usr/local -Dplatforms=drm,x11,wayland,surfaceless -Ddri-drivers=i965 -Dgallium-drivers=swrast,virgl,radeonsi -Dbuildtype=debugoptimized -Dllvm=true -Dglx=dri -Dgallium-vdpau=false -Dgallium-va=false -Dvulkan-drivers=[] -Dlibdir=lib && \
     ninja -C build/ install >/dev/null && \
     rm -rf /mesa
+    [ "$?" = "0" ] || exit 1
 popd
 
 export KNOWN_GOOD_EPOXY=${KNOWN_GOOD_EPOXY:-1.5.4}
@@ -130,6 +132,7 @@ git clone --shallow-since="$GIT_DATE" https://github.com/anholt/libepoxy.git . &
     meson configure build/ -Dprefix=/usr/local -Dlibdir=lib && \
     ninja -C build/ install >/dev/null && \
     rm -rf /epoxy
+    [ "$?" == "0" ] || exit 1
 popd
 
 export BATTERY_VERSION=0.1.23
@@ -139,6 +142,7 @@ wget "https://github.com/VoltLang/Battery/releases/download/v${BATTERY_VERSION}/
     tar xzvf battery-${BATTERY_VERSION}-x86_64-linux.tar.gz && \
     rm battery-${BATTERY_VERSION}-x86_64-linux.tar.gz && \
     mv battery /usr/local/bin
+    [ "$?" = "0" ] || exit 1
 popd
 
 mkdir /volt
@@ -152,6 +156,7 @@ git clone --depth=1 https://github.com/VoltLang/Watt.git && \
     battery build && \
     cp dEQP/deqp /usr/local/bin && \
     rm -rf /volt
+    [ "$?" = "0" ] || exit 1
 popd
 
 # To avoid this error:
@@ -171,6 +176,7 @@ git clone --shallow-since="$GIT_DATE" https://github.com/KhronosGroup/VK-GL-CTS.
     make -j$(nproc) && \
     find . -name CMakeFiles | xargs rm -rf && \
     find . -name lib\*.a | xargs rm -rf
+    [ "$?" = "0" ] || exit 1
 popd
 
 export KNOWN_GOOD_PIGLIT=${KNOWN_GOOD_PIGLIT:-08a92f4094c927276a20f608d7b3c5de2a72e9e7}
@@ -184,6 +190,7 @@ git clone --shallow-since="$GIT_DATE" https://gitlab.freedesktop.org/mesa/piglit
     rm -rf /usr/local/lib/piglit/generated_tests/spec/arb_vertex_attrib_64bit && \
     rm -rf /usr/local/lib/piglit/generated_tests/spec/glsl-4.20 && \
     rm -rf /piglit
+    [ "$?" = "0" ] || exit 1
 popd
 
 
