@@ -329,6 +329,8 @@ int main(void)
 
   if (getenv("VRENDTEST_USE_EGL_SURFACELESS"))
      context_flags |= VIRGL_RENDERER_USE_SURFACELESS;
+   if (getenv("VRENDTEST_USE_EGL_GLES"))
+      context_flags |= VIRGL_RENDERER_USE_GLES;
 
   s = virgl_init_suite();
   sr = srunner_create(s);
