@@ -79,12 +79,14 @@ apt-get -y install --no-install-recommends \
       xterm \
       xvfb \
       zlib1g-dev
+
 apt-get -y build-dep --no-install-recommends \
       libdrm \
       mesa \
       piglit \
-      virglrenderer
-apt-get -y remove valgrind libepoxy0
+      check
+
+apt-get -y remove valgrind libdrm-dev
 rm -rf /var/lib/apt/lists/*
 
 export KNOWN_GOOD_DRM=libdrm-2.4.104
