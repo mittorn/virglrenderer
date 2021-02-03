@@ -42,6 +42,7 @@ libvrtest = static_library(
 
 tests = [
    ['test_virgl_init', 'test_virgl_init.c'],
+   ['test_virgl_fence', 'test_virgl_fence.c'],
    ['test_virgl_resource', 'test_virgl_resource.c'],
    ['test_virgl_transfer', 'test_virgl_transfer.c'],
    ['test_virgl_cmd', 'test_virgl_cmd.c'],
