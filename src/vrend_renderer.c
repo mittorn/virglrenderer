@@ -10085,7 +10085,7 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
    else
       caps->v2.max_vertex_attrib_stride = 2048;
 
-   if (has_feature(feat_compute_shader)) {
+   if (has_feature(feat_compute_shader) && (vrend_state.use_gles || gl_ver >= 33)) {
       glGetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS, (GLint*)&caps->v2.max_compute_work_group_invocations);
       glGetIntegerv(GL_MAX_COMPUTE_SHARED_MEMORY_SIZE, (GLint*)&caps->v2.max_compute_shared_memory_size);
       glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 0, (GLint*)&caps->v2.max_compute_grid_size[0]);
