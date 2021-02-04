@@ -1641,7 +1641,7 @@ static int vrend_decode_ctx_submit_cmd(struct virgl_context *ctx,
       VREND_DEBUG(dbg_cmd, gdctx->grctx, "%-4d %-20s len:%d\n",
                   cur_offset, vrend_get_comand_name(cmd), len);
 
-      TRACE_SCOPE(vrend_get_comand_name(cmd));
+      TRACE_SCOPE_SLOW(vrend_get_comand_name(cmd));
 
       ret = decode_table[cmd](gdctx->grctx, buf, len);
       if (ret) {
