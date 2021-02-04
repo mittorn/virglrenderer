@@ -87,6 +87,35 @@ apt-get -y build-dep --no-install-recommends \
 apt-get -y remove valgrind libepoxy0
 rm -rf /var/lib/apt/lists/*
 
+export KNOWN_GOOD_DRM=libdrm-2.4.104
+mkdir /drm
+pushd /drm
+git clone --shallow-since="$GIT_DATE" https://gitlab.freedesktop.org/mesa/drm.git . && \
+    git checkout ${KNOWN_GOOD_DRM} && \
+    git log --oneline -n 1 && \
+    mkdir -p build && \
+    meson build/ && \
+    meson configure build/ -Dprefix=/usr/local -Dlibdir=lib && \
+    ninja -C build/ install >/dev/null && \
+    rm -rf /drm
+popd
+
+export KNOWN_GOOD_MESA=${KNOWN_GOOD_MESA:-30a393f4581079ced1ac05d6b74c7408fbe26f83}
+echo $KNOWN_GOOD_MESA
+export MESA_REPO=https://gitlab.freedesktop.org/mesa/mesa.git
+echo $MESA_REPO
+mkdir /mesa
+pushd /mesa
+git clone --shallow-since="$GIT_DATE" ${MESA_REPO} . && \
+    git checkout ${KNOWN_GOOD_MESA} && \
+    git log --oneline -n 1 && \
+    mkdir -p build && \
+    meson build/ && \
+    meson configure build/ -Dprefix=/usr/local -Dplatforms=drm,x11,wayland,surfaceless -Ddri-drivers=i965 -Dgallium-drivers=swrast,virgl,radeonsi -Dbuildtype=debugoptimized -Dllvm=true -Dglx=dri -Dgallium-vdpau=false -Dgallium-va=false -Dvulkan-drivers=[] -Dlibdir=lib && \
+    ninja -C build/ install >/dev/null && \
+    rm -rf /mesa
+popd
+
 export KNOWN_GOOD_EPOXY=${KNOWN_GOOD_EPOXY:-1.5.4}
 mkdir /epoxy
 pushd /epoxy
@@ -155,32 +184,4 @@ git clone --shallow-since="$GIT_DATE" https://gitlab.freedesktop.org/mesa/piglit
     rm -rf /piglit
 popd
 
-export KNOWN_GOOD_DRM=libdrm-2.4.103
-mkdir /drm
-pushd /drm
-git clone --shallow-since="$GIT_DATE" https://gitlab.freedesktop.org/mesa/drm.git . && \
-    git checkout ${KNOWN_GOOD_DRM} && \
-    git log --oneline -n 1 && \
-    mkdir -p build && \
-    meson build/ && \
-    meson configure build/ -Dprefix=/usr/local -Dlibdir=lib && \
-    ninja -C build/ install >/dev/null && \
-    rm -rf /drm
-popd
-
-export KNOWN_GOOD_MESA=${KNOWN_GOOD_MESA:-1c17223c02b68679d67a4e4a6be8b9b7a80fa2e9}
-echo $KNOWN_GOOD_MESA
-export MESA_REPO=https://gitlab.freedesktop.org/mesa/mesa.git
-echo $MESA_REPO
-mkdir /mesa
-pushd /mesa
-git clone --shallow-since="$GIT_DATE" ${MESA_REPO} . && \
-    git checkout ${KNOWN_GOOD_MESA} && \
-    git log --oneline -n 1 && \
-    mkdir -p build && \
-    meson build/ && \
-    meson configure build/ -Dprefix=/usr/local -Dplatforms=drm,x11,wayland,surfaceless -Ddri-drivers=i965 -Dgallium-drivers=swrast,virgl,radeonsi -Dbuildtype=debugoptimized -Dllvm=true -Dglx=dri -Dgallium-vdpau=false -Dgallium-va=false -Dvulkan-drivers=[] -Dlibdir=lib && \
-    ninja -C build/ install >/dev/null && \
-    rm -rf /mesa
-popd
 
