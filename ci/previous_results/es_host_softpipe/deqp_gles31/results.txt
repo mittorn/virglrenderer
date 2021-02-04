@@ -15059,6 +15059,9 @@ dEQP-GLES31.functional.draw_indirect.random.55 Pass
 dEQP-GLES31.functional.draw_indirect.random.56 Pass
 dEQP-GLES31.functional.draw_indirect.random.57 Pass
 dEQP-GLES31.functional.draw_indirect.random.61 Pass
+dEQP-GLES31.functional.fbo.color.tex2d.r16 Pass
+dEQP-GLES31.functional.fbo.color.tex2d.rg16 Pass
+dEQP-GLES31.functional.fbo.color.tex2d.rgba16 Pass
 dEQP-GLES31.functional.fbo.color.texcubearray.r8i NotSupported
 dEQP-GLES31.functional.fbo.color.texcubearray.r8ui NotSupported
 dEQP-GLES31.functional.fbo.color.texcubearray.r8 NotSupported
