@@ -114,6 +114,15 @@ void flush_eventfd(int fd)
     } while ((len == -1 && errno == EINTR) || len == sizeof(value));
 }
 
+#if ENABLE_TRACING == TRACE_WITH_PERCETTO
+PERCETTO_CATEGORY_DEFINE(VIRGL_PERCETTO_CATEGORIES)
+
+void trace_init(void)
+{
+  PERCETTO_INIT(PERCETTO_CLOCK_DONT_CARE);
+}
+#endif
+
 #if ENABLE_TRACING == TRACE_WITH_PERFETTO
 void trace_init(void)
 {

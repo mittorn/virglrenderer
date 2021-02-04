@@ -91,6 +91,14 @@ endif
 
 endif
 
+if with_tracing == 'percetto'
+   # percetto uses C++ internally, so we need to link with C++.
+   # TODO: remove -lstdc++ when percetto is a shared library.
+   add_project_link_arguments('-lstdc++', language : 'c')
+   percetto_dep = dependency('percetto', version : '>=0.0.8')
+   conf_data.set('ENABLE_TRACING', 'TRACE_WITH_PERCETTO')
+endif
+
 if with_tracing == 'perfetto'
    vperfetto_min_dep = dependency('vperfetto_min')
    conf_data.set('ENABLE_TRACING', 'TRACE_WITH_PERFETTO')

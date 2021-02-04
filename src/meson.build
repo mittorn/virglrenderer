@@ -86,6 +86,10 @@ if with_tracing == 'perfetto'
    virgl_depends += [vperfetto_min_dep]
 endif
 
+if with_tracing == 'percetto'
+   virgl_depends += [percetto_dep]
+endif
+
 virgl_sources += vrend_sources
 
 if have_egl
