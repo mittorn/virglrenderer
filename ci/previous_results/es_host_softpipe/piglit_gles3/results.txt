@@ -11,6 +11,7 @@ spec/!opengl es 3.0/oes_compressed_etc2_texture-miptree_gles3 srgb8-punchthrough
 spec/amd_framebuffer_multisample_advanced/api-gles3: skip
 spec/arb_blend_func_extended/arb_blend_func_extended-bindfragdataindexed-invalid-parameters_gles3: pass
 spec/arb_blend_func_extended/arb_blend_func_extended-dual-src-blending-discard-without-src1_gles3: pass
+spec/arb_blend_func_extended/arb_blend_func_extended-dual-src-blending-issue-1917_gles3: pass
 spec/arb_blend_func_extended/arb_blend_func_extended-fbo-extended-blend-explicit_gles3: pass
 spec/arb_blend_func_extended/arb_blend_func_extended-fbo-extended-blend-pattern_gles3: pass
 spec/arb_blend_func_extended/arb_blend_func_extended-fbo-extended-blend_gles3: pass
@@ -76,6 +77,7 @@ spec/ext_transform_feedback/structs_gles3 basic-struct run-no-fs: pass
 spec/ext_window_rectangles/errors_gles3: skip
 spec/ext_window_rectangles/render_gles3: skip
 spec/glsl-es-3.00/execution/varying-struct-centroid_gles3: fail
+spec/intel_blackhole_render/intel_blackhole-blit_gles3: skip
 spec/intel_blackhole_render/intel_blackhole-draw_gles3: skip
 spec/intel_conservative_rasterization/intel_conservative_rasterization-depthcoverage_gles3: skip
 spec/intel_conservative_rasterization/intel_conservative_rasterization-innercoverage_gles3: skip
@@ -110,3 +112,4 @@ spec/nv_image_formats/nv_image_formats-gles3/copy-rgb10_a2ui: pass
 spec/nv_image_formats/nv_image_formats-gles3/copy-rgba16: pass
 spec/nv_image_formats/nv_image_formats-gles3/copy-rgba16_snorm: pass
 spec/nv_read_depth/read_depth_gles3: fail
+spec/nv_viewport_swizzle/nv_viewport_swizzle-errors_gles3: skip

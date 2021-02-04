@@ -21,9 +21,10 @@ spec/ext_shader_framebuffer_fetch_non_coherent/execution/gles2/nonuniform-ss-red
 spec/ext_shader_framebuffer_fetch_non_coherent/execution/gles2/simple-ss: skip
 spec/ext_texture_compression_bptc/bptc-api_gles2: pass
 spec/ext_texture_compression_rgtc/rgtc-api_gles2: pass
-spec/ext_texture_compression_s3tc/s3tc-errors_gles2: fail
+spec/ext_texture_compression_s3tc/s3tc-errors_gles2: pass
 spec/ext_texture_compression_s3tc/s3tc-teximage_gles2: pass
 spec/ext_texture_compression_s3tc/s3tc-texsubimage_gles2: pass
+spec/intel_blackhole_render/intel_blackhole-blit_gles2: skip
 spec/intel_blackhole_render/intel_blackhole-draw_gles2: skip
 spec/khr_debug/object-label_gles2: pass
 spec/khr_debug/push-pop-group_gles2: pass
