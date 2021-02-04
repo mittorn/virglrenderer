@@ -63,29 +63,20 @@ void flush_eventfd(int fd);
 
 #ifdef ENABLE_TRACING
 void trace_init(void);
-char *trace_begin(const char* scope);
-char *trace_begin_fmt(const char* format, ...);
-void trace_end(char **dummy);
+const char *trace_begin(const char *scope);
+void trace_end(const char **dummy);
 
 #define TRACE_INIT() trace_init()
-#define TRACE_FUNC() \
-   char *trace_dummy __attribute__((cleanup (trace_end), unused)) = \
-   trace_begin(__func__)
+#define TRACE_FUNC() TRACE_SCOPE(__func__)
 
 #define TRACE_SCOPE(SCOPE) \
-   char *trace_dummy __attribute__((cleanup (trace_end), unused)) = \
+   const char *trace_dummy __attribute__((cleanup (trace_end), unused)) = \
    trace_begin(SCOPE)
-
-
-#define TRACE_SCOPE_FMT(FORMAT, ...) \
-   char *trace_dummy __attribute__((cleanup (trace_end), unused)) = \
-   trace_begin_fmt(FORMAT, __VA_ARGS__)
 
 #else
 #define TRACE_INIT()
 #define TRACE_FUNC()
-#define TRACE_SCOPE(FORMAT, ...)
-#define TRACE_SCOPE_FMT(FORMAT, ...)
+#define TRACE_SCOPE(SCOPE)
 #endif
 
 #endif /* VIRGL_UTIL_H */

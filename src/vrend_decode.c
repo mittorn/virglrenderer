@@ -756,7 +756,7 @@ static int vrend_decode_create_object(struct vrend_context *ctx, const uint32_t 
    VREND_DEBUG(dbg_object, ctx,"  CREATE %-18s handle:0x%x len:%d\n",
                vrend_get_object_type_name(obj_type), handle, length);
 
-   TRACE_SCOPE_FMT("CREATE %-18s", vrend_get_object_type_name(obj_type));
+   TRACE_SCOPE(vrend_get_object_type_name(obj_type));
 
    switch (obj_type){
    case VIRGL_OBJECT_BLEND:
