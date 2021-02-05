@@ -166,6 +166,7 @@ enum features_id
    feat_sample_mask,
    feat_sample_shading,
    feat_samplers,
+   feat_sampler_border_colors,
    feat_shader_clock,
    feat_separate_shader_objects,
    feat_ssbo,
@@ -262,6 +263,7 @@ static const  struct {
    FEAT(sample_mask, 32, 31,  "GL_ARB_texture_multisample" ),
    FEAT(sample_shading, 40, 32,  "GL_ARB_sample_shading", "GL_OES_sample_shading" ),
    FEAT(samplers, 33, 30,  "GL_ARB_sampler_objects" ),
+   FEAT(sampler_border_colors, 33, 32,  "GL_ARB_sampler_objects", "GL_EXT_texture_border_clamp", "GL_OES_texture_border_clamp" ),
    FEAT(separate_shader_objects, 41, 31, "GL_ARB_seperate_shader_objects"),
    FEAT(shader_clock, UNAVAIL, UNAVAIL,  "GL_ARB_shader_clock" ),
    FEAT(ssbo, 43, 31,  "GL_ARB_shader_storage_buffer_object" ),
@@ -274,7 +276,7 @@ static const  struct {
    FEAT(texture_barrier, 45, UNAVAIL,  "GL_ARB_texture_barrier" ),
    FEAT(texture_buffer_range, 43, 32,  "GL_ARB_texture_buffer_range" ),
    FEAT(texture_gather, 40, 31,  "GL_ARB_texture_gather" ),
-   FEAT(texture_multisample, 32, 30,  "GL_ARB_texture_multisample" ),
+   FEAT(texture_multisample, 32, 31,  "GL_ARB_texture_multisample" ),
    FEAT(texture_query_lod, 40, UNAVAIL, "GL_ARB_texture_query_lod", "GL_EXT_texture_query_lod"),
    FEAT(texture_srgb_decode, UNAVAIL, UNAVAIL,  "GL_EXT_texture_sRGB_decode" ),
    FEAT(texture_storage, 42, 30,  "GL_ARB_texture_storage" ),
@@ -1996,6 +1998,16 @@ static inline GLenum convert_min_filter(unsigned int filter, unsigned int mip_fi
    return 0;
 }
 
+static void apply_sampler_border_color(GLuint sampler,
+                                       const GLuint colors[static 4])
+{
+   if (has_feature(feat_sampler_border_colors)) {
+      glSamplerParameterIuiv(sampler, GL_TEXTURE_BORDER_COLOR, colors);
+   } else if (colors[0] || colors[1] || colors[2] || colors[3]) {
+      vrend_printf("sampler border color setting requested but not supported\n");
+   }
+}
+
 int vrend_create_sampler_state(struct vrend_context *ctx,
                                uint32_t handle,
                                struct pipe_sampler_state *templ)
@@ -2036,7 +2048,7 @@ int vrend_create_sampler_state(struct vrend_context *ctx,
 
          }
 
-         glSamplerParameterIuiv(state->ids[i], GL_TEXTURE_BORDER_COLOR, templ->border_color.ui);
+         apply_sampler_border_color(state->ids[i], templ->border_color.ui);
          glSamplerParameteri(state->ids[i], GL_TEXTURE_SRGB_DECODE_EXT, i == 0 ? GL_SKIP_DECODE_EXT : GL_DECODE_EXT);
       }
    }
@@ -5710,11 +5722,11 @@ static void vrend_apply_sampler_state(struct vrend_sub_context *sub_ctx,
          border_color = state->border_color;
          border_color.ui[0] = border_color.ui[3];
          border_color.ui[3] = 0;
-         glSamplerParameterIuiv(sampler, GL_TEXTURE_BORDER_COLOR, border_color.ui);
+         apply_sampler_border_color(sampler, border_color.ui);
       } else {
          union pipe_color_union border_color;
          if (get_swizzled_border_color(tview->format, &state->border_color, &border_color))
-            glSamplerParameterIuiv(sampler, GL_TEXTURE_BORDER_COLOR, border_color.ui);
+            apply_sampler_border_color(sampler, border_color.ui);
       }
 
       glBindSampler(sampler_id, sampler);
@@ -6397,6 +6409,10 @@ static int check_resource_valid(const struct vrend_renderer_resource_create_args
       /* multisample can't have miplevels */
       if (args->last_level > 0) {
          snprintf(errmsg, 256, "Multisample textures don't support mipmaps");
+         return -1;
+      }
+      if (!format_can_texture_storage && vrend_state.use_gles) {
+         snprintf(errmsg, 256, "Unsupported multisample texture format %d", args->format);
          return -1;
       }
    }
