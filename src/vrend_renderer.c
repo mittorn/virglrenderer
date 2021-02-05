@@ -2218,7 +2218,12 @@ int vrend_create_sampler_view(struct vrend_context *ctx,
 
         glTexParameteri(view->target, GL_TEXTURE_BASE_LEVEL, base_level);
         glTexParameteri(view->target, GL_TEXTURE_MAX_LEVEL, max_level);
-        glTexParameteriv(view->target, GL_TEXTURE_SWIZZLE_RGBA, view->gl_swizzle);
+        if (vrend_state.use_gles) {
+           for (unsigned int i = 0; i < 4; ++i) {
+              glTexParameteri(view->target, GL_TEXTURE_SWIZZLE_R + i, view->gl_swizzle[i]);
+           }
+        } else
+           glTexParameteriv(view->target, GL_TEXTURE_SWIZZLE_RGBA, view->gl_swizzle);
         if (util_format_is_srgb(view->format) &&
             has_feature(feat_texture_srgb_decode)) {
            glTexParameteri(view->target, GL_TEXTURE_SRGB_DECODE_EXT,
@@ -2971,7 +2976,14 @@ void vrend_set_single_sampler_view(struct vrend_context *ctx,
                tex->cur_max = max_level;
             }
             if (memcmp(tex->cur_swizzle, view->gl_swizzle, 4 * sizeof(GLint))) {
-               glTexParameteriv(view->texture->target, GL_TEXTURE_SWIZZLE_RGBA, view->gl_swizzle);
+               if (vrend_state.use_gles) {
+                  for (unsigned int i = 0; i < 4; ++i) {
+                     if (tex->cur_swizzle[i] != view->gl_swizzle[i]) {
+                         glTexParameteri(view->texture->target, GL_TEXTURE_SWIZZLE_R + i, view->gl_swizzle[i]);
+                     }
+                  }
+               } else
+                  glTexParameteriv(view->texture->target, GL_TEXTURE_SWIZZLE_RGBA, view->gl_swizzle);
                memcpy(tex->cur_swizzle, view->gl_swizzle, 4 * sizeof(GLint));
             }
 
