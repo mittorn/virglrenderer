@@ -58,6 +58,10 @@
 
 #include "tgsi/tgsi_text.h"
 
+#ifdef HAVE_EPOXY_GLX_H
+#include <epoxy/glx.h>
+#endif
+
 /*
  * VIRGL_RENDERER_CAPSET_VIRGL has version 0 and 1, but they are both
  * virgl_caps_v1 and are exactly the same.
@@ -9984,6 +9988,7 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
 {
    GLint max;
    GLfloat range[2];
+   uint32_t video_memory;
 
    /* Count this up when you add a feature flag that is used to set a CAP in
     * the guest that was set unconditionally before. Then check that flag and
@@ -10289,6 +10294,12 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
    if (egl)
       caps->v2.capability_bits_v2 |= VIRGL_CAP_V2_UNTYPED_RESOURCE;
 #endif
+
+   video_memory = vrend_winsys_query_video_memory();
+   if (video_memory) {
+      caps->v2.capability_bits_v2 |= VIRGL_CAP_V2_VIDEO_MEMORY;
+      caps->v2.max_video_memory = video_memory;
+   }
 }
 
 void vrend_renderer_fill_caps(uint32_t set, uint32_t version,

@@ -198,3 +198,12 @@ int vrend_winsys_get_fd_for_texture2(uint32_t tex_id, int *fd, int *stride, int 
    return -1;
 #endif
 }
+
+uint32_t vrend_winsys_query_video_memory(void)
+{
+#ifdef HAVE_EPOXY_GLX_H
+   return virgl_glx_query_video_memory(glx_info);
+#else
+   return 0;
+#endif
+}
