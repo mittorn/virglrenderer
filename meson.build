@@ -204,6 +204,7 @@ with_valgrind = get_option('valgrind')
 
 subdir('src')
 subdir('vtest')
+subdir('vdirect')
 
 if with_tests
    subdir('tests')
